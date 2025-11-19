@@ -1,1 +1,3 @@
-export type ListingStatus = "For sale" | "Under Contract" | "Sold" | "Withdrawn"
+import { Database } from "./supabase"
+
+export type ListingStatus = Database["public"]["Enums"]["listingStatus"]

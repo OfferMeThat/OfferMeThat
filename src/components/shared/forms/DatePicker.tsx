@@ -10,21 +10,24 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 
-const DatePicker = () => {
+type DatePickerProps = { label?: string; btnClassName?: string }
+
+const DatePicker = ({ label, btnClassName }: DatePickerProps) => {
   const [open, setOpen] = React.useState(false)
   const [date, setDate] = React.useState<Date | undefined>(undefined)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+      <PopoverTrigger asChild className="cursor-pointer">
         <Button
           variant="outline"
           id="date"
-          className="w-48 justify-between font-normal"
+          className={cn("justify-between font-normal shrink", btnClassName)}
         >
-          {date ? date.toLocaleDateString() : "Select date"}
           <CalendarIcon />
+          {date ? date.toLocaleDateString() : label || "Select date"}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto overflow-hidden p-0" align="start">
