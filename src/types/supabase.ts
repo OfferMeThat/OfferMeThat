@@ -14,7 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      listings: {
+        Row: {
+          address: string
+          createdAt: string
+          createdBy: string
+          id: string
+          status: Database["public"]["Enums"]["listingStatus"]
+        }
+        Insert: {
+          address: string
+          createdAt?: string
+          createdBy: string
+          id?: string
+          status: Database["public"]["Enums"]["listingStatus"]
+        }
+        Update: {
+          address?: string
+          createdAt?: string
+          createdBy?: string
+          id?: string
+          status?: Database["public"]["Enums"]["listingStatus"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listings_createdBy_fkey"
+            columns: ["createdBy"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      listingSellers: {
+        Row: {
+          createdAt: string
+          email: string
+          fullName: string
+          id: string
+          phone: string
+          sendUpdateByEmail: boolean | null
+        }
+        Insert: {
+          createdAt?: string
+          email: string
+          fullName: string
+          id?: string
+          phone: string
+          sendUpdateByEmail?: boolean | null
+        }
+        Update: {
+          createdAt?: string
+          email?: string
+          fullName?: string
+          id?: string
+          phone?: string
+          sendUpdateByEmail?: boolean | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          createdAt: string
+          email: string
+          fullName: string
+          id: string
+        }
+        Insert: {
+          createdAt?: string
+          email: string
+          fullName: string
+          id?: string
+        }
+        Update: {
+          createdAt?: string
+          email?: string
+          fullName?: string
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

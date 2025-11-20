@@ -5,6 +5,7 @@ import { PlusIcon } from "lucide-react"
 import { useState } from "react"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
+import { AddListingModal } from "./AddListingModal"
 import ListingViewFilters from "./ListingViewFilters"
 import ListingsList from "./ListingsList"
 
@@ -49,10 +50,12 @@ const MyListingsPageContent = () => {
         </span>
       </div>
 
-      <Button variant="default" size="lg" className="mb-6">
-        <PlusIcon />
-        <span>Add Listings</span>
-      </Button>
+      <AddListingModal>
+        <Button variant="default" size="lg" className="mb-6">
+          <PlusIcon />
+          <span>Add Listings</span>
+        </Button>
+      </AddListingModal>
 
       <ListingViewFilters />
 

@@ -14,11 +14,11 @@ import {
 type PhoneInputProps = {
   value: string
   onChange: (e: string) => void
-}
+} & Omit<React.ComponentProps<"input">, "value" | "onChange">
 
 const PhoneInput = ({ value, onChange }: PhoneInputProps) => {
   return (
-    <div className="flex items-center">
+    <div className="flex items-center gap-2">
       <Select>
         <SelectTrigger className="min-w-20">
           <SelectValue placeholder="+1" />
