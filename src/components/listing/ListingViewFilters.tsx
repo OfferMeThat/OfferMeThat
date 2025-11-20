@@ -20,7 +20,7 @@ const ListingViewFilters = () => {
   const [showMore, setShowMore] = useState(true)
 
   return (
-    <div className="rounded-xl px-4 py-5 shadow-md">
+    <div className="mb-8 rounded-2xl border border-gray-100 px-4 py-5 shadow-md">
       <Heading as="h2" size="small" weight="bold" className="mb-3">
         Filters
       </Heading>

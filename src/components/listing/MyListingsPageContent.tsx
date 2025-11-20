@@ -6,6 +6,7 @@ import { useState } from "react"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
 import ListingViewFilters from "./ListingViewFilters"
+import ListingsList from "./ListingsList"
 
 type SelectionFilter = { from: string | null; to: string | null }
 
@@ -54,6 +55,8 @@ const MyListingsPageContent = () => {
       </Button>
 
       <ListingViewFilters />
+
+      <ListingsList />
     </main>
   )
 }

@@ -24,7 +24,7 @@ const DatePicker = ({ label, btnClassName }: DatePickerProps) => {
         <Button
           variant="outline"
           id="date"
-          className={cn("justify-between font-normal shrink", btnClassName)}
+          className={cn("shrink justify-between font-normal", btnClassName)}
         >
           <CalendarIcon />
           {date ? date.toLocaleDateString() : label || "Select date"}
