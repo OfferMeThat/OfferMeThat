@@ -70,7 +70,11 @@ const sellerSchema = yup.object().shape({
   email: yup
     .string()
     .required("Email is required")
-    .email("Please enter a valid email address"),
+    .email("Please enter a valid email address")
+    .matches(
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+      "Please enter a valid email address",
+    ),
   mobile: yup
     .string()
     .required("Mobile number is required")

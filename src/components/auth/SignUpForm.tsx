@@ -4,26 +4,58 @@ import { createClient } from "@/lib/supabase/client"
 import { Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import * as yup from "yup"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
+
+const signUpSchema = yup.object().shape({
+  fullName: yup
+    .string()
+    .required("Full name is required")
+    .min(2, "Full name must be at least 2 characters")
+    .max(50, "Full name must be less than 50 characters"),
+  email: yup
+    .string()
+    .required("Email is required")
+    .email("Please enter a valid email address")
+    .matches(
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+      "Please enter a valid email address",
+    ),
+  password: yup
+    .string()
+    .required("Password is required")
+    .min(6, "Password must be at least 6 characters")
+    .matches(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+    ),
+})
 
 const SignUpForm = () => {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
-    setError(null)
+    setErrors({})
 
     try {
+      // Validate form data
+      await signUpSchema.validate(
+        { fullName, email, password },
+        { abortEarly: false },
+      )
+
+      const supabase = createClient()
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -38,19 +70,21 @@ const SignUpForm = () => {
       if (signUpError) {
         console.error(signUpError)
         if (signUpError.message.includes("User already registered")) {
-          setError(
-            "An account with this email already exists. Please login instead.",
-          )
+          setErrors({
+            submit:
+              "An account with this email already exists. Please login instead.",
+          })
         } else {
-          setError(signUpError.message)
+          setErrors({ submit: signUpError.message })
         }
         return
       }
 
       if (data.user && !data.session) {
-        setError(
-          "Please check your email to confirm your account before logging in.",
-        )
+        setErrors({
+          submit:
+            "Please check your email to confirm your account before logging in.",
+        })
       } else {
         // Successful signup with auto-login
         router.push("/")
@@ -58,7 +92,19 @@ const SignUpForm = () => {
       }
     } catch (error: unknown) {
       console.error(error)
-      setError(error instanceof Error ? error.message : "An error occurred")
+      if (error instanceof yup.ValidationError) {
+        const validationErrors: Record<string, string> = {}
+        error.inner.forEach((err) => {
+          if (err.path) {
+            validationErrors[err.path] = err.message
+          }
+        })
+        setErrors(validationErrors)
+      } else {
+        setErrors({
+          submit: error instanceof Error ? error.message : "An error occurred",
+        })
+      }
     } finally {
       setIsLoading(false)
     }
@@ -67,15 +113,18 @@ const SignUpForm = () => {
   return (
     <form onSubmit={handleSignUp} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="signup-email">Full name</Label>
+        <Label htmlFor="fullName">Full name</Label>
         <Input
           id="fullName"
           type="text"
           placeholder="Enter your full name"
-          required
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
+          className={errors.fullName ? "border-red-500" : ""}
         />
+        {errors.fullName && (
+          <p className="text-sm text-red-500">{errors.fullName}</p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="signup-email">Email address</Label>
@@ -83,10 +132,11 @@ const SignUpForm = () => {
           id="signup-email"
           type="email"
           placeholder="Enter your email address"
-          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          className={errors.email ? "border-red-500" : ""}
         />
+        {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
       </div>
       <div className="space-y-2">
         <Label htmlFor="signup-password" className="mb-2 inline-block">
@@ -97,10 +147,9 @@ const SignUpForm = () => {
             id="signup-password"
             type={showPassword ? "text" : "password"}
             placeholder="Enter your password"
-            required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="pr-10"
+            className={`pr-10 ${errors.password ? "border-red-500" : ""}`}
           />
           <button
             type="button"
@@ -114,8 +163,11 @@ const SignUpForm = () => {
             )}
           </button>
         </div>
+        {errors.password && (
+          <p className="text-sm text-red-500">{errors.password}</p>
+        )}
       </div>
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {errors.submit && <p className="text-sm text-red-500">{errors.submit}</p>}
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? "Creating account..." : "Sign Up"}
       </Button>

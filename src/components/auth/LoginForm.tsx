@@ -2,28 +2,47 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { Eye, EyeOff } from "lucide-react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import * as yup from "yup"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
+
+const loginSchema = yup.object().shape({
+  email: yup
+    .string()
+    .required("Email is required")
+    .email("Please enter a valid email address")
+    .matches(
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+      "Please enter a valid email address",
+    ),
+  password: yup
+    .string()
+    .required("Password is required")
+    .min(6, "Password must be at least 6 characters"),
+})
 
 const LoginForm = () => {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
-    setError(null)
+    setErrors({})
 
     try {
+      // Validate form data
+      await loginSchema.validate({ email, password }, { abortEarly: false })
+
+      const supabase = createClient()
+
       // First check if user exists
       const { data: signInData, error: signInError } =
         await supabase.auth.signInWithPassword({
@@ -45,13 +64,15 @@ const LoginForm = () => {
 
           // If we get "User already registered" error, the user exists but password is wrong
           if (checkError?.message.includes("User already registered")) {
-            setError("Invalid password. Please try again.")
+            setErrors({ submit: "Invalid password. Please try again." })
           } else {
             // User doesn't exist
-            setError("No account found with this email. Please sign up first.")
+            setErrors({
+              submit: "No account found with this email. Please sign up first.",
+            })
           }
         } else {
-          setError(signInError.message)
+          setErrors({ submit: signInError.message })
         }
         return
       }
@@ -60,7 +81,19 @@ const LoginForm = () => {
       router.push("/")
       router.refresh()
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      if (error instanceof yup.ValidationError) {
+        const validationErrors: Record<string, string> = {}
+        error.inner.forEach((err) => {
+          if (err.path) {
+            validationErrors[err.path] = err.message
+          }
+        })
+        setErrors(validationErrors)
+      } else {
+        setErrors({
+          submit: error instanceof Error ? error.message : "An error occurred",
+        })
+      }
     } finally {
       setIsLoading(false)
     }
@@ -74,10 +107,11 @@ const LoginForm = () => {
           id="login-email"
           type="email"
           placeholder="Enter your email address"
-          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          className={errors.email ? "border-red-500" : ""}
         />
+        {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
       </div>
       <div className="space-y-2">
         <div className="mb-2 flex items-baseline justify-between">
@@ -94,10 +128,9 @@ const LoginForm = () => {
             id="login-password"
             type={showPassword ? "text" : "password"}
             placeholder="Enter your password"
-            required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="pr-10"
+            className={`pr-10 ${errors.password ? "border-red-500" : ""}`}
           />
           <button
             type="button"
@@ -111,8 +144,11 @@ const LoginForm = () => {
             )}
           </button>
         </div>
+        {errors.password && (
+          <p className="text-sm text-red-500">{errors.password}</p>
+        )}
       </div>
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {errors.submit && <p className="text-sm text-red-500">{errors.submit}</p>}
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? "Logging in..." : "Log In"}
       </Button>
