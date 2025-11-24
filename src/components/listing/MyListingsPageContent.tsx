@@ -55,7 +55,7 @@ const MyListingsPageContent = ({
   return (
     <main className="px-6 py-8">
       <div className="mb-4 flex flex-col gap-1">
-        <Heading as="h1" size="large" weight="bold" className="text-green-900">
+        <Heading as="h1" size="large" weight="bold" className="text-teal-600">
           My Listings
         </Heading>
         <span className="text-md font-medium opacity-75">
