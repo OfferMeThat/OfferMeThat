@@ -1,3 +1,4 @@
+import AppLayout from "@/components/layout/AppLayout"
 import MyListingsPageContent from "@/components/listing/MyListingsPageContent"
 import { getFilteredListings } from "./actions/listings"
 
@@ -13,10 +14,13 @@ const DEFAULT_FILTERS = {
 }
 
 const HomePage = async () => {
-  // Fetch initial listings with no filters
   const listingData = await getFilteredListings(DEFAULT_FILTERS)
 
-  return <MyListingsPageContent initialData={listingData} />
+  return (
+    <AppLayout>
+      <MyListingsPageContent initialData={listingData} />
+    </AppLayout>
+  )
 }
 
 export default HomePage
