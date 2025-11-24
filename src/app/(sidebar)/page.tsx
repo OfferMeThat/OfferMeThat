@@ -1,6 +1,5 @@
-import AppLayout from "@/components/layout/AppLayout"
 import MyListingsPageContent from "@/components/listing/MyListingsPageContent"
-import { getFilteredListings } from "./actions/listings"
+import { getFilteredListings } from "../actions/listings"
 
 const DEFAULT_FILTERS = {
   address: "",
@@ -16,11 +15,7 @@ const DEFAULT_FILTERS = {
 const HomePage = async () => {
   const listingData = await getFilteredListings(DEFAULT_FILTERS)
 
-  return (
-    <AppLayout>
-      <MyListingsPageContent initialData={listingData} />
-    </AppLayout>
-  )
+  return <MyListingsPageContent initialData={listingData} />
 }
 
 export default HomePage

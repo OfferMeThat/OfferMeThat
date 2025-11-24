@@ -25,8 +25,8 @@ const navigationLinks = [
   {
     section: "GO TO:",
     items: [
-      { name: "My Offer Form", href: "#", icon: Settings },
-      { name: "My Offers", href: "#", icon: FileText },
+      { name: "My Offer Form", href: "/offer-form", icon: Settings },
+      { name: "My Offers", href: "/offers", icon: FileText },
       { name: "My Lead Form", href: "#", icon: Edit },
       { name: "My Leads", href: "#", icon: Target },
       { name: "My Listings", href: "/", icon: Layers },
