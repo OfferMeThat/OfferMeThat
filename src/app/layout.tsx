@@ -1,3 +1,4 @@
+import { Toaster } from "@/components/ui/sonner"
 import type { Metadata } from "next"
 import { ThemeProvider } from "next-themes"
 import { Geist } from "next/font/google"
@@ -27,7 +28,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.className} antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          disableTransitionOnChange
+        >
+          <Toaster />
           {children}
         </ThemeProvider>
       </body>

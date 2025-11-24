@@ -10,30 +10,42 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 
-const DatePicker = () => {
+export type DatePickerProps = {
+  label?: string
+  btnClassName?: string
+  value?: Date
+  onChange?: (date: Date | undefined) => void
+}
+
+const DatePicker = ({
+  label,
+  btnClassName,
+  value,
+  onChange,
+}: DatePickerProps) => {
   const [open, setOpen] = React.useState(false)
-  const [date, setDate] = React.useState<Date | undefined>(undefined)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+      <PopoverTrigger asChild className="cursor-pointer">
         <Button
           variant="outline"
           id="date"
-          className="w-48 justify-between font-normal"
+          className={cn("shrink justify-between font-normal", btnClassName)}
         >
-          {date ? date.toLocaleDateString() : "Select date"}
           <CalendarIcon />
+          {value ? value.toLocaleDateString() : label || "Select date"}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto overflow-hidden p-0" align="start">
         <Calendar
           mode="single"
-          selected={date}
+          selected={value}
           captionLayout="dropdown"
           onSelect={(date) => {
-            setDate(date)
+            onChange?.(date)
             setOpen(false)
           }}
         />

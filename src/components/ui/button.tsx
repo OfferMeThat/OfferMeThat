@@ -17,7 +17,9 @@ const buttonVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50 " +
+          "data-[active=true]:bg-accent! data-[active=true]:text-accent-foreground! " +
+          "dark:data-[active=true]:bg-accent/50!",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
@@ -41,17 +43,29 @@ function Button({
   variant,
   size,
   asChild = false,
+  active,
+  disabled,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    active?: boolean
   }) {
   const Comp = asChild ? Slot : "button"
+  const isDisabled = disabled || active
 
   return (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-active={active ? "true" : undefined}
+      className={cn(
+        "cursor-pointer",
+        active &&
+          variant === "ghost" &&
+          "bg-accent! text-accent-foreground! !dark:bg-accent/50 opacity-100!",
+        buttonVariants({ variant, size, className }),
+      )}
+      disabled={isDisabled}
       {...props}
     />
   )
