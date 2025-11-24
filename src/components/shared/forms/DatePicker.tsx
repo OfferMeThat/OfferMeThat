@@ -33,7 +33,11 @@ const DatePicker = ({
         <Button
           variant="outline"
           id="date"
-          className={cn("shrink justify-between font-normal", btnClassName)}
+          className={cn(
+            "shrink justify-between font-normal",
+            !value && "text-gray-500",
+            btnClassName,
+          )}
         >
           <CalendarIcon />
           {value ? value.toLocaleDateString() : label || "Select date"}
