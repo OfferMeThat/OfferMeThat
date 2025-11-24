@@ -8,7 +8,6 @@ import {
   HelpCircle,
   Layers,
   MessageSquare,
-  Plus,
   Settings,
   Target,
 } from "lucide-react"
@@ -129,7 +128,7 @@ export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
 const Sidebar = () => {
   return (
     <aside className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
-      <div className="flex flex-col border-r border-gray-200 bg-white">
+      <div className="flex h-screen flex-col border-r border-gray-200 bg-white">
         <SidebarContent />
       </div>
     </aside>
