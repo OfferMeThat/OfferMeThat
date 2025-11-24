@@ -73,20 +73,67 @@ export type Database = {
         }
         Relationships: []
       }
+      offers: {
+        Row: {
+          amount: number
+          buyerType: Database["public"]["Enums"]["buyerType"]
+          conditional: boolean
+          createdAt: string
+          expires: string | null
+          id: string
+          listingId: string
+          paymentWay: Database["public"]["Enums"]["paymentWays"]
+          status: Database["public"]["Enums"]["offerStatus"]
+        }
+        Insert: {
+          amount: number
+          buyerType: Database["public"]["Enums"]["buyerType"]
+          conditional?: boolean
+          createdAt?: string
+          expires?: string | null
+          id?: string
+          listingId: string
+          paymentWay: Database["public"]["Enums"]["paymentWays"]
+          status: Database["public"]["Enums"]["offerStatus"]
+        }
+        Update: {
+          amount?: number
+          buyerType?: Database["public"]["Enums"]["buyerType"]
+          conditional?: boolean
+          createdAt?: string
+          expires?: string | null
+          id?: string
+          listingId?: string
+          paymentWay?: Database["public"]["Enums"]["paymentWays"]
+          status?: Database["public"]["Enums"]["offerStatus"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offers_listingId_fkey"
+            columns: ["listingId"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          avatarUrl: string | null
           createdAt: string
           email: string
           fullName: string
           id: string
         }
         Insert: {
+          avatarUrl?: string | null
           createdAt?: string
           email: string
           fullName: string
           id?: string
         }
         Update: {
+          avatarUrl?: string | null
           createdAt?: string
           email?: string
           fullName?: string
@@ -102,7 +149,19 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      listingStatus: "For Sale" | "Under Contract" | "Sold" | "Withdrawn"
+      buyerType: "buyer" | "agent" | "affiliate"
+      listingStatus: "forSale" | "underContract" | "sold" | "withdrawn"
+      offerStatus:
+        | "pending"
+        | "active"
+        | "unverified"
+        | "verified"
+        | "accepted"
+        | "rejected"
+        | "expired"
+        | "withdrawn"
+        | "deleted"
+      paymentWays: "cash" | "finance"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -230,7 +289,20 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      listingStatus: ["For Sale", "Under Contract", "Sold", "Withdrawn"],
+      buyerType: ["buyer", "agent", "affiliate"],
+      listingStatus: ["forSale", "underContract", "sold", "withdrawn"],
+      offerStatus: [
+        "pending",
+        "active",
+        "unverified",
+        "verified",
+        "accepted",
+        "rejected",
+        "expired",
+        "withdrawn",
+        "deleted",
+      ],
+      paymentWays: ["cash", "finance"],
     },
   },
 } as const

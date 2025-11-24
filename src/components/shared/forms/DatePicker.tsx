@@ -12,11 +12,20 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
-type DatePickerProps = { label?: string; btnClassName?: string }
+export type DatePickerProps = {
+  label?: string
+  btnClassName?: string
+  value?: Date
+  onChange?: (date: Date | undefined) => void
+}
 
-const DatePicker = ({ label, btnClassName }: DatePickerProps) => {
+const DatePicker = ({
+  label,
+  btnClassName,
+  value,
+  onChange,
+}: DatePickerProps) => {
   const [open, setOpen] = React.useState(false)
-  const [date, setDate] = React.useState<Date | undefined>(undefined)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -27,16 +36,16 @@ const DatePicker = ({ label, btnClassName }: DatePickerProps) => {
           className={cn("shrink justify-between font-normal", btnClassName)}
         >
           <CalendarIcon />
-          {date ? date.toLocaleDateString() : label || "Select date"}
+          {value ? value.toLocaleDateString() : label || "Select date"}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto overflow-hidden p-0" align="start">
         <Calendar
           mode="single"
-          selected={date}
+          selected={value}
           captionLayout="dropdown"
           onSelect={(date) => {
-            setDate(date)
+            onChange?.(date)
             setOpen(false)
           }}
         />

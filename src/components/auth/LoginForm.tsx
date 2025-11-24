@@ -38,35 +38,29 @@ const LoginForm = () => {
     setErrors({})
 
     try {
-      // Validate form data
       await loginSchema.validate({ email, password }, { abortEarly: false })
 
       const supabase = createClient()
 
-      // First check if user exists
-      const { data: signInData, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
       if (signInError) {
-        // Check if it's an invalid credentials error
         if (
           signInError.message.includes("Invalid login credentials") ||
           signInError.message.includes("Email not confirmed")
         ) {
-          // Try to check if user exists by attempting to sign up with same email
           const { error: checkError } = await supabase.auth.signUp({
             email,
             password: "dummy-check-password",
           })
 
-          // If we get "User already registered" error, the user exists but password is wrong
           if (checkError?.message.includes("User already registered")) {
+            console.error(checkError)
             setErrors({ submit: "Invalid password. Please try again." })
           } else {
-            // User doesn't exist
             setErrors({
               submit: "No account found with this email. Please sign up first.",
             })
@@ -77,7 +71,6 @@ const LoginForm = () => {
         return
       }
 
-      // Successful login
       router.push("/")
       router.refresh()
     } catch (error: unknown) {

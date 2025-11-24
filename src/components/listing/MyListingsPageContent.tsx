@@ -1,8 +1,9 @@
 "use client"
 
-import { ListingStatus } from "@/types/listing"
+import { getFilteredListings } from "@/app/actions/listings"
+import { ListingStatus, ListingWithOfferCounts } from "@/types/listing"
 import { PlusIcon } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState, useTransition } from "react"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
 import { AddListingModal } from "./AddListingModal"
@@ -11,7 +12,7 @@ import ListingsList from "./ListingsList"
 
 type SelectionFilter = { from: string | null; to: string | null }
 
-type Filters = {
+export type Filters = {
   address: string
   status: ListingStatus | null
   dateListed: SelectionFilter
@@ -33,11 +34,23 @@ const DEFAULT_FILTERS: Filters = {
   numberOfLeads: { from: null, to: null },
 }
 
-const MyListingsPageContent = () => {
-  const [data, setData] = useState<{ phoneNumber: string }>({
-    phoneNumber: "",
-  })
-  const [filters, setFilters] = useState(DEFAULT_FILTERS)
+const MyListingsPageContent = ({
+  initialData,
+}: {
+  initialData: Array<ListingWithOfferCounts> | null
+}) => {
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
+  const [listings, setListings] =
+    useState<Array<ListingWithOfferCounts> | null>(initialData)
+  const [isPending, startTransition] = useTransition()
+
+  // Fetch filtered listings when filters change
+  useEffect(() => {
+    startTransition(async () => {
+      const filteredData = await getFilteredListings(filters)
+      setListings(filteredData)
+    })
+  }, [filters])
 
   return (
     <main className="px-6 py-8">
@@ -57,9 +70,15 @@ const MyListingsPageContent = () => {
         </Button>
       </AddListingModal>
 
-      <ListingViewFilters />
+      <ListingViewFilters filters={filters} setFilters={setFilters} />
 
-      <ListingsList />
+      {isPending && (
+        <div className="mb-4 text-sm text-gray-500">
+          Loading filtered results...
+        </div>
+      )}
+
+      <ListingsList listings={listings} />
     </main>
   )
 }

@@ -1,12 +1,17 @@
 "use client"
 
+import { ListingWithOfferCounts } from "@/types/listing"
 import { LayoutGrid, TableOfContents } from "lucide-react"
 import { useState } from "react"
 import { Button } from "../../ui/button"
 import ListingListTableView from "./ListingListTableView"
 import ListingListTileView from "./ListingListTileView"
 
-const ListingsList = () => {
+const ListingsList = ({
+  listings,
+}: {
+  listings: Array<ListingWithOfferCounts> | null
+}) => {
   const [viewStyle, setViewStyle] = useState<"table" | "tile">("table")
 
   return (
@@ -31,9 +36,9 @@ const ListingsList = () => {
       </div>
 
       {viewStyle === "table" ? (
-        <ListingListTableView />
+        <ListingListTableView listings={listings} />
       ) : (
-        <ListingListTileView />
+        <ListingListTileView listings={listings} />
       )}
     </>
   )

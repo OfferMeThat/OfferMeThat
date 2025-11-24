@@ -1,10 +1,12 @@
 "use client"
 
 import { createClient } from "@/lib/supabase/client"
-import { Database } from "@/types/supabase"
+import { ListingStatus } from "@/types/listing"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { toast } from "sonner"
 import * as yup from "yup"
-import { LISTING_STATUSES } from "../constants/listings"
+import { LISTING_STATUSES } from "../../constants/listings"
 import PhoneInput from "../shared/forms/PhoneInput"
 import { Button } from "../ui/button"
 import { Checkbox } from "../ui/checkbox"
@@ -109,17 +111,17 @@ export const AddListingModal = ({ children }: AddListingModalProps) => {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const router = useRouter()
+
   const handleSubmit = async () => {
     try {
       setErrors({})
       setIsSubmitting(true)
 
-      // Validate form data
       await validationSchema.validate(formData, { abortEarly: false })
 
       const supabase = createClient()
 
-      // Get current user
       const {
         data: { user },
         error: authError,
@@ -130,15 +132,16 @@ export const AddListingModal = ({ children }: AddListingModalProps) => {
         return
       }
 
-      const { data: listing, error: listingError } = await supabase
+      const { error: listingError } = await supabase
         .from("listings")
         .insert({
           address: formData.address,
           status:
-            formData.status as Database["public"]["Enums"]["listingStatus"],
+            (Object.keys(LISTING_STATUSES) as ListingStatus[]).find(
+              (key) => LISTING_STATUSES[key] === formData.status,
+            ) || "forSale",
           createdBy: user.id,
         })
-        .select()
         .single()
 
       if (listingError) {
@@ -187,8 +190,8 @@ export const AddListingModal = ({ children }: AddListingModalProps) => {
       setOpen(false)
       setFormData(initialFormData)
 
-      // TODO: Optionally trigger a refresh of the listings page or show success message
-      console.log("Listing created successfully:", listing)
+      toast.success("Listing has been created")
+      // TODO: add the new listing to the listing table view and listing tile view
     } catch (err) {
       if (err instanceof yup.ValidationError) {
         const validationErrors: Record<string, string> = {}
@@ -265,7 +268,7 @@ export const AddListingModal = ({ children }: AddListingModalProps) => {
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {LISTING_STATUSES.map((status) => (
+                  {Object.values(LISTING_STATUSES).map((status) => (
                     <SelectItem key={status} value={status}>
                       {status}
                     </SelectItem>

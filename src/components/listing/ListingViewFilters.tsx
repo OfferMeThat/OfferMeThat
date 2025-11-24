@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { LISTING_STATUSES } from "../constants/listings"
+import { Filters } from "@/components/listing/MyListingsPageContent"
+import { ListingStatus } from "@/types/listing"
+import { Dispatch, SetStateAction, useState } from "react"
+import { LISTING_STATUSES } from "../../constants/listings"
 import DatePicker from "../shared/forms/DatePicker"
 import NumberSelect from "../shared/forms/NumberSelect"
 import Heading from "../shared/typography/Heading"
@@ -16,8 +18,37 @@ import {
   SelectValue,
 } from "../ui/select"
 
-const ListingViewFilters = () => {
-  const [showMore, setShowMore] = useState(true)
+type ListingViewFiltersProps = {
+  filters: Filters
+  setFilters: Dispatch<SetStateAction<Filters>>
+}
+
+const ListingViewFilters = ({
+  filters,
+  setFilters,
+}: ListingViewFiltersProps) => {
+  const [showMore, setShowMore] = useState(false)
+
+  const handleFilterChange = (
+    key: keyof Filters,
+    value: string | ListingStatus | null,
+  ) => {
+    setFilters((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleRangeFilterChange = (
+    key: keyof Filters,
+    rangeKey: "from" | "to",
+    value: string | null,
+  ) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] as { from: string | null; to: string | null }),
+        [rangeKey]: value,
+      },
+    }))
+  }
 
   return (
     <div className="mb-8 rounded-2xl border border-gray-100 px-4 py-5 shadow-md">
@@ -31,20 +62,31 @@ const ListingViewFilters = () => {
           <Input
             placeholder="Type property address here..."
             className="max-w-64"
+            value={filters.address}
+            onChange={(e) => handleFilterChange("address", e.target.value)}
           />
         </div>
 
         <div className="flex flex-col gap-2">
           <Label>Status</Label>
-          <Select>
+          <Select
+            value={filters.status || "all"}
+            onValueChange={(value) =>
+              handleFilterChange(
+                "status",
+                value === "all" ? null : (value as ListingStatus),
+              )
+            }
+          >
             <SelectTrigger className="w-full max-w-64">
               <SelectValue placeholder="Select status..." />
             </SelectTrigger>
             <SelectContent className="max-h-64">
               <SelectGroup>
-                {LISTING_STATUSES.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
+                <SelectItem value="all">All Statuses</SelectItem>
+                {Object.entries(LISTING_STATUSES).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -57,7 +99,7 @@ const ListingViewFilters = () => {
             onClick={() => setShowMore((prev) => !prev)}
             className="w-fit cursor-pointer text-sm font-medium text-green-800"
           >
-            {showMore ? "Show More Filters" : "Hide More Filters"}
+            {showMore ? "Hide More Filters" : "Show More Filters"}
           </button>
         </div>
 
@@ -69,8 +111,38 @@ const ListingViewFilters = () => {
               <span className="block font-medium">Date Listed</span>
 
               <div className="flex flex-1 gap-3 sm:justify-end">
-                <DatePicker label="From" btnClassName="w-full max-w-34" />
-                <DatePicker label="To" btnClassName="w-full max-w-34" />
+                <DatePicker
+                  label="From"
+                  btnClassName="w-full max-w-34"
+                  value={
+                    filters.dateListed.from
+                      ? new Date(filters.dateListed.from)
+                      : undefined
+                  }
+                  onChange={(date) =>
+                    handleRangeFilterChange(
+                      "dateListed",
+                      "from",
+                      date?.toISOString() || null,
+                    )
+                  }
+                />
+                <DatePicker
+                  label="To"
+                  btnClassName="w-full max-w-34"
+                  value={
+                    filters.dateListed.to
+                      ? new Date(filters.dateListed.to)
+                      : undefined
+                  }
+                  onChange={(date) =>
+                    handleRangeFilterChange(
+                      "dateListed",
+                      "to",
+                      date?.toISOString() || null,
+                    )
+                  }
+                />
               </div>
             </div>
 
@@ -78,8 +150,38 @@ const ListingViewFilters = () => {
               <span className="block font-medium">Date Sold</span>
 
               <div className="flex flex-1 gap-3 sm:justify-end">
-                <DatePicker label="From" btnClassName="w-full max-w-34" />
-                <DatePicker label="To" btnClassName="w-full max-w-34" />
+                <DatePicker
+                  label="From"
+                  btnClassName="w-full max-w-34"
+                  value={
+                    filters.dateSold.from
+                      ? new Date(filters.dateSold.from)
+                      : undefined
+                  }
+                  onChange={(date) =>
+                    handleRangeFilterChange(
+                      "dateSold",
+                      "from",
+                      date?.toISOString() || null,
+                    )
+                  }
+                />
+                <DatePicker
+                  label="To"
+                  btnClassName="w-full max-w-34"
+                  value={
+                    filters.dateSold.to
+                      ? new Date(filters.dateSold.to)
+                      : undefined
+                  }
+                  onChange={(date) =>
+                    handleRangeFilterChange(
+                      "dateSold",
+                      "to",
+                      date?.toISOString() || null,
+                    )
+                  }
+                />
               </div>
             </div>
 
@@ -89,15 +191,19 @@ const ListingViewFilters = () => {
               <div className="flex flex-1 gap-3 sm:justify-end">
                 <NumberSelect
                   placeholder="From"
-                  onValueChange={(value) => null}
+                  onValueChange={(value) =>
+                    handleRangeFilterChange("pendingOffers", "from", value)
+                  }
                   className="max-w-34"
-                  value="1"
+                  value={filters.pendingOffers.from || undefined}
                 />
                 <NumberSelect
                   placeholder="To"
-                  onValueChange={(value) => null}
+                  onValueChange={(value) =>
+                    handleRangeFilterChange("pendingOffers", "to", value)
+                  }
                   className="max-w-34"
-                  value="1"
+                  value={filters.pendingOffers.to || undefined}
                 />
               </div>
             </div>
@@ -108,15 +214,19 @@ const ListingViewFilters = () => {
               <div className="flex flex-1 gap-3 sm:justify-end">
                 <NumberSelect
                   placeholder="From"
-                  onValueChange={(value) => null}
+                  onValueChange={(value) =>
+                    handleRangeFilterChange("activeOffers", "from", value)
+                  }
                   className="max-w-34"
-                  value="1"
+                  value={filters.activeOffers.from || undefined}
                 />
                 <NumberSelect
                   placeholder="To"
-                  onValueChange={(value) => null}
+                  onValueChange={(value) =>
+                    handleRangeFilterChange("activeOffers", "to", value)
+                  }
                   className="max-w-34"
-                  value="1"
+                  value={filters.activeOffers.to || undefined}
                 />
               </div>
             </div>
@@ -127,15 +237,19 @@ const ListingViewFilters = () => {
               <div className="flex flex-1 gap-3 sm:justify-end">
                 <NumberSelect
                   placeholder="From"
-                  onValueChange={(value) => null}
+                  onValueChange={(value) =>
+                    handleRangeFilterChange("totalOffers", "from", value)
+                  }
                   className="max-w-34"
-                  value="1"
+                  value={filters.totalOffers.from || undefined}
                 />
                 <NumberSelect
                   placeholder="To"
-                  onValueChange={(value) => null}
+                  onValueChange={(value) =>
+                    handleRangeFilterChange("totalOffers", "to", value)
+                  }
                   className="max-w-34"
-                  value="1"
+                  value={filters.totalOffers.to || undefined}
                 />
               </div>
             </div>
@@ -145,15 +259,19 @@ const ListingViewFilters = () => {
               <div className="flex flex-1 gap-3 sm:justify-end">
                 <NumberSelect
                   placeholder="From"
-                  onValueChange={(value) => null}
+                  onValueChange={(value) =>
+                    handleRangeFilterChange("numberOfLeads", "from", value)
+                  }
                   className="w-full max-w-34"
-                  value="1"
+                  value={filters.numberOfLeads.from || undefined}
                 />
                 <NumberSelect
                   placeholder="To"
-                  onValueChange={(value) => null}
+                  onValueChange={(value) =>
+                    handleRangeFilterChange("numberOfLeads", "to", value)
+                  }
                   className="w-full max-w-34"
-                  value="1"
+                  value={filters.numberOfLeads.to || undefined}
                 />
               </div>
             </div>

@@ -1,3 +1,5 @@
+import { LISTING_STATUSES, LISTING_TO_BADGE_MAP } from "@/constants/listings"
+import { ListingWithOfferCounts } from "@/types/listing"
 import {
   ArrowRight,
   ChartColumn,
@@ -17,7 +19,11 @@ import {
   TableRow,
 } from "../../ui/table"
 
-const ListingListTableView = () => {
+const ListingListTableView = ({
+  listings,
+}: {
+  listings: Array<ListingWithOfferCounts> | null
+}) => {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-100 shadow-md">
       <Table className="overflow-x-auto">
@@ -47,68 +53,89 @@ const ListingListTableView = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableRow className="px-4">
-            <TableCell className="flex flex-col gap-1">
-              <span className="font-medium">101 Pine Avenue, Springfield</span>
-              <span className="text-xs text-gray-700">
-                Listed on Nov 12, 2025
-              </span>
-            </TableCell>
-            <TableCell>
-              <Badge variant="success">For Sale</Badge>
-            </TableCell>
-            <TableCell className="text-center">1</TableCell>
-            <TableCell className="text-center">1</TableCell>
-            <TableCell className="text-center">1</TableCell>
-            <TableCell className="text-center">1</TableCell>
-            <TableCell>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" className="mx-auto">
-                    <Ellipsis size={18} />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="max-w-60 p-2"
-                  side="bottom"
-                  collisionPadding={64}
-                >
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant="ghost"
-                      className="hover: flex items-center justify-start gap-2 p-2"
+          {listings?.map((item) => {
+            const date = new Date(item.createdAt)
+            const formattedDate = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+            return (
+              <TableRow key={item.id} className="px-4">
+                <TableCell className="flex flex-col gap-1">
+                  <span className="font-medium">{item.address}</span>
+                  <span className="text-xs text-gray-700">
+                    Listed on {formattedDate}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={LISTING_TO_BADGE_MAP[item.status]}>
+                    {LISTING_STATUSES[item.status]}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-center">
+                  {item.activeOffers}
+                </TableCell>
+                <TableCell className="text-center">
+                  {item.pendingOffers}
+                </TableCell>
+                <TableCell className="text-center">
+                  {item.totalOffers}
+                </TableCell>
+                <TableCell className="text-center">1</TableCell>
+                <TableCell>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" className="mx-auto">
+                        <Ellipsis size={18} />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="max-w-60 p-2"
+                      side="bottom"
+                      collisionPadding={64}
                     >
-                      <ArrowRight size={18} />
-                      <span className="text-sm">Go to Listing</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="hover: flex items-center justify-start gap-2 p-2"
-                    >
-                      <MessageSquare size={18} />
-                      <span className="text-sm"> Message Seller</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="hover: flex items-center justify-start gap-2 p-2"
-                    >
-                      <ChartColumn size={18} />
-                      <span className="text-sm">
-                        Generate Report for Seller
-                      </span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="hover: flex items-center justify-start gap-2 p-2"
-                    >
-                      <Pencil size={18} />
-                      <span className="text-sm"> Update Listing Status</span>
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </TableCell>
-          </TableRow>
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          variant="ghost"
+                          className="hover: flex items-center justify-start gap-2 p-2"
+                        >
+                          <ArrowRight size={18} />
+                          <span className="text-sm">Go to Listing</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="hover: flex items-center justify-start gap-2 p-2"
+                        >
+                          <MessageSquare size={18} />
+                          <span className="text-sm"> Message Seller</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="hover: flex items-center justify-start gap-2 p-2"
+                        >
+                          <ChartColumn size={18} />
+                          <span className="text-sm">
+                            Generate Report for Seller
+                          </span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="flex items-center justify-start gap-2 p-2"
+                        >
+                          <Pencil size={18} />
+                          <span className="text-sm">
+                            {" "}
+                            Update Listing Status
+                          </span>
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </div>

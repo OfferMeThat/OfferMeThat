@@ -1,6 +1,5 @@
 "use client"
 
-import { PHONE_EXTENSIONS } from "@/components/constants/forms"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -10,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { PHONE_EXTENSIONS } from "@/constants/forms"
 
 type PhoneInputProps = {
   value: string

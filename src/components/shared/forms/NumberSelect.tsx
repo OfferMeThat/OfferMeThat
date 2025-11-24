@@ -12,7 +12,7 @@ const NUMBERS = Array.from({ length: 101 }, (_, i) => i.toString())
 
 type NumberSelectProps = {
   placeholder?: string
-  value: string
+  value?: string
   onValueChange: (value: string) => void
   className?: string
 }
