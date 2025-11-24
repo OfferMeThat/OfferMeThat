@@ -1,0 +1,42 @@
+"use client"
+
+import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { Menu } from "lucide-react"
+import { useState } from "react"
+import { SidebarContent } from "./Sidebar"
+
+const MobileSidebar = () => {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <div className="fixed top-4 left-4 z-40 md:hidden">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setOpen(true)}
+          className="bg-white shadow-md"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="left" className="w-64 p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Navigation Menu</SheetTitle>
+          </SheetHeader>
+          <SidebarContent onLinkClick={() => setOpen(false)} />
+        </SheetContent>
+      </Sheet>
+    </>
+  )
+}
+
+export default MobileSidebar
