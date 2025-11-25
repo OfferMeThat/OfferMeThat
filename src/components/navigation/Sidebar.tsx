@@ -52,14 +52,14 @@ export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-gray-200 p-6">
+      <div className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500">
             <FileText className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">OfferMeThat</h1>
-            <p className="text-sm text-gray-600">High-Value Sales Platform</p>
+            <h1 className="text-lg font-bold text-gray-900">OfferMeThat</h1>
+            <p className="text-xs text-gray-600">High-Value Sales Platform</p>
           </div>
         </div>
       </div>
@@ -108,8 +108,8 @@ export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
 
       <div className="border-t border-gray-200 p-4">
         <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 bg-teal-600">
-            <AvatarFallback className="bg-teal-600 font-semibold text-white">
+          <Avatar className="h-10 w-10 bg-teal-500">
+            <AvatarFallback className="bg-teal-500 font-semibold text-white">
               U
             </AvatarFallback>
           </Avatar>
