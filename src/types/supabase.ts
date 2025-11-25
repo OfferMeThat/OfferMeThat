@@ -73,6 +73,125 @@ export type Database = {
         }
         Relationships: []
       }
+      offerFormPages: {
+        Row: {
+          createdAt: string
+          description: string | null
+          formId: string
+          id: string
+          order: number
+          title: string
+        }
+        Insert: {
+          createdAt?: string
+          description?: string | null
+          formId: string
+          id?: string
+          order: number
+          title: string
+        }
+        Update: {
+          createdAt?: string
+          description?: string | null
+          formId?: string
+          id?: string
+          order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offerFormPages_formId_fkey"
+            columns: ["formId"]
+            isOneToOne: false
+            referencedRelation: "offerForms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offerFormQuestions: {
+        Row: {
+          createdAt: string
+          formId: string
+          id: string
+          order: number
+          pageId: string
+          parentQuestionId: string | null
+          payload: Json | null
+          required: boolean
+          type: Database["public"]["Enums"]["questionType"]
+        }
+        Insert: {
+          createdAt?: string
+          formId: string
+          id?: string
+          order: number
+          pageId: string
+          parentQuestionId?: string | null
+          payload?: Json | null
+          required: boolean
+          type: Database["public"]["Enums"]["questionType"]
+        }
+        Update: {
+          createdAt?: string
+          formId?: string
+          id?: string
+          order?: number
+          pageId?: string
+          parentQuestionId?: string | null
+          payload?: Json | null
+          required?: boolean
+          type?: Database["public"]["Enums"]["questionType"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formQuestions_formId_fkey"
+            columns: ["formId"]
+            isOneToOne: false
+            referencedRelation: "offerForms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "formQuestions_pageId_fkey"
+            columns: ["pageId"]
+            isOneToOne: false
+            referencedRelation: "offerFormPages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "formQuestions_parentQuestionId_fkey"
+            columns: ["parentQuestionId"]
+            isOneToOne: false
+            referencedRelation: "offerFormQuestions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offerForms: {
+        Row: {
+          createdAt: string
+          id: string
+          ownerId: string
+        }
+        Insert: {
+          createdAt?: string
+          id?: string
+          ownerId: string
+        }
+        Update: {
+          createdAt?: string
+          id?: string
+          ownerId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forms_ownerId_fkey"
+            columns: ["ownerId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       offers: {
         Row: {
           amount: number
@@ -165,6 +284,32 @@ export type Database = {
         | "withdrawn"
         | "deleted"
       paymentWays: "cash" | "finance"
+      questionType:
+        | "specifyListing"
+        | "submitterName"
+        | "submitterEmail"
+        | "submitterPhone"
+        | "offerAmount"
+        | "submitButton"
+        | "submitterRole"
+        | "nameOfPurchaser"
+        | "attachPurchaseAgreement"
+        | "offerExpiry"
+        | "deposit"
+        | "subjectToLoanApproval"
+        | "specialConditions"
+        | "settlementDate"
+        | "messageToAgent"
+        | "custom"
+        | "shortText"
+        | "longText"
+        | "provideAmount"
+        | "uploadFiles"
+        | "provideTime"
+        | "yesNo"
+        | "singleChoiceSelect"
+        | "multiChoiceSelect"
+        | "statement"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -306,6 +451,33 @@ export const Constants = {
         "deleted",
       ],
       paymentWays: ["cash", "finance"],
+      questionType: [
+        "specifyListing",
+        "submitterName",
+        "submitterEmail",
+        "submitterPhone",
+        "offerAmount",
+        "submitButton",
+        "submitterRole",
+        "nameOfPurchaser",
+        "attachPurchaseAgreement",
+        "offerExpiry",
+        "deposit",
+        "subjectToLoanApproval",
+        "specialConditions",
+        "settlementDate",
+        "messageToAgent",
+        "custom",
+        "shortText",
+        "longText",
+        "provideAmount",
+        "uploadFiles",
+        "provideTime",
+        "yesNo",
+        "singleChoiceSelect",
+        "multiChoiceSelect",
+        "statement",
+      ],
     },
   },
 } as const
