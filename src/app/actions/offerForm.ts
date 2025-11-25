@@ -1,9 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { Database } from "@/types/supabase"
-
-type QuestionType = Database["public"]["Enums"]["questionType"]
+import { QuestionType } from "@/types/form"
 
 interface DefaultQuestion {
   type: QuestionType
@@ -196,4 +194,49 @@ export const deleteQuestion = async (questionId: string) => {
   if (error) {
     throw new Error("Failed to delete question")
   }
+}
+
+export const resetFormToDefault = async (formId: string) => {
+  const supabase = await createClient()
+
+  // Get the page ID for this form
+  const { data: page } = await supabase
+    .from("offerFormPages")
+    .select("id")
+    .eq("formId", formId)
+    .single()
+
+  if (!page) {
+    throw new Error("Failed to find form page")
+  }
+
+  // Delete all existing questions
+  const { error: deleteError } = await supabase
+    .from("offerFormQuestions")
+    .delete()
+    .eq("formId", formId)
+
+  if (deleteError) {
+    throw new Error("Failed to delete existing questions")
+  }
+
+  // Insert default questions
+  const questions = DEFAULT_QUESTIONS.map((q) => ({
+    formId: formId,
+    pageId: page.id,
+    type: q.type,
+    order: q.order,
+    required: q.required,
+    payload: q.payload,
+  }))
+
+  const { error: insertError } = await supabase
+    .from("offerFormQuestions")
+    .insert(questions)
+
+  if (insertError) {
+    throw new Error("Failed to create default questions")
+  }
+
+  return true
 }

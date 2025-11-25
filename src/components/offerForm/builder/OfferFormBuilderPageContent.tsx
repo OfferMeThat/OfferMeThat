@@ -4,9 +4,20 @@ import {
   deleteQuestion,
   getFormQuestions,
   getOrCreateOfferForm,
+  resetFormToDefault,
   updateQuestionOrder,
 } from "@/app/actions/offerForm"
 import Heading from "@/components/shared/typography/Heading"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Database } from "@/types/supabase"
 import Link from "next/link"
@@ -21,6 +32,7 @@ const OfferFormBuilderPageContent = () => {
   const [questions, setQuestions] = useState<Question[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isPending, startTransition] = useTransition()
+  const [showResetDialog, setShowResetDialog] = useState(false)
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -130,6 +142,26 @@ const OfferFormBuilderPageContent = () => {
     })
   }
 
+  const handleResetForm = () => {
+    if (!formId) return
+
+    startTransition(async () => {
+      try {
+        await resetFormToDefault(formId)
+
+        // Fetch fresh questions from database
+        const fetchedQuestions = await getFormQuestions(formId)
+        setQuestions(fetchedQuestions)
+
+        setShowResetDialog(false)
+        toast.success("Form reset to default successfully")
+      } catch (error) {
+        console.error("Error resetting form:", error)
+        toast.error("Failed to reset form")
+      }
+    })
+  }
+
   if (isLoading) {
     return (
       <main className="px-6 py-8">
@@ -156,7 +188,12 @@ const OfferFormBuilderPageContent = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="destructive">Reset Form</Button>
+          <Button
+            variant="destructive"
+            onClick={() => setShowResetDialog(true)}
+          >
+            Reset Form
+          </Button>
           <Button>View Form</Button>
         </div>
       </div>
@@ -194,6 +231,28 @@ const OfferFormBuilderPageContent = () => {
           </div>
         </div>
       )}
+
+      {/* Reset Form Confirmation Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Form to Default?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will delete all your custom questions and restore the
+              form to its default state with the 7 essential questions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetForm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Reset Form
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
