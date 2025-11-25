@@ -97,7 +97,7 @@ const OfferFormPageContent = () => {
   return (
     <main className="px-6 py-8">
       <div className="mb-6">
-        <Heading as="h1" size="large" weight="bold" className="text-teal-600">
+        <Heading as="h1" size="large" weight="bold" className="text-teal-500">
           My Offers
         </Heading>
         <p className="text-md font-medium opacity-75">
@@ -131,7 +131,7 @@ const OfferFormPageContent = () => {
                 Want to change your URL?{" "}
                 <Link
                   href="/settings"
-                  className="font-medium text-teal-600 hover:text-teal-700"
+                  className="font-medium text-teal-500 hover:text-teal-700"
                 >
                   Check availability here.
                 </Link>
@@ -193,8 +193,8 @@ const OfferFormPageContent = () => {
         <p className="text-sm text-gray-600">
           Customize the questions by clicking{" "}
           <Link
-            href="/customize-form"
-            className="font-medium text-teal-600 hover:text-teal-700"
+            href="/offer-form/builder"
+            className="font-medium text-teal-500 hover:text-teal-700"
           >
             here
           </Link>
@@ -204,7 +204,7 @@ const OfferFormPageContent = () => {
           Personalize the colors, logo & branding by clicking{" "}
           <Link
             href="/branding"
-            className="font-medium text-teal-600 hover:text-teal-700"
+            className="font-medium text-teal-500 hover:text-teal-700"
           >
             here
           </Link>
