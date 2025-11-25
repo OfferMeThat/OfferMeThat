@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import { Database } from "@/types/supabase"
 import Link from "next/link"
 import { useEffect, useState, useTransition } from "react"
@@ -165,7 +166,9 @@ const OfferFormBuilderPageContent = () => {
   if (isLoading) {
     return (
       <main className="px-6 py-8">
-        <div className="text-center">Loading form...</div>
+        <div className="flex items-center justify-center">
+          <Spinner className="h-8 w-8" />
+        </div>
       </main>
     )
   }
@@ -226,8 +229,9 @@ const OfferFormBuilderPageContent = () => {
 
       {isPending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
-          <div className="rounded-lg bg-white p-4 shadow-lg">
-            <p className="text-sm text-gray-600">Updating...</p>
+          <div className="flex items-center gap-3 rounded-lg bg-white p-6 shadow-lg">
+            <Spinner />
+            <p className="text-sm font-medium text-gray-900">Updating...</p>
           </div>
         </div>
       )}

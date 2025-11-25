@@ -8,6 +8,7 @@ import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
+import { Spinner } from "../ui/spinner"
 
 const OfferFormPageContent = () => {
   const [username, setUsername] = useState<string | null>(null)
@@ -72,8 +73,8 @@ const OfferFormPageContent = () => {
 
   if (isLoading) {
     return (
-      <main className="px-6 py-8">
-        <div className="text-center">Loading...</div>
+      <main className="mx-auto flex w-fit items-center gap-2 px-6 py-8">
+        <Spinner /> Loading...
       </main>
     )
   }

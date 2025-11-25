@@ -6,6 +6,7 @@ import { PlusIcon } from "lucide-react"
 import { useEffect, useState, useTransition } from "react"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
+import { Spinner } from "../ui/spinner"
 import { AddListingModal } from "./AddListingModal"
 import ListingViewFilters from "./ListingViewFilters"
 import ListingsList from "./ListingsList"
@@ -73,7 +74,8 @@ const MyListingsPageContent = ({
       <ListingViewFilters filters={filters} setFilters={setFilters} />
 
       {isPending && (
-        <div className="mb-4 text-sm text-gray-500">
+        <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
+          <Spinner />
           Loading filtered results...
         </div>
       )}
