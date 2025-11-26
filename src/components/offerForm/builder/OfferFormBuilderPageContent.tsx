@@ -24,10 +24,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
 import Link from "next/link"
 import { useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
+import AddQuestionModal from "./AddQuestionModal"
 import PageBreak from "./PageBreak"
 import QuestionCard from "./QuestionCard"
 
@@ -41,6 +43,10 @@ const OfferFormBuilderPageContent = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isPending, startTransition] = useTransition()
   const [showResetDialog, setShowResetDialog] = useState(false)
+  const [showAddQuestionModal, setShowAddQuestionModal] = useState(false)
+  const [addQuestionAfterOrder, setAddQuestionAfterOrder] = useState<
+    number | null
+  >(null)
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -252,6 +258,24 @@ const OfferFormBuilderPageContent = () => {
     })
   }
 
+  const handleOpenAddQuestionModal = (afterOrder: number) => {
+    setAddQuestionAfterOrder(afterOrder)
+    setShowAddQuestionModal(true)
+  }
+
+  const handleAddQuestion = async (questionType: QuestionType) => {
+    if (!formId || addQuestionAfterOrder === null) return
+
+    // TODO: Implement server action to add question
+    console.log(
+      "Adding question:",
+      questionType,
+      "after order:",
+      addQuestionAfterOrder,
+    )
+    toast.info("Add question functionality coming soon!")
+  }
+
   if (isLoading) {
     return (
       <main className="px-6 py-8">
@@ -291,7 +315,7 @@ const OfferFormBuilderPageContent = () => {
       </div>
 
       <div className="p-4">
-        <div className="space-y-6 p-4 border rounded-xl border-gray-200 bg-gray-50 shadow-xl">
+        <div className="space-y-6 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-xl">
           {questions.map((question, index) => {
             // Find if there's a page break after this question
             const pageBreakAfter = pages.find(
@@ -309,8 +333,12 @@ const OfferFormBuilderPageContent = () => {
                   onDelete={() => handleDelete(question.id)}
                 />
 
-                <div className="my-8 flex items-center justify-center gap-4 flex-wrap">
-                  <Button size="sm" variant="dashed">
+                <div className="my-8 flex flex-wrap items-center justify-center gap-4">
+                  <Button
+                    size="sm"
+                    variant="dashed"
+                    onClick={() => handleOpenAddQuestionModal(question.order)}
+                  >
                     + Add New Question Here
                   </Button>
                   <Button
@@ -396,8 +424,14 @@ const OfferFormBuilderPageContent = () => {
                     })()}
 
                     {/* Add buttons after page break */}
-                    <div className="my-8 flex items-center justify-center gap-4 flex-wrap">
-                      <Button size="sm" variant="dashed">
+                    <div className="my-8 flex flex-wrap items-center justify-center gap-4">
+                      <Button
+                        size="sm"
+                        variant="dashed"
+                        onClick={() =>
+                          handleOpenAddQuestionModal(question.order)
+                        }
+                      >
                         + Add New Question Here
                       </Button>
                       <Button disabled size="sm" variant="dashed">
@@ -442,6 +476,13 @@ const OfferFormBuilderPageContent = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AddQuestionModal
+        open={showAddQuestionModal}
+        onOpenChange={setShowAddQuestionModal}
+        onAddQuestion={handleAddQuestion}
+        existingQuestionTypes={questions.map((q) => q.type as QuestionType)}
+      />
     </>
   )
 }
