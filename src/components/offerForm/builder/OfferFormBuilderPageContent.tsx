@@ -199,6 +199,30 @@ const OfferFormBuilderPageContent = () => {
     })
   }
 
+  const handleDeletePageBreak = (pageId: string) => {
+    if (!formId) return
+
+    startTransition(async () => {
+      try {
+        await deletePageBreak(pageId, formId)
+
+        // Fetch fresh data
+        const [fetchedQuestions, fetchedPages] = await Promise.all([
+          getFormQuestions(formId),
+          getFormPages(formId),
+        ])
+
+        setQuestions(fetchedQuestions)
+        setPages(fetchedPages)
+
+        toast.success("Page break deleted")
+      } catch (error) {
+        console.error("Error deleting page break:", error)
+        toast.error("Failed to delete page break")
+      }
+    })
+  }
+
   const handleMovePageBreak = (pageId: string, direction: "up" | "down") => {
     if (!formId) return
 
@@ -264,30 +288,30 @@ const OfferFormBuilderPageContent = () => {
           )
 
           return (
-          <div key={question.id}>
-            <QuestionCard
-              question={question}
-              isFirst={index === 0}
-              isLast={index === questions.length - 1}
-              onMoveUp={() => handleMoveUp(question.id, question.order)}
-              onMoveDown={() => handleMoveDown(question.id, question.order)}
-              onDelete={() => handleDelete(question.id)}
-            />
+            <div key={question.id}>
+              <QuestionCard
+                question={question}
+                isFirst={index === 0}
+                isLast={index === questions.length - 1}
+                onMoveUp={() => handleMoveUp(question.id, question.order)}
+                onMoveDown={() => handleMoveDown(question.id, question.order)}
+                onDelete={() => handleDelete(question.id)}
+              />
 
-            {index < questions.length - 1 && (
-              <div className="my-8 flex items-center justify-center gap-4">
-                <Button size="sm" variant="dashed">
-                  + Add New Question Here
-                </Button>
+              {index < questions.length - 1 && (
+                <div className="my-8 flex items-center justify-center gap-4">
+                  <Button size="sm" variant="dashed">
+                    + Add New Question Here
+                  </Button>
                   <Button
                     size="sm"
                     variant="dashed"
                     onClick={() => handleAddPageBreak(question.order)}
                   >
-                  + Add a Page Break Here
-                </Button>
-              </div>
-            )}
+                    + Add a Page Break Here
+                  </Button>
+                </div>
+              )}
 
               {/* Show page break if one exists after this question */}
               {pageBreakAfter && (
@@ -320,7 +344,7 @@ const OfferFormBuilderPageContent = () => {
                   </div>
                 </div>
               )}
-          </div>
+            </div>
           )
         })}
       </div>

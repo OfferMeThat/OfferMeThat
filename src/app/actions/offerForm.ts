@@ -240,6 +240,7 @@ export const resetFormToDefault = async (formId: string) => {
 
   return true
 }
+
 export const createPageBreak = async (
   formId: string,
   afterQuestionOrder: number,
@@ -341,4 +342,177 @@ export const createPageBreak = async (
   }
 
   return newPage.id
+}
+
+export const deletePageBreak = async (pageId: string, formId: string) => {
+  const supabase = await createClient()
+
+  // Get the page to delete
+  const { data: pageToDelete } = await supabase
+    .from("offerFormPages")
+    .select("*")
+    .eq("id", pageId)
+    .single()
+
+  if (!pageToDelete) {
+    throw new Error("Page not found")
+  }
+
+  // Can't delete the first page (it has no breakIndex)
+  if (!pageToDelete.breakIndex) {
+    throw new Error("Cannot delete the first page")
+  }
+
+  // Get all pages for this form
+  const { data: allPages } = await supabase
+    .from("offerFormPages")
+    .select("*")
+    .eq("formId", formId)
+    .order("order", { ascending: true })
+
+  if (!allPages) {
+    throw new Error("Failed to fetch pages")
+  }
+
+  // Find the previous page (the one before this break)
+  const previousPage = allPages.find((p) => p.order === pageToDelete.order - 1)
+
+  if (!previousPage) {
+    throw new Error("Previous page not found")
+  }
+
+  // Find the next page break (if it exists)
+  const nextPage = allPages.find((p) => p.order === pageToDelete.order + 1)
+
+  // Get all questions
+  const { data: allQuestions } = await supabase
+    .from("offerFormQuestions")
+    .select("*")
+    .eq("formId", formId)
+    .order("order", { ascending: true })
+
+  if (!allQuestions) {
+    throw new Error("Failed to fetch questions")
+  }
+
+  // Determine which questions to move to the previous page
+  // Move all questions from after the deleted break up to (but not including) the next break
+  const questionsToMove = allQuestions.filter((q) => {
+    if (nextPage && nextPage.breakIndex !== null) {
+      // Move questions between this break and the next break
+      return (
+        pageToDelete.breakIndex !== null &&
+        q.order > pageToDelete.breakIndex &&
+        q.order <= nextPage.breakIndex
+      )
+    } else {
+      // No next break, move all questions after this break
+      return (
+        pageToDelete.breakIndex !== null && q.order > pageToDelete.breakIndex
+      )
+    }
+  })
+
+  // Move the questions to the previous page
+  if (questionsToMove.length > 0) {
+    const questionIds = questionsToMove.map((q) => q.id)
+
+    const { error: moveError } = await supabase
+      .from("offerFormQuestions")
+      .update({ pageId: previousPage.id })
+      .in("id", questionIds)
+
+    if (moveError) {
+      console.error("Error moving questions:", moveError)
+      throw new Error(`Failed to move questions: ${moveError.message}`)
+    }
+  }
+
+  // Delete the page
+  const { data: deleteData, error: deleteError } = await supabase
+    .from("offerFormPages")
+    .delete()
+    .eq("id", pageId)
+    .select()
+
+  if (deleteError) {
+    throw new Error(`Failed to delete page: ${deleteError.message}`)
+  }
+
+  // Update order of remaining pages
+  const remainingPages = allPages.filter((p) => p.order > pageToDelete.order)
+
+  if (remainingPages.length > 0) {
+    for (const page of remainingPages) {
+      await supabase
+        .from("offerFormPages")
+        .update({ order: page.order - 1 })
+        .eq("id", page.id)
+    }
+  }
+
+  return true
+}
+
+export const movePageBreak = async (
+  pageId: string,
+  formId: string,
+  direction: "up" | "down",
+) => {
+  const supabase = await createClient()
+
+  // Get the page to move
+  const { data: pageToMove } = await supabase
+    .from("offerFormPages")
+    .select("*")
+    .eq("id", pageId)
+    .single()
+
+  if (!pageToMove) {
+    throw new Error("Page not found")
+  }
+
+  // Get the adjacent page
+  const { data: adjacentPage } = await supabase
+    .from("offerFormPages")
+    .select("*")
+    .eq("formId", formId)
+    .eq(
+      "order",
+      direction === "up" ? pageToMove.order - 1 : pageToMove.order + 1,
+    )
+    .single()
+
+  if (!adjacentPage) {
+    throw new Error("Cannot move page in that direction")
+  }
+
+  // Swap orders
+  await supabase
+    .from("offerFormPages")
+    .update({ order: adjacentPage.order })
+    .eq("id", pageToMove.id)
+
+  await supabase
+    .from("offerFormPages")
+    .update({ order: pageToMove.order })
+    .eq("id", adjacentPage.id)
+
+  return true
+}
+
+export const getFormPages = async (formId: string) => {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from("offerFormPages")
+    .select("*")
+    .eq("formId", formId)
+    .order("order", { ascending: true })
+
+  if (error) {
+    throw new Error("Failed to fetch pages")
+  }
+
+  return data
 }
