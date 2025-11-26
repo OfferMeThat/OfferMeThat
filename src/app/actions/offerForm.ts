@@ -240,3 +240,105 @@ export const resetFormToDefault = async (formId: string) => {
 
   return true
 }
+export const createPageBreak = async (
+  formId: string,
+  afterQuestionOrder: number,
+) => {
+  const supabase = await createClient()
+
+  // Get all questions for this form
+  const { data: allQuestions } = await supabase
+    .from("offerFormQuestions")
+    .select("*")
+    .eq("formId", formId)
+    .order("order", { ascending: true })
+
+  if (!allQuestions || allQuestions.length === 0) {
+    throw new Error("No questions found")
+  }
+
+  // Find the question at the specified order
+  const currentQuestion = allQuestions.find(
+    (q) => q.order === afterQuestionOrder,
+  )
+
+  if (!currentQuestion) {
+    throw new Error(`Question not found at order ${afterQuestionOrder}`)
+  }
+
+  // Get all pages for this form
+  const { data: pages } = await supabase
+    .from("offerFormPages")
+    .select("*")
+    .eq("formId", formId)
+    .order("order", { ascending: true })
+
+  if (!pages || pages.length === 0) {
+    throw new Error("No pages found")
+  }
+
+  // Find the current page
+  const currentPage = pages.find((p) => p.id === currentQuestion.pageId)
+
+  if (!currentPage) {
+    throw new Error("Current page not found")
+  }
+
+  const newPageOrder = currentPage.order + 1
+
+  // Increment order of all pages after the current one
+  for (const page of pages) {
+    if (page.order >= newPageOrder) {
+      await supabase
+        .from("offerFormPages")
+        .update({ order: page.order + 1 })
+        .eq("id", page.id)
+    }
+  }
+
+  // Create new page with breakIndex set to the question order
+  const { data: newPage, error: pageError } = await supabase
+    .from("offerFormPages")
+    .insert({
+      formId,
+      title: `Page ${newPageOrder}`,
+      description: null,
+      order: newPageOrder,
+      breakIndex: afterQuestionOrder, // Store where the break occurs
+    })
+    .select("id")
+    .single()
+
+  if (pageError || !newPage) {
+    console.error("Page creation error:", pageError)
+    throw new Error("Failed to create page")
+  }
+
+  // Move all questions after the break to the new page
+  const questionsToMove = allQuestions.filter(
+    (q) => q.order > afterQuestionOrder,
+  )
+
+  console.log("Questions to move:", questionsToMove.length)
+  console.log(
+    "Moving questions with orders:",
+    questionsToMove.map((q) => q.order),
+  )
+  console.log("To new page:", newPage.id)
+
+  if (questionsToMove.length > 0) {
+    const questionIds = questionsToMove.map((q) => q.id)
+
+    const { error: moveError } = await supabase
+      .from("offerFormQuestions")
+      .update({ pageId: newPage.id })
+      .in("id", questionIds)
+
+    if (moveError) {
+      console.error("Error moving questions:", moveError)
+      throw new Error(`Failed to move questions: ${moveError.message}`)
+    }
+  }
+
+  return newPage.id
+}

@@ -1,9 +1,13 @@
 "use client"
 
 import {
+  createPageBreak,
+  deletePageBreak,
   deleteQuestion,
+  getFormPages,
   getFormQuestions,
   getOrCreateOfferForm,
+  movePageBreak,
   resetFormToDefault,
   updateQuestionOrder,
 } from "@/app/actions/offerForm"
@@ -24,13 +28,16 @@ import { Database } from "@/types/supabase"
 import Link from "next/link"
 import { useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
+import PageBreak from "./PageBreak"
 import QuestionCard from "./QuestionCard"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
+type Page = Database["public"]["Tables"]["offerFormPages"]["Row"]
 
 const OfferFormBuilderPageContent = () => {
   const [formId, setFormId] = useState<string | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
+  const [pages, setPages] = useState<Page[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isPending, startTransition] = useTransition()
   const [showResetDialog, setShowResetDialog] = useState(false)
@@ -41,8 +48,13 @@ const OfferFormBuilderPageContent = () => {
         const id = await getOrCreateOfferForm()
         setFormId(id)
 
-        const fetchedQuestions = await getFormQuestions(id)
+        const [fetchedQuestions, fetchedPages] = await Promise.all([
+          getFormQuestions(id),
+          getFormPages(id),
+        ])
+
         setQuestions(fetchedQuestions)
+        setPages(fetchedPages)
       } catch (error) {
         console.error("Error initializing form:", error)
         toast.error("Failed to load form")
@@ -163,6 +175,49 @@ const OfferFormBuilderPageContent = () => {
     })
   }
 
+  const handleAddPageBreak = (afterQuestionOrder: number) => {
+    if (!formId) return
+
+    startTransition(async () => {
+      try {
+        await createPageBreak(formId, afterQuestionOrder)
+
+        // Fetch fresh data from database
+        const [fetchedQuestions, fetchedPages] = await Promise.all([
+          getFormQuestions(formId),
+          getFormPages(formId),
+        ])
+
+        setQuestions(fetchedQuestions)
+        setPages(fetchedPages)
+
+        toast.success("Page break added")
+      } catch (error) {
+        console.error("Error adding page break:", error)
+        toast.error("Failed to add page break")
+      }
+    })
+  }
+
+  const handleMovePageBreak = (pageId: string, direction: "up" | "down") => {
+    if (!formId) return
+
+    startTransition(async () => {
+      try {
+        await movePageBreak(pageId, formId, direction)
+
+        // Fetch fresh data
+        const fetchedPages = await getFormPages(formId)
+        setPages(fetchedPages)
+
+        toast.success(`Page break moved ${direction}`)
+      } catch (error) {
+        console.error("Error moving page break:", error)
+        toast.error("Failed to move page break")
+      }
+    })
+  }
+
   if (isLoading) {
     return (
       <main className="px-6 py-8">
@@ -175,7 +230,7 @@ const OfferFormBuilderPageContent = () => {
 
   return (
     <>
-      <div className="mb-6 flex items-start justify-between border-b bg-white px-6 py-6">
+      <div className="mb-6 flex items-center justify-between border-b bg-white px-6 py-6">
         <div>
           <Heading as="h1" size="large" weight="bold">
             Customize Offer Form
@@ -202,7 +257,13 @@ const OfferFormBuilderPageContent = () => {
       </div>
 
       <div className="space-y-6 px-6">
-        {questions.map((question, index) => (
+        {questions.map((question, index) => {
+          // Find if there's a page break after this question
+          const pageBreakAfter = pages.find(
+            (page) => page.breakIndex === question.order,
+          )
+
+          return (
           <div key={question.id}>
             <QuestionCard
               question={question}
@@ -218,13 +279,50 @@ const OfferFormBuilderPageContent = () => {
                 <Button size="sm" variant="dashed">
                   + Add New Question Here
                 </Button>
-                <Button size="sm" variant="dashed">
+                  <Button
+                    size="sm"
+                    variant="dashed"
+                    onClick={() => handleAddPageBreak(question.order)}
+                  >
                   + Add a Page Break Here
                 </Button>
               </div>
             )}
+
+              {/* Show page break if one exists after this question */}
+              {pageBreakAfter && (
+                <div className="my-8">
+                  <PageBreak
+                    page={pageBreakAfter}
+                    isFirst={pageBreakAfter.order === 1}
+                    isLast={pageBreakAfter.order === pages.length}
+                    onMoveUp={() =>
+                      handleMovePageBreak(pageBreakAfter.id, "up")
+                    }
+                    onMoveDown={() =>
+                      handleMovePageBreak(pageBreakAfter.id, "down")
+                    }
+                    onDelete={() => handleDeletePageBreak(pageBreakAfter.id)}
+                  />
+
+                  {/* Add buttons after page break */}
+                  <div className="my-8 flex items-center justify-center gap-4">
+                    <Button size="sm" variant="dashed">
+                      + Add New Question Here
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="dashed"
+                      onClick={() => handleAddPageBreak(question.order)}
+                    >
+                      + Add a Page Break Here
+                    </Button>
+                  </div>
+                </div>
+              )}
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {isPending && (

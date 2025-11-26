@@ -75,6 +75,7 @@ export type Database = {
       }
       offerFormPages: {
         Row: {
+          breakIndex: number | null
           createdAt: string
           description: string | null
           formId: string
@@ -83,6 +84,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          breakIndex?: number | null
           createdAt?: string
           description?: string | null
           formId: string
@@ -91,6 +93,7 @@ export type Database = {
           title: string
         }
         Update: {
+          breakIndex?: number | null
           createdAt?: string
           description?: string | null
           formId?: string
