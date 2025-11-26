@@ -199,31 +199,61 @@ export const deleteQuestion = async (questionId: string) => {
 export const resetFormToDefault = async (formId: string) => {
   const supabase = await createClient()
 
-  // Get the page ID for this form
-  const { data: page } = await supabase
+  // Get all pages for this form
+  const { data: allPages } = await supabase
     .from("offerFormPages")
-    .select("id")
+    .select("*")
     .eq("formId", formId)
-    .single()
+    .order("order", { ascending: true })
 
-  if (!page) {
-    throw new Error("Failed to find form page")
+  if (!allPages || allPages.length === 0) {
+    throw new Error("Failed to find form pages")
+  }
+
+  // Get the first page (the one without breakIndex)
+  const firstPage = allPages.find((p) => p.breakIndex === null)
+
+  if (!firstPage) {
+    throw new Error("Failed to find first page")
+  }
+
+  // Delete all page breaks (pages with breakIndex)
+  const pageBreaksToDelete = allPages.filter((p) => p.breakIndex !== null)
+
+  if (pageBreaksToDelete.length > 0) {
+    const pageBreakIds = pageBreaksToDelete.map((p) => p.id)
+
+    const { data: deleteData, error: deletePageError } = await supabase
+      .from("offerFormPages")
+      .delete()
+      .in("id", pageBreakIds)
+      .select()
+
+    if (deletePageError) {
+      throw new Error(
+        `Failed to delete page breaks: ${deletePageError.message}`,
+      )
+    }
+
+    if (!deleteData || deleteData.length === 0) {
+      console.warn("No page breaks were deleted - possible RLS issue")
+    }
   }
 
   // Delete all existing questions
-  const { error: deleteError } = await supabase
+  const { error: deleteQuestionsError } = await supabase
     .from("offerFormQuestions")
     .delete()
     .eq("formId", formId)
 
-  if (deleteError) {
+  if (deleteQuestionsError) {
     throw new Error("Failed to delete existing questions")
   }
 
-  // Insert default questions
+  // Insert default questions (all assigned to first page)
   const questions = DEFAULT_QUESTIONS.map((q) => ({
     formId: formId,
-    pageId: page.id,
+    pageId: firstPage.id,
     type: q.type,
     order: q.order,
     required: q.required,

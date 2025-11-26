@@ -162,9 +162,14 @@ const OfferFormBuilderPageContent = () => {
       try {
         await resetFormToDefault(formId)
 
-        // Fetch fresh questions from database
-        const fetchedQuestions = await getFormQuestions(formId)
+        // Fetch fresh data from database (both questions and pages)
+        const [fetchedQuestions, fetchedPages] = await Promise.all([
+          getFormQuestions(formId),
+          getFormPages(formId),
+        ])
+
         setQuestions(fetchedQuestions)
+        setPages(fetchedPages)
 
         setShowResetDialog(false)
         toast.success("Form reset to default successfully")
@@ -303,19 +308,19 @@ const OfferFormBuilderPageContent = () => {
                 onDelete={() => handleDelete(question.id)}
               />
 
-                <div className="my-8 flex items-center justify-center gap-4">
-                  <Button size="sm" variant="dashed">
-                    + Add New Question Here
-                  </Button>
-                  <Button
+              <div className="my-8 flex items-center justify-center gap-4">
+                <Button size="sm" variant="dashed">
+                  + Add New Question Here
+                </Button>
+                <Button
                   disabled={index === questions.length - 1}
-                    size="sm"
-                    variant="dashed"
-                    onClick={() => handleAddPageBreak(question.order)}
-                  >
-                    + Add a Page Break Here
-                  </Button>
-                </div>
+                  size="sm"
+                  variant="dashed"
+                  onClick={() => handleAddPageBreak(question.order)}
+                >
+                  + Add a Page Break Here
+                </Button>
+              </div>
 
               {/* Show page break if one exists after this question */}
               {pageBreakAfter && (

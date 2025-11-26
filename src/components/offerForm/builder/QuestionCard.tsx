@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { REQUIRED_QUESTION_TYPES } from "@/constants/offerFormQuestions"
 import { Database } from "@/types/supabase"
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react"
 
@@ -35,9 +36,9 @@ const QuestionCard = ({
   const totalQuestions = 7 // TODO: Make this dynamic based on total count
 
   return (
-    <div className="flex items-center gap-6">
+    <div className="flex items-stretch gap-6">
       {/* Left: Question Info */}
-      <div className="flex w-fit flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4">
         <p className="text-xl font-bold text-gray-900">QUESTION</p>
         <p className="text-sm font-bold text-gray-900">
           {questionNumber} of {totalQuestions}
@@ -81,7 +82,7 @@ const QuestionCard = ({
       </div>
 
       {/* Right: Actions */}
-      <div className="flex flex-col gap-1">
+      <div className="flex w-auto flex-col justify-center gap-1">
         <Button
           size="xs"
           variant="ghost"
@@ -104,6 +105,7 @@ const QuestionCard = ({
         </Button>
         <Button
           size="xs"
+          disabled={!!REQUIRED_QUESTION_TYPES.includes(question.type)}
           variant="ghostDesctructive"
           onClick={onDelete}
           className="justify-baseline"
