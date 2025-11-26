@@ -278,6 +278,16 @@ export const createPageBreak = async (
     throw new Error("No pages found")
   }
 
+  // Check if a page break already exists at this index
+  const existingBreakAtIndex = pages.find(
+    (p) => p.breakIndex === afterQuestionOrder,
+  )
+
+  if (existingBreakAtIndex) {
+    console.error("A page break already exists at this position")
+    return false
+  }
+
   // Find the current page
   const currentPage = pages.find((p) => p.id === currentQuestion.pageId)
 
@@ -468,35 +478,130 @@ export const movePageBreak = async (
     .eq("id", pageId)
     .single()
 
-  if (!pageToMove) {
-    throw new Error("Page not found")
+  if (!pageToMove || pageToMove.breakIndex === null) {
+    throw new Error("Page not found or has no break index")
   }
 
-  // Get the adjacent page
-  const { data: adjacentPage } = await supabase
+  // Get all pages for this form
+  const { data: allPages } = await supabase
     .from("offerFormPages")
     .select("*")
     .eq("formId", formId)
-    .eq(
-      "order",
-      direction === "up" ? pageToMove.order - 1 : pageToMove.order + 1,
-    )
-    .single()
+    .order("order", { ascending: true })
 
-  if (!adjacentPage) {
-    throw new Error("Cannot move page in that direction")
+  if (!allPages) {
+    throw new Error("Failed to fetch pages")
   }
 
-  // Swap orders
-  await supabase
-    .from("offerFormPages")
-    .update({ order: adjacentPage.order })
-    .eq("id", pageToMove.id)
+  // Get all questions to determine valid move range
+  const { data: allQuestions } = await supabase
+    .from("offerFormQuestions")
+    .select("*")
+    .eq("formId", formId)
+    .order("order", { ascending: true })
 
-  await supabase
+  if (!allQuestions || allQuestions.length === 0) {
+    throw new Error("No questions found")
+  }
+
+  const currentBreakIndex = pageToMove.breakIndex
+  const newBreakIndex =
+    direction === "up" ? currentBreakIndex - 1 : currentBreakIndex + 1
+
+  // Validation: ensure minimum 1 question at the top
+  if (newBreakIndex < 1) {
+    throw new Error(
+      "Cannot move break: must have at least 1 question at the top",
+    )
+  }
+
+  // Validation: ensure we don't go beyond the last question
+  if (newBreakIndex >= allQuestions.length) {
+    throw new Error(
+      "Cannot move break: must have at least 1 question at the bottom",
+    )
+  }
+
+  // Find adjacent page breaks
+  const previousBreak = allPages
+    .filter((p) => p.breakIndex !== null && p.breakIndex < currentBreakIndex)
+    .sort((a, b) => (b.breakIndex || 0) - (a.breakIndex || 0))[0]
+
+  const nextBreak = allPages
+    .filter((p) => p.breakIndex !== null && p.breakIndex > currentBreakIndex)
+    .sort((a, b) => (a.breakIndex || 0) - (b.breakIndex || 0))[0]
+
+  // Validation: ensure minimum 1 question between breaks
+  if (
+    direction === "up" &&
+    previousBreak &&
+    previousBreak.breakIndex !== null
+  ) {
+    if (newBreakIndex <= previousBreak.breakIndex) {
+      throw new Error(
+        "Cannot move break: must have at least 1 question between breaks",
+      )
+    }
+  }
+
+  if (direction === "down" && nextBreak && nextBreak.breakIndex !== null) {
+    if (newBreakIndex >= nextBreak.breakIndex) {
+      throw new Error(
+        "Cannot move break: must have at least 1 question between breaks",
+      )
+    }
+  }
+
+  // Update the breakIndex
+  const { data: updateData, error: updateError } = await supabase
     .from("offerFormPages")
-    .update({ order: pageToMove.order })
-    .eq("id", adjacentPage.id)
+    .update({ breakIndex: newBreakIndex })
+    .eq("id", pageId)
+    .select()
+
+  if (updateError) {
+    throw new Error(`Failed to update break index: ${updateError.message}`)
+  }
+
+  if (!updateData || updateData.length === 0) {
+    throw new Error(
+      "Failed to update break index: No rows updated (possible RLS issue)",
+    )
+  }
+
+  // Now we need to move the question at the new break index to the appropriate page
+  const questionAtNewIndex = allQuestions.find((q) => q.order === newBreakIndex)
+
+  if (questionAtNewIndex) {
+    if (direction === "up") {
+      // Moving up: the question at newBreakIndex should stay on the previous page
+      // All questions after newBreakIndex should move to pageToMove
+      const questionsToMove = allQuestions.filter(
+        (q) => q.order > newBreakIndex,
+      )
+
+      if (questionsToMove.length > 0) {
+        const questionIds = questionsToMove.map((q) => q.id)
+        await supabase
+          .from("offerFormQuestions")
+          .update({ pageId: pageToMove.id })
+          .in("id", questionIds)
+      }
+    } else {
+      // Moving down: the question at newBreakIndex should move to pageToMove
+      // Find the previous page
+      const previousPage = allPages.find(
+        (p) => p.order === pageToMove.order - 1,
+      )
+
+      if (previousPage) {
+        await supabase
+          .from("offerFormQuestions")
+          .update({ pageId: previousPage.id })
+          .eq("id", questionAtNewIndex.id)
+      }
+    }
+  }
 
   return true
 }

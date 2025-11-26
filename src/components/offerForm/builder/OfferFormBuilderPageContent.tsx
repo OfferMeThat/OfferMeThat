@@ -230,8 +230,13 @@ const OfferFormBuilderPageContent = () => {
       try {
         await movePageBreak(pageId, formId, direction)
 
-        // Fetch fresh data
-        const fetchedPages = await getFormPages(formId)
+        // Fetch fresh data (both questions and pages)
+        const [fetchedQuestions, fetchedPages] = await Promise.all([
+          getFormQuestions(formId),
+          getFormPages(formId),
+        ])
+
+        setQuestions(fetchedQuestions)
         setPages(fetchedPages)
 
         toast.success(`Page break moved ${direction}`)
@@ -298,12 +303,12 @@ const OfferFormBuilderPageContent = () => {
                 onDelete={() => handleDelete(question.id)}
               />
 
-              {index < questions.length - 1 && (
                 <div className="my-8 flex items-center justify-center gap-4">
                   <Button size="sm" variant="dashed">
                     + Add New Question Here
                   </Button>
                   <Button
+                  disabled={index === questions.length - 1}
                     size="sm"
                     variant="dashed"
                     onClick={() => handleAddPageBreak(question.order)}
@@ -311,34 +316,81 @@ const OfferFormBuilderPageContent = () => {
                     + Add a Page Break Here
                   </Button>
                 </div>
-              )}
 
               {/* Show page break if one exists after this question */}
               {pageBreakAfter && (
                 <div className="my-8">
-                  <PageBreak
-                    page={pageBreakAfter}
-                    isFirst={pageBreakAfter.order === 1}
-                    isLast={pageBreakAfter.order === pages.length}
-                    onMoveUp={() =>
-                      handleMovePageBreak(pageBreakAfter.id, "up")
-                    }
-                    onMoveDown={() =>
-                      handleMovePageBreak(pageBreakAfter.id, "down")
-                    }
-                    onDelete={() => handleDeletePageBreak(pageBreakAfter.id)}
-                  />
+                  {(() => {
+                    // Find if there are adjacent breaks
+                    const allBreaks = pages.filter((p) => p.breakIndex !== null)
+                    const currentBreakIndex = pageBreakAfter.breakIndex || 0
+
+                    // Check if there's a break before this one
+                    const hasBreakBefore = allBreaks.some(
+                      (p) =>
+                        p.breakIndex !== null &&
+                        p.breakIndex < currentBreakIndex,
+                    )
+
+                    // Check if there's a break after this one
+                    const hasBreakAfter = allBreaks.some(
+                      (p) =>
+                        p.breakIndex !== null &&
+                        p.breakIndex > currentBreakIndex,
+                    )
+
+                    // Can't move up if: at question 1, or would collide with previous break
+                    const canMoveUp =
+                      currentBreakIndex > 1 &&
+                      (!hasBreakBefore ||
+                        allBreaks
+                          .filter(
+                            (p) =>
+                              p.breakIndex !== null &&
+                              p.breakIndex < currentBreakIndex,
+                          )
+                          .every(
+                            (p) => (p.breakIndex || 0) < currentBreakIndex - 1,
+                          ))
+
+                    // Can't move down if: at last question, or would collide with next break
+                    const canMoveDown =
+                      currentBreakIndex < questions.length - 1 &&
+                      (!hasBreakAfter ||
+                        allBreaks
+                          .filter(
+                            (p) =>
+                              p.breakIndex !== null &&
+                              p.breakIndex > currentBreakIndex,
+                          )
+                          .every(
+                            (p) => (p.breakIndex || 0) > currentBreakIndex + 1,
+                          ))
+
+                    return (
+                      <PageBreak
+                        page={pageBreakAfter}
+                        isFirst={!canMoveUp}
+                        isLast={!canMoveDown}
+                        onMoveUp={() =>
+                          handleMovePageBreak(pageBreakAfter.id, "up")
+                        }
+                        onMoveDown={() =>
+                          handleMovePageBreak(pageBreakAfter.id, "down")
+                        }
+                        onDelete={() =>
+                          handleDeletePageBreak(pageBreakAfter.id)
+                        }
+                      />
+                    )
+                  })()}
 
                   {/* Add buttons after page break */}
                   <div className="my-8 flex items-center justify-center gap-4">
                     <Button size="sm" variant="dashed">
                       + Add New Question Here
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="dashed"
-                      onClick={() => handleAddPageBreak(question.order)}
-                    >
+                    <Button disabled size="sm" variant="dashed">
                       + Add a Page Break Here
                     </Button>
                   </div>

@@ -154,17 +154,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "formQuestions_pageId_fkey"
-            columns: ["pageId"]
-            isOneToOne: false
-            referencedRelation: "offerFormPages"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "formQuestions_parentQuestionId_fkey"
             columns: ["parentQuestionId"]
             isOneToOne: false
             referencedRelation: "offerFormQuestions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offerFormQuestions_pageId_fkey"
+            columns: ["pageId"]
+            isOneToOne: false
+            referencedRelation: "offerFormPages"
             referencedColumns: ["id"]
           },
         ]
