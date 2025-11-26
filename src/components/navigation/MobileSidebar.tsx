@@ -16,7 +16,7 @@ const MobileSidebar = () => {
 
   return (
     <>
-      <div className="fixed top-4 left-4 z-40 md:hidden">
+      <div className="fixed top-4 left-4 z-40 lg:hidden">
         <Button
           variant="outline"
           size="icon"

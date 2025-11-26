@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import {
   Edit,
   FileText,
+  FormInputIcon,
   HelpCircle,
   Layers,
   MessageSquare,
@@ -25,7 +26,7 @@ const navigationLinks = [
   {
     section: "GO TO:",
     items: [
-      { name: "My Offer Form", href: "/offer-form", icon: Settings },
+      { name: "My Offer Form", href: "/offer-form", icon: FormInputIcon },
       { name: "My Offers", href: "/offers", icon: FileText },
       { name: "My Lead Form", href: "#", icon: Edit },
       { name: "My Leads", href: "#", icon: Target },
@@ -127,7 +128,7 @@ export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
 
 const Sidebar = () => {
   return (
-    <aside className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
+    <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
       <div className="flex h-screen flex-col border-r border-gray-200 bg-white">
         <SidebarContent />
       </div>

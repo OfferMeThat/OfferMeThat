@@ -264,7 +264,7 @@ const OfferFormBuilderPageContent = () => {
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between border-b bg-white px-6 py-6">
+      <div className="flex items-center justify-between border-b bg-white px-6 py-6">
         <div>
           <Heading as="h1" size="large" weight="bold">
             Customize Offer Form
@@ -290,120 +290,126 @@ const OfferFormBuilderPageContent = () => {
         </div>
       </div>
 
-      <div className="space-y-6 px-6">
-        {questions.map((question, index) => {
-          // Find if there's a page break after this question
-          const pageBreakAfter = pages.find(
-            (page) => page.breakIndex === question.order,
-          )
+      <div className="p-4">
+        <div className="space-y-6 p-4 border rounded-xl border-gray-200 bg-gray-50 shadow-xl">
+          {questions.map((question, index) => {
+            // Find if there's a page break after this question
+            const pageBreakAfter = pages.find(
+              (page) => page.breakIndex === question.order,
+            )
 
-          return (
-            <div key={question.id}>
-              <QuestionCard
-                question={question}
-                isFirst={index === 0}
-                isLast={index === questions.length - 1}
-                onMoveUp={() => handleMoveUp(question.id, question.order)}
-                onMoveDown={() => handleMoveDown(question.id, question.order)}
-                onDelete={() => handleDelete(question.id)}
-              />
+            return (
+              <div key={question.id}>
+                <QuestionCard
+                  question={question}
+                  isFirst={index === 0}
+                  isLast={index === questions.length - 1}
+                  onMoveUp={() => handleMoveUp(question.id, question.order)}
+                  onMoveDown={() => handleMoveDown(question.id, question.order)}
+                  onDelete={() => handleDelete(question.id)}
+                />
 
-              <div className="my-8 flex items-center justify-center gap-4">
-                <Button size="sm" variant="dashed">
-                  + Add New Question Here
-                </Button>
-                <Button
-                  disabled={index === questions.length - 1}
-                  size="sm"
-                  variant="dashed"
-                  onClick={() => handleAddPageBreak(question.order)}
-                >
-                  + Add a Page Break Here
-                </Button>
-              </div>
-
-              {/* Show page break if one exists after this question */}
-              {pageBreakAfter && (
-                <div className="my-8">
-                  {(() => {
-                    // Find if there are adjacent breaks
-                    const allBreaks = pages.filter((p) => p.breakIndex !== null)
-                    const currentBreakIndex = pageBreakAfter.breakIndex || 0
-
-                    // Check if there's a break before this one
-                    const hasBreakBefore = allBreaks.some(
-                      (p) =>
-                        p.breakIndex !== null &&
-                        p.breakIndex < currentBreakIndex,
-                    )
-
-                    // Check if there's a break after this one
-                    const hasBreakAfter = allBreaks.some(
-                      (p) =>
-                        p.breakIndex !== null &&
-                        p.breakIndex > currentBreakIndex,
-                    )
-
-                    // Can't move up if: at question 1, or would collide with previous break
-                    const canMoveUp =
-                      currentBreakIndex > 1 &&
-                      (!hasBreakBefore ||
-                        allBreaks
-                          .filter(
-                            (p) =>
-                              p.breakIndex !== null &&
-                              p.breakIndex < currentBreakIndex,
-                          )
-                          .every(
-                            (p) => (p.breakIndex || 0) < currentBreakIndex - 1,
-                          ))
-
-                    // Can't move down if: at last question, or would collide with next break
-                    const canMoveDown =
-                      currentBreakIndex < questions.length - 1 &&
-                      (!hasBreakAfter ||
-                        allBreaks
-                          .filter(
-                            (p) =>
-                              p.breakIndex !== null &&
-                              p.breakIndex > currentBreakIndex,
-                          )
-                          .every(
-                            (p) => (p.breakIndex || 0) > currentBreakIndex + 1,
-                          ))
-
-                    return (
-                      <PageBreak
-                        page={pageBreakAfter}
-                        isFirst={!canMoveUp}
-                        isLast={!canMoveDown}
-                        onMoveUp={() =>
-                          handleMovePageBreak(pageBreakAfter.id, "up")
-                        }
-                        onMoveDown={() =>
-                          handleMovePageBreak(pageBreakAfter.id, "down")
-                        }
-                        onDelete={() =>
-                          handleDeletePageBreak(pageBreakAfter.id)
-                        }
-                      />
-                    )
-                  })()}
-
-                  {/* Add buttons after page break */}
-                  <div className="my-8 flex items-center justify-center gap-4">
-                    <Button size="sm" variant="dashed">
-                      + Add New Question Here
-                    </Button>
-                    <Button disabled size="sm" variant="dashed">
-                      + Add a Page Break Here
-                    </Button>
-                  </div>
+                <div className="my-8 flex items-center justify-center gap-4 flex-wrap">
+                  <Button size="sm" variant="dashed">
+                    + Add New Question Here
+                  </Button>
+                  <Button
+                    disabled={index === questions.length - 1}
+                    size="sm"
+                    variant="dashed"
+                    onClick={() => handleAddPageBreak(question.order)}
+                  >
+                    + Add a Page Break Here
+                  </Button>
                 </div>
-              )}
-            </div>
-          )
-        })}
+
+                {/* Show page break if one exists after this question */}
+                {pageBreakAfter && (
+                  <div className="my-8">
+                    {(() => {
+                      // Find if there are adjacent breaks
+                      const allBreaks = pages.filter(
+                        (p) => p.breakIndex !== null,
+                      )
+                      const currentBreakIndex = pageBreakAfter.breakIndex || 0
+
+                      // Check if there's a break before this one
+                      const hasBreakBefore = allBreaks.some(
+                        (p) =>
+                          p.breakIndex !== null &&
+                          p.breakIndex < currentBreakIndex,
+                      )
+
+                      // Check if there's a break after this one
+                      const hasBreakAfter = allBreaks.some(
+                        (p) =>
+                          p.breakIndex !== null &&
+                          p.breakIndex > currentBreakIndex,
+                      )
+
+                      // Can't move up if: at question 1, or would collide with previous break
+                      const canMoveUp =
+                        currentBreakIndex > 1 &&
+                        (!hasBreakBefore ||
+                          allBreaks
+                            .filter(
+                              (p) =>
+                                p.breakIndex !== null &&
+                                p.breakIndex < currentBreakIndex,
+                            )
+                            .every(
+                              (p) =>
+                                (p.breakIndex || 0) < currentBreakIndex - 1,
+                            ))
+
+                      // Can't move down if: at last question, or would collide with next break
+                      const canMoveDown =
+                        currentBreakIndex < questions.length - 1 &&
+                        (!hasBreakAfter ||
+                          allBreaks
+                            .filter(
+                              (p) =>
+                                p.breakIndex !== null &&
+                                p.breakIndex > currentBreakIndex,
+                            )
+                            .every(
+                              (p) =>
+                                (p.breakIndex || 0) > currentBreakIndex + 1,
+                            ))
+
+                      return (
+                        <PageBreak
+                          page={pageBreakAfter}
+                          isFirst={!canMoveUp}
+                          isLast={!canMoveDown}
+                          onMoveUp={() =>
+                            handleMovePageBreak(pageBreakAfter.id, "up")
+                          }
+                          onMoveDown={() =>
+                            handleMovePageBreak(pageBreakAfter.id, "down")
+                          }
+                          onDelete={() =>
+                            handleDeletePageBreak(pageBreakAfter.id)
+                          }
+                        />
+                      )
+                    })()}
+
+                    {/* Add buttons after page break */}
+                    <div className="my-8 flex items-center justify-center gap-4 flex-wrap">
+                      <Button size="sm" variant="dashed">
+                        + Add New Question Here
+                      </Button>
+                      <Button disabled size="sm" variant="dashed">
+                        + Add a Page Break Here
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {isPending && (

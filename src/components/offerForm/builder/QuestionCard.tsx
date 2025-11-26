@@ -36,9 +36,47 @@ const QuestionCard = ({
   const totalQuestions = 7 // TODO: Make this dynamic based on total count
 
   return (
-    <div className="flex items-stretch gap-6">
-      {/* Left: Question Info */}
-      <div className="flex w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4">
+    <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
+      {/* Mobile: Top row with question number and actions */}
+      <div className="flex items-center justify-between gap-4 md:hidden">
+        {/* Question Number (Mobile) */}
+        <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-2">
+          <p className="text-sm font-bold text-gray-900">
+            QUESTION {questionNumber} of {totalQuestions}
+          </p>
+        </div>
+
+        {/* Actions (Mobile) */}
+        <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onMoveUp}
+            disabled={isFirst}
+          >
+            <ChevronUp size={16} />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onMoveDown}
+            disabled={isLast}
+          >
+            <ChevronDown size={16} />
+          </Button>
+          <Button
+            size="icon"
+            disabled={!!REQUIRED_QUESTION_TYPES.includes(question.type)}
+            variant="ghostDesctructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Desktop: Left - Question Info */}
+      <div className="hidden w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4 md:flex">
         <p className="text-xl font-bold text-gray-900">QUESTION</p>
         <p className="text-sm font-bold text-gray-900">
           {questionNumber} of {totalQuestions}
@@ -55,8 +93,8 @@ const QuestionCard = ({
         </Button>
       </div>
 
-      {/* Middle: Question Preview */}
-      <div className="flex flex-1 flex-col justify-center space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+      {/* Middle: Question Preview (Both Mobile and Desktop) */}
+      <div className="flex flex-1 flex-col gap-3">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold tracking-wide text-gray-500 uppercase">
             {payload?.description || question.type}
@@ -67,22 +105,38 @@ const QuestionCard = ({
             </Badge>
           )}
         </div>
-        <p className="text-base font-medium text-gray-900">
-          {payload?.label || "Question label"}
-          {question.required && <span className="text-red-500"> *</span>}
-        </p>
-        {payload?.placeholder && (
-          <input
-            type="text"
-            placeholder={payload.placeholder}
-            disabled
-            className="rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500"
-          />
-        )}
+        <div className="flex flex-1 flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-base font-medium text-gray-900">
+            {payload?.label || "Question label"}
+            {question.required && <span className="text-red-500"> *</span>}
+          </p>
+          {payload?.placeholder && (
+            <input
+              type="text"
+              placeholder={payload.placeholder}
+              disabled
+              className="rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500"
+            />
+          )}
+        </div>
+
+        {/* Mobile: Required field checkbox and Edit button */}
+        <div className="flex items-center justify-between gap-4 md:hidden">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={question.required}
+              disabled={!!question.required}
+            />
+            <span className="text-sm text-gray-700">Required field</span>
+          </div>
+          <Button variant="outline" size="sm">
+            Edit Question
+          </Button>
+        </div>
       </div>
 
-      {/* Right: Actions */}
-      <div className="flex w-auto flex-col justify-center gap-1">
+      {/* Desktop: Right - Actions */}
+      <div className="hidden w-auto flex-col justify-center gap-1 md:flex">
         <Button
           size="xs"
           variant="ghost"
