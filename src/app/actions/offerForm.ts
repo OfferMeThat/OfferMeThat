@@ -7,7 +7,7 @@ interface DefaultQuestion {
   type: QuestionType
   order: number
   required: boolean
-  payload: {
+  uiConfig: {
     label: string
     placeholder?: string
     description?: string
@@ -19,7 +19,7 @@ const DEFAULT_QUESTIONS: DefaultQuestion[] = [
     type: "specifyListing",
     order: 1,
     required: true,
-    payload: {
+    uiConfig: {
       label: "What listing are you interested in?",
       placeholder: "Specify the listing here...",
       description: "SPECIFY LISTING",
@@ -29,7 +29,7 @@ const DEFAULT_QUESTIONS: DefaultQuestion[] = [
     type: "submitterRole",
     order: 2,
     required: true,
-    payload: {
+    uiConfig: {
       label: "What is your role?",
       description: "SUBMITTER ROLE",
     },
@@ -38,7 +38,7 @@ const DEFAULT_QUESTIONS: DefaultQuestion[] = [
     type: "submitterName",
     order: 3,
     required: true,
-    payload: {
+    uiConfig: {
       label: "What is your name?",
       placeholder: "First Name",
       description: "SUBMITTER NAME",
@@ -48,7 +48,7 @@ const DEFAULT_QUESTIONS: DefaultQuestion[] = [
     type: "submitterEmail",
     order: 4,
     required: true,
-    payload: {
+    uiConfig: {
       label: "What is your email?",
       placeholder: "Email",
       description: "SUBMITTER EMAIL",
@@ -58,7 +58,7 @@ const DEFAULT_QUESTIONS: DefaultQuestion[] = [
     type: "submitterPhone",
     order: 5,
     required: true,
-    payload: {
+    uiConfig: {
       label: "What is your phone number?",
       placeholder: "Phone",
       description: "SUBMITTER PHONE",
@@ -68,7 +68,7 @@ const DEFAULT_QUESTIONS: DefaultQuestion[] = [
     type: "offerAmount",
     order: 6,
     required: true,
-    payload: {
+    uiConfig: {
       label: "What is your offer amount?",
       placeholder: "$0.00",
       description: "OFFER AMOUNT",
@@ -78,7 +78,7 @@ const DEFAULT_QUESTIONS: DefaultQuestion[] = [
     type: "submitButton",
     order: 7,
     required: true,
-    payload: {
+    uiConfig: {
       label: "Submit Offer",
       description: "SUBMIT BUTTON",
     },
@@ -137,7 +137,8 @@ export const getOrCreateOfferForm = async () => {
     type: q.type,
     order: q.order,
     required: q.required,
-    payload: q.payload,
+    uiConfig: q.uiConfig,
+    setupConfig: {},
   }))
 
   const { error: questionsError } = await supabase
@@ -257,7 +258,8 @@ export const resetFormToDefault = async (formId: string) => {
     type: q.type,
     order: q.order,
     required: q.required,
-    payload: q.payload,
+    uiConfig: q.uiConfig,
+    setupConfig: {},
   }))
 
   const { error: insertError } = await supabase
@@ -650,4 +652,106 @@ export const getFormPages = async (formId: string) => {
   }
 
   return data
+}
+
+export const addQuestion = async (
+  formId: string,
+  questionType: QuestionType,
+  afterOrder: number,
+  setupConfig?: Record<string, any>,
+) => {
+  const supabase = await createClient()
+
+  // Get all questions to determine order and page
+  const { data: allQuestions } = await supabase
+    .from("offerFormQuestions")
+    .select("*")
+    .eq("formId", formId)
+    .order("order", { ascending: true })
+
+  if (!allQuestions) {
+    throw new Error("Failed to fetch questions")
+  }
+
+  // Determine the new order
+  const newOrder = afterOrder + 1
+
+  // Find the page ID for the new question
+  // It should be the same page as the question at 'afterOrder'
+  // Or if afterOrder is 0 (top of form), it's the first page
+  let pageId: string
+  if (afterOrder === 0) {
+    const { data: firstPage } = await supabase
+      .from("offerFormPages")
+      .select("id")
+      .eq("formId", formId)
+      .order("order", { ascending: true })
+      .limit(1)
+      .single()
+
+    if (!firstPage) throw new Error("No pages found")
+    pageId = firstPage.id
+  } else {
+    const prevQuestion = allQuestions.find((q) => q.order === afterOrder)
+    if (!prevQuestion || !prevQuestion.pageId) {
+      // Fallback to finding the page that contains this order range
+      // This is complex because of page breaks.
+      // Simplest approach: use the page of the previous question.
+      // If previous question doesn't exist (shouldn't happen if afterOrder > 0), error.
+      throw new Error("Previous question not found")
+    }
+    pageId = prevQuestion.pageId
+  }
+
+  // Shift orders of subsequent questions
+  // We do this in reverse order to avoid unique constraint violations if any
+  const questionsToShift = allQuestions.filter((q) => q.order >= newOrder)
+  if (questionsToShift.length > 0) {
+    // It's safer to update one by one or use a stored procedure, but for now loop
+    // To avoid conflicts, we might need to be careful.
+    // Supabase/Postgres constraints might be deferrable, but let's assume immediate.
+    // Update from highest order to lowest to avoid collision if we were just incrementing.
+    // But here we are shifting everything up.
+    for (const q of questionsToShift.reverse()) {
+      await supabase
+        .from("offerFormQuestions")
+        .update({ order: q.order + 1 })
+        .eq("id", q.id)
+    }
+  }
+
+  // Also need to update breakIndex in pages if we inserted before a break
+  const { data: pages } = await supabase
+    .from("offerFormPages")
+    .select("*")
+    .eq("formId", formId)
+
+  if (pages) {
+    for (const page of pages) {
+      if (page.breakIndex !== null && page.breakIndex >= newOrder) {
+        await supabase
+          .from("offerFormPages")
+          .update({ breakIndex: page.breakIndex + 1 })
+          .eq("id", page.id)
+      }
+    }
+  }
+
+  // Insert the new question
+  const { error } = await supabase.from("offerFormQuestions").insert({
+    formId,
+    pageId,
+    type: questionType,
+    order: newOrder,
+    required: true, // Default to true, can be changed later
+    setupConfig: setupConfig || {},
+    uiConfig: {},
+  })
+
+  if (error) {
+    console.error("Error inserting question:", error)
+    throw new Error("Failed to insert question")
+  }
+
+  return true
 }

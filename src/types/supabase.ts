@@ -117,33 +117,33 @@ export type Database = {
           formId: string
           id: string
           order: number
-          pageId: string
-          parentQuestionId: string | null
-          payload: Json | null
+          pageId: string | null
           required: boolean
+          setupConfig: Json | null
           type: Database["public"]["Enums"]["questionType"]
+          uiConfig: Json | null
         }
         Insert: {
           createdAt?: string
           formId: string
           id?: string
           order: number
-          pageId: string
-          parentQuestionId?: string | null
-          payload?: Json | null
+          pageId?: string | null
           required: boolean
+          setupConfig?: Json | null
           type: Database["public"]["Enums"]["questionType"]
+          uiConfig?: Json | null
         }
         Update: {
           createdAt?: string
           formId?: string
           id?: string
           order?: number
-          pageId?: string
-          parentQuestionId?: string | null
-          payload?: Json | null
+          pageId?: string | null
           required?: boolean
+          setupConfig?: Json | null
           type?: Database["public"]["Enums"]["questionType"]
+          uiConfig?: Json | null
         }
         Relationships: [
           {
@@ -151,13 +151,6 @@ export type Database = {
             columns: ["formId"]
             isOneToOne: false
             referencedRelation: "offerForms"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "formQuestions_parentQuestionId_fkey"
-            columns: ["parentQuestionId"]
-            isOneToOne: false
-            referencedRelation: "offerFormQuestions"
             referencedColumns: ["id"]
           },
           {

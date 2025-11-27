@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  addQuestion,
   createPageBreak,
   deletePageBreak,
   deleteQuestion,
@@ -263,17 +264,33 @@ const OfferFormBuilderPageContent = () => {
     setShowAddQuestionModal(true)
   }
 
-  const handleAddQuestion = async (questionType: QuestionType) => {
+  const handleAddQuestion = async (
+    questionType: QuestionType,
+    config?: Record<string, any>,
+  ) => {
     if (!formId || addQuestionAfterOrder === null) return
 
-    // TODO: Implement server action to add question
-    console.log(
-      "Adding question:",
-      questionType,
-      "after order:",
-      addQuestionAfterOrder,
-    )
-    toast.info("Add question functionality coming soon!")
+    startTransition(async () => {
+      try {
+        await addQuestion(formId, questionType, addQuestionAfterOrder, config)
+
+        // Fetch fresh data
+        const [fetchedQuestions, fetchedPages] = await Promise.all([
+          getFormQuestions(formId),
+          getFormPages(formId),
+        ])
+
+        setQuestions(fetchedQuestions)
+        setPages(fetchedPages)
+        setShowAddQuestionModal(false)
+        setAddQuestionAfterOrder(null)
+
+        toast.success("Question added successfully")
+      } catch (error) {
+        console.error("Error adding question:", error)
+        toast.error("Failed to add question")
+      }
+    })
   }
 
   if (isLoading) {
