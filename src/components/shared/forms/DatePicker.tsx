@@ -17,6 +17,7 @@ export type DatePickerProps = {
   btnClassName?: string
   value?: Date
   onChange?: (date: Date | undefined) => void
+  disabled?: boolean
 }
 
 const DatePicker = ({
@@ -24,6 +25,7 @@ const DatePicker = ({
   btnClassName,
   value,
   onChange,
+  disabled = false,
 }: DatePickerProps) => {
   const [open, setOpen] = React.useState(false)
 
@@ -33,6 +35,7 @@ const DatePicker = ({
         <Button
           variant="outline"
           id="date"
+          disabled={disabled}
           className={cn(
             "shrink justify-between font-normal",
             !value && "text-gray-500",

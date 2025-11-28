@@ -11,6 +11,34 @@ export const REQUIRED_QUESTION_TYPES: Array<QuestionType> = [
   "submitButton",
 ]
 
+export const QUESTION_TYPE_TO_LABEL: Record<QuestionType, string> = {
+  specifyListing: "Specify Listing",
+  submitterRole: "Submitter Role",
+  submitterName: "Submitter Name",
+  submitterEmail: "Submitter Email",
+  submitterPhone: "Submitter Phone",
+  nameOfPurchaser: "Name of Purchaser",
+  offerAmount: "Offer Amount",
+  submitButton: "Submit Button",
+  offerExpiry: "Offer Expiry",
+  deposit: "Deposit",
+  subjectToLoanApproval: "Subject to Loan Approval",
+  attachPurchaseAgreement: "Attach Purchase Agreement",
+  specialConditions: "Special Conditions",
+  settlementDate: "Settlement Date",
+  messageToAgent: "Message to Agent",
+  custom: "Custom",
+  shortText: "Short Text",
+  longText: "Long Text",
+  provideAmount: "Provide Amount",
+  uploadFiles: "Upload Files",
+  provideTime: "Provide Time",
+  yesNo: "Yes/No",
+  singleChoiceSelect: "Single Choice Select",
+  multiChoiceSelect: "Multi Choice Select",
+  statement: "Statement",
+}
+
 export type SetupQuestionOption = {
   value: string
   label: string

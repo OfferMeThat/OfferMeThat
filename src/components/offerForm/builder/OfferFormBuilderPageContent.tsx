@@ -144,15 +144,20 @@ const OfferFormBuilderPageContent = () => {
   }
 
   const handleDelete = (questionId: string) => {
+    if (!formId) return
+
     startTransition(async () => {
       try {
         await deleteQuestion(questionId)
 
-        // Update local state and reorder
-        setQuestions((prev) => {
-          const filtered = prev.filter((q) => q.id !== questionId)
-          return filtered.map((q, index) => ({ ...q, order: index + 1 }))
-        })
+        // Fetch fresh data from database to ensure consistency
+        const [fetchedQuestions, fetchedPages] = await Promise.all([
+          getFormQuestions(formId),
+          getFormPages(formId),
+        ])
+
+        setQuestions(fetchedQuestions)
+        setPages(fetchedPages)
 
         toast.success("Question deleted")
       } catch (error) {
@@ -267,12 +272,19 @@ const OfferFormBuilderPageContent = () => {
   const handleAddQuestion = async (
     questionType: QuestionType,
     config?: Record<string, any>,
+    uiConfig?: Record<string, any>,
   ) => {
     if (!formId || addQuestionAfterOrder === null) return
 
     startTransition(async () => {
       try {
-        await addQuestion(formId, questionType, addQuestionAfterOrder, config)
+        await addQuestion(
+          formId,
+          questionType,
+          addQuestionAfterOrder,
+          config,
+          uiConfig,
+        )
 
         // Fetch fresh data
         const [fetchedQuestions, fetchedPages] = await Promise.all([
@@ -342,6 +354,7 @@ const OfferFormBuilderPageContent = () => {
             return (
               <div key={question.id}>
                 <QuestionCard
+                  questionsAmount={questions.length}
                   question={question}
                   isFirst={index === 0}
                   isLast={index === questions.length - 1}

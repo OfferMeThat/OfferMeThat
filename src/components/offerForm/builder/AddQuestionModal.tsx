@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { Button } from "@/components/ui/button"
 import {
@@ -8,18 +9,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
 import { cn } from "@/lib/utils"
 import { QuestionType } from "@/types/form"
 import { Check, ChevronLeft } from "lucide-react"
 import { useState } from "react"
+import SmartQuestionSetup from "./SmartQuestionSetup"
 
 interface AddQuestionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAddQuestion: (
     questionType: QuestionType,
-    config?: Record<string, string>,
+    config?: Record<string, any>,
+    uiConfig?: Record<string, any>,
   ) => void
   existingQuestionTypes: QuestionType[]
 }
@@ -183,7 +195,49 @@ const AddQuestionModal = ({
   )
 
   const renderSetupStep = () => {
+    // Special handling for deposit question using SmartQuestionSetup
+    if (selectedType === "deposit") {
+      return (
+        <>
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <DialogTitle className="text-xl font-semibold">
+              Question Setup: Deposit
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <SmartQuestionSetup
+              questionId={selectedType}
+              onComplete={(generated, answers) => {
+                onAddQuestion(selectedType, answers, generated)
+                handleClose()
+              }}
+              onCancel={handleBack}
+              hideButtons={true}
+            />
+          </div>
+
+          <DialogFooter className="border-t px-6 py-4">
+            <Button variant="outline" onClick={handleBack}>
+              <ChevronLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <Button
+              onClick={() => {
+                // Trigger the save from SmartQuestionSetup
+                const event = new CustomEvent("smartQuestionSave")
+                window.dispatchEvent(event)
+              }}
+            >
+              Add Question
+            </Button>
+          </DialogFooter>
+        </>
+      )
+    }
+
     if (!selectedType) return null
+
     const definition = QUESTION_DEFINITIONS[selectedType]
     if (!definition?.setupQuestions) return null
 
@@ -197,7 +251,7 @@ const AddQuestionModal = ({
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <div className="space-y-6">
-            {definition.setupQuestions.map((question) => {
+            {definition.setupQuestions.map((question: any) => {
               // Check dependencies
               if (question.dependsOn) {
                 const dependentValue =
@@ -219,7 +273,7 @@ const AddQuestionModal = ({
                   {/* Radio buttons */}
                   {question.type === "radio" && question.options && (
                     <div className="space-y-2">
-                      {question.options.map((option) => {
+                      {question.options.map((option: any) => {
                         const isSelected =
                           setupConfig[question.id] === option.value
                         return (
@@ -251,45 +305,46 @@ const AddQuestionModal = ({
 
                   {/* Select dropdown */}
                   {question.type === "select" && question.options && (
-                    <select
+                    <Select
                       value={setupConfig[question.id] || ""}
-                      onChange={(e) =>
-                        handleConfigChange(question.id, e.target.value)
+                      onValueChange={(value) =>
+                        handleConfigChange(question.id, value)
                       }
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                     >
-                      <option value="">Select an option</option>
-                      {question.options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select an option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {question.options.map((option: any) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
 
                   {/* Text input */}
                   {question.type === "text" && (
-                    <input
+                    <Input
                       type="text"
                       value={setupConfig[question.id] || ""}
                       onChange={(e) =>
                         handleConfigChange(question.id, e.target.value)
                       }
                       placeholder={question.placeholder}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                     />
                   )}
 
                   {/* Number input */}
                   {question.type === "number" && (
-                    <input
+                    <Input
                       type="number"
                       value={setupConfig[question.id] || ""}
                       onChange={(e) =>
                         handleConfigChange(question.id, e.target.value)
                       }
                       placeholder={question.placeholder}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                     />
                   )}
                 </div>
@@ -330,14 +385,13 @@ const AddQuestionModal = ({
                       <label className="mb-1 block text-xs font-medium text-gray-700">
                         Name for Condition {index + 1} *
                       </label>
-                      <input
+                      <Input
                         type="text"
                         value={condition.name}
                         onChange={(e) =>
                           handleConditionChange(index, "name", e.target.value)
                         }
                         placeholder="e.g., Subject to Building Inspection"
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
 
@@ -345,7 +399,7 @@ const AddQuestionModal = ({
                       <label className="mb-1 block text-xs font-medium text-gray-700">
                         Additional details (optional)
                       </label>
-                      <textarea
+                      <Textarea
                         value={condition.details}
                         onChange={(e) =>
                           handleConditionChange(
@@ -356,7 +410,6 @@ const AddQuestionModal = ({
                         }
                         placeholder="Enter additional details (optional)"
                         rows={3}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
                   </div>

@@ -1,5 +1,10 @@
 "use server"
 
+import {
+  QUESTION_TYPE_TO_LABEL,
+  REQUIRED_QUESTION_TYPES,
+} from "@/constants/offerFormQuestions"
+import { buildSmartQuestionUiConfig } from "@/data/smartQuestions"
 import { createClient } from "@/lib/supabase/server"
 import { QuestionType } from "@/types/form"
 
@@ -659,6 +664,7 @@ export const addQuestion = async (
   questionType: QuestionType,
   afterOrder: number,
   setupConfig?: Record<string, any>,
+  uiConfigOverride?: Record<string, any>,
 ) => {
   const supabase = await createClient()
 
@@ -738,14 +744,26 @@ export const addQuestion = async (
   }
 
   // Insert the new question
+  const finalSetupConfig = setupConfig || {}
+  const derivedUiConfig =
+    uiConfigOverride ||
+    buildSmartQuestionUiConfig(questionType, finalSetupConfig || {})
+  const fallbackLabel =
+    QUESTION_TYPE_TO_LABEL[questionType] ||
+    questionType.charAt(0).toUpperCase() + questionType.slice(1)
+
+  const finalUiConfig = derivedUiConfig || {
+    label: fallbackLabel,
+  }
+
   const { error } = await supabase.from("offerFormQuestions").insert({
     formId,
     pageId,
     type: questionType,
     order: newOrder,
-    required: true, // Default to true, can be changed later
-    setupConfig: setupConfig || {},
-    uiConfig: {},
+    required: REQUIRED_QUESTION_TYPES.includes(questionType), // Only required if in REQUIRED_QUESTION_TYPES
+    setupConfig: finalSetupConfig,
+    uiConfig: finalUiConfig,
   })
 
   if (error) {

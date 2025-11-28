@@ -3,13 +3,19 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { REQUIRED_QUESTION_TYPES } from "@/constants/offerFormQuestions"
+import {
+  QUESTION_DEFINITIONS,
+  QUESTION_TYPE_TO_LABEL,
+  REQUIRED_QUESTION_TYPES,
+} from "@/constants/offerFormQuestions"
 import { Database } from "@/types/supabase"
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react"
+import { QuestionRenderer } from "../QuestionRenderer"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 
 interface QuestionCardProps {
+  questionsAmount: number
   question: Question
   isFirst: boolean
   isLast: boolean
@@ -19,6 +25,7 @@ interface QuestionCardProps {
 }
 
 const QuestionCard = ({
+  questionsAmount,
   question,
   isFirst,
   isLast,
@@ -26,14 +33,21 @@ const QuestionCard = ({
   onMoveDown,
   onDelete,
 }: QuestionCardProps) => {
-  const payload = question.payload as {
-    label?: string
-    description?: string
-    placeholder?: string
-  } | null
+  // Get UI configuration from uiConfig JSONB field
+  const uiConfig =
+    (question.uiConfig as {
+      label?: string
+      placeholder?: string
+    } | null) || {}
+
+  // Get question definition for description
+  const questionDefinition = QUESTION_DEFINITIONS[question.type]
 
   const questionNumber = question.order
-  const totalQuestions = 7 // TODO: Make this dynamic based on total count
+  const totalQuestions = questionsAmount
+
+  // Get setup configuration
+  const setupConfig = (question.setupConfig as Record<string, any>) || {}
 
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
@@ -97,7 +111,7 @@ const QuestionCard = ({
       <div className="flex flex-1 flex-col gap-3">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold tracking-wide text-gray-500 uppercase">
-            {payload?.description || question.type}
+            {QUESTION_TYPE_TO_LABEL[question.type]}
           </h3>
           {question.required && (
             <Badge size="xs" variant="destructiveLight" className="text-xs">
@@ -107,17 +121,12 @@ const QuestionCard = ({
         </div>
         <div className="flex flex-1 flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4">
           <p className="text-base font-medium text-gray-900">
-            {payload?.label || "Question label"}
+            {uiConfig.label || questionDefinition?.label || "Question label"}
             {question.required && <span className="text-red-500"> *</span>}
           </p>
-          {payload?.placeholder && (
-            <input
-              type="text"
-              placeholder={payload.placeholder}
-              disabled
-              className="rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500"
-            />
-          )}
+
+          {/* Render appropriate input based on question type and setup */}
+          <QuestionRenderer question={question} disabled />
         </div>
 
         {/* Mobile: Required field checkbox and Edit button */}
