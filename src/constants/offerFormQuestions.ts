@@ -976,9 +976,9 @@ export const QUESTION_DEFINITIONS: Partial<
       // Q2: Settlement Date text (if seller_text)
       {
         id: "settlement_date_text",
-        label: "Settlement Date text",
+        label: "Enter the Settlement Date text for buyers to agree to:",
         type: "text",
-        placeholder: "e.g., 60 days from Offer Acceptance",
+        placeholder: "Enter settlement date text",
         dependsOn: {
           questionId: "settlement_date_type",
           value: "seller_text",
@@ -988,7 +988,7 @@ export const QUESTION_DEFINITIONS: Partial<
       // Q3: Ascertain Settlement Location?
       {
         id: "settlement_location",
-        label: "Ascertain Settlement Location?",
+        label: "Would you like to ascertain Settlement Location?",
         type: "select",
         options: [
           { value: "not_required", label: "No" },
@@ -1003,9 +1003,9 @@ export const QUESTION_DEFINITIONS: Partial<
       // Q4: Settlement Location text (if seller_text)
       {
         id: "settlement_location_text",
-        label: "Settlement Location text",
+        label: "Enter the Settlement Location text for buyers to agree to:",
         type: "text",
-        placeholder: "e.g., At the office of ABC Law Firm",
+        placeholder: "Enter settlement location text",
         dependsOn: {
           questionId: "settlement_location",
           value: "seller_text",
