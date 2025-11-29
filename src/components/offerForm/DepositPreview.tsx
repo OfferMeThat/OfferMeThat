@@ -1,6 +1,7 @@
 "use client"
 /* eslint-disable react/prop-types */
 
+import DatePicker from "@/components/shared/forms/DatePicker"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -10,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { useEffect, useState } from "react"
 
 interface DepositQuestion {
@@ -297,7 +299,7 @@ const DepositForm = ({
         // Multiple selections - show as dropdown
         return (
           <Select>
-            <SelectTrigger className="w-auto min-w-[120px]">
+            <SelectTrigger className="w-auto min-w-52">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
@@ -376,17 +378,21 @@ const DepositForm = ({
             </Label>
 
             {question_type === "text" && (
-              <div className="space-y-1">
+              <div className="space-y-1 pt-1.5">
                 {/* Check if this question has a currency field */}
                 {depositQuestion.currency_field ? (
                   <div className="flex items-center gap-3">
-                    <div className="relative w-1/4">
+                    <div className="relative">
                       <Input
+                        type="number"
                         placeholder={currentPlaceholder || "Enter value"}
                         value={localFormData[id] || ""}
                         onChange={(e) => handleFieldChange(id, e.target.value)}
                         disabled={editingMode}
-                        className={editingMode ? "cursor-not-allowed" : ""}
+                        className={cn(
+                          editingMode ? "cursor-not-allowed" : "",
+                          "min-w-52",
+                        )}
                       />
                       {editingMode && (
                         <div
@@ -410,7 +416,7 @@ const DepositForm = ({
                       }
                       disabled={false}
                     >
-                      <SelectTrigger className="w-1/4">
+                      <SelectTrigger className="min-w-52">
                         <SelectValue
                           placeholder={
                             depositQuestion.currency_field.placeholder ||
@@ -458,13 +464,13 @@ const DepositForm = ({
             )}
 
             {question_type === "select" && (
-              <div className="space-y-2">
+              <div className="space-y-2 pt-1.5">
                 <Select
                   value={localFormData[id] || ""}
                   onValueChange={(value) => handleFieldChange(id, value)}
                   disabled={false}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="min-w-52">
                     <SelectValue
                       placeholder={currentPlaceholder || "Select option"}
                     />
@@ -557,24 +563,13 @@ const DepositForm = ({
             )}
 
             {question_type === "calendar" && (
-              <Input
-                type="date"
-                value={localFormData[id] || ""}
-                onChange={(e) => handleFieldChange(id, e.target.value)}
-                disabled={editingMode}
-              />
+              <DatePicker disabled={editingMode} />
             )}
 
             {question_type === "date" && (
-              <div className="space-y-1">
+              <div className="space-y-1 pt-1.5">
                 <div className="relative">
-                  <Input
-                    type="date"
-                    value={localFormData[id] || ""}
-                    onChange={(e) => handleFieldChange(id, e.target.value)}
-                    disabled={editingMode}
-                    className={editingMode ? "cursor-not-allowed" : ""}
-                  />
+                  <DatePicker disabled={editingMode} />
                   {editingMode && (
                     <div
                       className="absolute inset-0 cursor-pointer bg-transparent"
@@ -643,24 +638,6 @@ const DepositForm = ({
 
   return (
     <div className="space-y-4">
-      {/* CRITICAL: Main Question Text Display at Top */}
-      <div
-        className={
-          editingMode && onEditQuestion
-            ? "cursor-pointer rounded p-2 text-sm font-medium text-gray-700 transition-colors hover:text-[#08b79d] hover:underline"
-            : "text-sm font-medium text-gray-700"
-        }
-        onClick={() => {
-          if (editingMode && onEditQuestion) {
-            onEditQuestion("question_text", getMainQuestionText())
-          }
-        }}
-        title={editingMode ? "Click to edit main question text" : ""}
-      >
-        {getMainQuestionText()}
-        {question.is_essential && <span className="ml-1 text-red-500">*</span>}
-      </div>
-
       {/* Render the deposit questions from smart question configuration */}
       {renderDepositQuestions()}
     </div>

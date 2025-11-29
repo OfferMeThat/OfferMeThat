@@ -1,8 +1,6 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { QuestionType } from "@/types/form"
-
 // Smart Questions Configuration
 export const smartQuestionsConfig = {
   message_to_listing_agent: {
@@ -1510,6 +1508,10 @@ export const smartQuestionsConfig = {
       } else if (currentDepositManagement === "buyer_percentage") {
         question.placeholder = "Enter percentage"
         question.suffix = "% of purchase price"
+        question.currency_field = this.generateCurrencyField(
+          currentCurrencyStipulation,
+          setupAnswers,
+        )
       } else if (currentDepositManagement === "buyer_choice") {
         question.placeholder = "Enter amount or percentage"
         question.conditional_currency = this.generateCurrencyField(
@@ -1562,6 +1564,19 @@ export const smartQuestionsConfig = {
           type: "display",
           value: setupAnswers.stipulated_currency,
         }
+      }
+
+      // Default: return a basic currency selector if no stipulation is set
+      return {
+        type: "select",
+        placeholder: "Select currency",
+        options: [
+          { value: "USD", label: "USD - US Dollar" },
+          { value: "EUR", label: "EUR - Euro" },
+          { value: "GBP", label: "GBP - British Pound" },
+          { value: "CAD", label: "CAD - Canadian Dollar" },
+          { value: "AUD", label: "AUD - Australian Dollar" },
+        ],
       }
     },
 
@@ -1736,6 +1751,10 @@ export const smartQuestionsConfig = {
       } else if (depositManagement === "buyer_percentage") {
         question.placeholder = "Enter percentage"
         question.suffix = "% of purchase price"
+        question.currency_field = this.generateCurrencyField(
+          currencyStipulation,
+          setupAnswers,
+        )
       } else if (depositManagement === "buyer_choice") {
         question.placeholder = "Enter amount or percentage"
         question.conditional_currency = this.generateCurrencyField(
@@ -3626,13 +3645,13 @@ export const getSmartQuestion = (questionId) => {
   return smartQuestionsConfig[key] || null
 }
 
-export const buildSmartQuestionUiConfig = (
-  questionType,
-  setupConfig = {},
-) => {
+export const buildSmartQuestionUiConfig = (questionType, setupConfig = {}) => {
   const smartQuestion = getSmartQuestion(questionType)
 
-  if (!smartQuestion || typeof smartQuestion.generateProperties !== "function") {
+  if (
+    !smartQuestion ||
+    typeof smartQuestion.generateProperties !== "function"
+  ) {
     return null
   }
 
