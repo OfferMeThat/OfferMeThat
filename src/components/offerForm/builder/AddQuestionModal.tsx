@@ -353,7 +353,7 @@ const AddQuestionModal = ({
 
             {/* Special handling for Special Conditions - Dynamic Condition Builder */}
             {selectedType === "specialConditions" && (
-              <div className="mt-6 space-y-4 border-t pt-6">
+              <div className="mt-6 space-y-4 pt-6">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-medium text-gray-900">
                     Predefined Conditions

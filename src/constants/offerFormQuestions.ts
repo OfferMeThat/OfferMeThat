@@ -920,7 +920,7 @@ export const QUESTION_DEFINITIONS: Partial<
       {
         id: "allow_custom_conditions",
         label:
-          "Would you like to allow the Buyer/Agent to be able to add their own conditions?",
+          "You can produce a list of special conditions that the Buyer/Agent can add to their offer by ticking a box. You also have the option to let the Buyer/Agent add their own conditions as well. Would you like to allow the Buyer/Agent to be able to add their own conditions?",
         type: "select",
         options: [
           { value: "yes", label: "Yes" },
