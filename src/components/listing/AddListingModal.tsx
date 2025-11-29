@@ -262,7 +262,7 @@ export const AddListingModal = ({ children }: AddListingModalProps) => {
             >
               <SelectTrigger
                 id="status"
-                className={`w-52 ${errors.status ? "border-red-500" : ""}`}
+                className={`min-w-52 ${errors.status ? "border-red-500" : ""}`}
               >
                 <SelectValue placeholder="Select status..." />
               </SelectTrigger>

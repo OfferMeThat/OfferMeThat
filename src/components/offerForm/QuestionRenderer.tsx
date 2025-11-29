@@ -437,11 +437,16 @@ export const QuestionRenderer = ({
   if (question.type === "attachPurchaseAgreement") {
     const isRequired = setupConfig.contract_requirement === "required"
     return (
-      <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
-        <p className="text-sm text-gray-500">
-          📎 Upload Purchase Agreement {!isRequired && "(Optional)"}
-        </p>
-      </div>
+      <>
+        <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
+          <p className="text-sm text-gray-500">
+            📎 Upload Purchase Agreement {!isRequired && "(Optional)"}
+          </p>
+        </div>
+        <span className="text-xs text-gray-500">
+          Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 10MB each)
+        </span>
+      </>
     )
   }
 
@@ -778,7 +783,7 @@ export const QuestionRenderer = ({
     return (
       <div className="space-y-3">
         <div>
-          {dateType === "calendar" && <Input type="date" disabled={disabled} />}
+          {dateType === "calendar" && <DatePicker disabled={disabled} />}
           {dateType === "datetime" && (
             <div className="flex gap-2">
               <DatePicker disabled={disabled} />
@@ -956,14 +961,14 @@ export const QuestionRenderer = ({
     } else if (answerType === "time_date") {
       const timeType = setupConfig.time_date_type
       if (timeType === "date") {
-        return <Input type="date" disabled={disabled} />
+        return <DatePicker disabled={disabled} />
       } else if (timeType === "time") {
         return <Input type="time" disabled={disabled} />
       } else if (timeType === "datetime") {
         return (
           <div className="flex gap-2">
-            <Input type="date" disabled={disabled} className="flex-1" />
-            <Input type="time" disabled={disabled} />
+            <DatePicker disabled={disabled} />
+            <TimePicker disabled={disabled} />
           </div>
         )
       }

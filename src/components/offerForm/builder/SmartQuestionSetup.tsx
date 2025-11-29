@@ -1464,7 +1464,7 @@ const SmartQuestionSetup = ({
                             handleAnswerChange(currencyOptionId, value)
                           }
                         >
-                          <SelectTrigger className="w-48">
+                          <SelectTrigger className="min-w-52">
                             <SelectValue placeholder="Select currency" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1546,7 +1546,7 @@ const SmartQuestionSetup = ({
                             handleAnswerChange(currencyOptionId, value)
                           }
                         >
-                          <SelectTrigger className="w-48">
+                          <SelectTrigger className="min-w-52">
                             <SelectValue placeholder="Select currency" />
                           </SelectTrigger>
                           <SelectContent>
