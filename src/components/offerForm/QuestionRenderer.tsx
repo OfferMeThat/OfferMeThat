@@ -135,36 +135,298 @@ export const QuestionRenderer = ({
   // Name of Purchaser
   if (question.type === "nameOfPurchaser") {
     const collectionMethod = setupConfig.collection_method
+    const collectMiddleNames = setupConfig.collect_middle_names
     const collectId = setupConfig.collect_identification
 
-    return (
-      <div className="space-y-3">
-        {collectionMethod === "single_field" && (
+    // Single field method - simple text input
+    if (collectionMethod === "single_field") {
+      return (
+        <div className="space-y-3">
           <Input
             type="text"
             placeholder="Enter name(s) of purchaser(s)"
             disabled={disabled}
           />
-        )}
-        {collectionMethod === "individual_names" && (
-          <div className="space-y-2">
-            <Input type="text" placeholder="First Name" disabled={disabled} />
-            {setupConfig.collect_middle_names === "yes" && (
-              <Input
-                type="text"
-                placeholder="Middle Name"
+          {collectId && collectId !== "no" && (
+            <div className="mt-3 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
+              <p className="text-sm text-gray-500">
+                📎 Upload Identification{" "}
+                {collectId === "optional" && "(Optional)"}
+              </p>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Individual names method - complex multi-scenario UI
+    const [scenario, setScenario] = useState<string>("")
+    const [numPurchasers, setNumPurchasers] = useState<number>(2)
+    const [numRepresentatives, setNumRepresentatives] = useState<number>(1)
+    const [purchaserTypes, setPurchaserTypes] = useState<
+      Record<number, string>
+    >({})
+    const [noMiddleName, setNoMiddleName] = useState<Record<string, boolean>>(
+      {},
+    )
+
+    // Helper component for person name fields
+    const PersonNameFields = ({
+      prefix,
+      showMiddleName = collectMiddleNames,
+    }: {
+      prefix: string
+      showMiddleName?: boolean
+    }) => (
+      <div className="space-y-3">
+        <div>
+          <Label className="mb-1 block text-sm">First Name:</Label>
+          <Input
+            type="text"
+            placeholder="Enter first name"
+            disabled={disabled}
+          />
+        </div>
+        {showMiddleName && (
+          <div>
+            <Label className="mb-1 block text-sm">Middle Name:</Label>
+            <Input
+              type="text"
+              placeholder="Enter middle name(s)"
+              disabled={disabled || noMiddleName[prefix]}
+            />
+            <div className="mt-2 flex items-center space-x-2">
+              <Checkbox
+                id={`${prefix}-no-middle`}
+                checked={noMiddleName[prefix] || false}
+                onCheckedChange={(checked) =>
+                  setNoMiddleName({
+                    ...noMiddleName,
+                    [prefix]: checked as boolean,
+                  })
+                }
                 disabled={disabled}
               />
-            )}
-            <Input type="text" placeholder="Last Name" disabled={disabled} />
+              <Label
+                htmlFor={`${prefix}-no-middle`}
+                className="cursor-pointer text-sm font-normal"
+              >
+                Does not have middle name(s)
+              </Label>
+            </div>
           </div>
         )}
+        <div>
+          <Label className="mb-1 block text-sm">Last Name:</Label>
+          <Input
+            type="text"
+            placeholder="Enter last name"
+            disabled={disabled}
+          />
+        </div>
         {collectId && collectId !== "no" && (
-          <div className="mt-3 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
-            <p className="text-sm text-gray-500">
-              📎 Upload Identification{" "}
-              {collectId === "optional" && "(Optional)"}
-            </p>
+          <div>
+            <Label className="mb-1 block text-sm">
+              ID Upload{" "}
+              {collectId === "mandatory" && (
+                <span className="text-red-500">*</span>
+              )}
+            </Label>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={disabled}
+              >
+                Choose file
+              </Button>
+              <span className="text-sm text-gray-500">No file chosen</span>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+
+    return (
+      <div className="space-y-4">
+        {/* Main scenario selector */}
+        <div>
+          <Select value={scenario} onValueChange={setScenario}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Select option" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="single">1 Person is Buying</SelectItem>
+              <SelectItem value="multiple">
+                2 or more People are Buying
+              </SelectItem>
+              <SelectItem value="corporation">
+                A Corporation is Buying
+              </SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Scenario 1: Single Person */}
+        {scenario === "single" && (
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium">Who is the Purchaser?</h4>
+            <PersonNameFields prefix="single" />
+          </div>
+        )}
+
+        {/* Scenario 2: Multiple People */}
+        {scenario === "multiple" && (
+          <div className="space-y-4">
+            <div>
+              <Label className="mb-2 block text-sm font-medium">
+                How many people are Buying?
+              </Label>
+              <Select
+                value={numPurchasers.toString()}
+                onValueChange={(val) => setNumPurchasers(parseInt(val))}
+              >
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Select number" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                    <SelectItem key={num} value={num.toString()}>
+                      {num}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {Array.from({ length: numPurchasers }, (_, i) => i + 1).map(
+              (num) => (
+                <div key={num} className="space-y-3 border-t pt-4">
+                  <h4 className="text-sm font-medium">
+                    Purchaser {num} - Who is the Purchaser?
+                  </h4>
+                  <PersonNameFields prefix={`purchaser-${num}`} />
+                </div>
+              ),
+            )}
+          </div>
+        )}
+
+        {/* Scenario 3: Corporation */}
+        {scenario === "corporation" && (
+          <div className="space-y-4">
+            <div>
+              <Label className="mb-1 block text-sm">Corporation Name:</Label>
+              <Input
+                type="text"
+                placeholder="Enter corporation name"
+                disabled={disabled}
+              />
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium">
+                Corporation Representative:
+              </h4>
+
+              {Array.from({ length: numRepresentatives }, (_, i) => i + 1).map(
+                (num) => (
+                  <div key={num} className={num > 1 ? "border-t pt-4" : ""}>
+                    {num > 1 && (
+                      <h5 className="mb-3 text-sm font-medium">
+                        Representative {num}:
+                      </h5>
+                    )}
+                    <PersonNameFields prefix={`rep-${num}`} />
+                  </div>
+                ),
+              )}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setNumRepresentatives(numRepresentatives + 1)}
+                disabled={disabled}
+              >
+                + Add another Representative
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Scenario 4: Other */}
+        {scenario === "other" && (
+          <div className="space-y-4">
+            {Array.from({ length: numPurchasers }, (_, i) => i + 1).map(
+              (num) => (
+                <div
+                  key={num}
+                  className={num > 1 ? "space-y-3 border-t pt-4" : "space-y-3"}
+                >
+                  <div>
+                    <Label className="mb-2 block text-sm font-medium">
+                      Is Purchaser {num} a Person or Corporation?
+                    </Label>
+                    <Select
+                      value={purchaserTypes[num] || ""}
+                      onValueChange={(val) =>
+                        setPurchaserTypes({ ...purchaserTypes, [num]: val })
+                      }
+                    >
+                      <SelectTrigger className="w-64">
+                        <SelectValue placeholder="Select option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="person">Person</SelectItem>
+                        <SelectItem value="corporation">Corporation</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {purchaserTypes[num] === "person" && (
+                    <PersonNameFields prefix={`other-person-${num}`} />
+                  )}
+
+                  {purchaserTypes[num] === "corporation" && (
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="mb-1 block text-sm">
+                          Corporation Name:
+                        </Label>
+                        <Input
+                          type="text"
+                          placeholder="Enter corporation name"
+                          disabled={disabled}
+                        />
+                      </div>
+                      <h5 className="text-sm font-medium">
+                        Corporation Representative:
+                      </h5>
+                      <PersonNameFields prefix={`other-corp-${num}-rep`} />
+                    </div>
+                  )}
+                </div>
+              ),
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setNumPurchasers(numPurchasers + 1)}
+              disabled={disabled}
+            >
+              + Add a{" "}
+              {numPurchasers === 1
+                ? "2nd"
+                : numPurchasers === 2
+                  ? "3rd"
+                  : `${numPurchasers + 1}th`}{" "}
+              Purchaser
+            </Button>
           </div>
         )}
       </div>
@@ -516,14 +778,11 @@ export const QuestionRenderer = ({
     return (
       <div className="space-y-3">
         <div>
-          <Label className="mb-2 block text-sm font-medium">
-            Settlement Date
-          </Label>
           {dateType === "calendar" && <Input type="date" disabled={disabled} />}
           {dateType === "datetime" && (
             <div className="flex gap-2">
-              <Input type="date" disabled={disabled} className="flex-1" />
-              <Input type="time" disabled={disabled} />
+              <DatePicker disabled={disabled} />
+              <TimePicker disabled={disabled} />
             </div>
           )}
           {dateType === "buyer_text" && (
