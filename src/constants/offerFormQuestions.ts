@@ -1143,7 +1143,7 @@ export const QUESTION_DEFINITIONS: Partial<
       {
         id: "allow_unsure",
         label: "Allow 'Unsure' as an option?",
-        type: "radio",
+        type: "select",
         dependsOn: {
           questionId: "answer_type",
           value: "yes_no",
@@ -1170,7 +1170,7 @@ export const QUESTION_DEFINITIONS: Partial<
       {
         id: "add_tickbox",
         label: "Do you wish to add a tickbox for the Buyer/Agent to agree?",
-        type: "radio",
+        type: "select",
         dependsOn: {
           questionId: "answer_type",
           value: "statement",
@@ -1186,7 +1186,7 @@ export const QUESTION_DEFINITIONS: Partial<
         id: "tickbox_requirement",
         label:
           "Is it optional or essential that the Buyer/Agent ticks to agree?",
-        type: "radio",
+        type: "select",
         dependsOn: {
           questionId: "add_tickbox",
           value: "yes",
@@ -1200,7 +1200,8 @@ export const QUESTION_DEFINITIONS: Partial<
       // PATH 7: Statement - Q5
       {
         id: "tickbox_text",
-        label: "What text would you like to display next to your tickbox (eg 'I agree')?",
+        label:
+          "What text would you like to display next to your tickbox (eg 'I agree')?",
         type: "text",
         placeholder: "I agree",
         dependsOn: {
