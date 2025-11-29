@@ -1169,7 +1169,7 @@ export const QUESTION_DEFINITIONS: Partial<
       // PATH 7: Statement - Q3
       {
         id: "add_tickbox",
-        label: "Add a tickbox to agree?",
+        label: "Do you wish to add a tickbox for the Buyer/Agent to agree?",
         type: "radio",
         dependsOn: {
           questionId: "answer_type",
@@ -1184,7 +1184,8 @@ export const QUESTION_DEFINITIONS: Partial<
       // PATH 7: Statement - Q4
       {
         id: "tickbox_requirement",
-        label: "Optional or Essential?",
+        label:
+          "Is it optional or essential that the Buyer/Agent ticks to agree?",
         type: "radio",
         dependsOn: {
           questionId: "add_tickbox",
@@ -1199,7 +1200,7 @@ export const QUESTION_DEFINITIONS: Partial<
       // PATH 7: Statement - Q5
       {
         id: "tickbox_text",
-        label: "Tickbox text",
+        label: "What text would you like to display next to your tickbox (eg 'I agree')?",
         type: "text",
         placeholder: "I agree",
         dependsOn: {
@@ -1211,7 +1212,7 @@ export const QUESTION_DEFINITIONS: Partial<
       // Common Question Text (for all paths)
       {
         id: "question_text",
-        label: "What is your question?",
+        label: "What is your question/statement?",
         type: "text",
         placeholder: "Enter your question here",
       },
