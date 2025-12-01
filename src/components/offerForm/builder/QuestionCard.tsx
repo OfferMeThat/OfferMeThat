@@ -125,6 +125,17 @@ const QuestionCard = ({
   const labelText =
     uiConfig.label || questionDefinition?.label || "Question label"
 
+  // Determine if this is an essential question (cannot be modified)
+  const isEssential = REQUIRED_QUESTION_TYPES.includes(question.type)
+
+  const handleRequiredToggle = () => {
+    if (!isEssential) {
+      onUpdateQuestion(question.id, {
+        required: !question.required,
+      })
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
       {/* Mobile: Top row with question number and actions */}
@@ -156,7 +167,7 @@ const QuestionCard = ({
           </Button>
           <Button
             size="icon"
-            disabled={!!REQUIRED_QUESTION_TYPES.includes(question.type)}
+            disabled={isEssential}
             variant="ghostDesctructive"
             onClick={onDelete}
           >
@@ -174,7 +185,8 @@ const QuestionCard = ({
         <div className="mt-3 flex items-center gap-2">
           <Checkbox
             checked={question.required}
-            disabled={!!question.required}
+            disabled={isEssential}
+            onCheckedChange={handleRequiredToggle}
           />
           <span className="text-sm text-gray-700">Required field</span>
         </div>
@@ -189,7 +201,7 @@ const QuestionCard = ({
           <h3 className="text-sm font-semibold tracking-wide text-gray-500 uppercase">
             {QUESTION_TYPE_TO_LABEL[question.type]}
           </h3>
-          {question.required && (
+          {isEssential && (
             <Badge size="xs" variant="destructiveLight" className="text-xs">
               Essential
             </Badge>
@@ -221,7 +233,8 @@ const QuestionCard = ({
           <div className="flex items-center gap-2">
             <Checkbox
               checked={question.required}
-              disabled={!!question.required}
+              disabled={isEssential}
+              onCheckedChange={handleRequiredToggle}
             />
             <span className="text-sm text-gray-700">Required field</span>
           </div>
