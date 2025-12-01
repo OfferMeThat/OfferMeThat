@@ -55,9 +55,16 @@ const AddQuestionModal = ({
     }
   }
 
-  const handleAddWithConfig = (config: Record<string, any>, uiConfig?: Record<string, any>) => {
+  const handleAddWithConfig = (config: Record<string, any>, uiConfig?: Record<string, any>, requiredOverride?: boolean) => {
     if (selectedType) {
-      onAddQuestion(selectedType, config, uiConfig)
+      // If requiredOverride is provided, we need to pass it somehow
+      // Since onAddQuestion doesn't have a required parameter, we'll need to update it
+      // For now, let's add it to the config object
+      const finalConfig = requiredOverride !== undefined 
+        ? { ...config, __requiredOverride: requiredOverride }
+        : config
+      
+      onAddQuestion(selectedType, finalConfig, uiConfig)
       handleClose()
     }
   }

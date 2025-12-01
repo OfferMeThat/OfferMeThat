@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
+import { getQuestionRequiredFromSetup } from "@/lib/questionHelpers"
 import { cn } from "@/lib/utils"
 import { QuestionType } from "@/types/form"
 import { QuestionSetupConfig, QuestionUIConfig } from "@/types/questionConfig"
@@ -22,7 +23,7 @@ interface QuestionSetupFormProps {
   questionType: QuestionType
   initialSetupConfig?: QuestionSetupConfig
   initialUIConfig?: QuestionUIConfig
-  onComplete: (setupConfig: QuestionSetupConfig, uiConfig?: QuestionUIConfig) => void
+  onComplete: (setupConfig: QuestionSetupConfig, uiConfig?: QuestionUIConfig, requiredOverride?: boolean) => void
   onCancel: () => void
   hideButtons?: boolean
   mode?: "add" | "edit"
@@ -110,7 +111,10 @@ const QuestionSetupForm = ({
       }
     }
     
-    onComplete(finalConfig, finalUIConfig)
+    // Check if setup config determines the required status
+    const requiredFromSetup = getQuestionRequiredFromSetup(questionType, finalConfig)
+    
+    onComplete(finalConfig, finalUIConfig, requiredFromSetup ?? undefined)
   }
 
   // Special handling for deposit question using SmartQuestionSetup
@@ -120,8 +124,8 @@ const QuestionSetupForm = ({
         questionId={questionType}
         initialSetupConfig={initialSetupConfig}
         initialUIConfig={initialUIConfig}
-        onComplete={(generated, answers) => {
-          onComplete(answers, generated)
+        onComplete={(generated, answers, requiredOverride) => {
+          onComplete(answers, generated, requiredOverride)
         }}
         onCancel={onCancel}
         hideButtons={hideButtons}

@@ -37,7 +37,7 @@ const EditQuestionModal = ({
   const definition = QUESTION_DEFINITIONS[question.type]
   const hasSetup = definition?.setupQuestions && definition.setupQuestions.length > 0
 
-  const handleComplete = async (setupConfig: QuestionSetupConfig, uiConfig?: QuestionUIConfig) => {
+  const handleComplete = async (setupConfig: QuestionSetupConfig, uiConfig?: QuestionUIConfig, requiredOverride?: boolean) => {
     setIsUpdating(true)
     try {
       const updates: any = {
@@ -52,6 +52,11 @@ const EditQuestionModal = ({
           ...(question.uiConfig as Record<string, any>),
           ...uiConfig,
         }
+      }
+
+      // Update required field if it's determined by setup config
+      if (requiredOverride !== undefined) {
+        updates.required = requiredOverride
       }
 
       await onUpdateQuestion(question.id, updates)
@@ -100,7 +105,7 @@ const EditQuestionModal = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex max-h-[80vh] min-h-[400px] w-full max-w-4xl flex-col gap-0 p-0">
+      <DialogContent className="flex max-h-[80vh] min-h-[400px] w-full max-w-4xl! flex-col gap-0 p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle className="text-xl font-semibold">
             Edit Question: {definition?.label || question.type}

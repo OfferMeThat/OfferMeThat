@@ -279,13 +279,33 @@ const OfferFormBuilderPageContent = () => {
 
     startTransition(async () => {
       try {
+        // Extract requiredOverride if it exists in config
+        const requiredOverride = config?.__requiredOverride
+        const cleanConfig = config ? { ...config } : undefined
+        if (cleanConfig && '__requiredOverride' in cleanConfig) {
+          delete cleanConfig.__requiredOverride
+        }
+
         await addQuestion(
           formId,
           questionType,
           addQuestionAfterOrder,
-          config,
+          cleanConfig,
           uiConfig,
         )
+
+        // If we have a requiredOverride, we need to update the question after creation
+        if (requiredOverride !== undefined) {
+          // Get the newly added question
+          const updatedQuestions = await getFormQuestions(formId)
+          const newQuestion = updatedQuestions.find(
+            q => q.type === questionType && q.order === addQuestionAfterOrder + 1
+          )
+          
+          if (newQuestion) {
+            await updateQuestion(newQuestion.id, { required: requiredOverride })
+          }
+        }
 
         // Fetch fresh data
         const [fetchedQuestions, fetchedPages] = await Promise.all([
