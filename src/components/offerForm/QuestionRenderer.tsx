@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getSmartQuestion } from "@/data/smartQuestions"
+import { cn } from "@/lib/utils"
 import { Database } from "@/types/supabase"
 import { useState } from "react"
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -24,11 +25,19 @@ type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 interface QuestionRendererProps {
   question: Question
   disabled?: boolean
+  editingMode?: boolean
+  onUpdateQuestion?: (questionId: string, updates: Record<string, any>) => void
+  onEditPlaceholder?: (fieldKey: string, currentText?: string) => void
+  onEditLabel?: (fieldKey: string, currentText?: string) => void
 }
 
 export const QuestionRenderer = ({
   question,
   disabled = false,
+  editingMode = false,
+  onUpdateQuestion,
+  onEditPlaceholder,
+  onEditLabel,
 }: QuestionRendererProps) => {
   // State for interactive fields
   const [formValues, setFormValues] = useState<Record<string, any>>({})
@@ -37,14 +46,61 @@ export const QuestionRenderer = ({
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
   const uiConfig = (question.uiConfig as Record<string, any>) || {}
 
+  // Helper: Render edit overlay for clickable elements
+  const renderEditOverlay = (fieldId: string, currentText: string) => {
+    if (!editingMode || !onEditPlaceholder) return null
+
+    return (
+      <div
+        className={cn(
+          "absolute inset-0 z-20 cursor-pointer",
+          // "rounded-md bg-transparent transition-all",
+          // "hover:bg-cyan-50/10 hover:ring-2 hover:ring-cyan-400",
+        )}
+        onClick={(e) => {
+          e.stopPropagation()
+          onEditPlaceholder(fieldId, currentText)
+        }}
+        title="Click to edit placeholder"
+      />
+    )
+  }
+
+  // Helper: Render edit overlay for labels
+  const renderLabelOverlay = (fieldId: string, currentText: string) => {
+    if (!editingMode || !onEditLabel) return null
+
+    return (
+      <div
+        className={cn(
+          "absolute inset-0 z-20 cursor-pointer",
+          // "rounded-md bg-transparent transition-all",
+          // "hover:bg-cyan-50/10 hover:ring-2 hover:ring-cyan-400",
+        )}
+        onClick={(e) => {
+          e.stopPropagation()
+          onEditLabel(fieldId, currentText)
+        }}
+        title="Click to edit label"
+      />
+    )
+  }
+
   // Specify Listing
   if (question.type === "specifyListing") {
     return (
-      <Input
-        type="text"
-        placeholder={uiConfig.placeholder || "Enter listing address or ID..."}
-        disabled={disabled}
-      />
+      <div className="relative">
+        <Input
+          type="text"
+          placeholder={uiConfig.placeholder || "Enter listing address or ID..."}
+          disabled={disabled}
+          className={cn(editingMode && "cursor-not-allowed")}
+        />
+        {renderEditOverlay(
+          "placeholder",
+          uiConfig.placeholder || "Enter listing address or ID...",
+        )}
+      </div>
     )
   }
 
@@ -52,9 +108,17 @@ export const QuestionRenderer = ({
   if (question.type === "submitterRole") {
     return (
       <Select disabled={disabled}>
-        <SelectTrigger>
-          <SelectValue placeholder="Select your role..." />
-        </SelectTrigger>
+        <div className="relative">
+          <SelectTrigger className={cn(editingMode && "cursor-not-allowed")}>
+            <SelectValue
+              placeholder={uiConfig.placeholder || "Select your role..."}
+            />
+          </SelectTrigger>
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Select your role...",
+          )}
+        </div>
         <SelectContent>
           <SelectItem value="buyer_self">
             I am a Buyer representing myself
@@ -74,18 +138,30 @@ export const QuestionRenderer = ({
   if (question.type === "submitterName") {
     return (
       <div className="flex gap-2">
-        <Input
-          type="text"
-          placeholder="First Name"
-          disabled={disabled}
-          className="flex-1"
-        />
-        <Input
-          type="text"
-          placeholder="Last Name"
-          disabled={disabled}
-          className="flex-1"
-        />
+        <div className="relative flex-1">
+          <Input
+            type="text"
+            placeholder={uiConfig.firstNamePlaceholder || "First Name"}
+            disabled={disabled}
+            className={cn(editingMode && "cursor-not-allowed")}
+          />
+          {renderEditOverlay(
+            "firstNamePlaceholder",
+            uiConfig.firstNamePlaceholder || "First Name",
+          )}
+        </div>
+        <div className="relative flex-1">
+          <Input
+            type="text"
+            placeholder={uiConfig.lastNamePlaceholder || "Last Name"}
+            disabled={disabled}
+            className={cn(editingMode && "cursor-not-allowed")}
+          />
+          {renderEditOverlay(
+            "lastNamePlaceholder",
+            uiConfig.lastNamePlaceholder || "Last Name",
+          )}
+        </div>
       </div>
     )
   }
@@ -93,33 +169,54 @@ export const QuestionRenderer = ({
   // Submitter Email - Use email input type
   if (question.type === "submitterEmail") {
     return (
-      <Input
-        type="email"
-        placeholder="Enter your email address"
-        disabled={disabled}
-      />
+      <div className="relative">
+        <Input
+          type="email"
+          placeholder={uiConfig.placeholder || "Enter your email address"}
+          disabled={disabled}
+          className={cn(editingMode && "cursor-not-allowed")}
+        />
+        {renderEditOverlay(
+          "placeholder",
+          uiConfig.placeholder || "Enter your email address",
+        )}
+      </div>
     )
   }
 
   // Submitter Phone - Use tel input type
   if (question.type === "submitterPhone") {
     return (
-      <Input
-        type="tel"
-        placeholder="Enter your phone number"
-        disabled={disabled}
-      />
+      <div className="relative">
+        <Input
+          type="tel"
+          placeholder={uiConfig.placeholder || "Enter your phone number"}
+          disabled={disabled}
+          className={cn(editingMode && "cursor-not-allowed")}
+        />
+        {renderEditOverlay(
+          "placeholder",
+          uiConfig.placeholder || "Enter your phone number",
+        )}
+      </div>
     )
   }
 
   // Offer Amount
   if (question.type === "offerAmount") {
     return (
-      <Input
-        type="number"
-        placeholder="Enter offer amount"
-        disabled={disabled}
-      />
+      <div className="relative">
+        <Input
+          type="number"
+          placeholder={uiConfig.placeholder || "Enter offer amount"}
+          disabled={disabled}
+          className={cn(editingMode && "cursor-not-allowed")}
+        />
+        {renderEditOverlay(
+          "placeholder",
+          uiConfig.placeholder || "Enter offer amount",
+        )}
+      </div>
     )
   }
 
@@ -142,11 +239,20 @@ export const QuestionRenderer = ({
     if (collectionMethod === "single_field") {
       return (
         <div className="space-y-3">
-          <Input
-            type="text"
-            placeholder="Enter name(s) of purchaser(s)"
-            disabled={disabled}
-          />
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder={
+                uiConfig.placeholder || "Enter name(s) of purchaser(s)"
+              }
+              disabled={disabled}
+              className={cn(editingMode && "cursor-not-allowed")}
+            />
+            {renderEditOverlay(
+              "placeholder",
+              uiConfig.placeholder || "Enter name(s) of purchaser(s)",
+            )}
+          </div>
           {collectId && collectId !== "no" && (
             <div className="mt-3 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
               <p className="text-sm text-gray-500">
@@ -180,58 +286,93 @@ export const QuestionRenderer = ({
     }) => (
       <div className="space-y-3">
         <div>
-          <Label className="mb-1 block text-sm">First Name:</Label>
-          <Input
-            type="text"
-            placeholder="Enter first name"
-            disabled={disabled}
-          />
+          <div className="relative inline-block">
+            <Label className="mb-1 block text-sm">First Name:</Label>
+            {renderLabelOverlay("firstNameLabel", "First Name:")}
+          </div>
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder={uiConfig.firstNamePlaceholder || "Enter first name"}
+              disabled={disabled}
+              className={cn(editingMode && "cursor-not-allowed")}
+            />
+            {renderEditOverlay(
+              "firstNamePlaceholder",
+              uiConfig.firstNamePlaceholder || "Enter first name",
+            )}
+          </div>
         </div>
         {showMiddleName && (
           <div>
-            <Label className="mb-1 block text-sm">Middle Name:</Label>
-            <Input
-              type="text"
-              placeholder="Enter middle name(s)"
-              disabled={disabled || noMiddleName[prefix]}
-            />
-            <div className="mt-2 flex items-center space-x-2">
+            <div className="relative inline-block">
+              <Label className="mb-1 block text-sm">Middle Name:</Label>
+              {renderLabelOverlay("middleNameLabel", "Middle Name:")}
+            </div>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder={
+                  uiConfig.middleNamePlaceholder || "Enter middle name"
+                }
+                disabled={disabled || noMiddleName[prefix]}
+                className={cn(editingMode && "cursor-not-allowed")}
+              />
+              {renderEditOverlay(
+                "middleNamePlaceholder",
+                uiConfig.middleNamePlaceholder || "Enter middle name",
+              )}
+            </div>
+            <div className="mt-1 flex items-center gap-2">
               <Checkbox
-                id={`${prefix}-no-middle`}
+                id={`${prefix}_no_middle`}
                 checked={noMiddleName[prefix] || false}
                 onCheckedChange={(checked) =>
-                  setNoMiddleName({
-                    ...noMiddleName,
-                    [prefix]: checked as boolean,
-                  })
+                  setNoMiddleName((prev) => ({
+                    ...prev,
+                    [prefix]: checked === true,
+                  }))
                 }
                 disabled={disabled}
               />
               <Label
-                htmlFor={`${prefix}-no-middle`}
-                className="cursor-pointer text-sm font-normal"
+                htmlFor={`${prefix}_no_middle`}
+                className="text-xs text-gray-500"
               >
-                Does not have middle name(s)
+                I don&apos;t have a middle name
               </Label>
             </div>
           </div>
         )}
         <div>
-          <Label className="mb-1 block text-sm">Last Name:</Label>
-          <Input
-            type="text"
-            placeholder="Enter last name"
-            disabled={disabled}
-          />
+          <div className="relative inline-block">
+            <Label className="mb-1 block text-sm">Last Name:</Label>
+            {renderLabelOverlay("lastNameLabel", "Last Name:")}
+          </div>
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder={uiConfig.lastNamePlaceholder || "Enter last name"}
+              disabled={disabled}
+              className={cn(editingMode && "cursor-not-allowed")}
+            />
+            {renderEditOverlay(
+              "lastNamePlaceholder",
+              uiConfig.lastNamePlaceholder || "Enter last name",
+            )}
+          </div>
         </div>
         {collectId && collectId !== "no" && (
           <div>
-            <Label className="mb-1 block text-sm">
-              ID Upload{" "}
-              {collectId === "mandatory" && (
-                <span className="text-red-500">*</span>
-              )}
-            </Label>
+            <div className="relative inline-block">
+              <Label className="mb-1 block text-sm">
+                ID Upload{" "}
+                {collectId === "mandatory" && (
+                  <span className="text-red-500">*</span>
+                )}
+              </Label>
+              {renderLabelOverlay("idUploadLabel", "ID Upload")}
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -454,8 +595,16 @@ export const QuestionRenderer = ({
   if (question.type === "offerExpiry") {
     return (
       <div className="flex gap-2">
-        <DatePicker label="Select date" disabled={disabled} />
-        <TimePicker label="Select time" disabled={disabled} />
+        <DatePicker
+          label={uiConfig.dateLabel || "Select date"}
+          disabled={disabled}
+          btnClassName={cn(editingMode && "cursor-not-allowed")}
+        />
+        <TimePicker
+          label={uiConfig.timeLabel || "Select time"}
+          disabled={disabled}
+          btnClassName={cn(editingMode && "cursor-not-allowed")}
+        />
       </div>
     )
   }
@@ -481,8 +630,14 @@ export const QuestionRenderer = ({
     return (
       <DepositPreview
         question={previewQuestion}
-        setupAnswers={setupConfig || {}}
-        onChange={() => {}}
+        setupAnswers={setupConfig}
+        editingMode={editingMode}
+        onEditQuestion={(id, text) => {
+          if (onEditLabel) {
+            onEditLabel(id, text)
+          }
+        }}
+        onEditPlaceholder={onEditPlaceholder}
       />
     )
   }
@@ -502,10 +657,16 @@ export const QuestionRenderer = ({
       <div className="space-y-4">
         {/* Main question as dropdown */}
         <div>
-          <Label className="mb-2 block text-sm font-medium">
-            Is your Offer subject to Loan Approval?
-            <span className="font-bold text-red-500"> *</span>
-          </Label>
+          <div className="relative inline-block">
+            <Label className="mb-2 block text-sm font-medium">
+              Is your Offer subject to Loan Approval?
+              <span className="font-bold text-red-500"> *</span>
+            </Label>
+            {renderLabelOverlay(
+              "loanApprovalQuestionLabel",
+              "Is your Offer subject to Loan Approval?",
+            )}
+          </div>
           <Select
             value={formValues.subjectToLoan || ""}
             onValueChange={(value) =>
@@ -528,23 +689,40 @@ export const QuestionRenderer = ({
             {/* Loan Amount */}
             {loanAmountType && loanAmountType !== "no_amount" && (
               <div>
-                <Label className="mb-2 block text-sm font-medium">
-                  What is your Loan Amount?{" "}
-                  <span className="font-bold text-red-500">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="Enter amount"
-                  className="max-w-56"
-                  disabled={disabled}
-                  value={formValues.loanAmount || ""}
-                  onChange={(e) =>
-                    setFormValues((prev) => ({
-                      ...prev,
-                      loanAmount: e.target.value,
-                    }))
-                  }
-                />
+                <div className="relative inline-block">
+                  <Label className="mb-2 block text-sm font-medium">
+                    What is your Loan Amount?{" "}
+                    <span className="font-bold text-red-500">*</span>
+                  </Label>
+                  {renderLabelOverlay(
+                    "loanAmountLabel",
+                    "What is your Loan Amount?",
+                  )}
+                </div>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder={
+                      uiConfig.loanAmountPlaceholder || "Enter amount"
+                    }
+                    className={cn(
+                      "max-w-56",
+                      editingMode && "cursor-not-allowed",
+                    )}
+                    disabled={disabled}
+                    value={formValues.loanAmount || ""}
+                    onChange={(e) =>
+                      setFormValues((prev) => ({
+                        ...prev,
+                        loanAmount: e.target.value,
+                      }))
+                    }
+                  />
+                  {renderEditOverlay(
+                    "loanAmountPlaceholder",
+                    uiConfig.loanAmountPlaceholder || "Enter amount",
+                  )}
+                </div>
               </div>
             )}
 
@@ -552,14 +730,21 @@ export const QuestionRenderer = ({
             {lenderDetails && lenderDetails !== "not_required" && (
               <div className="space-y-2">
                 <div className="flex items-start gap-3">
-                  <Label className="w-32 pt-2 text-sm font-medium">
-                    Company Name:
-                  </Label>
-                  <div className="flex-1">
+                  <div className="relative inline-block">
+                    <Label className="w-32 pt-2 text-sm font-medium">
+                      Company Name:
+                    </Label>
+                    {renderLabelOverlay("companyNameLabel", "Company Name:")}
+                  </div>
+                  <div className="relative flex-1">
                     <Input
                       type="text"
-                      placeholder={`Enter company name or "I don't know yet`}
+                      placeholder={
+                        uiConfig.companyNamePlaceholder ||
+                        `Enter company name or "I don't know yet"`
+                      }
                       disabled={disabled}
+                      className={cn(editingMode && "cursor-not-allowed")}
                       value={formValues.companyName || ""}
                       onChange={(e) =>
                         setFormValues((prev) => ({
@@ -568,6 +753,11 @@ export const QuestionRenderer = ({
                         }))
                       }
                     />
+                    {renderEditOverlay(
+                      "companyNamePlaceholder",
+                      uiConfig.companyNamePlaceholder ||
+                        `Enter company name or "I don't know yet"`,
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pl-36">
@@ -598,62 +788,116 @@ export const QuestionRenderer = ({
                 <>
                   {/* Contact Name */}
                   <div className="flex items-center gap-3">
-                    <Label className="w-32 text-sm font-medium">
-                      Contact Name:
-                    </Label>
-                    <Input
-                      type="text"
-                      placeholder={`Enter contact name or "I don't know yet"`}
-                      disabled={disabled}
-                      className="flex-1"
-                      value={formValues.contactName || ""}
-                      onChange={(e) =>
-                        setFormValues((prev) => ({
-                          ...prev,
-                          contactName: e.target.value,
-                        }))
-                      }
-                    />
+                    <div className="relative inline-block">
+                      <Label className="w-32 text-sm font-medium">
+                        Contact Name:
+                      </Label>
+                      {renderLabelOverlay("contactNameLabel", "Contact Name:")}
+                    </div>
+                    <div className="relative flex-1">
+                      <Input
+                        type="text"
+                        placeholder={
+                          uiConfig.contactNamePlaceholder ||
+                          `Enter contact name or "I don't know yet"`
+                        }
+                        disabled={disabled}
+                        className={cn(
+                          "flex-1",
+                          editingMode && "cursor-not-allowed",
+                        )}
+                        value={formValues.contactName || ""}
+                        onChange={(e) =>
+                          setFormValues((prev) => ({
+                            ...prev,
+                            contactName: e.target.value,
+                          }))
+                        }
+                      />
+                      {renderEditOverlay(
+                        "contactNamePlaceholder",
+                        uiConfig.contactNamePlaceholder ||
+                          `Enter contact name or "I don't know yet"`,
+                      )}
+                    </div>
                   </div>
 
                   {/* Contact Phone */}
                   <div className="flex items-center gap-3">
-                    <Label className="w-32 text-sm font-medium">
-                      Contact Phone:
-                    </Label>
-                    <Input
-                      type="tel"
-                      placeholder={`Enter phone number or "I don't know yet"`}
-                      disabled={disabled}
-                      className="flex-1"
-                      value={formValues.contactPhone || ""}
-                      onChange={(e) =>
-                        setFormValues((prev) => ({
-                          ...prev,
-                          contactPhone: e.target.value,
-                        }))
-                      }
-                    />
+                    <div className="relative inline-block">
+                      <Label className="w-32 text-sm font-medium">
+                        Contact Phone:
+                      </Label>
+                      {renderLabelOverlay(
+                        "contactPhoneLabel",
+                        "Contact Phone:",
+                      )}
+                    </div>
+                    <div className="relative flex-1">
+                      <Input
+                        type="tel"
+                        placeholder={
+                          uiConfig.contactPhonePlaceholder ||
+                          `Enter phone number or "I don't know yet"`
+                        }
+                        disabled={disabled}
+                        className={cn(
+                          "flex-1",
+                          editingMode && "cursor-not-allowed",
+                        )}
+                        value={formValues.contactPhone || ""}
+                        onChange={(e) =>
+                          setFormValues((prev) => ({
+                            ...prev,
+                            contactPhone: e.target.value,
+                          }))
+                        }
+                      />
+                      {renderEditOverlay(
+                        "contactPhonePlaceholder",
+                        uiConfig.contactPhonePlaceholder ||
+                          `Enter phone number or "I don't know yet"`,
+                      )}
+                    </div>
                   </div>
 
                   {/* Contact Email */}
                   <div className="flex items-center gap-3">
-                    <Label className="w-32 text-sm font-medium">
-                      Contact Email:
-                    </Label>
-                    <Input
-                      type="email"
-                      placeholder={`Enter email address or "I don't know yet"`}
-                      disabled={disabled}
-                      className="flex-1"
-                      value={formValues.contactEmail || ""}
-                      onChange={(e) =>
-                        setFormValues((prev) => ({
-                          ...prev,
-                          contactEmail: e.target.value,
-                        }))
-                      }
-                    />
+                    <div className="relative inline-block">
+                      <Label className="w-32 text-sm font-medium">
+                        Contact Email:
+                      </Label>
+                      {renderLabelOverlay(
+                        "contactEmailLabel",
+                        "Contact Email:",
+                      )}
+                    </div>
+                    <div className="relative flex-1">
+                      <Input
+                        type="email"
+                        placeholder={
+                          uiConfig.contactEmailPlaceholder ||
+                          `Enter email address or "I don't know yet"`
+                        }
+                        disabled={disabled}
+                        className={cn(
+                          "flex-1",
+                          editingMode && "cursor-not-allowed",
+                        )}
+                        value={formValues.contactEmail || ""}
+                        onChange={(e) =>
+                          setFormValues((prev) => ({
+                            ...prev,
+                            contactEmail: e.target.value,
+                          }))
+                        }
+                      />
+                      {renderEditOverlay(
+                        "contactEmailPlaceholder",
+                        uiConfig.contactEmailPlaceholder ||
+                          `Enter email address or "I don't know yet"`,
+                      )}
+                    </div>
                   </div>
                 </>
               )}
@@ -661,9 +905,15 @@ export const QuestionRenderer = ({
             {/* Supporting Documents */}
             {attachments && attachments !== "not_required" && (
               <div>
-                <Label className="mb-2 block text-sm font-medium">
-                  Supporting Documents:
-                </Label>
+                <div className="relative inline-block">
+                  <Label className="mb-2 block text-sm font-medium">
+                    Supporting Documents:
+                  </Label>
+                  {renderLabelOverlay(
+                    "supportingDocumentsLabel",
+                    "Supporting Documents:",
+                  )}
+                </div>
                 <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center">
                   <p className="text-sm text-gray-500">
                     Upload pre-approval documents or supporting evidence
@@ -675,10 +925,16 @@ export const QuestionRenderer = ({
             {/* Loan Approval Due */}
             {loanApprovalDue && loanApprovalDue !== "no_due_date" && (
               <div>
-                <Label className="mb-2 block text-sm font-medium">
-                  Loan Approval Due:{" "}
-                  <span className="font-bold text-red-500">*</span>
-                </Label>
+                <div className="relative inline-block">
+                  <Label className="mb-2 block text-sm font-medium">
+                    Loan Approval Due:{" "}
+                    <span className="font-bold text-red-500">*</span>
+                  </Label>
+                  {renderLabelOverlay(
+                    "loanApprovalDueLabel",
+                    "Loan Approval Due:",
+                  )}
+                </div>
                 <Input
                   type="text"
                   placeholder="Enter due date details"
@@ -761,14 +1017,31 @@ export const QuestionRenderer = ({
 
         {allowCustom && (
           <div className="mt-3 border-t pt-3">
-            <Label className="mb-2 block text-sm font-medium">
-              Add Custom Condition
-            </Label>
-            <Textarea
-              placeholder="Enter your custom condition..."
-              disabled={disabled}
-              rows={3}
-            />
+            <div className="relative inline-block">
+              <Label className="mb-2 block text-sm font-medium">
+                Add Custom Condition
+              </Label>
+              {renderLabelOverlay(
+                "customConditionLabel",
+                "Add Custom Condition",
+              )}
+            </div>
+            <div className="relative">
+              <Textarea
+                placeholder={
+                  uiConfig.customConditionPlaceholder ||
+                  "Enter your custom condition..."
+                }
+                disabled={disabled}
+                rows={3}
+                className={cn(editingMode && "cursor-not-allowed")}
+              />
+              {renderEditOverlay(
+                "customConditionPlaceholder",
+                uiConfig.customConditionPlaceholder ||
+                  "Enter your custom condition...",
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -783,19 +1056,43 @@ export const QuestionRenderer = ({
     return (
       <div className="space-y-3">
         <div>
-          {dateType === "calendar" && <DatePicker disabled={disabled} />}
+          {dateType === "calendar" && (
+            <div className="relative">
+              <DatePicker
+                disabled={disabled}
+                btnClassName={cn(editingMode && "cursor-not-allowed")}
+              />
+            </div>
+          )}
           {dateType === "datetime" && (
             <div className="flex gap-2">
-              <DatePicker disabled={disabled} />
-              <TimePicker disabled={disabled} />
+              <div className="relative flex-1">
+                <DatePicker
+                  disabled={disabled}
+                  btnClassName={cn(editingMode && "cursor-not-allowed")}
+                />
+              </div>
+              <div className="relative flex-1">
+                <TimePicker
+                  disabled={disabled}
+                  btnClassName={cn(editingMode && "cursor-not-allowed")}
+                />
+              </div>
             </div>
           )}
           {dateType === "buyer_text" && (
-            <Input
-              type="text"
-              placeholder="Enter settlement date"
-              disabled={disabled}
-            />
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder={uiConfig.placeholder || "Enter settlement date"}
+                disabled={disabled}
+                className={cn(editingMode && "cursor-not-allowed")}
+              />
+              {renderEditOverlay(
+                "placeholder",
+                uiConfig.placeholder || "Enter settlement date",
+              )}
+            </div>
           )}
           {dateType === "seller_text" && (
             <p className="text-sm text-gray-600">
@@ -804,36 +1101,65 @@ export const QuestionRenderer = ({
           )}
           {dateType === "within_days" && (
             <div className="flex gap-2">
-              <Input
-                type="number"
-                placeholder="Number of days"
-                disabled={disabled}
-              />
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder={uiConfig.daysPlaceholder || "Number of days"}
+                  disabled={disabled}
+                  className={cn(editingMode && "cursor-not-allowed")}
+                />
+                {renderEditOverlay(
+                  "daysPlaceholder",
+                  uiConfig.daysPlaceholder || "Number of days",
+                )}
+              </div>
               <span className="flex items-center text-sm text-gray-600">
                 days after acceptance
               </span>
             </div>
           )}
           {dateType === "CYO" && (
-            <Input
-              type="text"
-              placeholder="Enter settlement date"
-              disabled={disabled}
-            />
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder={uiConfig.placeholder || "Enter settlement date"}
+                disabled={disabled}
+                className={cn(editingMode && "cursor-not-allowed")}
+              />
+              {renderEditOverlay(
+                "placeholder",
+                uiConfig.placeholder || "Enter settlement date",
+              )}
+            </div>
           )}
         </div>
 
         {location && location !== "not_required" && (
           <div>
-            <Label className="mb-2 block text-sm font-medium">
-              Settlement Location
-            </Label>
+            <div className="relative inline-block">
+              <Label className="mb-2 block text-sm font-medium">
+                Settlement Location
+              </Label>
+              {renderLabelOverlay(
+                "settlementLocationLabel",
+                "Settlement Location",
+              )}
+            </div>
             {location === "buyer_text" && (
-              <Input
-                type="text"
-                placeholder="Enter settlement location"
-                disabled={disabled}
-              />
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder={
+                    uiConfig.locationPlaceholder || "Enter settlement location"
+                  }
+                  disabled={disabled}
+                  className={cn(editingMode && "cursor-not-allowed")}
+                />
+                {renderEditOverlay(
+                  "locationPlaceholder",
+                  uiConfig.locationPlaceholder || "Enter settlement location",
+                )}
+              </div>
             )}
             {location === "seller_text" && (
               <p className="text-sm text-gray-600">
@@ -853,11 +1179,18 @@ export const QuestionRenderer = ({
 
     return (
       <div className="space-y-3">
-        <Textarea
-          placeholder="Type your message here..."
-          disabled={disabled}
-          rows={4}
-        />
+        <div className="relative">
+          <Textarea
+            placeholder={uiConfig.placeholder || "Type your message here..."}
+            disabled={disabled}
+            rows={4}
+            className={cn(editingMode && "cursor-not-allowed")}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Type your message here...",
+          )}
+        </div>
         {allowAttachments && (
           <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
             <p className="text-sm text-gray-500">📎 Attach files (Optional)</p>
@@ -873,43 +1206,86 @@ export const QuestionRenderer = ({
 
     if (answerType === "short_text") {
       return (
-        <Input
-          type="text"
-          placeholder="Enter your answer"
-          disabled={disabled}
-        />
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder={uiConfig.placeholder || "Enter your answer"}
+            disabled={disabled}
+            className={cn(editingMode && "cursor-not-allowed")}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Enter your answer",
+          )}
+        </div>
       )
-    } else if (answerType === "long_text") {
+    }
+
+    if (answerType === "long_text") {
       return (
-        <Textarea
-          placeholder="Enter your answer"
-          disabled={disabled}
-          rows={4}
-        />
+        <div className="relative">
+          <Textarea
+            placeholder={uiConfig.placeholder || "Enter your answer"}
+            disabled={disabled}
+            rows={4}
+            className={cn(editingMode && "cursor-not-allowed")}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Enter your answer",
+          )}
+        </div>
       )
-    } else if (answerType === "number_amount") {
+    }
+
+    if (answerType === "date") {
+      return (
+        <div className="relative">
+          <DatePicker
+            disabled={disabled}
+            btnClassName={cn(editingMode && "cursor-not-allowed")}
+          />
+        </div>
+      )
+    }
+
+    if (answerType === "time") {
+      return (
+        <div className="relative">
+          <TimePicker
+            disabled={disabled}
+            btnClassName={cn(editingMode && "cursor-not-allowed")}
+          />
+        </div>
+      )
+    }
+
+    if (answerType === "number_amount") {
       const numberType = setupConfig.number_type
 
       if (numberType === "money") {
         const currencyStip = setupConfig.currency_stipulation
         return (
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              {currencyStip === "fixed" && (
-                <span className="flex items-center text-sm text-gray-600">
-                  {setupConfig.currency_fixed}
-                </span>
-              )}
+          <div className="flex gap-2">
+            {currencyStip === "fixed" && (
+              <span className="flex items-center text-sm text-gray-600">
+                {setupConfig.currency_fixed}
+              </span>
+            )}
+            <div className="relative flex-1">
               <Input
                 type="number"
-                placeholder="Enter amount"
+                placeholder={uiConfig.amountPlaceholder || "Enter amount"}
                 disabled={disabled}
-                className="flex-1"
               />
+              {renderEditOverlay(
+                "amountPlaceholder",
+                uiConfig.amountPlaceholder || "Enter amount",
+              )}
             </div>
             {currencyStip === "options" && (
               <Select disabled={disabled}>
-                <SelectTrigger>
+                <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
                 <SelectContent>
@@ -924,32 +1300,66 @@ export const QuestionRenderer = ({
               </Select>
             )}
             {currencyStip === "any" && (
-              <Input type="text" placeholder="Currency" disabled={disabled} />
+              <div className="relative flex-1">
+                <Input
+                  type="text"
+                  placeholder={uiConfig.currencyPlaceholder || "Currency"}
+                  disabled={disabled}
+                />
+                {renderEditOverlay(
+                  "currencyPlaceholder",
+                  uiConfig.currencyPlaceholder || "Currency",
+                )}
+              </div>
             )}
           </div>
         )
       } else if (numberType === "phone") {
         return (
-          <Input
-            type="tel"
-            placeholder="Enter phone number"
-            disabled={disabled}
-          />
+          <div className="relative">
+            <Input
+              type="tel"
+              placeholder={uiConfig.phonePlaceholder || "Enter phone number"}
+              disabled={disabled}
+            />
+            {renderEditOverlay(
+              "phonePlaceholder",
+              uiConfig.phonePlaceholder || "Enter phone number",
+            )}
+          </div>
         )
       } else if (numberType === "percentage") {
         return (
           <div className="flex gap-2">
-            <Input
-              type="number"
-              placeholder="Enter percentage"
-              disabled={disabled}
-            />
+            <div className="relative flex-1">
+              <Input
+                type="number"
+                placeholder={
+                  uiConfig.percentagePlaceholder || "Enter percentage"
+                }
+                disabled={disabled}
+              />
+              {renderEditOverlay(
+                "percentagePlaceholder",
+                uiConfig.percentagePlaceholder || "Enter percentage",
+              )}
+            </div>
             <span className="flex items-center text-sm text-gray-600">%</span>
           </div>
         )
       } else {
         return (
-          <Input type="number" placeholder="Enter amount" disabled={disabled} />
+          <div className="relative">
+            <Input
+              type="number"
+              placeholder={uiConfig.numberPlaceholder || "Enter amount"}
+              disabled={disabled}
+            />
+            {renderEditOverlay(
+              "numberPlaceholder",
+              uiConfig.numberPlaceholder || "Enter amount",
+            )}
+          </div>
         )
       }
     } else if (answerType === "file_upload") {
@@ -995,7 +1405,8 @@ export const QuestionRenderer = ({
       const options =
         setupConfig.select_options
           ?.split(",")
-          .map((opt: string) => opt.trim()) || []
+          .map((opt: string) => opt.trim())
+          .filter((opt: string) => opt.length > 0) || []
       return (
         <RadioGroup disabled={disabled}>
           {options.map((opt: string, idx: number) => (
@@ -1010,7 +1421,8 @@ export const QuestionRenderer = ({
       const options =
         setupConfig.select_options
           ?.split(",")
-          .map((opt: string) => opt.trim()) || []
+          .map((opt: string) => opt.trim())
+          .filter((opt: string) => opt.length > 0) || []
       return (
         <div className="space-y-2">
           {options.map((opt: string, idx: number) => (
@@ -1024,16 +1436,28 @@ export const QuestionRenderer = ({
     } else if (answerType === "statement") {
       return (
         <div className="space-y-2">
-          <p className="text-sm text-gray-700">{setupConfig.question_text}</p>
+          <div className="relative inline-block">
+            <p className="text-sm text-gray-700">{setupConfig.question_text}</p>
+            {renderLabelOverlay(
+              "statementText",
+              setupConfig.question_text || "Statement text",
+            )}
+          </div>
           {setupConfig.add_tickbox === "yes" && (
             <div className="flex items-center gap-2">
               <Checkbox disabled={disabled} />
-              <span className="text-sm text-gray-700">
-                {setupConfig.tickbox_text || "I agree"}
-                {setupConfig.tickbox_requirement === "essential" && (
-                  <span className="text-red-500"> *</span>
+              <div className="relative inline-block">
+                <span className="text-sm text-gray-700">
+                  {setupConfig.tickbox_text || "I agree"}
+                  {setupConfig.tickbox_requirement === "essential" && (
+                    <span className="text-red-500"> *</span>
+                  )}
+                </span>
+                {renderLabelOverlay(
+                  "tickboxText",
+                  setupConfig.tickbox_text || "I agree",
                 )}
-              </span>
+              </div>
             </div>
           )}
         </div>
@@ -1042,5 +1466,20 @@ export const QuestionRenderer = ({
   }
 
   // Default fallback
-  return <Input type="text" placeholder="Enter value..." disabled={disabled} />
+  return (
+    <>
+      <div className="relative">
+        <Input
+          type="text"
+          placeholder={uiConfig.placeholder || "Enter value..."}
+          disabled={disabled}
+          className={cn(editingMode && "cursor-not-allowed")}
+        />
+        {renderEditOverlay(
+          "placeholder",
+          uiConfig.placeholder || "Enter value...",
+        )}
+      </div>
+    </>
+  )
 }

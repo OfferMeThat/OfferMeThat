@@ -161,7 +161,7 @@ export const QUESTION_DEFINITIONS: Partial<
   },
 
   deposit: {
-    label: "Deposit",
+    label: "Deposit Details",
     description: "Collect Deposit Details in your preferred format.",
     setupQuestions: [
       // Q1: How many instalments?

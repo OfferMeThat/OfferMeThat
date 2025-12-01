@@ -10,7 +10,9 @@ import {
 } from "@/constants/offerFormQuestions"
 import { Database } from "@/types/supabase"
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react"
+import { useState } from "react"
 import { QuestionRenderer } from "../QuestionRenderer"
+import EditTextModal from "./EditTextModal"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 
@@ -22,6 +24,7 @@ interface QuestionCardProps {
   onMoveUp: () => void
   onMoveDown: () => void
   onDelete: () => void
+  onUpdateQuestion: (questionId: string, updates: any) => void
 }
 
 const QuestionCard = ({
@@ -32,7 +35,14 @@ const QuestionCard = ({
   onMoveUp,
   onMoveDown,
   onDelete,
+  onUpdateQuestion,
 }: QuestionCardProps) => {
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingField, setEditingField] = useState<{
+    id: string
+    text: string
+    type: "label" | "placeholder"
+  } | null>(null)
   // Get UI configuration from uiConfig JSONB field
   const uiConfig =
     (question.uiConfig as {
@@ -48,6 +58,72 @@ const QuestionCard = ({
 
   // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
+
+  const handleLabelEdit = (fieldKey?: string, currentText?: string) => {
+    // If called without parameters, it's the main label
+    if (fieldKey === undefined) {
+      setEditingField({
+        id: "label",
+        text: labelText,
+        type: "label",
+      })
+    } else {
+      // Called with parameters for sub-question labels
+      setEditingField({
+        id: fieldKey,
+        text: currentText || "",
+        type: "label",
+      })
+    }
+    setEditModalOpen(true)
+  }
+
+  const handlePlaceholderEdit = (fieldKey: string, currentText?: string) => {
+    setEditingField({
+      id: fieldKey,
+      text: currentText || "",
+      type: "placeholder",
+    })
+    setEditModalOpen(true)
+  }
+
+  const handleSaveEdit = (newText: string) => {
+    if (!editingField) return
+
+    if (editingField.type === "label") {
+      // Check if it's the main label or a sub-question label
+      if (editingField.id === "label") {
+        // Update main label (stored in uiConfig.label)
+        onUpdateQuestion(question.id, {
+          uiConfig: {
+            ...uiConfig,
+            label: newText,
+          },
+        })
+      } else {
+        // Update sub-question label
+        onUpdateQuestion(question.id, {
+          uiConfig: {
+            ...uiConfig,
+            [editingField.id]: newText,
+          },
+        })
+      }
+    } else {
+      // Update placeholder
+      onUpdateQuestion(question.id, {
+        uiConfig: {
+          ...uiConfig,
+          [editingField.id]: newText,
+        },
+      })
+    }
+    setEditModalOpen(false)
+    setEditingField(null)
+  }
+
+  const labelText =
+    uiConfig.label || questionDefinition?.label || "Question label"
 
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
@@ -120,13 +196,24 @@ const QuestionCard = ({
           )}
         </div>
         <div className="flex flex-1 flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-base font-medium text-gray-900">
-            {uiConfig.label || questionDefinition?.label || "Question label"}
+          <p
+            className="cursor-pointer text-base font-medium text-gray-900 transition-colors hover:text-cyan-600"
+            onClick={() => handleLabelEdit()}
+            title="Click to edit question text"
+          >
+            {labelText}
             {question.required && <span className="text-red-500"> *</span>}
           </p>
 
           {/* Render appropriate input based on question type and setup */}
-          <QuestionRenderer question={question} disabled />
+          <QuestionRenderer
+            question={question}
+            disabled
+            editingMode={true}
+            onUpdateQuestion={onUpdateQuestion}
+            onEditPlaceholder={handlePlaceholderEdit}
+            onEditLabel={handleLabelEdit}
+          />
         </div>
 
         {/* Mobile: Required field checkbox and Edit button */}
@@ -177,6 +264,25 @@ const QuestionCard = ({
           Delete
         </Button>
       </div>
+
+      {/* Edit Modal */}
+      {editingField && (
+        <EditTextModal
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false)
+            setEditingField(null)
+          }}
+          title={
+            editingField.type === "label"
+              ? "Edit Question Text"
+              : "Edit Placeholder"
+          }
+          currentText={editingField.text}
+          onSave={handleSaveEdit}
+          fieldType={editingField.type}
+        />
+      )}
     </div>
   )
 }

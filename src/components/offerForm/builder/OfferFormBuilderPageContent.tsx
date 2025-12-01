@@ -10,6 +10,7 @@ import {
   getOrCreateOfferForm,
   movePageBreak,
   resetFormToDefault,
+  updateQuestion,
   updateQuestionOrder,
 } from "@/app/actions/offerForm"
 import Heading from "@/components/shared/typography/Heading"
@@ -305,6 +306,25 @@ const OfferFormBuilderPageContent = () => {
     })
   }
 
+  const handleUpdateQuestion = (questionId: string, updates: any) => {
+    if (!formId) return
+
+    startTransition(async () => {
+      try {
+        await updateQuestion(questionId, updates)
+
+        // Fetch fresh data
+        const [fetchedQuestions] = await Promise.all([getFormQuestions(formId)])
+
+        setQuestions(fetchedQuestions)
+        toast.success("Question updated")
+      } catch (error) {
+        console.error("Error updating question:", error)
+        toast.error("Failed to update question")
+      }
+    })
+  }
+
   if (isLoading) {
     return (
       <main className="px-6 py-8">
@@ -361,6 +381,7 @@ const OfferFormBuilderPageContent = () => {
                   onMoveUp={() => handleMoveUp(question.id, question.order)}
                   onMoveDown={() => handleMoveDown(question.id, question.order)}
                   onDelete={() => handleDelete(question.id)}
+                  onUpdateQuestion={handleUpdateQuestion}
                 />
 
                 <div className="my-8 flex flex-wrap items-center justify-center gap-4">

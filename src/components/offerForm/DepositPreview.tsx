@@ -570,20 +570,6 @@ const DepositForm = ({
               <div className="space-y-1 pt-1.5">
                 <div className="relative">
                   <DatePicker disabled={editingMode} />
-                  {editingMode && (
-                    <div
-                      className="absolute inset-0 cursor-pointer bg-transparent"
-                      onClick={() => {
-                        if (onEditPlaceholder) {
-                          onEditPlaceholder(
-                            `sub_question_placeholder_${id}`,
-                            currentPlaceholder,
-                          )
-                        }
-                      }}
-                      title="Click to edit placeholder text"
-                    />
-                  )}
                 </div>
               </div>
             )}
@@ -598,20 +584,6 @@ const DepositForm = ({
                     disabled={editingMode}
                     className={editingMode ? "cursor-not-allowed" : ""}
                   />
-                  {editingMode && (
-                    <div
-                      className="absolute inset-0 cursor-pointer bg-transparent"
-                      onClick={() => {
-                        if (onEditPlaceholder) {
-                          onEditPlaceholder(
-                            `sub_question_placeholder_${id}`,
-                            currentPlaceholder,
-                          )
-                        }
-                      }}
-                      title="Click to edit placeholder text"
-                    />
-                  )}
                 </div>
               </div>
             )}

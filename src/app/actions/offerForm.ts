@@ -202,6 +202,22 @@ export const deleteQuestion = async (questionId: string) => {
   }
 }
 
+export const updateQuestion = async (
+  questionId: string,
+  updates: Record<string, any>,
+) => {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from("offerFormQuestions")
+    .update(updates)
+    .eq("id", questionId)
+
+  if (error) {
+    throw new Error("Failed to update question")
+  }
+}
+
 export const resetFormToDefault = async (formId: string) => {
   const supabase = await createClient()
 
