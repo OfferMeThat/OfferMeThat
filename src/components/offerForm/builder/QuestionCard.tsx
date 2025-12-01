@@ -190,9 +190,11 @@ const QuestionCard = ({
           />
           <span className="text-sm text-gray-700">Required field</span>
         </div>
+       {!isEssential && (
         <Button variant="outline" className="mt-3 w-full" size="sm">
           Edit Question
         </Button>
+       )}
       </div>
 
       {/* Middle: Question Preview (Both Mobile and Desktop) */}
