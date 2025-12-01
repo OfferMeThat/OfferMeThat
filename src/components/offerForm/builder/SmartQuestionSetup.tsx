@@ -153,6 +153,9 @@ interface SmartQuestionSetupProps {
   onComplete: (generatedProperties: any, answers: Record<string, any>) => void
   onCancel: () => void
   hideButtons?: boolean
+  initialSetupConfig?: Record<string, any>
+  initialUIConfig?: Record<string, any>
+  mode?: "add" | "edit"
 }
 
 const SmartQuestionSetup = ({
@@ -160,10 +163,13 @@ const SmartQuestionSetup = ({
   onComplete,
   onCancel,
   hideButtons = false,
+  initialSetupConfig = {},
+  initialUIConfig = {},
+  mode = "add",
 }: SmartQuestionSetupProps) => {
   const [answers, setAnswers] = useState<Record<string, any>>(() => {
-    // Initialize with empty state, ensuring no currency fields are pre-populated
-    return {}
+    // Initialize with initial config in edit mode, empty otherwise
+    return mode === "edit" ? { ...initialSetupConfig } : {}
   })
   const [showDueDateModal, setShowDueDateModal] = useState(false)
   const [showLoanDueDateModal, setShowLoanDueDateModal] = useState(false)

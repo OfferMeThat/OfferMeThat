@@ -12,6 +12,7 @@ import { Database } from "@/types/supabase"
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { QuestionRenderer } from "../QuestionRenderer"
+import EditQuestionModal from "./EditQuestionModal"
 import EditTextModal from "./EditTextModal"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
@@ -38,6 +39,7 @@ const QuestionCard = ({
   onUpdateQuestion,
 }: QuestionCardProps) => {
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editQuestionModalOpen, setEditQuestionModalOpen] = useState(false)
   const [editingField, setEditingField] = useState<{
     id: string
     text: string
@@ -190,11 +192,16 @@ const QuestionCard = ({
           />
           <span className="text-sm text-gray-700">Required field</span>
         </div>
-       {!isEssential && (
-        <Button variant="outline" className="mt-3 w-full" size="sm">
-          Edit Question
-        </Button>
-       )}
+        {!isEssential && (
+          <Button 
+            variant="outline" 
+            className="mt-3 w-full" 
+            size="sm"
+            onClick={() => setEditQuestionModalOpen(true)}
+          >
+            Edit Question
+          </Button>
+        )}
       </div>
 
       {/* Middle: Question Preview (Both Mobile and Desktop) */}
@@ -240,9 +247,15 @@ const QuestionCard = ({
             />
             <span className="text-sm text-gray-700">Required field</span>
           </div>
-          <Button variant="outline" size="sm">
-            Edit Question
-          </Button>
+          {!isEssential && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setEditQuestionModalOpen(true)}
+            >
+              Edit Question
+            </Button>
+          )}
         </div>
       </div>
 
@@ -270,7 +283,7 @@ const QuestionCard = ({
         </Button>
         <Button
           size="xs"
-          disabled={!!REQUIRED_QUESTION_TYPES.includes(question.type)}
+          disabled={isEssential}
           variant="ghostDesctructive"
           onClick={onDelete}
           className="justify-baseline"
@@ -280,7 +293,7 @@ const QuestionCard = ({
         </Button>
       </div>
 
-      {/* Edit Modal */}
+      {/* Edit Text Modal */}
       {editingField && (
         <EditTextModal
           isOpen={editModalOpen}
@@ -298,6 +311,14 @@ const QuestionCard = ({
           fieldType={editingField.type}
         />
       )}
+
+      {/* Edit Question Setup Modal */}
+      <EditQuestionModal
+        open={editQuestionModalOpen}
+        onOpenChange={setEditQuestionModalOpen}
+        question={question}
+        onUpdateQuestion={onUpdateQuestion}
+      />
     </div>
   )
 }

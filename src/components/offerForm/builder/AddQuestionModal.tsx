@@ -9,21 +9,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
 import { cn } from "@/lib/utils"
 import { QuestionType } from "@/types/form"
 import { Check, ChevronLeft } from "lucide-react"
 import { useState } from "react"
-import SmartQuestionSetup from "./SmartQuestionSetup"
+import QuestionSetupForm from "./QuestionSetupForm"
 
 interface AddQuestionModalProps {
   open: boolean
@@ -46,10 +37,6 @@ const AddQuestionModal = ({
   const [wizardStep, setWizardStep] = useState<"selection" | "setup">(
     "selection",
   )
-  const [setupConfig, setSetupConfig] = useState<Record<string, any>>({})
-  const [conditions, setConditions] = useState<
-    Array<{ name: string; details: string }>
-  >([])
 
   const handleSelectType = (type: QuestionType) => {
     setSelectedType(type)
@@ -61,8 +48,6 @@ const AddQuestionModal = ({
     const definition = QUESTION_DEFINITIONS[selectedType]
     if (definition?.setupQuestions && definition.setupQuestions.length > 0) {
       setWizardStep("setup")
-      setSetupConfig({}) // Reset config
-      setConditions([]) // Reset conditions
     } else {
       // No setup needed, add directly
       onAddQuestion(selectedType)
@@ -70,14 +55,9 @@ const AddQuestionModal = ({
     }
   }
 
-  const handleAddWithConfig = () => {
+  const handleAddWithConfig = (config: Record<string, any>, uiConfig?: Record<string, any>) => {
     if (selectedType) {
-      // For Special Conditions, include the conditions array in setupConfig
-      const finalConfig =
-        selectedType === "specialConditions"
-          ? { ...setupConfig, conditions }
-          : setupConfig
-      onAddQuestion(selectedType, finalConfig)
+      onAddQuestion(selectedType, config, uiConfig)
       handleClose()
     }
   }
@@ -85,42 +65,11 @@ const AddQuestionModal = ({
   const handleClose = () => {
     setSelectedType(null)
     setWizardStep("selection")
-    setSetupConfig({})
-    setConditions([])
     onOpenChange(false)
   }
 
   const handleBack = () => {
     setWizardStep("selection")
-    setSetupConfig({})
-    setConditions([])
-  }
-
-  const handleConfigChange = (questionId: string, value: any) => {
-    setSetupConfig((prev) => ({
-      ...prev,
-      [questionId]: value,
-    }))
-  }
-
-  const handleAddCondition = () => {
-    if (conditions.length < 15) {
-      setConditions([...conditions, { name: "", details: "" }])
-    }
-  }
-
-  const handleRemoveCondition = (index: number) => {
-    setConditions(conditions.filter((_, i) => i !== index))
-  }
-
-  const handleConditionChange = (
-    index: number,
-    field: "name" | "details",
-    value: string,
-  ) => {
-    const updated = [...conditions]
-    updated[index][field] = value
-    setConditions(updated)
   }
 
   const renderSelectionStep = () => (
@@ -195,47 +144,6 @@ const AddQuestionModal = ({
   )
 
   const renderSetupStep = () => {
-    // Special handling for deposit question using SmartQuestionSetup
-    if (selectedType === "deposit") {
-      return (
-        <>
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <DialogTitle className="text-xl font-semibold">
-              Question Setup: Deposit
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            <SmartQuestionSetup
-              questionId={selectedType}
-              onComplete={(generated, answers) => {
-                onAddQuestion(selectedType, answers, generated)
-                handleClose()
-              }}
-              onCancel={handleBack}
-              hideButtons={true}
-            />
-          </div>
-
-          <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={handleBack}>
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-            <Button
-              onClick={() => {
-                // Trigger the save from SmartQuestionSetup
-                const event = new CustomEvent("smartQuestionSave")
-                window.dispatchEvent(event)
-              }}
-            >
-              Add Question
-            </Button>
-          </DialogFooter>
-        </>
-      )
-    }
-
     if (!selectedType) return null
 
     const definition = QUESTION_DEFINITIONS[selectedType]
@@ -250,184 +158,13 @@ const AddQuestionModal = ({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          <div className="space-y-6">
-            {definition.setupQuestions.map((question: any) => {
-              // Check dependencies
-              if (question.dependsOn) {
-                const dependentValue =
-                  setupConfig[question.dependsOn.questionId]
-                const requiredValue = question.dependsOn.value
-                const isMet = Array.isArray(requiredValue)
-                  ? requiredValue.includes(dependentValue)
-                  : dependentValue === requiredValue
-
-                if (!isMet) return null
-              }
-
-              return (
-                <div key={question.id} className="space-y-3">
-                  <h4 className="text-sm font-medium text-gray-900">
-                    {question.label}
-                  </h4>
-
-                  {/* Radio buttons */}
-                  {question.type === "radio" && question.options && (
-                    <div className="space-y-2">
-                      {question.options.map((option: any) => {
-                        const isSelected =
-                          setupConfig[question.id] === option.value
-                        return (
-                          <div
-                            key={option.value}
-                            className="flex cursor-pointer items-start gap-3"
-                            onClick={() =>
-                              handleConfigChange(question.id, option.value)
-                            }
-                          >
-                            <div
-                              className={cn(
-                                "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-gray-300",
-                                isSelected && "border-blue-600",
-                              )}
-                            >
-                              {isSelected && (
-                                <div className="h-2 w-2 rounded-full bg-blue-600" />
-                              )}
-                            </div>
-                            <span className="text-sm text-gray-700">
-                              {option.label}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                  {/* Select dropdown */}
-                  {question.type === "select" && question.options && (
-                    <Select
-                      value={setupConfig[question.id] || ""}
-                      onValueChange={(value) =>
-                        handleConfigChange(question.id, value)
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select an option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {question.options.map((option: any) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-
-                  {/* Text input */}
-                  {question.type === "text" && (
-                    <Input
-                      type="text"
-                      value={setupConfig[question.id] || ""}
-                      onChange={(e) =>
-                        handleConfigChange(question.id, e.target.value)
-                      }
-                      placeholder={question.placeholder}
-                    />
-                  )}
-
-                  {/* Number input */}
-                  {question.type === "number" && (
-                    <Input
-                      type="number"
-                      value={setupConfig[question.id] || ""}
-                      onChange={(e) =>
-                        handleConfigChange(question.id, e.target.value)
-                      }
-                      placeholder={question.placeholder}
-                    />
-                  )}
-                </div>
-              )
-            })}
-
-            {/* Special handling for Special Conditions - Dynamic Condition Builder */}
-            {selectedType === "specialConditions" && (
-              <div className="mt-6 space-y-4 pt-6">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-gray-900">
-                    Predefined Conditions
-                  </h4>
-                  <span className="text-xs text-gray-500">
-                    {conditions.length}/15
-                  </span>
-                </div>
-
-                {conditions.map((condition, index) => (
-                  <div
-                    key={index}
-                    className="space-y-3 rounded-lg border border-gray-200 p-4"
-                  >
-                    <div className="flex items-start justify-between">
-                      <h5 className="text-sm font-medium text-gray-700">
-                        Condition {index + 1}
-                      </h5>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCondition(index)}
-                        className="text-sm text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </button>
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">
-                        Name for Condition {index + 1} *
-                      </label>
-                      <Input
-                        type="text"
-                        value={condition.name}
-                        onChange={(e) =>
-                          handleConditionChange(index, "name", e.target.value)
-                        }
-                        placeholder="e.g., Subject to Building Inspection"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">
-                        Additional details (optional)
-                      </label>
-                      <Textarea
-                        value={condition.details}
-                        onChange={(e) =>
-                          handleConditionChange(
-                            index,
-                            "details",
-                            e.target.value,
-                          )
-                        }
-                        placeholder="Enter additional details (optional)"
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                {conditions.length < 15 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleAddCondition}
-                    className="w-full"
-                  >
-                    + Add another condition
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
+          <QuestionSetupForm
+            questionType={selectedType}
+            onComplete={handleAddWithConfig}
+            onCancel={handleBack}
+            hideButtons={true}
+            mode="add"
+          />
         </div>
 
         <DialogFooter className="border-t px-6 py-4">
@@ -435,7 +172,15 @@ const AddQuestionModal = ({
             <ChevronLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <Button onClick={handleAddWithConfig}>Add Question</Button>
+          <Button
+            onClick={() => {
+              // Trigger the save from QuestionSetupForm
+              const event = new CustomEvent("smartQuestionSave")
+              window.dispatchEvent(event)
+            }}
+          >
+            Add Question
+          </Button>
         </DialogFooter>
       </>
     )
