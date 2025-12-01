@@ -44,9 +44,14 @@ const EditQuestionModal = ({
         setupConfig: setupConfig,
       }
       
-      // Only update uiConfig if it's provided (for questions with generated UI like deposit)
-      if (uiConfig && Object.keys(uiConfig).length > 0) {
-        updates.uiConfig = uiConfig
+      // Update uiConfig if provided
+      // For custom questions, this will include the updated label from question_text
+      if (uiConfig) {
+        // Merge with existing uiConfig to preserve any fields not in the new uiConfig
+        updates.uiConfig = {
+          ...(question.uiConfig as Record<string, any>),
+          ...uiConfig,
+        }
       }
 
       await onUpdateQuestion(question.id, updates)

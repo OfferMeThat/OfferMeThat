@@ -1459,6 +1459,9 @@ export const QuestionRenderer = ({
         </div>
       )
     } else if (answerType === "statement") {
+      const showTickbox = setupConfig.add_tickbox === "yes"
+      const tickboxDisabled = disabled || !showTickbox
+
       return (
         <div className="space-y-2">
           <div className="relative inline-block">
@@ -1468,23 +1471,24 @@ export const QuestionRenderer = ({
               setupConfig.question_text || "Statement text",
             )}
           </div>
-          {setupConfig.add_tickbox === "yes" && (
-            <div className="flex items-center gap-2">
-              <Checkbox disabled={disabled} />
-              <div className="relative inline-block">
-                <span className="text-sm text-gray-700">
-                  {setupConfig.tickbox_text || "I agree"}
-                  {setupConfig.tickbox_requirement === "essential" && (
-                    <span className="text-red-500"> *</span>
-                  )}
-                </span>
-                {renderLabelOverlay(
-                  "tickboxText",
-                  setupConfig.tickbox_text || "I agree",
+          <div className="flex items-center gap-2">
+            <Checkbox disabled={tickboxDisabled} />
+            <div className="relative inline-block">
+              <span className={cn(
+                "text-sm",
+                !showTickbox ? "text-gray-400" : "text-gray-700"
+              )}>
+                {setupConfig.tickbox_text || "I agree"}
+                {showTickbox && setupConfig.tickbox_requirement === "essential" && (
+                  <span className="text-red-500"> *</span>
                 )}
-              </div>
+              </span>
+              {renderLabelOverlay(
+                "tickboxText",
+                setupConfig.tickbox_text || "I agree",
+              )}
             </div>
-          )}
+          </div>
         </div>
       )
     }

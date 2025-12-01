@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -13,8 +13,8 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
 import { cn } from "@/lib/utils"
-import { QuestionSetupConfig, QuestionUIConfig } from "@/types/questionConfig"
 import { QuestionType } from "@/types/form"
+import { QuestionSetupConfig, QuestionUIConfig } from "@/types/questionConfig"
 import { useEffect, useState } from "react"
 import SmartQuestionSetup from "./SmartQuestionSetup"
 
@@ -96,7 +96,21 @@ const QuestionSetupForm = ({
         ? { ...setupConfig, conditions }
         : setupConfig
     
-    onComplete(finalConfig, initialUIConfig)
+    // For custom questions (except statement type), build uiConfig with label from question_text
+    // Statement type has separate fields: uiConfig.label (main label) and setupConfig.question_text (statement text)
+    let finalUIConfig = initialUIConfig
+    if (
+      questionType === "custom" && 
+      finalConfig.question_text && 
+      finalConfig.answer_type !== "statement"
+    ) {
+      finalUIConfig = {
+        ...initialUIConfig,
+        label: finalConfig.question_text,
+      }
+    }
+    
+    onComplete(finalConfig, finalUIConfig)
   }
 
   // Special handling for deposit question using SmartQuestionSetup
