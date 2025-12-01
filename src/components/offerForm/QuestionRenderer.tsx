@@ -593,18 +593,43 @@ export const QuestionRenderer = ({
 
   // Offer Expiry - Use DatePicker and TimePicker
   if (question.type === "offerExpiry") {
+    const isOptional = setupConfig.expiry_requirement === "optional"
+    const hasExpiry = formValues.hasExpiry === "yes"
+
     return (
-      <div className="flex gap-2">
-        <DatePicker
-          label={uiConfig.dateLabel || "Select date"}
-          disabled={disabled}
-          btnClassName={cn(editingMode && "cursor-not-allowed")}
-        />
-        <TimePicker
-          label={uiConfig.timeLabel || "Select time"}
-          disabled={disabled}
-          btnClassName={cn(editingMode && "cursor-not-allowed")}
-        />
+      <div className="space-y-3">
+        {isOptional && (
+          <RadioGroup
+            value={formValues.hasExpiry || ""}
+            onValueChange={(value) =>
+              setFormValues((prev) => ({ ...prev, hasExpiry: value }))
+            }
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="yes" id="expiry-yes" />
+              <Label htmlFor="expiry-yes">Yes</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="no" id="expiry-no" />
+              <Label htmlFor="expiry-no">No</Label>
+            </div>
+          </RadioGroup>
+        )}
+        
+        {(!isOptional || hasExpiry) && (
+          <div className="flex gap-2">
+            <DatePicker
+              label={uiConfig.dateLabel || "Select date"}
+              disabled={disabled}
+              btnClassName={cn(editingMode && "cursor-not-allowed")}
+            />
+            <TimePicker
+              label={uiConfig.timeLabel || "Select time"}
+              disabled={disabled}
+              btnClassName={cn(editingMode && "cursor-not-allowed")}
+            />
+          </div>
+        )}
       </div>
     )
   }
