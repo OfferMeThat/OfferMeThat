@@ -234,6 +234,7 @@ const QuestionCard = ({
             onUpdateQuestion={onUpdateQuestion}
             onEditPlaceholder={handlePlaceholderEdit}
             onEditLabel={handleLabelEdit}
+            formId={question.formId}
           />
         </div>
 

@@ -1,3 +1,4 @@
+import { getFormOwnerListings } from "@/app/actions/offerForm"
 import DepositPreview from "@/components/offerForm/DepositPreview"
 import DatePicker from "@/components/shared/forms/DatePicker"
 import TimePicker from "@/components/shared/forms/TimePicker"
@@ -17,8 +18,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { getSmartQuestion } from "@/data/smartQuestions"
 import { cn } from "@/lib/utils"
 import { Database } from "@/types/supabase"
-import { useState } from "react"
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState } from "react"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 
@@ -29,6 +29,7 @@ interface QuestionRendererProps {
   onUpdateQuestion?: (questionId: string, updates: Record<string, any>) => void
   onEditPlaceholder?: (fieldKey: string, currentText?: string) => void
   onEditLabel?: (fieldKey: string, currentText?: string) => void
+  formId?: string
 }
 
 // PersonNameFields component extracted to prevent re-creation on every render
@@ -265,6 +266,7 @@ export const QuestionRenderer = ({
   onUpdateQuestion,
   onEditPlaceholder,
   onEditLabel,
+  formId,
 }: QuestionRendererProps) => {
   // State for interactive fields
   const [formValues, setFormValues] = useState<Record<string, any>>({})
@@ -272,6 +274,34 @@ export const QuestionRenderer = ({
   const [fileUploads, setFileUploads] = useState<
     Record<string, { file: File | null; fileName: string }>
   >({})
+  // State for listings (for specifyListing question)
+  const [listings, setListings] = useState<Array<{
+    id: string
+    address: string
+  }> | null>(null)
+  const [showCustomInput, setShowCustomInput] = useState(false)
+  const [selectedListingId, setSelectedListingId] = useState<string>("")
+  const [customAddress, setCustomAddress] = useState<string>("")
+
+  // Fetch listings for specifyListing question
+  useEffect(() => {
+    if (question.type === "specifyListing" && formId && !editingMode) {
+      if (listings === null) {
+        getFormOwnerListings(formId)
+          .then((ownerListings) => {
+            setListings(ownerListings)
+          })
+          .catch((error) => {
+            console.error("Error fetching listings:", error)
+            setListings([])
+          })
+      }
+    } else if (editingMode && question.type === "specifyListing") {
+      // In editing mode, don't fetch listings
+      setListings([])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formId, editingMode, question.type, question.id])
 
   // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
@@ -319,17 +349,74 @@ export const QuestionRenderer = ({
 
   // Specify Listing
   if (question.type === "specifyListing") {
+    // If no listings or editing mode, show simple input
+    if (!listings || listings.length === 0 || editingMode) {
+      return (
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder={
+              uiConfig.placeholder || "Enter listing address or ID..."
+            }
+            disabled={disabled}
+            className={cn(editingMode && "cursor-not-allowed")}
+            value={editingMode ? "" : customAddress}
+            onChange={(e) => {
+              if (!editingMode) {
+                setCustomAddress(e.target.value)
+              }
+            }}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Enter listing address or ID...",
+          )}
+        </div>
+      )
+    }
+
+    // Show dropdown with listings and "not here" option
+    // Input appears below when "custom" is selected
     return (
-      <div className="relative">
-        <Input
-          type="text"
-          placeholder={uiConfig.placeholder || "Enter listing address or ID..."}
+      <div className="space-y-3">
+        <Select
+          value={selectedListingId || (showCustomInput ? "custom" : "")}
+          onValueChange={(value) => {
+            if (value === "custom") {
+              setShowCustomInput(true)
+              setSelectedListingId("")
+            } else {
+              setSelectedListingId(value)
+              setShowCustomInput(false)
+              setCustomAddress("")
+            }
+          }}
           disabled={disabled}
-          className={cn(editingMode && "cursor-not-allowed")}
-        />
-        {renderEditOverlay(
-          "placeholder",
-          uiConfig.placeholder || "Enter listing address or ID...",
+        >
+          <SelectTrigger className={cn(editingMode && "cursor-not-allowed")}>
+            <SelectValue placeholder="Select a listing..." />
+          </SelectTrigger>
+          <SelectContent>
+            {listings.map((listing) => (
+              <SelectItem key={listing.id} value={listing.id}>
+                {listing.address}
+              </SelectItem>
+            ))}
+            <SelectItem value="custom">
+              The Listing I want isn&apos;t here
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        {showCustomInput && (
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder={uiConfig.placeholder || "Enter listing address..."}
+              disabled={disabled}
+              value={customAddress}
+              onChange={(e) => setCustomAddress(e.target.value)}
+            />
+          </div>
         )}
       </div>
     )

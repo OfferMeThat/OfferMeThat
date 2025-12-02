@@ -675,6 +675,34 @@ export const getFormPages = async (formId: string) => {
   return data
 }
 
+export const getFormOwnerListings = async (formId: string) => {
+  const supabase = await createClient()
+
+  // Get the form to find the owner
+  const { data: form, error: formError } = await supabase
+    .from("offerForms")
+    .select("ownerId")
+    .eq("id", formId)
+    .single()
+
+  if (formError || !form) {
+    throw new Error("Failed to fetch form")
+  }
+
+  // Get listings for the owner
+  const { data: listings, error: listingsError } = await supabase
+    .from("listings")
+    .select("id, address")
+    .eq("createdBy", form.ownerId)
+    .order("createdAt", { ascending: false })
+
+  if (listingsError) {
+    throw new Error("Failed to fetch listings")
+  }
+
+  return listings || []
+}
+
 export const addQuestion = async (
   formId: string,
   questionType: QuestionType,

@@ -188,6 +188,7 @@ export const OfferFormInteractiveView = ({
                 question={question}
                 disabled={false}
                 editingMode={false}
+                formId={question.formId}
               />
             </div>
           )
