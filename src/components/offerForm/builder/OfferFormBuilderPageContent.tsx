@@ -34,6 +34,7 @@ import { toast } from "sonner"
 import AddQuestionModal from "./AddQuestionModal"
 import PageBreak from "./PageBreak"
 import QuestionCard from "./QuestionCard"
+import { OfferFormInteractiveView } from "../OfferFormInteractiveView"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 type Page = Database["public"]["Tables"]["offerFormPages"]["Row"]
@@ -49,6 +50,7 @@ const OfferFormBuilderPageContent = () => {
   const [addQuestionAfterOrder, setAddQuestionAfterOrder] = useState<
     number | null
   >(null)
+  const [viewMode, setViewMode] = useState<"builder" | "preview">("builder")
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -360,32 +362,56 @@ const OfferFormBuilderPageContent = () => {
       <div className="flex items-center justify-between border-b bg-white px-6 py-6">
         <div>
           <Heading as="h1" size="large" weight="bold">
-            Customize Offer Form
+            {viewMode === "builder" ? "Customize Offer Form" : "Form Preview"}
           </Heading>
           <p className="mt-1 text-sm text-gray-600">
-            Add, remove and edit questions to build your Offer Form. <br />
-            <Link
-              href="#"
-              className="font-medium text-teal-500 hover:text-teal-700"
-            >
-              Learn more by clicking here.
-            </Link>
+            {viewMode === "builder" ? (
+              <>
+                Add, remove and edit questions to build your Offer Form. <br />
+                <Link
+                  href="#"
+                  className="font-medium text-teal-500 hover:text-teal-700"
+                >
+                  Learn more by clicking here.
+                </Link>
+              </>
+            ) : (
+              "This is how your offer form will appear to buyers."
+            )}
           </p>
         </div>
         <div className="flex gap-3">
+          {viewMode === "builder" && (
+            <Button
+              variant="destructive"
+              onClick={() => setShowResetDialog(true)}
+            >
+              Reset Form
+            </Button>
+          )}
           <Button
-            variant="destructive"
-            onClick={() => setShowResetDialog(true)}
+            onClick={() =>
+              setViewMode(viewMode === "builder" ? "preview" : "builder")
+            }
           >
-            Reset Form
+            {viewMode === "builder" ? "View Form" : "Customize Form"}
           </Button>
-          <Button>View Form</Button>
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="space-y-6 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-xl">
-          {questions.map((question, index) => {
+      {viewMode === "preview" ? (
+        <div className="p-6">
+          <OfferFormInteractiveView
+            questions={questions}
+            pages={pages}
+            title="Your Offer Form"
+            description="This is how your form will appear to buyers who access your offer link."
+          />
+        </div>
+      ) : (
+        <div className="p-4">
+          <div className="space-y-6 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-xl">
+            {questions.map((question, index) => {
             // Find if there's a page break after this question
             const pageBreakAfter = pages.find(
               (page) => page.breakIndex === question.order,
@@ -514,8 +540,9 @@ const OfferFormBuilderPageContent = () => {
               </div>
             )
           })}
+          </div>
         </div>
-      </div>
+      )}
 
       {isPending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">

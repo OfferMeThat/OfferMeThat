@@ -31,6 +31,233 @@ interface QuestionRendererProps {
   onEditLabel?: (fieldKey: string, currentText?: string) => void
 }
 
+// PersonNameFields component extracted to prevent re-creation on every render
+interface PersonNameFieldsProps {
+  prefix: string
+  questionId: string
+  nameFields: Record<
+    string,
+    { firstName: string; middleName: string; lastName: string }
+  >
+  setNameFields: React.Dispatch<
+    React.SetStateAction<
+      Record<
+        string,
+        { firstName: string; middleName: string; lastName: string }
+      >
+    >
+  >
+  fileUploads: Record<string, { file: File | null; fileName: string }>
+  setFileUploads: React.Dispatch<
+    React.SetStateAction<
+      Record<string, { file: File | null; fileName: string }>
+    >
+  >
+  collectMiddleNames: string
+  collectId: string
+  uiConfig: Record<string, any>
+  disabled: boolean
+  editingMode: boolean
+  renderLabelOverlay: (
+    fieldId: string,
+    currentText: string,
+  ) => React.ReactElement | null
+  renderEditOverlay: (
+    fieldId: string,
+    currentText: string,
+  ) => React.ReactElement | null
+}
+
+const PersonNameFields = ({
+  prefix,
+  questionId,
+  nameFields,
+  setNameFields,
+  fileUploads,
+  setFileUploads,
+  collectMiddleNames,
+  collectId,
+  uiConfig,
+  disabled,
+  editingMode,
+  renderLabelOverlay,
+  renderEditOverlay,
+}: PersonNameFieldsProps) => {
+  const nameData = nameFields[prefix] || {
+    firstName: "",
+    middleName: "",
+    lastName: "",
+  }
+  // Use top-level fileUploads state with question id prefix to avoid conflicts
+  const fileData = fileUploads[`${questionId}_${prefix}_id`] || {
+    file: null,
+    fileName: "",
+  }
+  // Show middle name based on setup configuration
+  const shouldShowMiddleName = collectMiddleNames === "yes"
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="relative inline-block">
+          <Label className="mb-1 block text-sm">First Name:</Label>
+          {renderLabelOverlay("firstNameLabel", "First Name:")}
+        </div>
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder={uiConfig.firstNamePlaceholder || "Enter first name"}
+            disabled={disabled}
+            className={cn(editingMode && "cursor-not-allowed")}
+            value={nameData.firstName}
+            onChange={(e) => {
+              const value = e.target.value
+              setNameFields((prev) => {
+                const current = prev[prefix] || {
+                  firstName: "",
+                  middleName: "",
+                  lastName: "",
+                }
+                return {
+                  ...prev,
+                  [prefix]: {
+                    ...current,
+                    firstName: value,
+                  },
+                }
+              })
+            }}
+          />
+          {renderEditOverlay(
+            "firstNamePlaceholder",
+            uiConfig.firstNamePlaceholder || "Enter first name",
+          )}
+        </div>
+      </div>
+      {shouldShowMiddleName && (
+        <div>
+          <div className="relative inline-block">
+            <Label className="mb-1 block text-sm">Middle Name:</Label>
+            {renderLabelOverlay("middleNameLabel", "Middle Name:")}
+          </div>
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder={
+                uiConfig.middleNamePlaceholder || "Enter middle name"
+              }
+              disabled={disabled}
+              className={cn(editingMode && "cursor-not-allowed")}
+              value={nameData.middleName}
+              onChange={(e) => {
+                const value = e.target.value
+                setNameFields((prev) => {
+                  const current = prev[prefix] || {
+                    firstName: "",
+                    middleName: "",
+                    lastName: "",
+                  }
+                  return {
+                    ...prev,
+                    [prefix]: {
+                      ...current,
+                      middleName: value,
+                    },
+                  }
+                })
+              }}
+            />
+            {renderEditOverlay(
+              "middleNamePlaceholder",
+              uiConfig.middleNamePlaceholder || "Enter middle name",
+            )}
+          </div>
+        </div>
+      )}
+      <div>
+        <div className="relative inline-block">
+          <Label className="mb-1 block text-sm">Last Name:</Label>
+          {renderLabelOverlay("lastNameLabel", "Last Name:")}
+        </div>
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder={uiConfig.lastNamePlaceholder || "Enter last name"}
+            disabled={disabled}
+            className={cn(editingMode && "cursor-not-allowed")}
+            value={nameData.lastName}
+            onChange={(e) => {
+              const value = e.target.value
+              setNameFields((prev) => {
+                const current = prev[prefix] || {
+                  firstName: "",
+                  middleName: "",
+                  lastName: "",
+                }
+                return {
+                  ...prev,
+                  [prefix]: {
+                    ...current,
+                    lastName: value,
+                  },
+                }
+              })
+            }}
+          />
+          {renderEditOverlay(
+            "lastNamePlaceholder",
+            uiConfig.lastNamePlaceholder || "Enter last name",
+          )}
+        </div>
+      </div>
+      {collectId && collectId !== "no" && (
+        <div>
+          <div className="relative inline-block">
+            <Label className="mb-1 block text-sm">
+              ID Upload{" "}
+              {collectId === "mandatory" && (
+                <span className="text-red-500">*</span>
+              )}
+            </Label>
+            {renderLabelOverlay("idUploadLabel", "ID Upload")}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              id={`${questionId}_${prefix}_id_file`}
+              className="hidden"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              disabled={editingMode}
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null
+                setFileUploads((prev) => ({
+                  ...prev,
+                  [`${questionId}_${prefix}_id`]: {
+                    file,
+                    fileName: file ? file.name : "",
+                  },
+                }))
+              }}
+            />
+            <label
+              htmlFor={`${questionId}_${prefix}_id_file`}
+              className={cn(
+                "cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-1 hover:bg-gray-200",
+                "text-sm transition-colors",
+              )}
+            >
+              Choose file
+            </label>
+            <span className="text-sm text-gray-500">
+              {fileData.fileName || "No file chosen"}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export const QuestionRenderer = ({
   question,
   disabled = false,
@@ -41,6 +268,10 @@ export const QuestionRenderer = ({
 }: QuestionRendererProps) => {
   // State for interactive fields
   const [formValues, setFormValues] = useState<Record<string, any>>({})
+  // State for file uploads (keyed by question id and field name)
+  const [fileUploads, setFileUploads] = useState<
+    Record<string, { file: File | null; fileName: string }>
+  >({})
 
   // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
@@ -254,11 +485,38 @@ export const QuestionRenderer = ({
             )}
           </div>
           {collectId && collectId !== "no" && (
-            <div className="mt-3 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
-              <p className="text-sm text-gray-500">
-                📎 Upload Identification{" "}
-                {collectId === "optional" && "(Optional)"}
-              </p>
+            <div className="mt-3 space-y-2">
+              <input
+                type="file"
+                id={`${question.id}_single_id_upload`}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                disabled={disabled}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null
+                  setFileUploads((prev) => ({
+                    ...prev,
+                    [`${question.id}_single_id_upload`]: {
+                      file,
+                      fileName: file ? file.name : "",
+                    },
+                  }))
+                }}
+              />
+              <label
+                htmlFor={`${question.id}_single_id_upload`}
+                className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
+              >
+                <p className="text-sm text-gray-500">
+                  📎 Upload Identification{" "}
+                  {collectId === "optional" && "(Optional)"}
+                </p>
+              </label>
+              {fileUploads[`${question.id}_single_id_upload`]?.fileName && (
+                <p className="text-xs text-gray-600">
+                  {fileUploads[`${question.id}_single_id_upload`].fileName}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -272,122 +530,12 @@ export const QuestionRenderer = ({
     const [purchaserTypes, setPurchaserTypes] = useState<
       Record<number, string>
     >({})
-    const [noMiddleName, setNoMiddleName] = useState<Record<string, boolean>>(
-      {},
-    )
-
-    // Helper component for person name fields
-    const PersonNameFields = ({
-      prefix,
-      showMiddleName = collectMiddleNames,
-    }: {
-      prefix: string
-      showMiddleName?: boolean
-    }) => (
-      <div className="space-y-3">
-        <div>
-          <div className="relative inline-block">
-            <Label className="mb-1 block text-sm">First Name:</Label>
-            {renderLabelOverlay("firstNameLabel", "First Name:")}
-          </div>
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder={uiConfig.firstNamePlaceholder || "Enter first name"}
-              disabled={disabled}
-              className={cn(editingMode && "cursor-not-allowed")}
-            />
-            {renderEditOverlay(
-              "firstNamePlaceholder",
-              uiConfig.firstNamePlaceholder || "Enter first name",
-            )}
-          </div>
-        </div>
-        {showMiddleName && (
-          <div>
-            <div className="relative inline-block">
-              <Label className="mb-1 block text-sm">Middle Name:</Label>
-              {renderLabelOverlay("middleNameLabel", "Middle Name:")}
-            </div>
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder={
-                  uiConfig.middleNamePlaceholder || "Enter middle name"
-                }
-                disabled={disabled || noMiddleName[prefix]}
-                className={cn(editingMode && "cursor-not-allowed")}
-              />
-              {renderEditOverlay(
-                "middleNamePlaceholder",
-                uiConfig.middleNamePlaceholder || "Enter middle name",
-              )}
-            </div>
-            <div className="mt-1 flex items-center gap-2">
-              <Checkbox
-                id={`${prefix}_no_middle`}
-                checked={noMiddleName[prefix] || false}
-                onCheckedChange={(checked) =>
-                  setNoMiddleName((prev) => ({
-                    ...prev,
-                    [prefix]: checked === true,
-                  }))
-                }
-                disabled={disabled}
-              />
-              <Label
-                htmlFor={`${prefix}_no_middle`}
-                className="text-xs text-gray-500"
-              >
-                I don&apos;t have a middle name
-              </Label>
-            </div>
-          </div>
-        )}
-        <div>
-          <div className="relative inline-block">
-            <Label className="mb-1 block text-sm">Last Name:</Label>
-            {renderLabelOverlay("lastNameLabel", "Last Name:")}
-          </div>
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder={uiConfig.lastNamePlaceholder || "Enter last name"}
-              disabled={disabled}
-              className={cn(editingMode && "cursor-not-allowed")}
-            />
-            {renderEditOverlay(
-              "lastNamePlaceholder",
-              uiConfig.lastNamePlaceholder || "Enter last name",
-            )}
-          </div>
-        </div>
-        {collectId && collectId !== "no" && (
-          <div>
-            <div className="relative inline-block">
-              <Label className="mb-1 block text-sm">
-                ID Upload{" "}
-                {collectId === "mandatory" && (
-                  <span className="text-red-500">*</span>
-                )}
-              </Label>
-              {renderLabelOverlay("idUploadLabel", "ID Upload")}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={disabled}
-              >
-                Choose file
-              </Button>
-              <span className="text-sm text-gray-500">No file chosen</span>
-            </div>
-          </div>
-        )}
-      </div>
-    )
+    const [nameFields, setNameFields] = useState<
+      Record<
+        string,
+        { firstName: string; middleName: string; lastName: string }
+      >
+    >({})
 
     return (
       <div className="space-y-4">
@@ -414,7 +562,21 @@ export const QuestionRenderer = ({
         {scenario === "single" && (
           <div className="space-y-3">
             <h4 className="text-sm font-medium">Who is the Purchaser?</h4>
-            <PersonNameFields prefix="single" />
+            <PersonNameFields
+              prefix="single"
+              questionId={question.id}
+              nameFields={nameFields}
+              setNameFields={setNameFields}
+              fileUploads={fileUploads}
+              setFileUploads={setFileUploads}
+              collectMiddleNames={collectMiddleNames}
+              collectId={collectId}
+              uiConfig={uiConfig}
+              disabled={disabled}
+              editingMode={editingMode}
+              renderLabelOverlay={renderLabelOverlay}
+              renderEditOverlay={renderEditOverlay}
+            />
           </div>
         )}
 
@@ -448,7 +610,21 @@ export const QuestionRenderer = ({
                   <h4 className="text-sm font-medium">
                     Purchaser {num} - Who is the Purchaser?
                   </h4>
-                  <PersonNameFields prefix={`purchaser-${num}`} />
+                  <PersonNameFields
+                    prefix={`purchaser-${num}`}
+                    questionId={question.id}
+                    nameFields={nameFields}
+                    setNameFields={setNameFields}
+                    fileUploads={fileUploads}
+                    setFileUploads={setFileUploads}
+                    collectMiddleNames={collectMiddleNames}
+                    collectId={collectId}
+                    uiConfig={uiConfig}
+                    disabled={disabled}
+                    editingMode={editingMode}
+                    renderLabelOverlay={renderLabelOverlay}
+                    renderEditOverlay={renderEditOverlay}
+                  />
                 </div>
               ),
             )}
@@ -480,7 +656,21 @@ export const QuestionRenderer = ({
                         Representative {num}:
                       </h5>
                     )}
-                    <PersonNameFields prefix={`rep-${num}`} />
+                    <PersonNameFields
+                      prefix={`rep-${num}`}
+                      questionId={question.id}
+                      nameFields={nameFields}
+                      setNameFields={setNameFields}
+                      fileUploads={fileUploads}
+                      setFileUploads={setFileUploads}
+                      collectMiddleNames={collectMiddleNames}
+                      collectId={collectId}
+                      uiConfig={uiConfig}
+                      disabled={disabled}
+                      editingMode={editingMode}
+                      renderLabelOverlay={renderLabelOverlay}
+                      renderEditOverlay={renderEditOverlay}
+                    />
                   </div>
                 ),
               )}
@@ -528,7 +718,21 @@ export const QuestionRenderer = ({
                   </div>
 
                   {purchaserTypes[num] === "person" && (
-                    <PersonNameFields prefix={`other-person-${num}`} />
+                    <PersonNameFields
+                      prefix={`other-person-${num}`}
+                      questionId={question.id}
+                      nameFields={nameFields}
+                      setNameFields={setNameFields}
+                      fileUploads={fileUploads}
+                      setFileUploads={setFileUploads}
+                      collectMiddleNames={collectMiddleNames}
+                      collectId={collectId}
+                      uiConfig={uiConfig}
+                      disabled={disabled}
+                      editingMode={editingMode}
+                      renderLabelOverlay={renderLabelOverlay}
+                      renderEditOverlay={renderEditOverlay}
+                    />
                   )}
 
                   {purchaserTypes[num] === "corporation" && (
@@ -546,7 +750,21 @@ export const QuestionRenderer = ({
                       <h5 className="text-sm font-medium">
                         Corporation Representative:
                       </h5>
-                      <PersonNameFields prefix={`other-corp-${num}-rep`} />
+                      <PersonNameFields
+                        prefix={`other-corp-${num}-rep`}
+                        questionId={question.id}
+                        nameFields={nameFields}
+                        setNameFields={setNameFields}
+                        fileUploads={fileUploads}
+                        setFileUploads={setFileUploads}
+                        collectMiddleNames={collectMiddleNames}
+                        collectId={collectId}
+                        uiConfig={uiConfig}
+                        disabled={disabled}
+                        editingMode={editingMode}
+                        renderLabelOverlay={renderLabelOverlay}
+                        renderEditOverlay={renderEditOverlay}
+                      />
                     </div>
                   )}
                 </div>
@@ -577,16 +795,46 @@ export const QuestionRenderer = ({
   // Attach Purchase Agreement
   if (question.type === "attachPurchaseAgreement") {
     const isRequired = setupConfig.contract_requirement === "required"
+    const fileData = fileUploads[`${question.id}_purchase_agreement`] || {
+      file: null,
+      fileName: "",
+    }
+
     return (
       <>
-        <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
-          <p className="text-sm text-gray-500">
-            📎 Upload Purchase Agreement {!isRequired && "(Optional)"}
-          </p>
+        <div className="space-y-2">
+          <input
+            type="file"
+            id={`${question.id}_purchase_agreement_file`}
+            className="hidden"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            disabled={disabled}
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null
+              setFileUploads((prev) => ({
+                ...prev,
+                [`${question.id}_purchase_agreement`]: {
+                  file,
+                  fileName: file ? file.name : "",
+                },
+              }))
+            }}
+          />
+          <label
+            htmlFor={`${question.id}_purchase_agreement_file`}
+            className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
+          >
+            <p className="text-sm text-gray-500">
+              📎 Upload Purchase Agreement {!isRequired && "(Optional)"}
+            </p>
+          </label>
+          {fileData.fileName && (
+            <p className="text-xs text-gray-600">{fileData.fileName}</p>
+          )}
+          <span className="text-xs text-gray-500">
+            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 10MB each)
+          </span>
         </div>
-        <span className="text-xs text-gray-500">
-          Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 10MB each)
-        </span>
       </>
     )
   }
@@ -615,18 +863,26 @@ export const QuestionRenderer = ({
             </div>
           </RadioGroup>
         )}
-        
+
         {(!isOptional || hasExpiry) && (
           <div className="flex gap-2">
             <DatePicker
               label={uiConfig.dateLabel || "Select date"}
               disabled={disabled}
               btnClassName={cn(editingMode && "cursor-not-allowed")}
+              value={formValues.expiryDate}
+              onChange={(date) =>
+                setFormValues((prev) => ({ ...prev, expiryDate: date }))
+              }
             />
             <TimePicker
               label={uiConfig.timeLabel || "Select time"}
               disabled={disabled}
               btnClassName={cn(editingMode && "cursor-not-allowed")}
+              value={formValues.expiryTime}
+              onChange={(time) =>
+                setFormValues((prev) => ({ ...prev, expiryTime: time }))
+              }
             />
           </div>
         )}
@@ -939,10 +1195,39 @@ export const QuestionRenderer = ({
                     "Supporting Documents:",
                   )}
                 </div>
-                <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center">
-                  <p className="text-sm text-gray-500">
-                    Upload pre-approval documents or supporting evidence
-                  </p>
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    id={`${question.id}_supporting_docs`}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    disabled={disabled}
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || [])
+                      const fileNames = files.map((f) => f.name).join(", ")
+                      setFileUploads((prev) => ({
+                        ...prev,
+                        [`${question.id}_supporting_docs`]: {
+                          file: files[0] || null,
+                          fileName: fileNames || "",
+                        },
+                      }))
+                    }}
+                  />
+                  <label
+                    htmlFor={`${question.id}_supporting_docs`}
+                    className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center"
+                  >
+                    <p className="text-sm text-gray-500">
+                      Upload pre-approval documents or supporting evidence
+                    </p>
+                  </label>
+                  {fileUploads[`${question.id}_supporting_docs`]?.fileName && (
+                    <p className="text-xs text-gray-600">
+                      {fileUploads[`${question.id}_supporting_docs`].fileName}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -1086,6 +1371,10 @@ export const QuestionRenderer = ({
               <DatePicker
                 disabled={disabled}
                 btnClassName={cn(editingMode && "cursor-not-allowed")}
+                value={formValues.settlementDate}
+                onChange={(date) =>
+                  setFormValues((prev) => ({ ...prev, settlementDate: date }))
+                }
               />
             </div>
           )}
@@ -1095,12 +1384,20 @@ export const QuestionRenderer = ({
                 <DatePicker
                   disabled={disabled}
                   btnClassName={cn(editingMode && "cursor-not-allowed")}
+                  value={formValues.settlementDate}
+                  onChange={(date) =>
+                    setFormValues((prev) => ({ ...prev, settlementDate: date }))
+                  }
                 />
               </div>
               <div className="relative flex-1">
                 <TimePicker
                   disabled={disabled}
                   btnClassName={cn(editingMode && "cursor-not-allowed")}
+                  value={formValues.settlementTime}
+                  onChange={(time) =>
+                    setFormValues((prev) => ({ ...prev, settlementTime: time }))
+                  }
                 />
               </div>
             </div>
@@ -1217,8 +1514,38 @@ export const QuestionRenderer = ({
           )}
         </div>
         {allowAttachments && (
-          <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
-            <p className="text-sm text-gray-500">📎 Attach files (Optional)</p>
+          <div className="space-y-2">
+            <input
+              type="file"
+              id={`${question.id}_message_attachments`}
+              className="hidden"
+              disabled={disabled}
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || [])
+                const fileNames = files.map((f) => f.name).join(", ")
+                setFileUploads((prev) => ({
+                  ...prev,
+                  [`${question.id}_message_attachments`]: {
+                    file: files[0] || null,
+                    fileName: fileNames || "",
+                  },
+                }))
+              }}
+            />
+            <label
+              htmlFor={`${question.id}_message_attachments`}
+              className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
+            >
+              <p className="text-sm text-gray-500">
+                📎 Attach files (Optional)
+              </p>
+            </label>
+            {fileUploads[`${question.id}_message_attachments`]?.fileName && (
+              <p className="text-xs text-gray-600">
+                {fileUploads[`${question.id}_message_attachments`].fileName}
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -1269,6 +1596,13 @@ export const QuestionRenderer = ({
           <DatePicker
             disabled={disabled}
             btnClassName={cn(editingMode && "cursor-not-allowed")}
+            value={formValues[`${question.id}_date`]}
+            onChange={(date) =>
+              setFormValues((prev) => ({
+                ...prev,
+                [`${question.id}_date`]: date,
+              }))
+            }
           />
         </div>
       )
@@ -1280,6 +1614,13 @@ export const QuestionRenderer = ({
           <TimePicker
             disabled={disabled}
             btnClassName={cn(editingMode && "cursor-not-allowed")}
+            value={formValues[`${question.id}_time`]}
+            onChange={(time) =>
+              setFormValues((prev) => ({
+                ...prev,
+                [`${question.id}_time`]: time,
+              }))
+            }
           />
         </div>
       )
@@ -1388,22 +1729,80 @@ export const QuestionRenderer = ({
         )
       }
     } else if (answerType === "file_upload") {
+      const fileData = fileUploads[`${question.id}_file`] || {
+        file: null,
+        fileName: "",
+      }
+
       return (
-        <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
-          <p className="text-sm text-gray-500">📎 Upload files</p>
+        <div className="space-y-2">
+          <input
+            type="file"
+            id={`${question.id}_file_input`}
+            className="hidden"
+            disabled={disabled}
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null
+              setFileUploads((prev) => ({
+                ...prev,
+                [`${question.id}_file`]: {
+                  file,
+                  fileName: file ? file.name : "",
+                },
+              }))
+            }}
+          />
+          <label
+            htmlFor={`${question.id}_file_input`}
+            className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center transition-colors hover:bg-gray-200"
+          >
+            <p className="text-sm">📎 Upload files</p>
+          </label>
+          {fileData.fileName && (
+            <p className="text-xs text-gray-600">{fileData.fileName}</p>
+          )}
         </div>
       )
     } else if (answerType === "time_date") {
       const timeType = setupConfig.time_date_type
       if (timeType === "date") {
-        return <DatePicker disabled={disabled} />
+        return (
+          <DatePicker
+            disabled={disabled}
+            value={formValues[`${question.id}_date`]}
+            onChange={(date) =>
+              setFormValues((prev) => ({
+                ...prev,
+                [`${question.id}_date`]: date,
+              }))
+            }
+          />
+        )
       } else if (timeType === "time") {
         return <Input type="time" disabled={disabled} />
       } else if (timeType === "datetime") {
         return (
           <div className="flex gap-2">
-            <DatePicker disabled={disabled} />
-            <TimePicker disabled={disabled} />
+            <DatePicker
+              disabled={disabled}
+              value={formValues[`${question.id}_date`]}
+              onChange={(date) =>
+                setFormValues((prev) => ({
+                  ...prev,
+                  [`${question.id}_date`]: date,
+                }))
+              }
+            />
+            <TimePicker
+              disabled={disabled}
+              value={formValues[`${question.id}_time`]}
+              onChange={(time) =>
+                setFormValues((prev) => ({
+                  ...prev,
+                  [`${question.id}_time`]: time,
+                }))
+              }
+            />
           </div>
         )
       }
@@ -1474,14 +1873,17 @@ export const QuestionRenderer = ({
           <div className="flex items-center gap-2">
             <Checkbox disabled={tickboxDisabled} />
             <div className="relative inline-block">
-              <span className={cn(
-                "text-sm",
-                !showTickbox ? "text-gray-400" : "text-gray-700"
-              )}>
-                {setupConfig.tickbox_text || "I agree"}
-                {showTickbox && setupConfig.tickbox_requirement === "essential" && (
-                  <span className="text-red-500"> *</span>
+              <span
+                className={cn(
+                  "text-sm",
+                  !showTickbox ? "text-gray-400" : "text-gray-700",
                 )}
+              >
+                {setupConfig.tickbox_text || "I agree"}
+                {showTickbox &&
+                  setupConfig.tickbox_requirement === "essential" && (
+                    <span className="text-red-500"> *</span>
+                  )}
               </span>
               {renderLabelOverlay(
                 "tickboxText",

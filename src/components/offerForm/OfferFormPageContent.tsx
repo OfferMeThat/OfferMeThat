@@ -1,6 +1,8 @@
 "use client"
 
+import { getFormPages, getFormQuestions, getOrCreateOfferForm } from "@/app/actions/offerForm"
 import { createClient } from "@/lib/supabase/client"
+import { Database } from "@/types/supabase"
 import { Copy, Download, ExternalLink, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { QRCodeSVG } from "qrcode.react"
@@ -9,11 +11,18 @@ import { toast } from "sonner"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
 import { Spinner } from "../ui/spinner"
+import { OfferFormInteractiveView } from "./OfferFormInteractiveView"
+
+type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
+type Page = Database["public"]["Tables"]["offerFormPages"]["Row"]
 
 const OfferFormPageContent = () => {
   const [username, setUsername] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [offerLink, setOfferLink] = useState("")
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [pages, setPages] = useState<Page[]>([])
+  const [formLoading, setFormLoading] = useState(true)
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -39,6 +48,27 @@ const OfferFormPageContent = () => {
     }
 
     fetchUserProfile()
+  }, [])
+
+  useEffect(() => {
+    const fetchFormData = async () => {
+      try {
+        const formId = await getOrCreateOfferForm()
+        const [fetchedQuestions, fetchedPages] = await Promise.all([
+          getFormQuestions(formId),
+          getFormPages(formId),
+        ])
+        setQuestions(fetchedQuestions)
+        setPages(fetchedPages)
+      } catch (error) {
+        console.error("Error loading form:", error)
+        toast.error("Failed to load form preview")
+      } finally {
+        setFormLoading(false)
+      }
+    }
+
+    fetchFormData()
   }, [])
 
   const handleCopyLink = () => {
@@ -211,6 +241,16 @@ const OfferFormPageContent = () => {
           </Link>
           .
         </p>
+
+        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+          <OfferFormInteractiveView
+            questions={questions}
+            pages={pages}
+            isLoading={formLoading}
+            title="Your Offer Form"
+            description="This is how your form will appear to buyers who access your offer link."
+          />
+        </div>
       </div>
     </main>
   )

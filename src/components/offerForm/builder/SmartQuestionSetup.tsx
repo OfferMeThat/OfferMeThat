@@ -150,7 +150,11 @@ const getCurrencyDisplayName = (
 
 interface SmartQuestionSetupProps {
   questionId: string
-  onComplete: (generatedProperties: any, answers: Record<string, any>, requiredOverride?: boolean) => void
+  onComplete: (
+    generatedProperties: any,
+    answers: Record<string, any>,
+    requiredOverride?: boolean,
+  ) => void
   onCancel: () => void
   hideButtons?: boolean
   initialSetupConfig?: Record<string, any>

@@ -16,7 +16,7 @@ import { getQuestionRequiredFromSetup } from "@/lib/questionHelpers"
 import { cn } from "@/lib/utils"
 import { QuestionType } from "@/types/form"
 import { QuestionSetupConfig, QuestionUIConfig } from "@/types/questionConfig"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import SmartQuestionSetup from "./SmartQuestionSetup"
 
 interface QuestionSetupFormProps {
@@ -43,25 +43,26 @@ const QuestionSetupForm = ({
     (initialSetupConfig as any)?.conditions || []
   )
 
+  // Use ref to track previous config to avoid infinite loops
+  const prevConfigRef = useRef<string>("")
+  const prevQuestionTypeRef = useRef<QuestionType | null>(null)
+
   // Update state when initial config changes (for edit mode)
+  // Only update if the serialized config actually changed or questionType changed
   useEffect(() => {
-    setSetupConfig(initialSetupConfig)
-    if ((initialSetupConfig as any)?.conditions) {
-      setConditions((initialSetupConfig as any).conditions)
+    const currentConfigString = JSON.stringify(initialSetupConfig)
+    const questionTypeChanged = prevQuestionTypeRef.current !== questionType
+    
+    // Only update if config actually changed or question type changed
+    if (currentConfigString !== prevConfigRef.current || questionTypeChanged) {
+      setSetupConfig(initialSetupConfig)
+      if ((initialSetupConfig as any)?.conditions) {
+        setConditions((initialSetupConfig as any).conditions)
+      }
+      prevConfigRef.current = currentConfigString
+      prevQuestionTypeRef.current = questionType
     }
-  }, [initialSetupConfig])
-
-  // Add event listener for external save trigger
-  useEffect(() => {
-    const handleExternalSave = () => {
-      handleComplete()
-    }
-
-    window.addEventListener("smartQuestionSave", handleExternalSave)
-    return () => {
-      window.removeEventListener("smartQuestionSave", handleExternalSave)
-    }
-  }, [setupConfig, conditions, questionType, initialUIConfig])
+  }, [initialSetupConfig, questionType])
 
   const handleConfigChange = (questionId: string, value: any) => {
     setSetupConfig((prev) => ({
@@ -90,7 +91,7 @@ const QuestionSetupForm = ({
     setConditions(updated)
   }
 
-  const handleComplete = () => {
+  const handleComplete = useCallback(() => {
     // For Special Conditions, include the conditions array in setupConfig
     const finalConfig =
       questionType === "specialConditions"
@@ -115,7 +116,19 @@ const QuestionSetupForm = ({
     const requiredFromSetup = getQuestionRequiredFromSetup(questionType, finalConfig)
     
     onComplete(finalConfig, finalUIConfig, requiredFromSetup ?? undefined)
-  }
+  }, [setupConfig, conditions, questionType, initialUIConfig, onComplete])
+
+  // Add event listener for external save trigger
+  useEffect(() => {
+    const handleExternalSave = () => {
+      handleComplete()
+    }
+
+    window.addEventListener("smartQuestionSave", handleExternalSave)
+    return () => {
+      window.removeEventListener("smartQuestionSave", handleExternalSave)
+    }
+  }, [handleComplete])
 
   // Special handling for deposit question using SmartQuestionSetup
   if (questionType === "deposit") {
