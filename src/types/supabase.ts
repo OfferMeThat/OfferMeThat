@@ -197,35 +197,93 @@ export type Database = {
           buyerType: Database["public"]["Enums"]["buyerType"]
           conditional: boolean
           createdAt: string
+          customListingAddress: string | null
+          customQuestionsData: Json | null
+          depositData: Json | null
           expires: string | null
+          expiryTime: string | null
+          formData: Json | null
+          formId: string | null
           id: string
           listingId: string
+          messageToAgent: Json | null
           paymentWay: Database["public"]["Enums"]["paymentWays"]
+          purchaseAgreementFileUrl: string | null
+          purchaserData: Json | null
+          settlementDateData: Json | null
+          specialConditions: string | null
           status: Database["public"]["Enums"]["offerStatus"]
+          subjectToLoanApproval: Json | null
+          submitterEmail: string | null
+          submitterFirstName: string | null
+          submitterLastName: string | null
+          submitterPhone: string | null
+          updatedAt: string | null
         }
         Insert: {
           amount: number
           buyerType: Database["public"]["Enums"]["buyerType"]
           conditional?: boolean
           createdAt?: string
+          customListingAddress?: string | null
+          customQuestionsData?: Json | null
+          depositData?: Json | null
           expires?: string | null
+          expiryTime?: string | null
+          formData?: Json | null
+          formId?: string | null
           id?: string
           listingId: string
+          messageToAgent?: Json | null
           paymentWay: Database["public"]["Enums"]["paymentWays"]
+          purchaseAgreementFileUrl?: string | null
+          purchaserData?: Json | null
+          settlementDateData?: Json | null
+          specialConditions?: string | null
           status: Database["public"]["Enums"]["offerStatus"]
+          subjectToLoanApproval?: Json | null
+          submitterEmail?: string | null
+          submitterFirstName?: string | null
+          submitterLastName?: string | null
+          submitterPhone?: string | null
+          updatedAt?: string | null
         }
         Update: {
           amount?: number
           buyerType?: Database["public"]["Enums"]["buyerType"]
           conditional?: boolean
           createdAt?: string
+          customListingAddress?: string | null
+          customQuestionsData?: Json | null
+          depositData?: Json | null
           expires?: string | null
+          expiryTime?: string | null
+          formData?: Json | null
+          formId?: string | null
           id?: string
           listingId?: string
+          messageToAgent?: Json | null
           paymentWay?: Database["public"]["Enums"]["paymentWays"]
+          purchaseAgreementFileUrl?: string | null
+          purchaserData?: Json | null
+          settlementDateData?: Json | null
+          specialConditions?: string | null
           status?: Database["public"]["Enums"]["offerStatus"]
+          subjectToLoanApproval?: Json | null
+          submitterEmail?: string | null
+          submitterFirstName?: string | null
+          submitterLastName?: string | null
+          submitterPhone?: string | null
+          updatedAt?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "offers_formId_fkey"
+            columns: ["formId"]
+            isOneToOne: false
+            referencedRelation: "offerForms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "offers_listingId_fkey"
             columns: ["listingId"]
