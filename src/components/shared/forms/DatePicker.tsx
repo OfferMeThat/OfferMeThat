@@ -35,12 +35,21 @@ const DatePicker = ({
   const [open, setOpen] = React.useState(false)
 
   const getFieldStyle = () => {
-    if (!brandingConfig?.fieldColor) return style
-    return {
+    const baseStyle = {
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "#e5e7eb", // gray-200
+      backgroundColor: "#ffffff",
       ...style,
-      backgroundColor: brandingConfig.fieldColor,
-      borderColor: brandingConfig.fieldColor,
     }
+    if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
+      return {
+        ...baseStyle,
+        backgroundColor: brandingConfig.fieldColor,
+        borderColor: brandingConfig.fieldColor,
+      }
+    }
+    return baseStyle
   }
 
   return (

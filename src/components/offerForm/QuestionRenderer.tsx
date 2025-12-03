@@ -16,9 +16,11 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getSmartQuestion } from "@/data/smartQuestions"
+import { validateFileSize } from "@/lib/offerFormValidation"
 import { cn } from "@/lib/utils"
 import { BrandingConfig } from "@/types/branding"
 import { Database } from "@/types/supabase"
+import { X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
@@ -32,6 +34,10 @@ interface QuestionRendererProps {
   onEditLabel?: (fieldKey: string, currentText?: string) => void
   formId?: string
   brandingConfig?: BrandingConfig
+  value?: any
+  onChange?: (value: any) => void
+  onBlur?: () => void
+  error?: string
 }
 
 // PersonNameFields component extracted to prevent re-creation on every render
@@ -94,17 +100,30 @@ const PersonNameFields = ({
     lastName: "",
   }
   // Use top-level fileUploads state with question id prefix to avoid conflicts
-  const fileData = fileUploads[`${questionId}_${prefix}_id`] || {
-    file: null,
-    fileName: "",
-  }
+  const fileData: { file: File | null; fileName: string; error?: string } =
+    fileUploads[`${questionId}_${prefix}_id`] || {
+      file: null,
+      fileName: "",
+      error: undefined,
+    }
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
-    if (!brandingConfig?.fieldColor || editingMode) return {}
+    if (editingMode) return {}
+    if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
+      return {
+        backgroundColor: brandingConfig.fieldColor,
+        borderColor: brandingConfig.fieldColor,
+        borderWidth: "1px",
+        borderStyle: "solid",
+      }
+    }
+    // Use gray border when branding is null or white
     return {
-      backgroundColor: brandingConfig.fieldColor,
-      borderColor: brandingConfig.fieldColor,
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "#e5e7eb", // gray-200
+      backgroundColor: "#ffffff",
     }
   }
   // Show middle name based on setup configuration
@@ -247,27 +266,64 @@ const PersonNameFields = ({
               disabled={editingMode}
               onChange={(e) => {
                 const file = e.target.files?.[0] || null
+                const fileKey = `${questionId}_${prefix}_id`
+                const fileError = file ? validateFileSize(file) : null
                 setFileUploads((prev) => ({
                   ...prev,
-                  [`${questionId}_${prefix}_id`]: {
+                  [fileKey]: {
                     file,
                     fileName: file ? file.name : "",
+                    error: fileError || undefined,
                   },
                 }))
               }}
             />
-            <label
-              htmlFor={`${questionId}_${prefix}_id_file`}
-              className={cn(
-                "cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-1 hover:bg-gray-200",
-                "text-sm transition-colors",
-              )}
-            >
-              Choose file
-            </label>
-            <span className="text-sm text-gray-500">
-              {fileData.fileName || "No file chosen"}
-            </span>
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor={`${questionId}_${prefix}_id_file`}
+                className={cn(
+                  "cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-1 hover:bg-gray-200",
+                  "text-sm transition-colors",
+                )}
+              >
+                Choose file
+              </label>
+              <span className="text-sm text-gray-500">
+                {fileData.fileName || "No file chosen"}
+              </span>
+            </div>
+            {fileData.fileName && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFileUploads((prev) => ({
+                    ...prev,
+                    [`${questionId}_${prefix}_id`]: {
+                      file: null,
+                      fileName: "",
+                      error: undefined,
+                    },
+                  }))
+                  const fileInput = document.getElementById(
+                    `${questionId}_${prefix}_id_file`,
+                  ) as HTMLInputElement
+                  if (fileInput) {
+                    fileInput.value = ""
+                  }
+                }}
+                className="h-6 w-6 p-0"
+                disabled={editingMode}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+            {fileData.error && (
+              <p className="mt-1 text-sm text-red-500" role="alert">
+                {fileData.error}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -284,12 +340,31 @@ export const QuestionRenderer = ({
   onEditLabel,
   formId,
   brandingConfig,
+  value,
+  onChange,
+  onBlur,
+  error,
 }: QuestionRendererProps) => {
-  // State for interactive fields
-  const [formValues, setFormValues] = useState<Record<string, any>>({})
+  // State for interactive fields (used for complex fields like dates, times, etc.)
+  // Initialize from value prop if available
+  const [formValues, setFormValues] = useState<Record<string, any>>(() => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value as Record<string, any>
+    }
+    return {}
+  })
+
+  // Sync formValues with value prop when it changes
+  useEffect(() => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      setFormValues(value as Record<string, any>)
+    } else if (value === null || value === undefined) {
+      setFormValues({})
+    }
+  }, [value])
   // State for file uploads (keyed by question id and field name)
   const [fileUploads, setFileUploads] = useState<
-    Record<string, { file: File | null; fileName: string }>
+    Record<string, { file: File | null; fileName: string; error?: string }>
   >({})
   // State for listings (for specifyListing question)
   const [listings, setListings] = useState<Array<{
@@ -326,18 +401,41 @@ export const QuestionRenderer = ({
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
-    if (!brandingConfig?.fieldColor || editingMode) return {}
+    if (editingMode) return {}
+    if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
+      return {
+        backgroundColor: brandingConfig.fieldColor,
+        borderColor: brandingConfig.fieldColor,
+        borderWidth: "1px",
+        borderStyle: "solid",
+      }
+    }
+    // Use gray border when branding is null or white
     return {
-      backgroundColor: brandingConfig.fieldColor,
-      borderColor: brandingConfig.fieldColor,
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "#e5e7eb", // gray-200
+      backgroundColor: "#ffffff",
     }
   }
 
   // Helper: Get select style with branding
   const getSelectStyle = () => {
-    if (!brandingConfig?.fieldColor || editingMode) return {}
+    if (editingMode) return {}
+    if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
+      return {
+        backgroundColor: brandingConfig.fieldColor,
+        borderColor: brandingConfig.fieldColor,
+        borderWidth: "1px",
+        borderStyle: "solid",
+      }
+    }
+    // Use gray border when branding is null or white
     return {
-      backgroundColor: brandingConfig.fieldColor,
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "#e5e7eb", // gray-200
+      backgroundColor: "#ffffff",
     }
   }
 
@@ -347,6 +445,52 @@ export const QuestionRenderer = ({
     return {
       backgroundColor: brandingConfig.buttonColor,
       color: brandingConfig.buttonTextColor,
+    }
+  }
+
+  // Helper: Render error message
+  const renderError = (errorMessage?: string) => {
+    if (!errorMessage || editingMode) return null
+    return (
+      <p className="mt-1 text-sm text-red-500" role="alert">
+        {errorMessage}
+      </p>
+    )
+  }
+
+  // Helper: Handle file upload with validation
+  const handleFileUpload = (
+    fileKey: string,
+    file: File | null,
+    onFileChange?: (value: any) => void,
+  ) => {
+    if (!file) {
+      setFileUploads((prev) => ({
+        ...prev,
+        [fileKey]: { file: null, fileName: "", error: undefined },
+      }))
+      if (onFileChange) onFileChange(null)
+      return
+    }
+
+    // Validate file size
+    const fileError = validateFileSize(file)
+    setFileUploads((prev) => ({
+      ...prev,
+      [fileKey]: {
+        file,
+        fileName: file.name,
+        error: fileError || undefined,
+      },
+    }))
+
+    if (fileError) {
+      // Don't call onChange if file is invalid
+      return
+    }
+
+    if (onFileChange) {
+      onFileChange(file)
     }
   }
 
@@ -392,28 +536,54 @@ export const QuestionRenderer = ({
 
   // Specify Listing
   if (question.type === "specifyListing") {
+    // Sync local state with parent value
+    useEffect(() => {
+      if (value && typeof value === "string") {
+        // Check if it's a listing ID or custom address
+        const isListingId = listings?.some((l) => l.id === value)
+        if (isListingId) {
+          setSelectedListingId(value)
+          setShowCustomInput(false)
+          setCustomAddress("")
+        } else {
+          setShowCustomInput(true)
+          setSelectedListingId("")
+          setCustomAddress(value)
+        }
+      }
+    }, [value, listings])
+
     // If no listings or editing mode, show simple input
     if (!listings || listings.length === 0 || editingMode) {
+      const inputValue = editingMode ? "" : (value as string) || customAddress
       return (
-        <div className="relative">
-          <Input
-            type="text"
-            placeholder={
-              uiConfig.placeholder || "Enter listing address or ID..."
-            }
-            disabled={disabled}
-            className={cn(editingMode && "cursor-not-allowed")}
-            value={editingMode ? "" : customAddress}
-            onChange={(e) => {
-              if (!editingMode) {
-                setCustomAddress(e.target.value)
+        <div>
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder={
+                uiConfig.placeholder || "Enter listing address or ID..."
               }
-            }}
-          />
-          {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Enter listing address or ID...",
-          )}
+              disabled={disabled}
+              className={cn(editingMode && "cursor-not-allowed")}
+              style={getInputStyle()}
+              value={inputValue}
+              onChange={(e) => {
+                const newValue = e.target.value
+                if (!editingMode) {
+                  setCustomAddress(newValue)
+                  onChange?.(newValue)
+                }
+              }}
+              onBlur={onBlur}
+              data-field-id={question.id}
+            />
+            {renderEditOverlay(
+              "placeholder",
+              uiConfig.placeholder || "Enter listing address or ID...",
+            )}
+          </div>
+          {renderError(error)}
         </div>
       )
     }
@@ -424,21 +594,24 @@ export const QuestionRenderer = ({
       <div className="space-y-3">
         <Select
           value={selectedListingId || (showCustomInput ? "custom" : "")}
-          onValueChange={(value) => {
-            if (value === "custom") {
+          onValueChange={(selectValue) => {
+            if (selectValue === "custom") {
               setShowCustomInput(true)
               setSelectedListingId("")
+              onChange?.("")
             } else {
-              setSelectedListingId(value)
+              setSelectedListingId(selectValue)
               setShowCustomInput(false)
               setCustomAddress("")
+              onChange?.(selectValue)
             }
           }}
           disabled={disabled}
         >
           <SelectTrigger
-            className={cn(editingMode && "cursor-not-allowed")}
+            className={cn("min-w-52", editingMode && "cursor-not-allowed")}
             style={getSelectStyle()}
+            data-field-id={question.id}
           >
             <SelectValue placeholder="Select a listing..." />
           </SelectTrigger>
@@ -454,15 +627,24 @@ export const QuestionRenderer = ({
           </SelectContent>
         </Select>
         {showCustomInput && (
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder={uiConfig.placeholder || "Enter listing address..."}
-              disabled={disabled}
-              style={getInputStyle()}
-              value={customAddress}
-              onChange={(e) => setCustomAddress(e.target.value)}
-            />
+          <div>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder={uiConfig.placeholder || "Enter listing address..."}
+                disabled={disabled}
+                style={getInputStyle()}
+                value={customAddress}
+                onChange={(e) => {
+                  const newValue = e.target.value
+                  setCustomAddress(newValue)
+                  onChange?.(newValue)
+                }}
+                onBlur={onBlur}
+                data-field-id={question.id}
+              />
+            </div>
+            {renderError(error)}
           </div>
         )}
       </div>
@@ -472,66 +654,98 @@ export const QuestionRenderer = ({
   // Submitter Role - Use Select with proper options
   if (question.type === "submitterRole") {
     return (
-      <Select disabled={disabled}>
-        <div className="relative">
-          <SelectTrigger
-            className={cn(editingMode && "cursor-not-allowed")}
-            style={getSelectStyle()}
-          >
-            <SelectValue
-              placeholder={uiConfig.placeholder || "Select your role..."}
-            />
-          </SelectTrigger>
-          {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Select your role...",
-          )}
-        </div>
-        <SelectContent>
-          <SelectItem value="buyer_self">
-            I am a Buyer representing myself
-          </SelectItem>
-          <SelectItem value="buyer_with_agent">
-            I am a Buyer and I have an Agent
-          </SelectItem>
-          <SelectItem value="buyers_agent">
-            I&apos;m a Buyers&apos; Agent representing a Buyer
-          </SelectItem>
-        </SelectContent>
-      </Select>
+      <div>
+        <Select
+          disabled={disabled}
+          value={editingMode ? "" : (value as string) || ""}
+          onValueChange={(val) => {
+            if (!editingMode) {
+              onChange?.(val)
+            }
+          }}
+        >
+          <div className="relative">
+            <SelectTrigger
+              className={cn("min-w-52", editingMode && "cursor-not-allowed")}
+              style={getSelectStyle()}
+              data-field-id={question.id}
+            >
+              <SelectValue
+                placeholder={uiConfig.placeholder || "Select your role..."}
+              />
+            </SelectTrigger>
+            {renderEditOverlay(
+              "placeholder",
+              uiConfig.placeholder || "Select your role...",
+            )}
+          </div>
+          <SelectContent>
+            <SelectItem value="buyer_self">
+              I am a Buyer representing myself
+            </SelectItem>
+            <SelectItem value="buyer_with_agent">
+              I am a Buyer and I have an Agent
+            </SelectItem>
+            <SelectItem value="buyers_agent">
+              I&apos;m a Buyers&apos; Agent representing a Buyer
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        {renderError(error)}
+      </div>
     )
   }
 
   // Submitter Name - Separate first and last name
   if (question.type === "submitterName") {
+    const nameValue = (value as { firstName?: string; lastName?: string }) || {}
     return (
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Input
-            type="text"
-            placeholder={uiConfig.firstNamePlaceholder || "First Name"}
-            disabled={disabled}
-            className={cn(editingMode && "cursor-not-allowed")}
-            style={getInputStyle()}
-          />
-          {renderEditOverlay(
-            "firstNamePlaceholder",
-            uiConfig.firstNamePlaceholder || "First Name",
-          )}
+      <div>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Input
+              type="text"
+              placeholder={uiConfig.firstNamePlaceholder || "First Name"}
+              disabled={disabled}
+              className={cn(editingMode && "cursor-not-allowed")}
+              style={getInputStyle()}
+              value={editingMode ? "" : nameValue.firstName || ""}
+              onChange={(e) => {
+                if (!editingMode) {
+                  onChange?.({ ...nameValue, firstName: e.target.value })
+                }
+              }}
+              onBlur={onBlur}
+              data-field-id={`${question.id}_firstName`}
+            />
+            {renderEditOverlay(
+              "firstNamePlaceholder",
+              uiConfig.firstNamePlaceholder || "First Name",
+            )}
+          </div>
+          <div className="relative flex-1">
+            <Input
+              type="text"
+              placeholder={uiConfig.lastNamePlaceholder || "Last Name"}
+              disabled={disabled}
+              className={cn(editingMode && "cursor-not-allowed")}
+              style={getInputStyle()}
+              value={editingMode ? "" : nameValue.lastName || ""}
+              onChange={(e) => {
+                if (!editingMode) {
+                  onChange?.({ ...nameValue, lastName: e.target.value })
+                }
+              }}
+              onBlur={onBlur}
+              data-field-id={`${question.id}_lastName`}
+            />
+            {renderEditOverlay(
+              "lastNamePlaceholder",
+              uiConfig.lastNamePlaceholder || "Last Name",
+            )}
+          </div>
         </div>
-        <div className="relative flex-1">
-          <Input
-            type="text"
-            placeholder={uiConfig.lastNamePlaceholder || "Last Name"}
-            disabled={disabled}
-            className={cn(editingMode && "cursor-not-allowed")}
-            style={getInputStyle()}
-          />
-          {renderEditOverlay(
-            "lastNamePlaceholder",
-            uiConfig.lastNamePlaceholder || "Last Name",
-          )}
-        </div>
+        {renderError(error)}
       </div>
     )
   }
@@ -539,18 +753,29 @@ export const QuestionRenderer = ({
   // Submitter Email - Use email input type
   if (question.type === "submitterEmail") {
     return (
-      <div className="relative">
-        <Input
-          type="email"
-          placeholder={uiConfig.placeholder || "Enter your email address"}
-          disabled={disabled}
-          className={cn(editingMode && "cursor-not-allowed")}
-          style={getInputStyle()}
-        />
-        {renderEditOverlay(
-          "placeholder",
-          uiConfig.placeholder || "Enter your email address",
-        )}
+      <div>
+        <div className="relative">
+          <Input
+            type="email"
+            placeholder={uiConfig.placeholder || "Enter your email address"}
+            disabled={disabled}
+            className={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
+            value={editingMode ? "" : (value as string) || ""}
+            onChange={(e) => {
+              if (!editingMode) {
+                onChange?.(e.target.value)
+              }
+            }}
+            onBlur={onBlur}
+            data-field-id={question.id}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Enter your email address",
+          )}
+        </div>
+        {renderError(error)}
       </div>
     )
   }
@@ -558,18 +783,29 @@ export const QuestionRenderer = ({
   // Submitter Phone - Use tel input type
   if (question.type === "submitterPhone") {
     return (
-      <div className="relative">
-        <Input
-          type="tel"
-          placeholder={uiConfig.placeholder || "Enter your phone number"}
-          disabled={disabled}
-          className={cn(editingMode && "cursor-not-allowed")}
-          style={getInputStyle()}
-        />
-        {renderEditOverlay(
-          "placeholder",
-          uiConfig.placeholder || "Enter your phone number",
-        )}
+      <div>
+        <div className="relative">
+          <Input
+            type="tel"
+            placeholder={uiConfig.placeholder || "Enter your phone number"}
+            disabled={disabled}
+            className={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
+            value={editingMode ? "" : (value as string) || ""}
+            onChange={(e) => {
+              if (!editingMode) {
+                onChange?.(e.target.value)
+              }
+            }}
+            onBlur={onBlur}
+            data-field-id={question.id}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Enter your phone number",
+          )}
+        </div>
+        {renderError(error)}
       </div>
     )
   }
@@ -577,18 +813,32 @@ export const QuestionRenderer = ({
   // Offer Amount
   if (question.type === "offerAmount") {
     return (
-      <div className="relative">
-        <Input
-          type="number"
-          placeholder={uiConfig.placeholder || "Enter offer amount"}
-          disabled={disabled}
-          className={cn(editingMode && "cursor-not-allowed")}
-          style={getInputStyle()}
-        />
-        {renderEditOverlay(
-          "placeholder",
-          uiConfig.placeholder || "Enter offer amount",
-        )}
+      <div>
+        <div className="relative">
+          <Input
+            type="number"
+            min="0"
+            placeholder={uiConfig.placeholder || "Enter offer amount"}
+            disabled={disabled}
+            className={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
+            value={editingMode ? "" : (value as number | string) || ""}
+            onChange={(e) => {
+              if (!editingMode) {
+                const numValue =
+                  e.target.value === "" ? "" : Number(e.target.value)
+                onChange?.(numValue)
+              }
+            }}
+            onBlur={onBlur}
+            data-field-id={question.id}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Enter offer amount",
+          )}
+        </div>
+        {renderError(error)}
       </div>
     )
   }
@@ -610,6 +860,8 @@ export const QuestionRenderer = ({
 
     // Single field method - simple text input
     if (collectionMethod === "single_field") {
+      const singleFieldValue =
+        typeof value === "string" ? value : value?.name || ""
       return (
         <div className="space-y-3">
           <div className="relative">
@@ -620,6 +872,26 @@ export const QuestionRenderer = ({
               }
               disabled={disabled}
               className={cn(editingMode && "cursor-not-allowed")}
+              style={getInputStyle()}
+              value={editingMode ? "" : singleFieldValue}
+              onChange={(e) => {
+                if (!editingMode) {
+                  // Store name separately from file
+                  const currentFile =
+                    typeof value === "object" &&
+                    value !== null &&
+                    !Array.isArray(value)
+                      ? value.idFile
+                      : undefined
+                  onChange?.(
+                    currentFile
+                      ? { name: e.target.value, idFile: currentFile }
+                      : e.target.value,
+                  )
+                }
+              }}
+              onBlur={onBlur}
+              data-field-id={question.id}
             />
             {renderEditOverlay(
               "placeholder",
@@ -636,27 +908,78 @@ export const QuestionRenderer = ({
                 disabled={disabled}
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null
+                  const fileKey = `${question.id}_single_id_upload`
+                  const fileError = file ? validateFileSize(file) : null
                   setFileUploads((prev) => ({
                     ...prev,
-                    [`${question.id}_single_id_upload`]: {
+                    [fileKey]: {
                       file,
                       fileName: file ? file.name : "",
+                      error: fileError || undefined,
                     },
                   }))
+                  if (!fileError && file) {
+                    // Store file with name
+                    const currentName =
+                      typeof value === "string" ? value : value?.name || ""
+                    onChange?.(
+                      currentName ? { name: currentName, idFile: file } : file,
+                    )
+                  }
                 }}
               />
-              <label
-                htmlFor={`${question.id}_single_id_upload`}
-                className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
-              >
-                <p className="text-sm text-gray-500">
-                  📎 Upload Identification{" "}
-                  {collectId === "optional" && "(Optional)"}
-                </p>
-              </label>
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor={`${question.id}_single_id_upload`}
+                  className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
+                >
+                  <p className="text-sm text-gray-500">
+                    📎 Upload Identification{" "}
+                    {collectId === "optional" && "(Optional)"}
+                  </p>
+                </label>
+              </div>
               {fileUploads[`${question.id}_single_id_upload`]?.fileName && (
-                <p className="text-xs text-gray-600">
-                  {fileUploads[`${question.id}_single_id_upload`].fileName}
+                <div className="flex items-center gap-2">
+                  {fileUploads[`${question.id}_single_id_upload`]?.fileName && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFileUploads((prev) => ({
+                          ...prev,
+                          [`${question.id}_single_id_upload`]: {
+                            file: null,
+                            fileName: "",
+                            error: undefined,
+                          },
+                        }))
+                        // Clear file but keep name
+                        const currentName =
+                          typeof value === "string" ? value : value?.name || ""
+                        onChange?.(currentName || null)
+                        const fileInput = document.getElementById(
+                          `${question.id}_single_id_upload`,
+                        ) as HTMLInputElement
+                        if (fileInput) {
+                          fileInput.value = ""
+                        }
+                      }}
+                      className="h-8 w-8 p-0"
+                      disabled={disabled}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <p className="text-xs text-gray-600">
+                    {fileUploads[`${question.id}_single_id_upload`].fileName}
+                  </p>
+                </div>
+              )}
+              {fileUploads[`${question.id}_single_id_upload`]?.error && (
+                <p className="mt-1 text-sm text-red-500" role="alert">
+                  {fileUploads[`${question.id}_single_id_upload`].error}
                 </p>
               )}
             </div>
@@ -666,25 +989,89 @@ export const QuestionRenderer = ({
     }
 
     // Individual names method - complex multi-scenario UI
-    const [scenario, setScenario] = useState<string>("")
-    const [numPurchasers, setNumPurchasers] = useState<number>(2)
-    const [numRepresentatives, setNumRepresentatives] = useState<number>(1)
+    // Initialize from value prop if available
+    const nameOfPurchaserValue =
+      value && typeof value === "object" && !Array.isArray(value) ? value : {}
+    const [scenario, setScenario] = useState<string>(
+      nameOfPurchaserValue.scenario || "",
+    )
+    const [numPurchasers, setNumPurchasers] = useState<number>(
+      nameOfPurchaserValue.numPurchasers || 2,
+    )
+    const [numRepresentatives, setNumRepresentatives] = useState<number>(
+      nameOfPurchaserValue.numRepresentatives || 1,
+    )
     const [purchaserTypes, setPurchaserTypes] = useState<
       Record<number, string>
-    >({})
+    >(nameOfPurchaserValue.purchaserTypes || {})
     const [nameFields, setNameFields] = useState<
       Record<
         string,
         { firstName: string; middleName: string; lastName: string }
       >
-    >({})
+    >(nameOfPurchaserValue.nameFields || {})
+
+    // Helper to sync all state changes with parent
+    const updateNameOfPurchaserData = (
+      updates: Partial<{
+        scenario: string
+        numPurchasers: number
+        numRepresentatives: number
+        purchaserTypes: Record<number, string>
+        nameFields: Record<
+          string,
+          { firstName: string; middleName: string; lastName: string }
+        >
+      }>,
+    ) => {
+      const newData = {
+        scenario,
+        numPurchasers,
+        numRepresentatives,
+        purchaserTypes,
+        nameFields,
+        ...updates,
+      }
+      onChange?.(newData)
+    }
+
+    // Wrapper functions that update state and sync with parent
+    const handleScenarioChange = (val: string) => {
+      setScenario(val)
+      updateNameOfPurchaserData({ scenario: val })
+    }
+    const handleNumPurchasersChange = (val: number) => {
+      setNumPurchasers(val)
+      updateNameOfPurchaserData({ numPurchasers: val })
+    }
+    const handleNumRepresentativesChange = (val: number) => {
+      setNumRepresentatives(val)
+      updateNameOfPurchaserData({ numRepresentatives: val })
+    }
+    const handlePurchaserTypesChange = (updates: Record<number, string>) => {
+      setPurchaserTypes(updates)
+      updateNameOfPurchaserData({ purchaserTypes: updates })
+    }
+    const handleNameFieldsChange: React.Dispatch<
+      React.SetStateAction<
+        Record<
+          string,
+          { firstName: string; middleName: string; lastName: string }
+        >
+      >
+    > = (updates) => {
+      const newNameFields =
+        typeof updates === "function" ? updates(nameFields) : updates
+      setNameFields(newNameFields)
+      updateNameOfPurchaserData({ nameFields: newNameFields })
+    }
 
     return (
       <div className="space-y-4">
         {/* Main scenario selector */}
         <div>
-          <Select value={scenario} onValueChange={setScenario}>
-            <SelectTrigger className="w-64" style={getSelectStyle()}>
+          <Select value={scenario} onValueChange={handleScenarioChange}>
+            <SelectTrigger className="min-w-52" style={getSelectStyle()}>
               <SelectValue placeholder="Select option" />
             </SelectTrigger>
             <SelectContent>
@@ -708,7 +1095,7 @@ export const QuestionRenderer = ({
               prefix="single"
               questionId={question.id}
               nameFields={nameFields}
-              setNameFields={setNameFields}
+              setNameFields={handleNameFieldsChange}
               fileUploads={fileUploads}
               setFileUploads={setFileUploads}
               collectMiddleNames={collectMiddleNames}
@@ -732,9 +1119,11 @@ export const QuestionRenderer = ({
               </Label>
               <Select
                 value={numPurchasers.toString()}
-                onValueChange={(val) => setNumPurchasers(parseInt(val))}
+                onValueChange={(val) =>
+                  handleNumPurchasersChange(parseInt(val))
+                }
               >
-                <SelectTrigger className="w-64" style={getSelectStyle()}>
+                <SelectTrigger className="min-w-52" style={getSelectStyle()}>
                   <SelectValue placeholder="Select number" />
                 </SelectTrigger>
                 <SelectContent>
@@ -757,7 +1146,7 @@ export const QuestionRenderer = ({
                     prefix={`purchaser-${num}`}
                     questionId={question.id}
                     nameFields={nameFields}
-                    setNameFields={setNameFields}
+                    setNameFields={handleNameFieldsChange}
                     fileUploads={fileUploads}
                     setFileUploads={setFileUploads}
                     collectMiddleNames={collectMiddleNames}
@@ -804,7 +1193,7 @@ export const QuestionRenderer = ({
                       prefix={`rep-${num}`}
                       questionId={question.id}
                       nameFields={nameFields}
-                      setNameFields={setNameFields}
+                      setNameFields={handleNameFieldsChange}
                       fileUploads={fileUploads}
                       setFileUploads={setFileUploads}
                       collectMiddleNames={collectMiddleNames}
@@ -824,7 +1213,9 @@ export const QuestionRenderer = ({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setNumRepresentatives(numRepresentatives + 1)}
+                onClick={() =>
+                  handleNumRepresentativesChange(numRepresentatives + 1)
+                }
                 disabled={disabled}
               >
                 + Add another Representative
@@ -849,10 +1240,16 @@ export const QuestionRenderer = ({
                     <Select
                       value={purchaserTypes[num] || ""}
                       onValueChange={(val) =>
-                        setPurchaserTypes({ ...purchaserTypes, [num]: val })
+                        handlePurchaserTypesChange({
+                          ...purchaserTypes,
+                          [num]: val,
+                        })
                       }
                     >
-                      <SelectTrigger className="w-64" style={getSelectStyle()}>
+                      <SelectTrigger
+                        className="min-w-52"
+                        style={getSelectStyle()}
+                      >
                         <SelectValue placeholder="Select option" />
                       </SelectTrigger>
                       <SelectContent>
@@ -867,7 +1264,7 @@ export const QuestionRenderer = ({
                       prefix={`other-person-${num}`}
                       questionId={question.id}
                       nameFields={nameFields}
-                      setNameFields={setNameFields}
+                      setNameFields={handleNameFieldsChange}
                       fileUploads={fileUploads}
                       setFileUploads={setFileUploads}
                       collectMiddleNames={collectMiddleNames}
@@ -900,7 +1297,7 @@ export const QuestionRenderer = ({
                         prefix={`other-corp-${num}-rep`}
                         questionId={question.id}
                         nameFields={nameFields}
-                        setNameFields={setNameFields}
+                        setNameFields={handleNameFieldsChange}
                         fileUploads={fileUploads}
                         setFileUploads={setFileUploads}
                         collectMiddleNames={collectMiddleNames}
@@ -922,7 +1319,7 @@ export const QuestionRenderer = ({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setNumPurchasers(numPurchasers + 1)}
+              onClick={() => handleNumPurchasersChange(numPurchasers + 1)}
               disabled={disabled}
             >
               + Add a{" "}
@@ -945,10 +1342,11 @@ export const QuestionRenderer = ({
     const fileData = fileUploads[`${question.id}_purchase_agreement`] || {
       file: null,
       fileName: "",
+      error: undefined,
     }
 
     return (
-      <>
+      <div>
         <div className="space-y-2">
           <input
             type="file"
@@ -958,47 +1356,95 @@ export const QuestionRenderer = ({
             disabled={disabled}
             onChange={(e) => {
               const file = e.target.files?.[0] || null
+              const fileKey = `${question.id}_purchase_agreement`
+              const fileError = file ? validateFileSize(file) : null
               setFileUploads((prev) => ({
                 ...prev,
-                [`${question.id}_purchase_agreement`]: {
+                [fileKey]: {
                   file,
                   fileName: file ? file.name : "",
+                  error: fileError || undefined,
                 },
               }))
+              if (!fileError && file) {
+                onChange?.(file)
+              }
             }}
+            data-field-id={question.id}
           />
-          <label
-            htmlFor={`${question.id}_purchase_agreement_file`}
-            className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
-          >
-            <p className="text-sm text-gray-500">
-              📎 Upload Purchase Agreement {!isRequired && "(Optional)"}
-            </p>
-          </label>
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor={`${question.id}_purchase_agreement_file`}
+              className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
+            >
+              <p className="text-sm text-gray-500">
+                📎 Upload Purchase Agreement {!isRequired && "(Optional)"}
+              </p>
+            </label>
+          </div>
           {fileData.fileName && (
-            <p className="text-xs text-gray-600">{fileData.fileName}</p>
+            <div className="flex items-center gap-2">
+              {fileData.fileName && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setFileUploads((prev) => ({
+                      ...prev,
+                      [`${question.id}_purchase_agreement`]: {
+                        file: null,
+                        fileName: "",
+                        error: undefined,
+                      },
+                    }))
+                    onChange?.(null)
+                    const fileInput = document.getElementById(
+                      `${question.id}_purchase_agreement_file`,
+                    ) as HTMLInputElement
+                    if (fileInput) {
+                      fileInput.value = ""
+                    }
+                  }}
+                  className="h-8 w-8 p-0"
+                  disabled={disabled}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+              <p className="text-xs text-gray-600">{fileData.fileName}</p>
+            </div>
           )}
           <span className="text-xs text-gray-500">
             Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 10MB each)
           </span>
         </div>
-      </>
+        {renderError(fileData.error || error)}
+      </div>
     )
   }
 
   // Offer Expiry - Use DatePicker and TimePicker
   if (question.type === "offerExpiry") {
     const isOptional = setupConfig.expiry_requirement === "optional"
-    const hasExpiry = formValues.hasExpiry === "yes"
+    const expiryValue =
+      (value as {
+        hasExpiry?: string
+        expiryDate?: Date
+        expiryTime?: string
+      }) || {}
+    const hasExpiry = expiryValue.hasExpiry === "yes"
 
     return (
       <div className="space-y-3">
         {isOptional && (
           <RadioGroup
-            value={formValues.hasExpiry || ""}
-            onValueChange={(value) =>
-              setFormValues((prev) => ({ ...prev, hasExpiry: value }))
-            }
+            value={expiryValue.hasExpiry || ""}
+            onValueChange={(val) => {
+              if (!editingMode) {
+                onChange?.({ ...expiryValue, hasExpiry: val })
+              }
+            }}
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="yes" id="expiry-yes" />
@@ -1017,24 +1463,31 @@ export const QuestionRenderer = ({
               label={uiConfig.dateLabel || "Select date"}
               disabled={disabled}
               btnClassName={cn(editingMode && "cursor-not-allowed")}
-              value={formValues.expiryDate}
-              onChange={(date) =>
-                setFormValues((prev) => ({ ...prev, expiryDate: date }))
-              }
+              value={expiryValue.expiryDate}
+              onChange={(date) => {
+                if (!editingMode) {
+                  onChange?.({ ...expiryValue, expiryDate: date })
+                }
+              }}
               brandingConfig={brandingConfig}
+              data-field-id={question.id}
             />
             <TimePicker
               label={uiConfig.timeLabel || "Select time"}
               disabled={disabled}
               btnClassName={cn(editingMode && "cursor-not-allowed")}
-              value={formValues.expiryTime}
-              onChange={(time) =>
-                setFormValues((prev) => ({ ...prev, expiryTime: time }))
-              }
+              value={expiryValue.expiryTime}
+              onChange={(time) => {
+                if (!editingMode) {
+                  onChange?.({ ...expiryValue, expiryTime: time })
+                }
+              }}
               brandingConfig={brandingConfig}
+              data-field-id={question.id}
             />
           </div>
         )}
+        {renderError(error)}
       </div>
     )
   }
@@ -1081,8 +1534,9 @@ export const QuestionRenderer = ({
     const loanApprovalDue = setupConfig.loan_approval_due
     const financeSpecialist = setupConfig.finance_specialist_communication
 
-    const isSubjectToLoan = formValues.subjectToLoan === "yes"
-    const knowsLenderDetails = !formValues.unknownLender
+    const loanValue = (value as Record<string, any>) || {}
+    const isSubjectToLoan = loanValue.subjectToLoan === "yes"
+    const knowsLenderDetails = !loanValue.unknownLender
 
     return (
       <div className="space-y-4">
@@ -1099,12 +1553,15 @@ export const QuestionRenderer = ({
             )}
           </div>
           <Select
-            value={formValues.subjectToLoan || ""}
-            onValueChange={(value) =>
-              setFormValues((prev) => ({ ...prev, subjectToLoan: value }))
-            }
+            value={loanValue.subjectToLoan || ""}
+            onValueChange={(val) => {
+              if (!editingMode) {
+                onChange?.({ ...loanValue, subjectToLoan: val })
+              }
+            }}
+            disabled={disabled}
           >
-            <SelectTrigger className="w-56" style={getSelectStyle()}>
+            <SelectTrigger className="min-w-52" style={getSelectStyle()}>
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
@@ -1142,13 +1599,12 @@ export const QuestionRenderer = ({
                     )}
                     disabled={disabled}
                     style={getInputStyle()}
-                    value={formValues.loanAmount || ""}
-                    onChange={(e) =>
-                      setFormValues((prev) => ({
-                        ...prev,
-                        loanAmount: e.target.value,
-                      }))
-                    }
+                    value={loanValue.loanAmount || ""}
+                    onChange={(e) => {
+                      if (!editingMode) {
+                        onChange?.({ ...loanValue, loanAmount: e.target.value })
+                      }
+                    }}
                   />
                   {renderEditOverlay(
                     "loanAmountPlaceholder",
@@ -1178,13 +1634,15 @@ export const QuestionRenderer = ({
                       disabled={disabled}
                       className={cn(editingMode && "cursor-not-allowed")}
                       style={getInputStyle()}
-                      value={formValues.companyName || ""}
-                      onChange={(e) =>
-                        setFormValues((prev) => ({
-                          ...prev,
-                          companyName: e.target.value,
-                        }))
-                      }
+                      value={loanValue.companyName || ""}
+                      onChange={(e) => {
+                        if (!editingMode) {
+                          onChange?.({
+                            ...loanValue,
+                            companyName: e.target.value,
+                          })
+                        }
+                      }}
                     />
                     {renderEditOverlay(
                       "companyNamePlaceholder",
@@ -1196,13 +1654,12 @@ export const QuestionRenderer = ({
                 <div className="flex items-center gap-2 pl-36">
                   <Checkbox
                     id="unknown-lender"
-                    checked={formValues.unknownLender || false}
-                    onCheckedChange={(checked) =>
-                      setFormValues((prev) => ({
-                        ...prev,
-                        unknownLender: checked,
-                      }))
-                    }
+                    checked={loanValue.unknownLender || false}
+                    onCheckedChange={(checked) => {
+                      if (!editingMode) {
+                        onChange?.({ ...loanValue, unknownLender: checked })
+                      }
+                    }}
                   />
                   <Label
                     htmlFor="unknown-lender"
@@ -1240,13 +1697,15 @@ export const QuestionRenderer = ({
                           editingMode && "cursor-not-allowed",
                         )}
                         style={getInputStyle()}
-                        value={formValues.contactName || ""}
-                        onChange={(e) =>
-                          setFormValues((prev) => ({
-                            ...prev,
-                            contactName: e.target.value,
-                          }))
-                        }
+                        value={loanValue.contactName || ""}
+                        onChange={(e) => {
+                          if (!editingMode) {
+                            onChange?.({
+                              ...loanValue,
+                              contactName: e.target.value,
+                            })
+                          }
+                        }}
                       />
                       {renderEditOverlay(
                         "contactNamePlaceholder",
@@ -1280,13 +1739,15 @@ export const QuestionRenderer = ({
                           editingMode && "cursor-not-allowed",
                         )}
                         style={getInputStyle()}
-                        value={formValues.contactPhone || ""}
-                        onChange={(e) =>
-                          setFormValues((prev) => ({
-                            ...prev,
-                            contactPhone: e.target.value,
-                          }))
-                        }
+                        value={loanValue.contactPhone || ""}
+                        onChange={(e) => {
+                          if (!editingMode) {
+                            onChange?.({
+                              ...loanValue,
+                              contactPhone: e.target.value,
+                            })
+                          }
+                        }}
                       />
                       {renderEditOverlay(
                         "contactPhonePlaceholder",
@@ -1320,13 +1781,15 @@ export const QuestionRenderer = ({
                           editingMode && "cursor-not-allowed",
                         )}
                         style={getInputStyle()}
-                        value={formValues.contactEmail || ""}
-                        onChange={(e) =>
-                          setFormValues((prev) => ({
-                            ...prev,
-                            contactEmail: e.target.value,
-                          }))
-                        }
+                        value={loanValue.contactEmail || ""}
+                        onChange={(e) => {
+                          if (!editingMode) {
+                            onChange?.({
+                              ...loanValue,
+                              contactEmail: e.target.value,
+                            })
+                          }
+                        }}
                       />
                       {renderEditOverlay(
                         "contactEmailPlaceholder",
@@ -1344,6 +1807,9 @@ export const QuestionRenderer = ({
                 <div className="relative inline-block">
                   <Label className="mb-2 block text-sm font-medium">
                     Supporting Documents:
+                    {question.required && isSubjectToLoan && (
+                      <span className="ml-1 text-red-500">*</span>
+                    )}
                   </Label>
                   {renderLabelOverlay(
                     "supportingDocumentsLabel",
@@ -1360,29 +1826,82 @@ export const QuestionRenderer = ({
                     multiple
                     onChange={(e) => {
                       const files = Array.from(e.target.files || [])
+                      // Validate all files
+                      let fileError: string | undefined = undefined
+                      for (const file of files) {
+                        const error = validateFileSize(file)
+                        if (error) {
+                          fileError = error
+                          break
+                        }
+                      }
                       const fileNames = files.map((f) => f.name).join(", ")
                       setFileUploads((prev) => ({
                         ...prev,
                         [`${question.id}_supporting_docs`]: {
                           file: files[0] || null,
                           fileName: fileNames || "",
+                          error: fileError,
                         },
                       }))
+                      if (!fileError && files.length > 0) {
+                        // Store files in the loanValue object for validation
+                        onChange?.({ ...loanValue, supportingDocs: files })
+                      }
                     }}
+                    data-field-id={question.id}
                   />
-                  <label
-                    htmlFor={`${question.id}_supporting_docs`}
-                    className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center"
-                  >
-                    <p className="text-sm text-gray-500">
-                      Upload pre-approval documents or supporting evidence
-                    </p>
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor={`${question.id}_supporting_docs`}
+                      className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center"
+                    >
+                      <p className="text-sm text-gray-500">
+                        Upload pre-approval documents or supporting evidence
+                      </p>
+                    </label>
+                  </div>
                   {fileUploads[`${question.id}_supporting_docs`]?.fileName && (
-                    <p className="text-xs text-gray-600">
-                      {fileUploads[`${question.id}_supporting_docs`].fileName}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setFileUploads((prev) => ({
+                            ...prev,
+                            [`${question.id}_supporting_docs`]: {
+                              file: null,
+                              fileName: "",
+                              error: undefined,
+                            },
+                          }))
+                          onChange?.({ ...loanValue, supportingDocs: null })
+                          // Reset the file input
+                          const fileInput = document.getElementById(
+                            `${question.id}_supporting_docs`,
+                          ) as HTMLInputElement
+                          if (fileInput) {
+                            fileInput.value = ""
+                          }
+                        }}
+                        className="h-8 w-8 p-0"
+                        disabled={disabled}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+
+                      <p className="text-xs text-gray-600">
+                        {fileUploads[`${question.id}_supporting_docs`].fileName}
+                      </p>
+                    </div>
+                  )}
+                  {fileUploads[`${question.id}_supporting_docs`]?.error && (
+                    <p className="mt-1 text-sm text-red-500" role="alert">
+                      {fileUploads[`${question.id}_supporting_docs`].error}
                     </p>
                   )}
+                  {renderError(error)}
                 </div>
               </div>
             )}
@@ -1405,13 +1924,12 @@ export const QuestionRenderer = ({
                   placeholder="Enter due date details"
                   disabled={disabled}
                   style={getInputStyle()}
-                  value={formValues.loanDueDate || ""}
-                  onChange={(e) =>
-                    setFormValues((prev) => ({
-                      ...prev,
-                      loanDueDate: e.target.value,
-                    }))
-                  }
+                  value={loanValue.loanDueDate || ""}
+                  onChange={(e) => {
+                    if (!editingMode) {
+                      onChange?.({ ...loanValue, loanDueDate: e.target.value })
+                    }
+                  }}
                 />
               </div>
             )}
@@ -1426,15 +1944,14 @@ export const QuestionRenderer = ({
                 </Label>
                 <Select
                   disabled={disabled}
-                  value={formValues.financeSpecialist || ""}
-                  onValueChange={(value) =>
-                    setFormValues((prev) => ({
-                      ...prev,
-                      financeSpecialist: value,
-                    }))
-                  }
+                  value={loanValue.financeSpecialist || ""}
+                  onValueChange={(val) => {
+                    if (!editingMode) {
+                      onChange?.({ ...loanValue, financeSpecialist: val })
+                    }
+                  }}
                 >
-                  <SelectTrigger style={getSelectStyle()}>
+                  <SelectTrigger className="min-w-52" style={getSelectStyle()}>
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -1446,6 +1963,7 @@ export const QuestionRenderer = ({
             )}
           </>
         )}
+        {renderError(error)}
       </div>
     )
   }
@@ -1500,7 +2018,7 @@ export const QuestionRenderer = ({
                 }
                 disabled={disabled}
                 className={cn(
-                  "min-h-[100px]",
+                  "max-h-[300px] min-h-[100px]",
                   editingMode && "cursor-not-allowed",
                 )}
                 style={getInputStyle()}
@@ -1532,36 +2050,42 @@ export const QuestionRenderer = ({
                 btnClassName={cn(editingMode && "cursor-not-allowed")}
                 style={getInputStyle()}
                 value={formValues.settlementDate}
-                onChange={(date) =>
-                  setFormValues((prev) => ({ ...prev, settlementDate: date }))
-                }
+                onChange={(date) => {
+                  const newValues = { ...formValues, settlementDate: date }
+                  setFormValues(newValues)
+                  onChange?.(newValues)
+                }}
                 brandingConfig={brandingConfig}
               />
             </div>
           )}
           {dateType === "datetime" && (
             <div className="flex gap-2">
-              <div className="relative flex-1">
+              <div className="relative">
                 <DatePicker
                   disabled={disabled}
                   btnClassName={cn(editingMode && "cursor-not-allowed")}
                   style={getInputStyle()}
                   value={formValues.settlementDate}
-                  onChange={(date) =>
-                    setFormValues((prev) => ({ ...prev, settlementDate: date }))
-                  }
+                  onChange={(date) => {
+                    const newValues = { ...formValues, settlementDate: date }
+                    setFormValues(newValues)
+                    onChange?.(newValues)
+                  }}
                   brandingConfig={brandingConfig}
                 />
               </div>
-              <div className="relative flex-1">
+              <div className="relative">
                 <TimePicker
                   disabled={disabled}
                   btnClassName={cn(editingMode && "cursor-not-allowed")}
                   style={getInputStyle()}
                   value={formValues.settlementTime}
-                  onChange={(time) =>
-                    setFormValues((prev) => ({ ...prev, settlementTime: time }))
-                  }
+                  onChange={(time) => {
+                    const newValues = { ...formValues, settlementTime: time }
+                    setFormValues(newValues)
+                    onChange?.(newValues)
+                  }}
                   brandingConfig={brandingConfig}
                 />
               </div>
@@ -1575,6 +2099,19 @@ export const QuestionRenderer = ({
                 disabled={disabled}
                 className={cn(editingMode && "cursor-not-allowed")}
                 style={getInputStyle()}
+                value={editingMode ? "" : formValues.settlementDateText || ""}
+                onChange={(e) => {
+                  if (!editingMode) {
+                    const newValues = {
+                      ...formValues,
+                      settlementDateText: e.target.value,
+                    }
+                    setFormValues(newValues)
+                    onChange?.(newValues)
+                  }
+                }}
+                onBlur={onBlur}
+                data-field-id={question.id}
               />
               {renderEditOverlay(
                 "placeholder",
@@ -1592,10 +2129,26 @@ export const QuestionRenderer = ({
               <div className="relative">
                 <Input
                   type="number"
+                  min="0"
                   placeholder={uiConfig.daysPlaceholder || "Number of days"}
                   disabled={disabled}
                   className={cn(editingMode && "cursor-not-allowed")}
                   style={getInputStyle()}
+                  value={editingMode ? "" : formValues.settlementDays || ""}
+                  onChange={(e) => {
+                    if (!editingMode) {
+                      const newValues = {
+                        ...formValues,
+                        settlementDays: e.target.value
+                          ? Number(e.target.value)
+                          : "",
+                      }
+                      setFormValues(newValues)
+                      onChange?.(newValues)
+                    }
+                  }}
+                  onBlur={onBlur}
+                  data-field-id={question.id}
                 />
                 {renderEditOverlay(
                   "daysPlaceholder",
@@ -1614,6 +2167,20 @@ export const QuestionRenderer = ({
                 placeholder={uiConfig.placeholder || "Enter settlement date"}
                 disabled={disabled}
                 className={cn(editingMode && "cursor-not-allowed")}
+                style={getInputStyle()}
+                value={editingMode ? "" : formValues.settlementDateCYO || ""}
+                onChange={(e) => {
+                  if (!editingMode) {
+                    const newValues = {
+                      ...formValues,
+                      settlementDateCYO: e.target.value,
+                    }
+                    setFormValues(newValues)
+                    onChange?.(newValues)
+                  }
+                }}
+                onBlur={onBlur}
+                data-field-id={question.id}
               />
               {renderEditOverlay(
                 "placeholder",
@@ -1666,20 +2233,57 @@ export const QuestionRenderer = ({
   // Message to Agent
   if (question.type === "messageToAgent") {
     const allowAttachments = setupConfig.allow_attachments === "yes"
+    const attachmentData = fileUploads[
+      `${question.id}_message_attachments`
+    ] || {
+      file: null,
+      fileName: "",
+      error: undefined,
+    }
+
+    // Separate textarea value from file attachments
+    // Value should be a string for the textarea, files are stored separately
+    const messageValue =
+      typeof value === "string" ? value : value?.message || ""
 
     return (
       <div className="space-y-3">
-        <div className="relative">
-          <Textarea
-            placeholder={uiConfig.placeholder || "Type your message here..."}
-            disabled={disabled}
-            className={cn("min-h-[150px]", editingMode && "cursor-not-allowed")}
-            style={getInputStyle()}
-          />
-          {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Type your message here...",
-          )}
+        <div>
+          <div className="relative">
+            <Textarea
+              placeholder={uiConfig.placeholder || "Type your message here..."}
+              disabled={disabled}
+              className={cn(
+                "max-h-[300px] min-h-[150px]",
+                editingMode && "cursor-not-allowed",
+              )}
+              style={getInputStyle()}
+              value={editingMode ? "" : messageValue}
+              onChange={(e) => {
+                if (!editingMode) {
+                  // Store message text separately from files
+                  const currentFiles =
+                    typeof value === "object" &&
+                    value !== null &&
+                    !Array.isArray(value)
+                      ? value.attachments
+                      : undefined
+                  onChange?.(
+                    currentFiles
+                      ? { message: e.target.value, attachments: currentFiles }
+                      : e.target.value,
+                  )
+                }
+              }}
+              onBlur={onBlur}
+              data-field-id={question.id}
+            />
+            {renderEditOverlay(
+              "placeholder",
+              uiConfig.placeholder || "Type your message here...",
+            )}
+          </div>
+          {renderError(error)}
         </div>
         {allowAttachments && (
           <div className="space-y-2">
@@ -1691,25 +2295,80 @@ export const QuestionRenderer = ({
               multiple
               onChange={(e) => {
                 const files = Array.from(e.target.files || [])
+                // Validate all files
+                let fileError: string | undefined = undefined
+                for (const file of files) {
+                  const error = validateFileSize(file)
+                  if (error) {
+                    fileError = error
+                    break
+                  }
+                }
+
                 const fileNames = files.map((f) => f.name).join(", ")
                 setFileUploads((prev) => ({
                   ...prev,
                   [`${question.id}_message_attachments`]: {
                     file: files[0] || null,
                     fileName: fileNames || "",
+                    error: fileError,
                   },
                 }))
+                if (!fileError && files.length > 0) {
+                  // Store files separately from message text
+                  const currentMessage =
+                    typeof value === "string" ? value : value?.message || ""
+                  onChange?.({ message: currentMessage, attachments: files })
+                }
               }}
             />
-            <label
-              htmlFor={`${question.id}_message_attachments`}
-              className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center transition-colors hover:bg-gray-200"
-            >
-              <p className="text-sm">📎 Attach files (Optional)</p>
-            </label>
-            {fileUploads[`${question.id}_message_attachments`]?.fileName && (
-              <p className="text-xs text-gray-600">
-                {fileUploads[`${question.id}_message_attachments`].fileName}
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor={`${question.id}_message_attachments`}
+                className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center transition-colors hover:bg-gray-200"
+              >
+                <p className="text-sm">📎 Attach files (Optional)</p>
+              </label>
+            </div>
+            {attachmentData.fileName && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setFileUploads((prev) => ({
+                      ...prev,
+                      [`${question.id}_message_attachments`]: {
+                        file: null,
+                        fileName: "",
+                        error: undefined,
+                      },
+                    }))
+                    // Clear files but keep message text
+                    const currentMessage =
+                      typeof value === "string" ? value : value?.message || ""
+                    onChange?.(currentMessage || null)
+                    const fileInput = document.getElementById(
+                      `${question.id}_message_attachments`,
+                    ) as HTMLInputElement
+                    if (fileInput) {
+                      fileInput.value = ""
+                    }
+                  }}
+                  className="h-8 w-8 p-0"
+                  disabled={disabled}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <p className="text-xs text-gray-600">
+                  {attachmentData.fileName}
+                </p>
+              </div>
+            )}
+            {attachmentData.error && (
+              <p className="text-xs text-red-500" role="alert">
+                {attachmentData.error}
               </p>
             )}
           </div>
@@ -1724,35 +2383,63 @@ export const QuestionRenderer = ({
 
     if (answerType === "short_text") {
       return (
-        <div className="relative">
-          <Textarea
-            placeholder={uiConfig.placeholder || "Enter text..."}
-            disabled={disabled}
-            className={cn(editingMode && "cursor-not-allowed")}
-            style={getInputStyle()}
-          />
-          {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Enter your answer",
-          )}
+        <div>
+          <div className="relative">
+            <Textarea
+              placeholder={uiConfig.placeholder || "Enter text..."}
+              disabled={disabled}
+              className={cn(
+                "max-h-[300px] min-h-[100px]",
+                editingMode && "cursor-not-allowed",
+              )}
+              style={getInputStyle()}
+              value={editingMode ? "" : (value as string) || ""}
+              onChange={(e) => {
+                if (!editingMode) {
+                  onChange?.(e.target.value)
+                }
+              }}
+              onBlur={onBlur}
+              data-field-id={question.id}
+            />
+            {renderEditOverlay(
+              "placeholder",
+              uiConfig.placeholder || "Enter your answer",
+            )}
+          </div>
+          {renderError(error)}
         </div>
       )
     }
 
     if (answerType === "long_text") {
       return (
-        <div className="relative">
-          <Textarea
-            placeholder={uiConfig.placeholder || "Enter your answer"}
-            disabled={disabled}
-            rows={4}
-            className={cn(editingMode && "cursor-not-allowed")}
-            style={getInputStyle()}
-          />
-          {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Enter your answer",
-          )}
+        <div>
+          <div className="relative">
+            <Textarea
+              placeholder={uiConfig.placeholder || "Enter your answer"}
+              disabled={disabled}
+              rows={4}
+              className={cn(
+                "max-h-[300px] min-h-[100px]",
+                editingMode && "cursor-not-allowed",
+              )}
+              style={getInputStyle()}
+              value={editingMode ? "" : (value as string) || ""}
+              onChange={(e) => {
+                if (!editingMode) {
+                  onChange?.(e.target.value)
+                }
+              }}
+              onBlur={onBlur}
+              data-field-id={question.id}
+            />
+            {renderEditOverlay(
+              "placeholder",
+              uiConfig.placeholder || "Enter your answer",
+            )}
+          </div>
+          {renderError(error)}
         </div>
       )
     }
@@ -1812,6 +2499,7 @@ export const QuestionRenderer = ({
             <div className="relative flex-1">
               <Input
                 type="number"
+                min="0"
                 placeholder={uiConfig.amountPlaceholder || "Enter amount"}
                 disabled={disabled}
                 style={getInputStyle()}
@@ -1823,7 +2511,10 @@ export const QuestionRenderer = ({
             </div>
             {currencyStip === "options" && (
               <Select disabled={disabled}>
-                <SelectTrigger className="flex-1" style={getSelectStyle()}>
+                <SelectTrigger
+                  className="min-w-52 flex-1"
+                  style={getSelectStyle()}
+                >
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1874,6 +2565,7 @@ export const QuestionRenderer = ({
             <div className="relative flex-1">
               <Input
                 type="number"
+                min="0"
                 placeholder={
                   uiConfig.percentagePlaceholder || "Enter percentage"
                 }
@@ -1907,6 +2599,7 @@ export const QuestionRenderer = ({
       const fileData = fileUploads[`${question.id}_file`] || {
         file: null,
         fileName: "",
+        error: undefined,
       }
 
       return (
@@ -1918,24 +2611,62 @@ export const QuestionRenderer = ({
             disabled={disabled}
             onChange={(e) => {
               const file = e.target.files?.[0] || null
+              const fileKey = `${question.id}_file`
+              const fileError = file ? validateFileSize(file) : null
               setFileUploads((prev) => ({
                 ...prev,
-                [`${question.id}_file`]: {
+                [fileKey]: {
                   file,
                   fileName: file ? file.name : "",
+                  error: fileError || undefined,
                 },
               }))
+              if (!fileError && file) {
+                onChange?.(file)
+              }
             }}
+            data-field-id={question.id}
           />
-          <label
-            htmlFor={`${question.id}_file_input`}
-            className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center transition-colors hover:bg-gray-200"
-          >
-            <p className="text-sm">📎 Upload files</p>
-          </label>
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor={`${question.id}_file_input`}
+              className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center transition-colors hover:bg-gray-200"
+            >
+              <p className="text-sm">📎 Upload files</p>
+            </label>
+          </div>
           {fileData.fileName && (
-            <p className="text-xs text-gray-600">{fileData.fileName}</p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFileUploads((prev) => ({
+                    ...prev,
+                    [`${question.id}_file`]: {
+                      file: null,
+                      fileName: "",
+                      error: undefined,
+                    },
+                  }))
+                  onChange?.(null)
+                  const fileInput = document.getElementById(
+                    `${question.id}_file_input`,
+                  ) as HTMLInputElement
+                  if (fileInput) {
+                    fileInput.value = ""
+                  }
+                }}
+                className="h-8 w-8 p-0"
+                disabled={disabled}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <p className="text-xs text-gray-600">{fileData.fileName}</p>
+            </div>
           )}
+          {renderError(fileData.error || error)}
         </div>
       )
     } else if (answerType === "time_date") {
@@ -2040,7 +2771,8 @@ export const QuestionRenderer = ({
       )
     } else if (answerType === "statement") {
       const showTickbox = setupConfig.add_tickbox === "yes"
-      const tickboxDisabled = disabled || !showTickbox
+      // Only disable checkbox in editing mode, not in form preview/user-facing form
+      const tickboxDisabled = editingMode || !showTickbox
 
       return (
         <div className="space-y-2">
@@ -2052,7 +2784,15 @@ export const QuestionRenderer = ({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Checkbox disabled={tickboxDisabled} />
+            <Checkbox
+              disabled={tickboxDisabled}
+              checked={editingMode ? false : (value as boolean) || false}
+              onCheckedChange={(checked) => {
+                if (!editingMode) {
+                  onChange?.(checked)
+                }
+              }}
+            />
             <div className="relative inline-block">
               <span
                 className={cn(

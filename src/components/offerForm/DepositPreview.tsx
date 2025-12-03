@@ -11,8 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { BrandingConfig } from "@/types/branding"
 import { cn } from "@/lib/utils"
+import { BrandingConfig } from "@/types/branding"
 import { useEffect, useState } from "react"
 
 interface DepositQuestion {
@@ -71,18 +71,41 @@ const DepositForm = ({
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
-    if (!brandingConfig?.fieldColor || editingMode) return {}
+    if (editingMode) return {}
+    if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
+      return {
+        backgroundColor: brandingConfig.fieldColor,
+        borderColor: brandingConfig.fieldColor,
+        borderWidth: "1px",
+        borderStyle: "solid",
+      }
+    }
+    // Use gray border when branding is null or white
     return {
-      backgroundColor: brandingConfig.fieldColor,
-      borderColor: brandingConfig.fieldColor,
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "#e5e7eb", // gray-200
+      backgroundColor: "#ffffff",
     }
   }
 
   // Helper: Get select style with branding
   const getSelectStyle = () => {
-    if (!brandingConfig?.fieldColor || editingMode) return {}
+    if (editingMode) return {}
+    if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
+      return {
+        backgroundColor: brandingConfig.fieldColor,
+        borderColor: brandingConfig.fieldColor,
+        borderWidth: "1px",
+        borderStyle: "solid",
+      }
+    }
+    // Use gray border when branding is null or white
     return {
-      backgroundColor: brandingConfig.fieldColor,
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "#e5e7eb", // gray-200
+      backgroundColor: "#ffffff",
     }
   }
 
@@ -319,10 +342,7 @@ const DepositForm = ({
         // Multiple selections - show as dropdown
         return (
           <Select>
-            <SelectTrigger
-              className="w-auto min-w-52"
-              style={getSelectStyle()}
-            >
+            <SelectTrigger className="w-auto min-w-52" style={getSelectStyle()}>
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
@@ -408,6 +428,7 @@ const DepositForm = ({
                     <div className="relative">
                       <Input
                         type="number"
+                        min="0"
                         placeholder={currentPlaceholder || "Enter value"}
                         value={localFormData[id] || ""}
                         onChange={(e) => handleFieldChange(id, e.target.value)}
@@ -498,22 +519,67 @@ const DepositForm = ({
                   onValueChange={(value) => handleFieldChange(id, value)}
                   disabled={false}
                 >
-                  <SelectTrigger
-                    className="min-w-52"
-                    style={getSelectStyle()}
-                  >
+                  <SelectTrigger className="min-w-52" style={getSelectStyle()}>
                     <SelectValue
                       placeholder={currentPlaceholder || "Select option"}
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {options?.map(
-                      (option: { value: string; label: string }) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ),
-                    )}
+                    {(() => {
+                      // If this is deposit_instalments and options are missing, generate them
+                      if (
+                        id === "deposit_instalments" &&
+                        (!options || options.length === 0)
+                      ) {
+                        const instalmentsSetup = setupAnswers?.instalments_setup
+                        let generatedOptions: Array<{
+                          value: string
+                          label: string
+                        }> = []
+
+                        if (instalmentsSetup === "two_always") {
+                          generatedOptions = [
+                            { value: "1", label: "1" },
+                            { value: "2", label: "2" },
+                          ]
+                        } else if (instalmentsSetup === "one_or_two") {
+                          generatedOptions = [
+                            { value: "1", label: "1" },
+                            { value: "2", label: "2" },
+                          ]
+                        } else if (instalmentsSetup === "three_plus") {
+                          generatedOptions = [
+                            { value: "1", label: "1" },
+                            { value: "2", label: "2" },
+                            { value: "3", label: "3" },
+                          ]
+                        } else {
+                          // Default fallback
+                          generatedOptions = [
+                            { value: "1", label: "1" },
+                            { value: "2", label: "2" },
+                            { value: "3", label: "3" },
+                          ]
+                        }
+
+                        return generatedOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))
+                      }
+
+                      // Use provided options
+                      return (
+                        options?.map(
+                          (option: { value: string; label: string }) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ),
+                        ) || []
+                      )
+                    })()}
                   </SelectContent>
                 </Select>
 
@@ -542,7 +608,7 @@ const DepositForm = ({
                         disabled={false}
                       >
                         <SelectTrigger
-                          className="w-1/4"
+                          className="min-w-52"
                           style={getSelectStyle()}
                         >
                           <SelectValue
@@ -602,6 +668,12 @@ const DepositForm = ({
               <DatePicker
                 disabled={editingMode}
                 brandingConfig={brandingConfig}
+                value={
+                  localFormData[id] ? new Date(localFormData[id]) : undefined
+                }
+                onChange={(date) => {
+                  handleFieldChange(id, date ? date.toISOString() : null)
+                }}
               />
             )}
 
@@ -611,6 +683,14 @@ const DepositForm = ({
                   <DatePicker
                     disabled={editingMode}
                     brandingConfig={brandingConfig}
+                    value={
+                      localFormData[id]
+                        ? new Date(localFormData[id])
+                        : undefined
+                    }
+                    onChange={(date) => {
+                      handleFieldChange(id, date ? date.toISOString() : null)
+                    }}
                   />
                 </div>
               </div>

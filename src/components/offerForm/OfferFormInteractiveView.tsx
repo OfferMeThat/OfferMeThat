@@ -2,10 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { QUESTION_TYPE_TO_LABEL } from "@/constants/offerFormQuestions"
+import { buildFormValidationSchema } from "@/lib/offerFormValidation"
 import { BrandingConfig } from "@/types/branding"
 import { Database } from "@/types/supabase"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { useState } from "react"
+import { useCallback, useState } from "react"
+import { toast } from "sonner"
+import * as yup from "yup"
 import Heading from "../shared/typography/Heading"
 import { QuestionRenderer } from "./QuestionRenderer"
 
@@ -37,6 +41,15 @@ export const OfferFormInteractiveView = ({
 }: OfferFormInteractiveViewProps) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
   const [formData, setFormData] = useState<Record<string, any>>({})
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({})
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set())
+
+  // Build validation schema
+  const validationSchema = useCallback(() => {
+    return buildFormValidationSchema(questions)
+  }, [questions])
 
   if (isLoading) {
     return (
@@ -103,11 +116,89 @@ export const OfferFormInteractiveView = ({
   const isFirstPage = currentPageIndex === 0
   const isLastPage = currentPageIndex === totalPages - 1
 
-  const handleNext = () => {
+  const validateCurrentPage = async (): Promise<boolean> => {
+    if (!currentPage) return true
+
+    try {
+      // Build schema ONLY for current page questions
+      const currentPageQuestions = currentPage.questions.filter(
+        (q) => q.type !== "submitButton",
+      )
+      const pageSchema = buildFormValidationSchema(currentPageQuestions)
+
+      const currentPageData: Record<string, any> = {}
+
+      // Collect data for current page questions
+      currentPageQuestions.forEach((question) => {
+        const value = formData[question.id]
+        // Preserve the actual value - don't convert to null/undefined
+        // Empty strings should be preserved so validation can work correctly
+        currentPageData[question.id] = value
+      })
+
+      // Validate current page
+      await pageSchema.validate(currentPageData, { abortEarly: false })
+
+      // Clear errors for current page
+      const newErrors = { ...validationErrors }
+      currentPage.questions.forEach((question) => {
+        if (question.type === "submitButton") return
+        delete newErrors[question.id]
+      })
+      setValidationErrors(newErrors)
+
+      return true
+    } catch (error) {
+      if (error instanceof yup.ValidationError) {
+        console.log(
+          "Validation errors:",
+          error.inner.map((e) => ({
+            path: e.path,
+            message: e.message,
+            value: e.value,
+          })),
+        )
+
+        const newErrors: Record<string, string> = { ...validationErrors }
+        error.inner.forEach((err) => {
+          if (err.path) {
+            newErrors[err.path] = err.message
+          }
+        })
+        setValidationErrors(newErrors)
+
+        // Mark all fields on current page as touched
+        const newTouched = new Set(touchedFields)
+        currentPage.questions.forEach((question) => {
+          if (question.type === "submitButton") return
+          newTouched.add(question.id)
+        })
+        setTouchedFields(newTouched)
+
+        // Scroll to first error
+        const firstErrorField = error.inner[0]?.path
+        if (firstErrorField) {
+          const errorElement = document.querySelector(
+            `[data-field-id="${firstErrorField}"]`,
+          )
+          errorElement?.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
+
+        toast.error("Fill all of the required fields to proceed")
+        return false
+      }
+      return false
+    }
+  }
+
+  const handleNext = async () => {
     if (!isLastPage) {
-      setCurrentPageIndex((prev) => prev + 1)
-      // Scroll to top when changing pages
-      window.scrollTo({ top: 0, behavior: "smooth" })
+      const isValid = await validateCurrentPage()
+      if (isValid) {
+        setCurrentPageIndex((prev) => prev + 1)
+        // Scroll to top when changing pages
+        window.scrollTo({ top: 0, behavior: "smooth" })
+      }
     }
   }
 
@@ -119,10 +210,81 @@ export const OfferFormInteractiveView = ({
     }
   }
 
-  const handleSubmit = () => {
-    // In a real implementation, this would submit the form data
-    console.log("Form submitted with data:", formData)
-    alert("Form submitted! (This is a preview)")
+  const handleSubmit = async () => {
+    try {
+      const schema = validationSchema()
+      await schema.validate(formData, { abortEarly: false })
+
+      // In a real implementation, this would submit the form data
+      console.log("Form submitted with data:", formData)
+      toast.success("Form submitted successfully!")
+    } catch (error) {
+      if (error instanceof yup.ValidationError) {
+        const newErrors: Record<string, string> = {}
+        error.inner.forEach((err) => {
+          if (err.path) {
+            newErrors[err.path] = err.message
+          }
+        })
+        setValidationErrors(newErrors)
+
+        // Mark all fields as touched
+        const allFieldIds = questions
+          .filter((q) => q.type !== "submitButton")
+          .map((q) => q.id)
+        setTouchedFields(new Set(allFieldIds))
+
+        // Scroll to first error
+        const firstErrorField = error.inner[0]?.path
+        if (firstErrorField) {
+          const errorElement = document.querySelector(
+            `[data-field-id="${firstErrorField}"]`,
+          )
+          errorElement?.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
+
+        toast.error("Fill all of the required fields to proceed")
+      }
+    }
+  }
+
+  const handleFieldChange = (fieldId: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [fieldId]: value }))
+
+    // Clear error for this field when user starts typing
+    if (validationErrors[fieldId]) {
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[fieldId]
+        return newErrors
+      })
+    }
+  }
+
+  const handleFieldBlur = async (fieldId: string) => {
+    setTouchedFields((prev) => new Set(prev).add(fieldId))
+
+    // Validate single field
+    try {
+      const schema = validationSchema() as yup.ObjectSchema<any>
+      const fieldSchema = schema.fields[fieldId]
+      if (fieldSchema && "validate" in fieldSchema) {
+        await (fieldSchema as yup.AnySchema).validate(formData[fieldId])
+        // Clear error if validation passes
+        setValidationErrors((prev) => {
+          const newErrors = { ...prev }
+          delete newErrors[fieldId]
+          return newErrors
+        })
+      }
+    } catch (error) {
+      if (error instanceof yup.ValidationError) {
+        setValidationErrors((prev) => ({
+          ...prev,
+          [fieldId]: error.message,
+        }))
+      }
+    }
   }
 
   if (!currentPage) {
@@ -217,7 +379,27 @@ export const OfferFormInteractiveView = ({
           }
 
           const uiConfig = (question.uiConfig as Record<string, any>) || {}
-          const label = uiConfig.label || "Question"
+          const setupConfig =
+            (question.setupConfig as Record<string, any>) || {}
+
+          // Get label with proper fallback order:
+          // 1. User-customized label from uiConfig
+          // 2. Default label from QUESTION_TYPE_TO_LABEL
+          // 3. For custom questions, check setupConfig.question_text
+          // 4. Fallback to "Question"
+          let label = uiConfig.label
+          if (!label) {
+            if (question.type === "custom") {
+              // For custom questions, use the question text from setupConfig
+              label =
+                setupConfig.question_text ||
+                QUESTION_TYPE_TO_LABEL[question.type] ||
+                "Question"
+            } else {
+              // For standard questions, use the default label from constants
+              label = QUESTION_TYPE_TO_LABEL[question.type] || "Question"
+            }
+          }
 
           return (
             <div
@@ -241,6 +423,14 @@ export const OfferFormInteractiveView = ({
                 editingMode={false}
                 formId={question.formId}
                 brandingConfig={brandingConfig}
+                value={formData[question.id]}
+                onChange={(value) => handleFieldChange(question.id, value)}
+                onBlur={() => handleFieldBlur(question.id)}
+                error={
+                  touchedFields.has(question.id)
+                    ? validationErrors[question.id]
+                    : undefined
+                }
               />
             </div>
           )

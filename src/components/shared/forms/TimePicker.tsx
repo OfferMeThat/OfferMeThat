@@ -43,19 +43,37 @@ const TimePicker = ({
   }
 
   const getFieldStyle = () => {
-    if (!brandingConfig?.fieldColor) return style
-    return {
+    const baseStyle = {
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "#e5e7eb", // gray-200
+      backgroundColor: "#ffffff",
       ...style,
-      backgroundColor: brandingConfig.fieldColor,
-      borderColor: brandingConfig.fieldColor,
     }
+    if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
+      return {
+        ...baseStyle,
+        backgroundColor: brandingConfig.fieldColor,
+        borderColor: brandingConfig.fieldColor,
+      }
+    }
+    return baseStyle
   }
 
   const getInputStyle = () => {
-    if (!brandingConfig?.fieldColor) return {}
+    if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
+      return {
+        backgroundColor: brandingConfig.fieldColor,
+        borderColor: brandingConfig.fieldColor,
+        borderWidth: "1px",
+        borderStyle: "solid",
+      }
+    }
     return {
-      backgroundColor: brandingConfig.fieldColor,
-      borderColor: brandingConfig.fieldColor,
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "#e5e7eb", // gray-200
+      backgroundColor: "#ffffff",
     }
   }
 
