@@ -803,6 +803,75 @@ export const getFormOwnerProfilePicture = async (
   return profile.avatarUrl
 }
 
+/**
+ * Get form data by username (public access)
+ * Returns form ID, questions, pages, branding, profile picture, and owner name
+ */
+export const getFormByUsername = async (username: string) => {
+  const supabase = await createClient()
+
+  // First, get the profile by username
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, fullName, avatarUrl")
+    .eq("username", username)
+    .single()
+
+  if (profileError || !profile) {
+    return null // Username doesn't exist
+  }
+
+  // Get the form for this user
+  const { data: form, error: formError } = await supabase
+    .from("offerForms")
+    .select("id, brandingConfig")
+    .eq("ownerId", profile.id)
+    .single()
+
+  if (formError || !form) {
+    // User exists but no form - return default form structure
+    return {
+      formId: null,
+      questions: [],
+      pages: [],
+      brandingConfig: DEFAULT_BRANDING_CONFIG,
+      profilePictureUrl: profile.avatarUrl,
+      ownerName: profile.fullName,
+    }
+  }
+
+  // Get questions and pages
+  const [questionsResult, pagesResult] = await Promise.all([
+    supabase
+      .from("offerFormQuestions")
+      .select("*")
+      .eq("formId", form.id)
+      .order("order", { ascending: true }),
+    supabase
+      .from("offerFormPages")
+      .select("*")
+      .eq("formId", form.id)
+      .order("order", { ascending: true }),
+  ])
+
+  const questions = questionsResult.data || []
+  const pages = pagesResult.data || []
+
+  // Get branding config
+  const brandingConfig = form.brandingConfig
+    ? (form.brandingConfig as unknown as BrandingConfig)
+    : DEFAULT_BRANDING_CONFIG
+
+  return {
+    formId: form.id,
+    questions,
+    pages,
+    brandingConfig,
+    profilePictureUrl: profile.avatarUrl,
+    ownerName: profile.fullName,
+  }
+}
+
 export const saveBrandingConfig = async (
   formId: string,
   config: BrandingConfig,

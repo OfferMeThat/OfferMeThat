@@ -53,6 +53,27 @@ export async function updateSession(request: NextRequest) {
   // Check if the current path is an auth page
   const isAuthPage = request.nextUrl.pathname.startsWith("/auth")
 
+  // Check if the current path is a public username route (e.g., /username)
+  // Username routes are public and don't require authentication
+  const pathname = request.nextUrl.pathname
+  const isPublicUsernameRoute =
+    pathname.length > 1 &&
+    !pathname.startsWith("/_next") &&
+    !pathname.startsWith("/auth") &&
+    !pathname.startsWith("/offer-form") &&
+    !pathname.startsWith("/settings") &&
+    !pathname.startsWith("/verify-offer") &&
+    !pathname.startsWith("/listings") &&
+    !pathname.startsWith("/offers") &&
+    !pathname.startsWith("/leads") &&
+    !pathname.startsWith("/messages") &&
+    pathname.split("/").length === 2 // Only one segment after root (e.g., /username)
+
+  // Allow public access to username routes
+  if (isPublicUsernameRoute) {
+    return supabaseResponse
+  }
+
   // Redirect unauthenticated users to /auth (unless they're already on an auth page)
   if (!isAuthenticated && !isAuthPage) {
     const url = request.nextUrl.clone()
