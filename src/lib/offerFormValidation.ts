@@ -251,12 +251,130 @@ export const buildQuestionValidation = (
           .max(150, "Maximum 150 characters allowed")
           .matches(/^[0-9\s\-\(\)\+]+$/, "Please enter a valid phone number")
           .min(8, "Phone number must be at least 8 digits")
+      } else if (answerType === "time_date") {
+        // Time/date questions - validate as mixed (can be Date object or string)
+        // Validate that date is not before today
+        schema = yup
+          .mixed()
+          .test(
+            "date-not-past",
+            "Date cannot be before today",
+            function (value) {
+              if (!value) {
+                if (required) {
+                  return this.createError({ message: "This field is required" })
+                }
+                return true // Optional field, allow empty
+              }
+
+              // Handle different date formats
+              let date: Date | null = null
+
+              if (value instanceof Date) {
+                date = value
+              } else if (typeof value === "string") {
+                date = new Date(value)
+              } else if (typeof value === "object" && value !== null) {
+                // Could be an object with date property
+                const dateValue =
+                  (value as any).date ||
+                  (value as any).settlementDate ||
+                  (value as any).expiryDate
+                if (dateValue) {
+                  date =
+                    dateValue instanceof Date ? dateValue : new Date(dateValue)
+                }
+              }
+
+              if (!date || isNaN(date.getTime())) {
+                return this.createError({
+                  message: "Please enter a valid date",
+                })
+              }
+
+              // Get today's date at midnight for comparison
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+              const selectedDate = new Date(date)
+              selectedDate.setHours(0, 0, 0, 0)
+
+              // Check if selected date is before today
+              if (selectedDate < today) {
+                return this.createError({
+                  message: "Date cannot be before today",
+                })
+              }
+
+              return true
+            },
+          )
       }
       break
 
     case "deposit":
-      // Deposit questions are complex and handled separately
-      schema = yup.mixed()
+      // Deposit questions are complex with nested date fields
+      // Validate that all deposit due dates are not before today
+      schema = yup
+        .mixed()
+        .test(
+          "deposit-dates-not-past",
+          "Deposit due dates cannot be before today",
+          function (value) {
+            if (!value || typeof value !== "object") {
+              if (required) {
+                return this.createError({ message: "This field is required" })
+              }
+              return true // Optional field, allow empty
+            }
+
+            const depositData = value as any
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+
+            // Check deposit_due (single deposit)
+            if (depositData.deposit_due) {
+              const date =
+                depositData.deposit_due instanceof Date
+                  ? depositData.deposit_due
+                  : new Date(depositData.deposit_due)
+
+              if (!isNaN(date.getTime())) {
+                const selectedDate = new Date(date)
+                selectedDate.setHours(0, 0, 0, 0)
+                if (selectedDate < today) {
+                  return this.createError({
+                    message: "Deposit due date cannot be before today",
+                    path: `${this.path}.deposit_due`,
+                  })
+                }
+              }
+            }
+
+            // Check deposit_due_1, deposit_due_2, deposit_due_3 (multiple deposits)
+            for (let i = 1; i <= 3; i++) {
+              const dueDateKey = `deposit_due_${i}`
+              if (depositData[dueDateKey]) {
+                const date =
+                  depositData[dueDateKey] instanceof Date
+                    ? depositData[dueDateKey]
+                    : new Date(depositData[dueDateKey])
+
+                if (!isNaN(date.getTime())) {
+                  const selectedDate = new Date(date)
+                  selectedDate.setHours(0, 0, 0, 0)
+                  if (selectedDate < today) {
+                    return this.createError({
+                      message: `Deposit ${i} due date cannot be before today`,
+                      path: `${this.path}.${dueDateKey}`,
+                    })
+                  }
+                }
+              }
+            }
+
+            return true
+          },
+        )
       break
 
     case "subjectToLoanApproval":
@@ -305,10 +423,119 @@ export const buildQuestionValidation = (
       break
 
     case "offerExpiry":
+      // Complex field with nested data: { hasExpiry, expiryDate, expiryTime }
+      // Validate that expiryDate is not before today
+      schema = yup
+        .mixed()
+        .test(
+          "expiry-date-not-past",
+          "Date cannot be before today",
+          function (value) {
+            if (!value || typeof value !== "object") {
+              if (required) {
+                return this.createError({ message: "This field is required" })
+              }
+              return true // Optional field, allow empty
+            }
+
+            const expiryData = value as any
+            const expiryDate = expiryData.expiryDate
+
+            // If no expiry date, check if required
+            if (!expiryDate) {
+              if (required && expiryData.hasExpiry !== "no") {
+                return this.createError({ message: "Expiry date is required" })
+              }
+              return true
+            }
+
+            // Convert to Date if it's a string
+            const date =
+              expiryDate instanceof Date ? expiryDate : new Date(expiryDate)
+
+            // Check if date is valid
+            if (isNaN(date.getTime())) {
+              return this.createError({ message: "Please enter a valid date" })
+            }
+
+            // Get today's date at midnight for comparison
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const selectedDate = new Date(date)
+            selectedDate.setHours(0, 0, 0, 0)
+
+            // Check if selected date is before today
+            if (selectedDate < today) {
+              return this.createError({
+                message: "Date cannot be before today",
+                path: `${this.path}.expiryDate`,
+              })
+            }
+
+            return true
+          },
+        )
+        .nullable()
+      break
+
     case "settlementDate":
-      // These are complex fields with nested data
-      // Make them optional if not required
-      schema = yup.mixed().nullable()
+      // Complex field with nested data: { settlementDate, settlementTime, ... }
+      // Validate that settlementDate is not before today
+      schema = yup
+        .mixed()
+        .test(
+          "settlement-date-not-past",
+          "Date cannot be before today",
+          function (value) {
+            if (!value || typeof value !== "object") {
+              if (required) {
+                return this.createError({ message: "This field is required" })
+              }
+              return true // Optional field, allow empty
+            }
+
+            const settlementData = value as any
+            const settlementDate = settlementData.settlementDate
+
+            // If no settlement date, check if required
+            if (!settlementDate) {
+              if (required) {
+                return this.createError({
+                  message: "Settlement date is required",
+                })
+              }
+              return true
+            }
+
+            // Convert to Date if it's a string
+            const date =
+              settlementDate instanceof Date
+                ? settlementDate
+                : new Date(settlementDate)
+
+            // Check if date is valid
+            if (isNaN(date.getTime())) {
+              return this.createError({ message: "Please enter a valid date" })
+            }
+
+            // Get today's date at midnight for comparison
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const selectedDate = new Date(date)
+            selectedDate.setHours(0, 0, 0, 0)
+
+            // Check if selected date is before today
+            if (selectedDate < today) {
+              return this.createError({
+                message: "Date cannot be before today",
+                path: `${this.path}.settlementDate`,
+              })
+            }
+
+            return true
+          },
+        )
+        .nullable()
       break
 
     case "submitterRole":
