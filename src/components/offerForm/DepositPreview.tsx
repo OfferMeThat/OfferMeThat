@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { BrandingConfig } from "@/types/branding"
 import { cn } from "@/lib/utils"
 import { useEffect, useState } from "react"
 
@@ -54,6 +55,7 @@ interface DepositFormProps {
   onEditPlaceholder?:
     | ((questionId: string, currentText?: string) => void)
     | null
+  brandingConfig?: BrandingConfig
 }
 
 const DepositForm = ({
@@ -63,8 +65,26 @@ const DepositForm = ({
   editingMode = false,
   onEditQuestion = null,
   onEditPlaceholder = null,
+  brandingConfig,
 }: DepositFormProps) => {
   const [localFormData, setLocalFormData] = useState<Record<string, any>>({})
+
+  // Helper: Get input style with branding
+  const getInputStyle = () => {
+    if (!brandingConfig?.fieldColor || editingMode) return {}
+    return {
+      backgroundColor: brandingConfig.fieldColor,
+      borderColor: brandingConfig.fieldColor,
+    }
+  }
+
+  // Helper: Get select style with branding
+  const getSelectStyle = () => {
+    if (!brandingConfig?.fieldColor || editingMode) return {}
+    return {
+      backgroundColor: brandingConfig.fieldColor,
+    }
+  }
 
   // CRITICAL: Re-render when question prop changes to pick up updated text
   useEffect(() => {
@@ -299,7 +319,10 @@ const DepositForm = ({
         // Multiple selections - show as dropdown
         return (
           <Select>
-            <SelectTrigger className="w-auto min-w-52">
+            <SelectTrigger
+              className="w-auto min-w-52"
+              style={getSelectStyle()}
+            >
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
@@ -393,6 +416,7 @@ const DepositForm = ({
                           editingMode ? "cursor-not-allowed" : "",
                           "min-w-52",
                         )}
+                        style={getInputStyle()}
                       />
                       {editingMode && (
                         <div
@@ -416,7 +440,10 @@ const DepositForm = ({
                       }
                       disabled={false}
                     >
-                      <SelectTrigger className="min-w-52">
+                      <SelectTrigger
+                        className="min-w-52"
+                        style={getSelectStyle()}
+                      >
                         <SelectValue
                           placeholder={
                             depositQuestion.currency_field.placeholder ||
@@ -443,6 +470,7 @@ const DepositForm = ({
                       onChange={(e) => handleFieldChange(id, e.target.value)}
                       disabled={editingMode}
                       className={editingMode ? "cursor-not-allowed" : ""}
+                      style={getInputStyle()}
                     />
                     {editingMode && (
                       <div
@@ -470,7 +498,10 @@ const DepositForm = ({
                   onValueChange={(value) => handleFieldChange(id, value)}
                   disabled={false}
                 >
-                  <SelectTrigger className="min-w-52">
+                  <SelectTrigger
+                    className="min-w-52"
+                    style={getSelectStyle()}
+                  >
                     <SelectValue
                       placeholder={currentPlaceholder || "Select option"}
                     />
@@ -500,6 +531,7 @@ const DepositForm = ({
                           }
                           disabled={editingMode}
                           className={editingMode ? "cursor-not-allowed" : ""}
+                          style={getInputStyle()}
                         />
                       </div>
                       <Select
@@ -509,7 +541,10 @@ const DepositForm = ({
                         }
                         disabled={false}
                       >
-                        <SelectTrigger className="w-1/4">
+                        <SelectTrigger
+                          className="w-1/4"
+                          style={getSelectStyle()}
+                        >
                           <SelectValue
                             placeholder={
                               depositQuestion.conditional_currency
@@ -550,6 +585,7 @@ const DepositForm = ({
                           }
                           disabled={editingMode}
                           className={editingMode ? "cursor-not-allowed" : ""}
+                          style={getInputStyle()}
                         />
                       </div>
                       <div className="flex w-1/4 items-center">
@@ -563,13 +599,19 @@ const DepositForm = ({
             )}
 
             {question_type === "calendar" && (
-              <DatePicker disabled={editingMode} />
+              <DatePicker
+                disabled={editingMode}
+                brandingConfig={brandingConfig}
+              />
             )}
 
             {question_type === "date" && (
               <div className="space-y-1 pt-1.5">
                 <div className="relative">
-                  <DatePicker disabled={editingMode} />
+                  <DatePicker
+                    disabled={editingMode}
+                    brandingConfig={brandingConfig}
+                  />
                 </div>
               </div>
             )}
@@ -583,6 +625,7 @@ const DepositForm = ({
                     onChange={(e) => handleFieldChange(id, e.target.value)}
                     disabled={editingMode}
                     className={editingMode ? "cursor-not-allowed" : ""}
+                    style={getInputStyle()}
                   />
                 </div>
               </div>

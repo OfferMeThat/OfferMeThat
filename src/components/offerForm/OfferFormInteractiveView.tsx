@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { BrandingConfig } from "@/types/branding"
 import { Database } from "@/types/supabase"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useState } from "react"
@@ -17,6 +18,8 @@ interface OfferFormInteractiveViewProps {
   isLoading?: boolean
   title?: string
   description?: string
+  brandingConfig?: BrandingConfig
+  profilePictureUrl?: string | null
 }
 
 /**
@@ -29,6 +32,8 @@ export const OfferFormInteractiveView = ({
   isLoading = false,
   title = "Offer Form",
   description,
+  brandingConfig,
+  profilePictureUrl,
 }: OfferFormInteractiveViewProps) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
   const [formData, setFormData] = useState<Record<string, any>>({})
@@ -134,14 +139,55 @@ export const OfferFormInteractiveView = ({
   )
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <div className="w-full">
+      {/* Profile Picture and Logo */}
+      {(profilePictureUrl || brandingConfig?.logo) && (
+        <div className="mb-6 flex flex-col items-center gap-4">
+          {/* Profile Picture - Round, above logo */}
+          {profilePictureUrl && (
+            <div className="relative h-24 w-24 overflow-hidden rounded-full border-4 border-white shadow-lg">
+              <img
+                src={profilePictureUrl}
+                alt="Profile"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
+          {/* Logo - Below profile picture */}
+          {brandingConfig?.logo && (
+            <div className="relative h-16 w-auto">
+              <img
+                src={brandingConfig.logo}
+                alt="Logo"
+                className="h-full w-auto object-contain"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6">
-        <Heading as="h2" size="large" weight="bold">
+        <Heading
+          as="h2"
+          size="large"
+          weight="bold"
+          style={{
+            color: brandingConfig?.fontColor || undefined,
+          }}
+          className="text-center"
+        >
           {title}
         </Heading>
         {description && (
-          <p className="mt-2 text-sm text-gray-600">{description}</p>
+          <p
+            className="mt-2 mb-10 text-center text-sm opacity-80"
+            style={{
+              color: brandingConfig?.fontColor || undefined,
+            }}
+          >
+            {description}
+          </p>
         )}
         {totalPages > 1 && (
           <div className="mt-3 flex items-center gap-2">
@@ -178,7 +224,12 @@ export const OfferFormInteractiveView = ({
               key={question.id}
               className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
             >
-              <label className="mb-3 block text-base font-medium text-gray-900">
+              <label
+                className="mb-3 block text-base font-medium"
+                style={{
+                  color: brandingConfig?.fontColor || undefined,
+                }}
+              >
                 {label}
                 {question.required && (
                   <span className="ml-1 text-red-500">*</span>
@@ -189,6 +240,7 @@ export const OfferFormInteractiveView = ({
                 disabled={false}
                 editingMode={false}
                 formId={question.formId}
+                brandingConfig={brandingConfig}
               />
             </div>
           )
@@ -208,12 +260,26 @@ export const OfferFormInteractiveView = ({
         </Button>
 
         {!isLastPage ? (
-          <Button onClick={handleNext} className="gap-2">
+          <Button
+            onClick={handleNext}
+            className="gap-2"
+            style={{
+              backgroundColor: brandingConfig?.buttonColor || undefined,
+              color: brandingConfig?.buttonTextColor || undefined,
+            }}
+          >
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>
         ) : (
-          <Button onClick={handleSubmit} className="gap-2">
+          <Button
+            onClick={handleSubmit}
+            className="gap-2"
+            style={{
+              backgroundColor: brandingConfig?.buttonColor || undefined,
+              color: brandingConfig?.buttonTextColor || undefined,
+            }}
+          >
             {hasSubmitButton
               ? (() => {
                   const submitButtonQuestion = currentPage.questions.find(

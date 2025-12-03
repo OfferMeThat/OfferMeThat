@@ -1,7 +1,15 @@
 "use client"
 
-import { getFormPages, getFormQuestions, getOrCreateOfferForm } from "@/app/actions/offerForm"
+import {
+  getBrandingConfig,
+  getFormOwnerProfilePicture,
+  getFormPages,
+  getFormQuestions,
+  getOrCreateOfferForm,
+  saveBrandingConfig,
+} from "@/app/actions/offerForm"
 import { createClient } from "@/lib/supabase/client"
+import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { Database } from "@/types/supabase"
 import { Copy, Download, ExternalLink, ShieldCheck } from "lucide-react"
 import Link from "next/link"
@@ -11,6 +19,7 @@ import { toast } from "sonner"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
 import { Spinner } from "../ui/spinner"
+import BrandingModal from "./BrandingModal"
 import { OfferFormInteractiveView } from "./OfferFormInteractiveView"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
@@ -23,6 +32,15 @@ const OfferFormPageContent = () => {
   const [questions, setQuestions] = useState<Question[]>([])
   const [pages, setPages] = useState<Page[]>([])
   const [formLoading, setFormLoading] = useState(true)
+  const [formId, setFormId] = useState<string | null>(null)
+  const [showBrandingModal, setShowBrandingModal] = useState(false)
+  const [brandingConfig, setBrandingConfig] = useState<BrandingConfig>(
+    DEFAULT_BRANDING_CONFIG,
+  )
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
+    null,
+  )
+  const [profileName, setProfileName] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -34,7 +52,7 @@ const OfferFormPageContent = () => {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("username")
+          .select("username, fullName")
           .eq("id", user.id)
           .single()
 
@@ -42,6 +60,9 @@ const OfferFormPageContent = () => {
           setUsername(profile.username)
           const domain = window.location.origin
           setOfferLink(`${domain}/${profile.username}`)
+        }
+        if (profile?.fullName) {
+          setProfileName(profile.fullName)
         }
       }
       setIsLoading(false)
@@ -53,13 +74,23 @@ const OfferFormPageContent = () => {
   useEffect(() => {
     const fetchFormData = async () => {
       try {
-        const formId = await getOrCreateOfferForm()
-        const [fetchedQuestions, fetchedPages] = await Promise.all([
-          getFormQuestions(formId),
-          getFormPages(formId),
+        const id = await getOrCreateOfferForm()
+        setFormId(id)
+        const [
+          fetchedQuestions,
+          fetchedPages,
+          fetchedBranding,
+          fetchedProfilePicture,
+        ] = await Promise.all([
+          getFormQuestions(id),
+          getFormPages(id),
+          getBrandingConfig(id),
+          getFormOwnerProfilePicture(id),
         ])
         setQuestions(fetchedQuestions)
         setPages(fetchedPages)
+        setBrandingConfig(fetchedBranding)
+        setProfilePictureUrl(fetchedProfilePicture)
       } catch (error) {
         console.error("Error loading form:", error)
         toast.error("Failed to load form preview")
@@ -233,25 +264,66 @@ const OfferFormPageContent = () => {
         </p>
         <p className="text-sm text-gray-600">
           Personalize the colors, logo & branding by clicking{" "}
-          <Link
-            href="/branding"
-            className="font-medium text-teal-500 hover:text-teal-700"
+          <button
+            onClick={() => setShowBrandingModal(true)}
+            className="cursor-pointer font-medium text-teal-500 hover:text-teal-700"
           >
             here
-          </Link>
+          </button>
           .
         </p>
 
-        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-          <OfferFormInteractiveView
-            questions={questions}
-            pages={pages}
-            isLoading={formLoading}
-            title="Your Offer Form"
-            description="This is how your form will appear to buyers who access your offer link."
-          />
+        {/* Background container with background image */}
+        <div
+          className="mt-6 min-h-[600px] rounded-2xl"
+          style={{
+            backgroundColor: brandingConfig.backgroundColor,
+            backgroundImage: brandingConfig.backgroundImage
+              ? `url(${brandingConfig.backgroundImage})`
+              : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            padding: "2rem",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-start",
+          }}
+        >
+          {/* White form card - fixed width, centered */}
+          <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
+            <OfferFormInteractiveView
+              questions={questions}
+              pages={pages}
+              isLoading={formLoading}
+              title={`Submit an Offer to ${profileName}`}
+              description="Please provide details about your offer"
+              brandingConfig={brandingConfig}
+              profilePictureUrl={profilePictureUrl}
+            />
+          </div>
         </div>
       </div>
+
+      <BrandingModal
+        open={showBrandingModal}
+        onOpenChange={setShowBrandingModal}
+        initialConfig={brandingConfig}
+        onSave={async (config) => {
+          if (!formId) {
+            toast.error("Form ID not available")
+            return
+          }
+          try {
+            await saveBrandingConfig(formId, config)
+            setBrandingConfig(config)
+            toast.success("Branding settings saved!")
+          } catch (error) {
+            console.error("Error saving branding:", error)
+            toast.error("Failed to save branding settings")
+          }
+        }}
+      />
     </main>
   )
 }

@@ -5,6 +5,8 @@ import {
   createPageBreak,
   deletePageBreak,
   deleteQuestion,
+  getBrandingConfig,
+  getFormOwnerProfilePicture,
   getFormPages,
   getFormQuestions,
   getOrCreateOfferForm,
@@ -26,15 +28,16 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
 import Link from "next/link"
 import { useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
+import { OfferFormInteractiveView } from "../OfferFormInteractiveView"
 import AddQuestionModal from "./AddQuestionModal"
 import PageBreak from "./PageBreak"
 import QuestionCard from "./QuestionCard"
-import { OfferFormInteractiveView } from "../OfferFormInteractiveView"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 type Page = Database["public"]["Tables"]["offerFormPages"]["Row"]
@@ -51,6 +54,12 @@ const OfferFormBuilderPageContent = () => {
     number | null
   >(null)
   const [viewMode, setViewMode] = useState<"builder" | "preview">("builder")
+  const [brandingConfig, setBrandingConfig] = useState<BrandingConfig>(
+    DEFAULT_BRANDING_CONFIG,
+  )
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
+    null,
+  )
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -58,13 +67,22 @@ const OfferFormBuilderPageContent = () => {
         const id = await getOrCreateOfferForm()
         setFormId(id)
 
-        const [fetchedQuestions, fetchedPages] = await Promise.all([
+        const [
+          fetchedQuestions,
+          fetchedPages,
+          fetchedBranding,
+          fetchedProfilePicture,
+        ] = await Promise.all([
           getFormQuestions(id),
           getFormPages(id),
+          getBrandingConfig(id),
+          getFormOwnerProfilePicture(id),
         ])
 
         setQuestions(fetchedQuestions)
         setPages(fetchedPages)
+        setBrandingConfig(fetchedBranding)
+        setProfilePictureUrl(fetchedProfilePicture)
       } catch (error) {
         console.error("Error initializing form:", error)
         toast.error("Failed to load form")
@@ -284,7 +302,7 @@ const OfferFormBuilderPageContent = () => {
         // Extract requiredOverride if it exists in config
         const requiredOverride = config?.__requiredOverride
         const cleanConfig = config ? { ...config } : undefined
-        if (cleanConfig && '__requiredOverride' in cleanConfig) {
+        if (cleanConfig && "__requiredOverride" in cleanConfig) {
           delete cleanConfig.__requiredOverride
         }
 
@@ -301,9 +319,10 @@ const OfferFormBuilderPageContent = () => {
           // Get the newly added question
           const updatedQuestions = await getFormQuestions(formId)
           const newQuestion = updatedQuestions.find(
-            q => q.type === questionType && q.order === addQuestionAfterOrder + 1
+            (q) =>
+              q.type === questionType && q.order === addQuestionAfterOrder + 1,
           )
-          
+
           if (newQuestion) {
             await updateQuestion(newQuestion.id, { required: requiredOverride })
           }
@@ -400,146 +419,168 @@ const OfferFormBuilderPageContent = () => {
       </div>
 
       {viewMode === "preview" ? (
-        <div className="p-6">
-          <OfferFormInteractiveView
-            questions={questions}
-            pages={pages}
-            title="Your Offer Form"
-            description="This is how your form will appear to buyers who access your offer link."
-          />
+        <div
+          className="min-h-[600px] rounded-2xl"
+          style={{
+            backgroundColor: brandingConfig.backgroundColor,
+            backgroundImage: brandingConfig.backgroundImage
+              ? `url(${brandingConfig.backgroundImage})`
+              : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            padding: "2rem",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-start",
+          }}
+        >
+          {/* White form card - fixed width, centered */}
+          <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
+            <OfferFormInteractiveView
+              questions={questions}
+              pages={pages}
+              title="Your Offer Form"
+              description="This is how your form will appear to buyers who access your offer link."
+              brandingConfig={brandingConfig}
+              profilePictureUrl={profilePictureUrl}
+            />
+          </div>
         </div>
       ) : (
         <div className="p-4">
           <div className="space-y-6 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-xl">
             {questions.map((question, index) => {
-            // Find if there's a page break after this question
-            const pageBreakAfter = pages.find(
-              (page) => page.breakIndex === question.order,
-            )
+              // Find if there's a page break after this question
+              const pageBreakAfter = pages.find(
+                (page) => page.breakIndex === question.order,
+              )
 
-            return (
-              <div key={question.id}>
-                <QuestionCard
-                  questionsAmount={questions.length}
-                  question={question}
-                  isFirst={index === 0}
-                  isLast={index === questions.length - 1}
-                  onMoveUp={() => handleMoveUp(question.id, question.order)}
-                  onMoveDown={() => handleMoveDown(question.id, question.order)}
-                  onDelete={() => handleDelete(question.id)}
-                  onUpdateQuestion={handleUpdateQuestion}
-                />
+              return (
+                <div key={question.id}>
+                  <QuestionCard
+                    questionsAmount={questions.length}
+                    question={question}
+                    isFirst={index === 0}
+                    isLast={index === questions.length - 1}
+                    onMoveUp={() => handleMoveUp(question.id, question.order)}
+                    onMoveDown={() =>
+                      handleMoveDown(question.id, question.order)
+                    }
+                    onDelete={() => handleDelete(question.id)}
+                    onUpdateQuestion={handleUpdateQuestion}
+                  />
 
-                <div className="my-8 flex flex-wrap items-center justify-center gap-4">
-                  <Button
-                    size="sm"
-                    variant="dashed"
-                    onClick={() => handleOpenAddQuestionModal(question.order)}
-                  >
-                    + Add New Question Here
-                  </Button>
-                  <Button
-                    disabled={index === questions.length - 1}
-                    size="sm"
-                    variant="dashed"
-                    onClick={() => handleAddPageBreak(question.order)}
-                  >
-                    + Add a Page Break Here
-                  </Button>
-                </div>
-
-                {/* Show page break if one exists after this question */}
-                {pageBreakAfter && (
-                  <div className="my-8">
-                    {(() => {
-                      // Find if there are adjacent breaks
-                      const allBreaks = pages.filter(
-                        (p) => p.breakIndex !== null,
-                      )
-                      const currentBreakIndex = pageBreakAfter.breakIndex || 0
-
-                      // Check if there's a break before this one
-                      const hasBreakBefore = allBreaks.some(
-                        (p) =>
-                          p.breakIndex !== null &&
-                          p.breakIndex < currentBreakIndex,
-                      )
-
-                      // Check if there's a break after this one
-                      const hasBreakAfter = allBreaks.some(
-                        (p) =>
-                          p.breakIndex !== null &&
-                          p.breakIndex > currentBreakIndex,
-                      )
-
-                      // Can't move up if: at question 1, or would collide with previous break
-                      const canMoveUp =
-                        currentBreakIndex > 1 &&
-                        (!hasBreakBefore ||
-                          allBreaks
-                            .filter(
-                              (p) =>
-                                p.breakIndex !== null &&
-                                p.breakIndex < currentBreakIndex,
-                            )
-                            .every(
-                              (p) =>
-                                (p.breakIndex || 0) < currentBreakIndex - 1,
-                            ))
-
-                      // Can't move down if: at last question, or would collide with next break
-                      const canMoveDown =
-                        currentBreakIndex < questions.length - 1 &&
-                        (!hasBreakAfter ||
-                          allBreaks
-                            .filter(
-                              (p) =>
-                                p.breakIndex !== null &&
-                                p.breakIndex > currentBreakIndex,
-                            )
-                            .every(
-                              (p) =>
-                                (p.breakIndex || 0) > currentBreakIndex + 1,
-                            ))
-
-                      return (
-                        <PageBreak
-                          page={pageBreakAfter}
-                          isFirst={!canMoveUp}
-                          isLast={!canMoveDown}
-                          onMoveUp={() =>
-                            handleMovePageBreak(pageBreakAfter.id, "up")
-                          }
-                          onMoveDown={() =>
-                            handleMovePageBreak(pageBreakAfter.id, "down")
-                          }
-                          onDelete={() =>
-                            handleDeletePageBreak(pageBreakAfter.id)
-                          }
-                        />
-                      )
-                    })()}
-
-                    {/* Add buttons after page break */}
-                    <div className="my-8 flex flex-wrap items-center justify-center gap-4">
-                      <Button
-                        size="sm"
-                        variant="dashed"
-                        onClick={() =>
-                          handleOpenAddQuestionModal(question.order)
-                        }
-                      >
-                        + Add New Question Here
-                      </Button>
-                      <Button disabled size="sm" variant="dashed">
-                        + Add a Page Break Here
-                      </Button>
-                    </div>
+                  <div className="my-8 flex flex-wrap items-center justify-center gap-4">
+                    <Button
+                      size="sm"
+                      variant="dashed"
+                      onClick={() => handleOpenAddQuestionModal(question.order)}
+                    >
+                      + Add New Question Here
+                    </Button>
+                    <Button
+                      disabled={index === questions.length - 1}
+                      size="sm"
+                      variant="dashed"
+                      onClick={() => handleAddPageBreak(question.order)}
+                    >
+                      + Add a Page Break Here
+                    </Button>
                   </div>
-                )}
-              </div>
-            )
-          })}
+
+                  {/* Show page break if one exists after this question */}
+                  {pageBreakAfter && (
+                    <div className="my-8">
+                      {(() => {
+                        // Find if there are adjacent breaks
+                        const allBreaks = pages.filter(
+                          (p) => p.breakIndex !== null,
+                        )
+                        const currentBreakIndex = pageBreakAfter.breakIndex || 0
+
+                        // Check if there's a break before this one
+                        const hasBreakBefore = allBreaks.some(
+                          (p) =>
+                            p.breakIndex !== null &&
+                            p.breakIndex < currentBreakIndex,
+                        )
+
+                        // Check if there's a break after this one
+                        const hasBreakAfter = allBreaks.some(
+                          (p) =>
+                            p.breakIndex !== null &&
+                            p.breakIndex > currentBreakIndex,
+                        )
+
+                        // Can't move up if: at question 1, or would collide with previous break
+                        const canMoveUp =
+                          currentBreakIndex > 1 &&
+                          (!hasBreakBefore ||
+                            allBreaks
+                              .filter(
+                                (p) =>
+                                  p.breakIndex !== null &&
+                                  p.breakIndex < currentBreakIndex,
+                              )
+                              .every(
+                                (p) =>
+                                  (p.breakIndex || 0) < currentBreakIndex - 1,
+                              ))
+
+                        // Can't move down if: at last question, or would collide with next break
+                        const canMoveDown =
+                          currentBreakIndex < questions.length - 1 &&
+                          (!hasBreakAfter ||
+                            allBreaks
+                              .filter(
+                                (p) =>
+                                  p.breakIndex !== null &&
+                                  p.breakIndex > currentBreakIndex,
+                              )
+                              .every(
+                                (p) =>
+                                  (p.breakIndex || 0) > currentBreakIndex + 1,
+                              ))
+
+                        return (
+                          <PageBreak
+                            page={pageBreakAfter}
+                            isFirst={!canMoveUp}
+                            isLast={!canMoveDown}
+                            onMoveUp={() =>
+                              handleMovePageBreak(pageBreakAfter.id, "up")
+                            }
+                            onMoveDown={() =>
+                              handleMovePageBreak(pageBreakAfter.id, "down")
+                            }
+                            onDelete={() =>
+                              handleDeletePageBreak(pageBreakAfter.id)
+                            }
+                          />
+                        )
+                      })()}
+
+                      {/* Add buttons after page break */}
+                      <div className="my-8 flex flex-wrap items-center justify-center gap-4">
+                        <Button
+                          size="sm"
+                          variant="dashed"
+                          onClick={() =>
+                            handleOpenAddQuestionModal(question.order)
+                          }
+                        >
+                          + Add New Question Here
+                        </Button>
+                        <Button disabled size="sm" variant="dashed">
+                          + Add a Page Break Here
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

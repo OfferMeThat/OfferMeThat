@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { BrandingConfig } from "@/types/branding"
 import { cn } from "@/lib/utils"
 
 export type TimePickerProps = {
@@ -18,6 +19,8 @@ export type TimePickerProps = {
   value?: string // HH:MM format
   onChange?: (time: string | undefined) => void
   disabled?: boolean
+  style?: React.CSSProperties
+  brandingConfig?: BrandingConfig
 }
 
 const TimePicker = ({
@@ -26,6 +29,8 @@ const TimePicker = ({
   value,
   onChange,
   disabled = false,
+  style,
+  brandingConfig,
 }: TimePickerProps) => {
   const [open, setOpen] = React.useState(false)
   const [hours, setHours] = React.useState(value?.split(":")[0] || "12")
@@ -35,6 +40,31 @@ const TimePicker = ({
     const timeString = `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}`
     onChange?.(timeString)
     setOpen(false)
+  }
+
+  const getFieldStyle = () => {
+    if (!brandingConfig?.fieldColor) return style
+    return {
+      ...style,
+      backgroundColor: brandingConfig.fieldColor,
+      borderColor: brandingConfig.fieldColor,
+    }
+  }
+
+  const getInputStyle = () => {
+    if (!brandingConfig?.fieldColor) return {}
+    return {
+      backgroundColor: brandingConfig.fieldColor,
+      borderColor: brandingConfig.fieldColor,
+    }
+  }
+
+  const getButtonStyle = () => {
+    if (!brandingConfig) return {}
+    return {
+      backgroundColor: brandingConfig.buttonColor,
+      color: brandingConfig.buttonTextColor,
+    }
   }
 
   return (
@@ -48,12 +78,23 @@ const TimePicker = ({
             !value && "text-gray-500",
             btnClassName,
           )}
+          style={getFieldStyle()}
         >
           <Clock className="h-4 w-4" />
           {value || label || "Select time"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-4" align="start">
+      <PopoverContent
+        className="w-auto p-4"
+        align="start"
+        style={
+          brandingConfig?.fieldColor
+            ? {
+                backgroundColor: brandingConfig.fieldColor,
+              }
+            : undefined
+        }
+      >
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="flex-1">
@@ -72,6 +113,7 @@ const TimePicker = ({
                   }
                 }}
                 className="text-center"
+                style={getInputStyle()}
               />
             </div>
             <span className="mt-5 text-xl font-bold">:</span>
@@ -91,10 +133,11 @@ const TimePicker = ({
                   }
                 }}
                 className="text-center"
+                style={getInputStyle()}
               />
             </div>
           </div>
-          <Button onClick={handleApply} className="w-full">
+          <Button onClick={handleApply} className="w-full" style={getButtonStyle()}>
             Apply
           </Button>
         </div>

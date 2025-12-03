@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { BrandingConfig } from "@/types/branding"
 import { cn } from "@/lib/utils"
 
 export type DatePickerProps = {
@@ -18,6 +19,8 @@ export type DatePickerProps = {
   value?: Date
   onChange?: (date: Date | undefined) => void
   disabled?: boolean
+  style?: React.CSSProperties
+  brandingConfig?: BrandingConfig
 }
 
 const DatePicker = ({
@@ -26,8 +29,19 @@ const DatePicker = ({
   value,
   onChange,
   disabled = false,
+  style,
+  brandingConfig,
 }: DatePickerProps) => {
   const [open, setOpen] = React.useState(false)
+
+  const getFieldStyle = () => {
+    if (!brandingConfig?.fieldColor) return style
+    return {
+      ...style,
+      backgroundColor: brandingConfig.fieldColor,
+      borderColor: brandingConfig.fieldColor,
+    }
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -41,12 +55,23 @@ const DatePicker = ({
             !value && "text-gray-500",
             btnClassName,
           )}
+          style={getFieldStyle()}
         >
           <CalendarIcon />
           {value ? value.toLocaleDateString() : label || "Select date"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+      <PopoverContent
+        className="w-auto overflow-hidden p-0"
+        align="start"
+        style={
+          brandingConfig?.fieldColor
+            ? {
+                backgroundColor: brandingConfig.fieldColor,
+              }
+            : undefined
+        }
+      >
         <Calendar
           mode="single"
           selected={value}

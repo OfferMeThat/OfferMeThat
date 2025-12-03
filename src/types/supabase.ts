@@ -164,16 +164,19 @@ export type Database = {
       }
       offerForms: {
         Row: {
+          brandingConfig: Json | null
           createdAt: string
           id: string
           ownerId: string
         }
         Insert: {
+          brandingConfig?: Json | null
           createdAt?: string
           id?: string
           ownerId: string
         }
         Update: {
+          brandingConfig?: Json | null
           createdAt?: string
           id?: string
           ownerId?: string

@@ -6,7 +6,9 @@ import {
 } from "@/constants/offerFormQuestions"
 import { buildSmartQuestionUiConfig } from "@/data/smartQuestions"
 import { createClient } from "@/lib/supabase/server"
+import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { QuestionType } from "@/types/form"
+import { Database } from "@/types/supabase"
 
 interface DefaultQuestion {
   type: QuestionType
@@ -701,6 +703,143 @@ export const getFormOwnerListings = async (formId: string) => {
   }
 
   return listings || []
+}
+
+export const getBrandingConfig = async (
+  formId: string,
+): Promise<BrandingConfig> => {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("User not authenticated")
+  }
+
+  const { data: form, error } = await supabase
+    .from("offerForms")
+    .select("brandingConfig, ownerId")
+    .eq("id", formId)
+    .single()
+
+  if (error) {
+    console.error("Error fetching branding config:", error)
+    throw new Error("Failed to fetch branding config")
+  }
+
+  if (!form || form.ownerId !== user.id) {
+    throw new Error("Unauthorized access to form")
+  }
+
+  // Return branding config or default if null
+  if (form.brandingConfig) {
+    return form.brandingConfig as unknown as BrandingConfig
+  }
+
+  return DEFAULT_BRANDING_CONFIG
+}
+
+/**
+ * Public version of getBrandingConfig - doesn't require authentication
+ * Used for public form views where buyers access the form
+ */
+export const getPublicBrandingConfig = async (
+  formId: string,
+): Promise<BrandingConfig> => {
+  const supabase = await createClient()
+
+  const { data: form, error } = await supabase
+    .from("offerForms")
+    .select("brandingConfig")
+    .eq("id", formId)
+    .single()
+
+  if (error) {
+    console.error("Error fetching public branding config:", error)
+    // Return default config instead of throwing error for public access
+    return DEFAULT_BRANDING_CONFIG
+  }
+
+  // Return branding config or default if null
+  if (form?.brandingConfig) {
+    return form.brandingConfig as unknown as BrandingConfig
+  }
+
+  return DEFAULT_BRANDING_CONFIG
+}
+
+/**
+ * Get the owner's profile picture URL from the form
+ * Works for both authenticated and public access
+ */
+export const getFormOwnerProfilePicture = async (
+  formId: string,
+): Promise<string | null> => {
+  const supabase = await createClient()
+
+  const { data: form, error: formError } = await supabase
+    .from("offerForms")
+    .select("ownerId")
+    .eq("id", formId)
+    .single()
+
+  if (formError || !form) {
+    console.error("Error fetching form owner:", formError)
+    return null
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("avatarUrl")
+    .eq("id", form.ownerId)
+    .single()
+
+  if (profileError || !profile) {
+    console.error("Error fetching owner profile:", profileError)
+    return null
+  }
+
+  return profile.avatarUrl
+}
+
+export const saveBrandingConfig = async (
+  formId: string,
+  config: BrandingConfig,
+): Promise<void> => {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("User not authenticated")
+  }
+
+  // Verify ownership
+  const { data: form } = await supabase
+    .from("offerForms")
+    .select("ownerId")
+    .eq("id", formId)
+    .single()
+
+  if (!form || form.ownerId !== user.id) {
+    throw new Error("Unauthorized access to form")
+  }
+
+  // Save branding config
+  const { error } = await supabase
+    .from("offerForms")
+    .update({
+      brandingConfig:
+        config as unknown as Database["public"]["Tables"]["offerForms"]["Row"]["brandingConfig"],
+    })
+    .eq("id", formId)
+
+  if (error) {
+    console.error("Error saving branding config:", error)
+    throw new Error("Failed to save branding config")
+  }
 }
 
 export const addQuestion = async (

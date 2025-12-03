@@ -17,6 +17,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { getSmartQuestion } from "@/data/smartQuestions"
 import { cn } from "@/lib/utils"
+import { BrandingConfig } from "@/types/branding"
 import { Database } from "@/types/supabase"
 import { useEffect, useState } from "react"
 
@@ -30,6 +31,7 @@ interface QuestionRendererProps {
   onEditPlaceholder?: (fieldKey: string, currentText?: string) => void
   onEditLabel?: (fieldKey: string, currentText?: string) => void
   formId?: string
+  brandingConfig?: BrandingConfig
 }
 
 // PersonNameFields component extracted to prevent re-creation on every render
@@ -67,6 +69,7 @@ interface PersonNameFieldsProps {
     fieldId: string,
     currentText: string,
   ) => React.ReactElement | null
+  brandingConfig?: BrandingConfig
 }
 
 const PersonNameFields = ({
@@ -83,6 +86,7 @@ const PersonNameFields = ({
   editingMode,
   renderLabelOverlay,
   renderEditOverlay,
+  brandingConfig,
 }: PersonNameFieldsProps) => {
   const nameData = nameFields[prefix] || {
     firstName: "",
@@ -93,6 +97,15 @@ const PersonNameFields = ({
   const fileData = fileUploads[`${questionId}_${prefix}_id`] || {
     file: null,
     fileName: "",
+  }
+
+  // Helper: Get input style with branding
+  const getInputStyle = () => {
+    if (!brandingConfig?.fieldColor || editingMode) return {}
+    return {
+      backgroundColor: brandingConfig.fieldColor,
+      borderColor: brandingConfig.fieldColor,
+    }
   }
   // Show middle name based on setup configuration
   const shouldShowMiddleName = collectMiddleNames === "yes"
@@ -110,6 +123,7 @@ const PersonNameFields = ({
             placeholder={uiConfig.firstNamePlaceholder || "Enter first name"}
             disabled={disabled}
             className={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
             value={nameData.firstName}
             onChange={(e) => {
               const value = e.target.value
@@ -149,6 +163,7 @@ const PersonNameFields = ({
               }
               disabled={disabled}
               className={cn(editingMode && "cursor-not-allowed")}
+              style={getInputStyle()}
               value={nameData.middleName}
               onChange={(e) => {
                 const value = e.target.value
@@ -186,6 +201,7 @@ const PersonNameFields = ({
             placeholder={uiConfig.lastNamePlaceholder || "Enter last name"}
             disabled={disabled}
             className={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
             value={nameData.lastName}
             onChange={(e) => {
               const value = e.target.value
@@ -267,6 +283,7 @@ export const QuestionRenderer = ({
   onEditPlaceholder,
   onEditLabel,
   formId,
+  brandingConfig,
 }: QuestionRendererProps) => {
   // State for interactive fields
   const [formValues, setFormValues] = useState<Record<string, any>>({})
@@ -306,6 +323,32 @@ export const QuestionRenderer = ({
   // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
   const uiConfig = (question.uiConfig as Record<string, any>) || {}
+
+  // Helper: Get input style with branding
+  const getInputStyle = () => {
+    if (!brandingConfig?.fieldColor || editingMode) return {}
+    return {
+      backgroundColor: brandingConfig.fieldColor,
+      borderColor: brandingConfig.fieldColor,
+    }
+  }
+
+  // Helper: Get select style with branding
+  const getSelectStyle = () => {
+    if (!brandingConfig?.fieldColor || editingMode) return {}
+    return {
+      backgroundColor: brandingConfig.fieldColor,
+    }
+  }
+
+  // Helper: Get button style with branding
+  const getButtonStyle = () => {
+    if (!brandingConfig || editingMode) return {}
+    return {
+      backgroundColor: brandingConfig.buttonColor,
+      color: brandingConfig.buttonTextColor,
+    }
+  }
 
   // Helper: Render edit overlay for clickable elements
   const renderEditOverlay = (fieldId: string, currentText: string) => {
@@ -393,7 +436,10 @@ export const QuestionRenderer = ({
           }}
           disabled={disabled}
         >
-          <SelectTrigger className={cn(editingMode && "cursor-not-allowed")}>
+          <SelectTrigger
+            className={cn(editingMode && "cursor-not-allowed")}
+            style={getSelectStyle()}
+          >
             <SelectValue placeholder="Select a listing..." />
           </SelectTrigger>
           <SelectContent>
@@ -413,6 +459,7 @@ export const QuestionRenderer = ({
               type="text"
               placeholder={uiConfig.placeholder || "Enter listing address..."}
               disabled={disabled}
+              style={getInputStyle()}
               value={customAddress}
               onChange={(e) => setCustomAddress(e.target.value)}
             />
@@ -427,7 +474,10 @@ export const QuestionRenderer = ({
     return (
       <Select disabled={disabled}>
         <div className="relative">
-          <SelectTrigger className={cn(editingMode && "cursor-not-allowed")}>
+          <SelectTrigger
+            className={cn(editingMode && "cursor-not-allowed")}
+            style={getSelectStyle()}
+          >
             <SelectValue
               placeholder={uiConfig.placeholder || "Select your role..."}
             />
@@ -462,6 +512,7 @@ export const QuestionRenderer = ({
             placeholder={uiConfig.firstNamePlaceholder || "First Name"}
             disabled={disabled}
             className={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
           />
           {renderEditOverlay(
             "firstNamePlaceholder",
@@ -474,6 +525,7 @@ export const QuestionRenderer = ({
             placeholder={uiConfig.lastNamePlaceholder || "Last Name"}
             disabled={disabled}
             className={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
           />
           {renderEditOverlay(
             "lastNamePlaceholder",
@@ -493,6 +545,7 @@ export const QuestionRenderer = ({
           placeholder={uiConfig.placeholder || "Enter your email address"}
           disabled={disabled}
           className={cn(editingMode && "cursor-not-allowed")}
+          style={getInputStyle()}
         />
         {renderEditOverlay(
           "placeholder",
@@ -511,6 +564,7 @@ export const QuestionRenderer = ({
           placeholder={uiConfig.placeholder || "Enter your phone number"}
           disabled={disabled}
           className={cn(editingMode && "cursor-not-allowed")}
+          style={getInputStyle()}
         />
         {renderEditOverlay(
           "placeholder",
@@ -529,6 +583,7 @@ export const QuestionRenderer = ({
           placeholder={uiConfig.placeholder || "Enter offer amount"}
           disabled={disabled}
           className={cn(editingMode && "cursor-not-allowed")}
+          style={getInputStyle()}
         />
         {renderEditOverlay(
           "placeholder",
@@ -541,7 +596,7 @@ export const QuestionRenderer = ({
   // Submit Button
   if (question.type === "submitButton") {
     return (
-      <Button className="w-full" disabled={disabled}>
+      <Button className="w-full" disabled={disabled} style={getButtonStyle()}>
         {uiConfig.label || "Submit Offer"}
       </Button>
     )
@@ -629,7 +684,7 @@ export const QuestionRenderer = ({
         {/* Main scenario selector */}
         <div>
           <Select value={scenario} onValueChange={setScenario}>
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-64" style={getSelectStyle()}>
               <SelectValue placeholder="Select option" />
             </SelectTrigger>
             <SelectContent>
@@ -663,6 +718,7 @@ export const QuestionRenderer = ({
               editingMode={editingMode}
               renderLabelOverlay={renderLabelOverlay}
               renderEditOverlay={renderEditOverlay}
+              brandingConfig={brandingConfig}
             />
           </div>
         )}
@@ -678,7 +734,7 @@ export const QuestionRenderer = ({
                 value={numPurchasers.toString()}
                 onValueChange={(val) => setNumPurchasers(parseInt(val))}
               >
-                <SelectTrigger className="w-64">
+                <SelectTrigger className="w-64" style={getSelectStyle()}>
                   <SelectValue placeholder="Select number" />
                 </SelectTrigger>
                 <SelectContent>
@@ -711,6 +767,7 @@ export const QuestionRenderer = ({
                     editingMode={editingMode}
                     renderLabelOverlay={renderLabelOverlay}
                     renderEditOverlay={renderEditOverlay}
+                    brandingConfig={brandingConfig}
                   />
                 </div>
               ),
@@ -757,6 +814,7 @@ export const QuestionRenderer = ({
                       editingMode={editingMode}
                       renderLabelOverlay={renderLabelOverlay}
                       renderEditOverlay={renderEditOverlay}
+                      brandingConfig={brandingConfig}
                     />
                   </div>
                 ),
@@ -794,7 +852,7 @@ export const QuestionRenderer = ({
                         setPurchaserTypes({ ...purchaserTypes, [num]: val })
                       }
                     >
-                      <SelectTrigger className="w-64">
+                      <SelectTrigger className="w-64" style={getSelectStyle()}>
                         <SelectValue placeholder="Select option" />
                       </SelectTrigger>
                       <SelectContent>
@@ -819,6 +877,7 @@ export const QuestionRenderer = ({
                       editingMode={editingMode}
                       renderLabelOverlay={renderLabelOverlay}
                       renderEditOverlay={renderEditOverlay}
+                      brandingConfig={brandingConfig}
                     />
                   )}
 
@@ -851,6 +910,7 @@ export const QuestionRenderer = ({
                         editingMode={editingMode}
                         renderLabelOverlay={renderLabelOverlay}
                         renderEditOverlay={renderEditOverlay}
+                        brandingConfig={brandingConfig}
                       />
                     </div>
                   )}
@@ -961,6 +1021,7 @@ export const QuestionRenderer = ({
               onChange={(date) =>
                 setFormValues((prev) => ({ ...prev, expiryDate: date }))
               }
+              brandingConfig={brandingConfig}
             />
             <TimePicker
               label={uiConfig.timeLabel || "Select time"}
@@ -970,6 +1031,7 @@ export const QuestionRenderer = ({
               onChange={(time) =>
                 setFormValues((prev) => ({ ...prev, expiryTime: time }))
               }
+              brandingConfig={brandingConfig}
             />
           </div>
         )}
@@ -1006,6 +1068,7 @@ export const QuestionRenderer = ({
           }
         }}
         onEditPlaceholder={onEditPlaceholder}
+        brandingConfig={brandingConfig}
       />
     )
   }
@@ -1041,7 +1104,7 @@ export const QuestionRenderer = ({
               setFormValues((prev) => ({ ...prev, subjectToLoan: value }))
             }
           >
-            <SelectTrigger className="w-56">
+            <SelectTrigger className="w-56" style={getSelectStyle()}>
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
@@ -1078,6 +1141,7 @@ export const QuestionRenderer = ({
                       editingMode && "cursor-not-allowed",
                     )}
                     disabled={disabled}
+                    style={getInputStyle()}
                     value={formValues.loanAmount || ""}
                     onChange={(e) =>
                       setFormValues((prev) => ({
@@ -1113,6 +1177,7 @@ export const QuestionRenderer = ({
                       }
                       disabled={disabled}
                       className={cn(editingMode && "cursor-not-allowed")}
+                      style={getInputStyle()}
                       value={formValues.companyName || ""}
                       onChange={(e) =>
                         setFormValues((prev) => ({
@@ -1174,6 +1239,7 @@ export const QuestionRenderer = ({
                           "flex-1",
                           editingMode && "cursor-not-allowed",
                         )}
+                        style={getInputStyle()}
                         value={formValues.contactName || ""}
                         onChange={(e) =>
                           setFormValues((prev) => ({
@@ -1213,6 +1279,7 @@ export const QuestionRenderer = ({
                           "flex-1",
                           editingMode && "cursor-not-allowed",
                         )}
+                        style={getInputStyle()}
                         value={formValues.contactPhone || ""}
                         onChange={(e) =>
                           setFormValues((prev) => ({
@@ -1252,6 +1319,7 @@ export const QuestionRenderer = ({
                           "flex-1",
                           editingMode && "cursor-not-allowed",
                         )}
+                        style={getInputStyle()}
                         value={formValues.contactEmail || ""}
                         onChange={(e) =>
                           setFormValues((prev) => ({
@@ -1336,6 +1404,7 @@ export const QuestionRenderer = ({
                   type="text"
                   placeholder="Enter due date details"
                   disabled={disabled}
+                  style={getInputStyle()}
                   value={formValues.loanDueDate || ""}
                   onChange={(e) =>
                     setFormValues((prev) => ({
@@ -1365,7 +1434,7 @@ export const QuestionRenderer = ({
                     }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger style={getSelectStyle()}>
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -1427,11 +1496,14 @@ export const QuestionRenderer = ({
               <Textarea
                 placeholder={
                   uiConfig.customConditionPlaceholder ||
-                  "Enter your custom condition..."
+                  "Type your custom condition here..."
                 }
                 disabled={disabled}
-                rows={3}
-                className={cn(editingMode && "cursor-not-allowed")}
+                className={cn(
+                  "min-h-[100px]",
+                  editingMode && "cursor-not-allowed",
+                )}
+                style={getInputStyle()}
               />
               {renderEditOverlay(
                 "customConditionPlaceholder",
@@ -1458,10 +1530,12 @@ export const QuestionRenderer = ({
               <DatePicker
                 disabled={disabled}
                 btnClassName={cn(editingMode && "cursor-not-allowed")}
+                style={getInputStyle()}
                 value={formValues.settlementDate}
                 onChange={(date) =>
                   setFormValues((prev) => ({ ...prev, settlementDate: date }))
                 }
+                brandingConfig={brandingConfig}
               />
             </div>
           )}
@@ -1471,20 +1545,24 @@ export const QuestionRenderer = ({
                 <DatePicker
                   disabled={disabled}
                   btnClassName={cn(editingMode && "cursor-not-allowed")}
+                  style={getInputStyle()}
                   value={formValues.settlementDate}
                   onChange={(date) =>
                     setFormValues((prev) => ({ ...prev, settlementDate: date }))
                   }
+                  brandingConfig={brandingConfig}
                 />
               </div>
               <div className="relative flex-1">
                 <TimePicker
                   disabled={disabled}
                   btnClassName={cn(editingMode && "cursor-not-allowed")}
+                  style={getInputStyle()}
                   value={formValues.settlementTime}
                   onChange={(time) =>
                     setFormValues((prev) => ({ ...prev, settlementTime: time }))
                   }
+                  brandingConfig={brandingConfig}
                 />
               </div>
             </div>
@@ -1496,6 +1574,7 @@ export const QuestionRenderer = ({
                 placeholder={uiConfig.placeholder || "Enter settlement date"}
                 disabled={disabled}
                 className={cn(editingMode && "cursor-not-allowed")}
+                style={getInputStyle()}
               />
               {renderEditOverlay(
                 "placeholder",
@@ -1516,6 +1595,7 @@ export const QuestionRenderer = ({
                   placeholder={uiConfig.daysPlaceholder || "Number of days"}
                   disabled={disabled}
                   className={cn(editingMode && "cursor-not-allowed")}
+                  style={getInputStyle()}
                 />
                 {renderEditOverlay(
                   "daysPlaceholder",
@@ -1563,6 +1643,7 @@ export const QuestionRenderer = ({
                   }
                   disabled={disabled}
                   className={cn(editingMode && "cursor-not-allowed")}
+                  style={getInputStyle()}
                 />
                 {renderEditOverlay(
                   "locationPlaceholder",
@@ -1592,8 +1673,8 @@ export const QuestionRenderer = ({
           <Textarea
             placeholder={uiConfig.placeholder || "Type your message here..."}
             disabled={disabled}
-            rows={4}
-            className={cn(editingMode && "cursor-not-allowed")}
+            className={cn("min-h-[150px]", editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
           />
           {renderEditOverlay(
             "placeholder",
@@ -1622,11 +1703,9 @@ export const QuestionRenderer = ({
             />
             <label
               htmlFor={`${question.id}_message_attachments`}
-              className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
+              className="block w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center transition-colors hover:bg-gray-200"
             >
-              <p className="text-sm text-gray-500">
-                📎 Attach files (Optional)
-              </p>
+              <p className="text-sm">📎 Attach files (Optional)</p>
             </label>
             {fileUploads[`${question.id}_message_attachments`]?.fileName && (
               <p className="text-xs text-gray-600">
@@ -1646,11 +1725,11 @@ export const QuestionRenderer = ({
     if (answerType === "short_text") {
       return (
         <div className="relative">
-          <Input
-            type="text"
-            placeholder={uiConfig.placeholder || "Enter your answer"}
+          <Textarea
+            placeholder={uiConfig.placeholder || "Enter text..."}
             disabled={disabled}
             className={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
           />
           {renderEditOverlay(
             "placeholder",
@@ -1668,6 +1747,7 @@ export const QuestionRenderer = ({
             disabled={disabled}
             rows={4}
             className={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
           />
           {renderEditOverlay(
             "placeholder",
@@ -1683,6 +1763,7 @@ export const QuestionRenderer = ({
           <DatePicker
             disabled={disabled}
             btnClassName={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
             value={formValues[`${question.id}_date`]}
             onChange={(date) =>
               setFormValues((prev) => ({
@@ -1690,6 +1771,7 @@ export const QuestionRenderer = ({
                 [`${question.id}_date`]: date,
               }))
             }
+            brandingConfig={brandingConfig}
           />
         </div>
       )
@@ -1701,6 +1783,7 @@ export const QuestionRenderer = ({
           <TimePicker
             disabled={disabled}
             btnClassName={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
             value={formValues[`${question.id}_time`]}
             onChange={(time) =>
               setFormValues((prev) => ({
@@ -1708,6 +1791,7 @@ export const QuestionRenderer = ({
                 [`${question.id}_time`]: time,
               }))
             }
+            brandingConfig={brandingConfig}
           />
         </div>
       )
@@ -1730,6 +1814,7 @@ export const QuestionRenderer = ({
                 type="number"
                 placeholder={uiConfig.amountPlaceholder || "Enter amount"}
                 disabled={disabled}
+                style={getInputStyle()}
               />
               {renderEditOverlay(
                 "amountPlaceholder",
@@ -1738,7 +1823,7 @@ export const QuestionRenderer = ({
             </div>
             {currencyStip === "options" && (
               <Select disabled={disabled}>
-                <SelectTrigger className="flex-1">
+                <SelectTrigger className="flex-1" style={getSelectStyle()}>
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1758,6 +1843,7 @@ export const QuestionRenderer = ({
                   type="text"
                   placeholder={uiConfig.currencyPlaceholder || "Currency"}
                   disabled={disabled}
+                  style={getInputStyle()}
                 />
                 {renderEditOverlay(
                   "currencyPlaceholder",
@@ -1774,6 +1860,7 @@ export const QuestionRenderer = ({
               type="tel"
               placeholder={uiConfig.phonePlaceholder || "Enter phone number"}
               disabled={disabled}
+              style={getInputStyle()}
             />
             {renderEditOverlay(
               "phonePlaceholder",
@@ -1791,6 +1878,7 @@ export const QuestionRenderer = ({
                   uiConfig.percentagePlaceholder || "Enter percentage"
                 }
                 disabled={disabled}
+                style={getInputStyle()}
               />
               {renderEditOverlay(
                 "percentagePlaceholder",
@@ -1856,6 +1944,7 @@ export const QuestionRenderer = ({
         return (
           <DatePicker
             disabled={disabled}
+            style={getInputStyle()}
             value={formValues[`${question.id}_date`]}
             onChange={(date) =>
               setFormValues((prev) => ({
@@ -1863,15 +1952,17 @@ export const QuestionRenderer = ({
                 [`${question.id}_date`]: date,
               }))
             }
+            brandingConfig={brandingConfig}
           />
         )
       } else if (timeType === "time") {
-        return <Input type="time" disabled={disabled} />
+        return <Input type="time" disabled={disabled} style={getInputStyle()} />
       } else if (timeType === "datetime") {
         return (
           <div className="flex gap-2">
             <DatePicker
               disabled={disabled}
+              style={getInputStyle()}
               value={formValues[`${question.id}_date`]}
               onChange={(date) =>
                 setFormValues((prev) => ({
@@ -1879,9 +1970,11 @@ export const QuestionRenderer = ({
                   [`${question.id}_date`]: date,
                 }))
               }
+              brandingConfig={brandingConfig}
             />
             <TimePicker
               disabled={disabled}
+              style={getInputStyle()}
               value={formValues[`${question.id}_time`]}
               onChange={(time) =>
                 setFormValues((prev) => ({
@@ -1889,6 +1982,7 @@ export const QuestionRenderer = ({
                   [`${question.id}_time`]: time,
                 }))
               }
+              brandingConfig={brandingConfig}
             />
           </div>
         )
@@ -1992,6 +2086,7 @@ export const QuestionRenderer = ({
           placeholder={uiConfig.placeholder || "Enter value..."}
           disabled={disabled}
           className={cn(editingMode && "cursor-not-allowed")}
+          style={getInputStyle()}
         />
         {renderEditOverlay(
           "placeholder",

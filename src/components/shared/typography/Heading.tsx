@@ -7,6 +7,7 @@ type HeadingProps = {
   weight?: "regular" | "medium" | "semibold" | "bold"
   children: ReactNode
   className?: string
+  style?: React.CSSProperties
 }
 
 const sizeStyles = {
@@ -22,6 +23,7 @@ const Heading = ({
   weight = "bold",
   children,
   className,
+  style,
 }: HeadingProps) => {
   const Component = as
 
@@ -33,6 +35,7 @@ const Heading = ({
         "font-medium": weight === "medium",
         "font-normal": weight === "regular",
       })}
+      style={style}
     >
       {children}
     </Component>
