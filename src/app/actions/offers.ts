@@ -1,34 +1,14 @@
 "use server"
 
-import { transformFormDataToOffer } from "@/lib/transformOfferData"
+import { createClient } from "@/lib/supabase/server"
 import {
   uploadFileToStorage,
   uploadMultipleFilesToStorage,
 } from "@/lib/supabase/storage"
-import { createClient } from "@/lib/supabase/server"
+import { transformFormDataToOffer } from "@/lib/transformOfferData"
 import { Database } from "@/types/supabase"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
-
-// Helper to extract File objects from form data
-function extractFilesFromFormData(formData: Record<string, any>): {
-  purchaseAgreement?: File
-  purchaserIdFiles?: Record<string, File>
-  loanSupportingDocs?: File | File[]
-  messageAttachments?: File[]
-  customFiles?: Record<string, File | File[]>
-} {
-  const files: {
-    purchaseAgreement?: File
-    purchaserIdFiles?: Record<string, File>
-    loanSupportingDocs?: File | File[]
-    messageAttachments?: File[]
-    customFiles?: Record<string, File | File[]>
-  } = {}
-
-  // This will be populated during the transformation
-  return files
-}
 
 interface SaveOfferParams {
   formData: Record<string, any>
@@ -36,43 +16,66 @@ interface SaveOfferParams {
   formId: string
 }
 
+// Helper to get a random uuid (works in most recent Node/Browser)
+const getTempId = () => {
+  return typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36)
+}
+
 /**
  * Saves an offer to the database with all form data
  * Handles file uploads to Supabase Storage
  */
-export async function saveOffer({
+export const saveOffer = async ({
   formData,
   questions,
   formId,
-}: SaveOfferParams): Promise<{ success: boolean; offerId?: string; error?: string }> {
+}: SaveOfferParams): Promise<{
+  success: boolean
+  offerId?: string
+  error?: string
+}> => {
   try {
     const supabase = await createClient()
+    // Generate temp offerId for storage file path before DB insert
+    const tempOfferId = getTempId()
 
     // Transform form data to database schema
-    // Note: Files should already be uploaded client-side and replaced with URLs
     const offerData = transformFormDataToOffer(formData, questions, formId)
 
-    // Files are now already URLs (uploaded client-side), so we just need to handle them in the transform
-    // The transform function will handle purchase agreement URLs directly
-
-    // 2. Name of Purchaser ID files
-    if (offerData.purchaserData && typeof offerData.purchaserData === "object") {
+    // Purchaser ID files
+    if (
+      offerData.purchaserData &&
+      typeof offerData.purchaserData === "object"
+    ) {
       const purchaserData = offerData.purchaserData as any
 
-      // Single field method - single ID file
-      if (purchaserData.method === "single_field" && purchaserData.idFile instanceof File) {
+      if (
+        purchaserData.method === "single_field" &&
+        purchaserData.idFile instanceof File
+      ) {
         const timestamp = Date.now()
-        const fileExtension = purchaserData.idFile.name.split(".").pop() || "file"
+        const fileExtension =
+          purchaserData.idFile.name.split(".").pop() || "file"
         const fileName = `${timestamp}-${purchaserData.idFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
         const path = `${tempOfferId}/purchaser-ids/${fileName}`
 
-        const fileUrl = await uploadFileToStorage("offer-ids", path, purchaserData.idFile)
+        const fileUrl = await uploadFileToStorage(
+          "offer-ids",
+          path,
+          purchaserData.idFile,
+        )
         purchaserData.idFileUrl = fileUrl
         delete purchaserData.idFile
       }
 
-      // Individual names method - multiple ID files
-      if (purchaserData.method === "individual_names" && purchaserData.idFiles && typeof purchaserData.idFiles === "object") {
+      if (
+        purchaserData.method === "individual_names" &&
+        purchaserData.idFiles &&
+        typeof purchaserData.idFiles === "object"
+      ) {
         const idFiles = purchaserData.idFiles as Record<string, File>
         const uploadedUrls: Record<string, string> = {}
 
@@ -93,7 +96,7 @@ export async function saveOffer({
       }
     }
 
-    // 3. Subject to Loan Approval supporting documents
+    // Loan Approval supporting documents
     if (
       offerData.subjectToLoanApproval &&
       typeof offerData.subjectToLoanApproval === "object"
@@ -102,15 +105,22 @@ export async function saveOffer({
 
       if (loanData.supportingDocs instanceof File) {
         const timestamp = Date.now()
-        const fileExtension = loanData.supportingDocs.name.split(".").pop() || "file"
+        const fileExtension =
+          loanData.supportingDocs.name.split(".").pop() || "file"
         const fileName = `${timestamp}-${loanData.supportingDocs.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
         const path = `${tempOfferId}/loan-documents/${fileName}`
 
-        const fileUrl = await uploadFileToStorage("offer-documents", path, loanData.supportingDocs)
+        const fileUrl = await uploadFileToStorage(
+          "offer-documents",
+          path,
+          loanData.supportingDocs,
+        )
         loanData.supportingDocsUrl = fileUrl
         delete loanData.supportingDocs
       } else if (Array.isArray(loanData.supportingDocs)) {
-        const files = loanData.supportingDocs.filter((f: any) => f instanceof File)
+        const files = loanData.supportingDocs.filter(
+          (f: any) => f instanceof File,
+        )
         if (files.length > 0) {
           const urls = await uploadMultipleFilesToStorage(
             "offer-documents",
@@ -124,12 +134,17 @@ export async function saveOffer({
       }
     }
 
-    // 4. Message to Agent attachments
-    if (offerData.messageToAgent && typeof offerData.messageToAgent === "object") {
+    // Message attachments
+    if (
+      offerData.messageToAgent &&
+      typeof offerData.messageToAgent === "object"
+    ) {
       const messageData = offerData.messageToAgent as any
 
       if (Array.isArray(messageData.attachments)) {
-        const files = messageData.attachments.filter((f: any) => f instanceof File)
+        const files = messageData.attachments.filter(
+          (f: any) => f instanceof File,
+        )
         if (files.length > 0) {
           const urls = await uploadMultipleFilesToStorage(
             "offer-attachments",
@@ -143,8 +158,11 @@ export async function saveOffer({
       }
     }
 
-    // 5. Custom question file uploads
-    if (offerData.customQuestionsData && typeof offerData.customQuestionsData === "object") {
+    // Custom uploaded files
+    if (
+      offerData.customQuestionsData &&
+      typeof offerData.customQuestionsData === "object"
+    ) {
       const customData = offerData.customQuestionsData as any
 
       for (const [questionId, questionData] of Object.entries(customData)) {
@@ -157,7 +175,11 @@ export async function saveOffer({
             const fileName = `${timestamp}-${data.value.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
             const path = `${tempOfferId}/custom-files/${questionId}/${fileName}`
 
-            const fileUrl = await uploadFileToStorage("offer-attachments", path, data.value)
+            const fileUrl = await uploadFileToStorage(
+              "offer-attachments",
+              path,
+              data.value,
+            )
             data.value = fileUrl
           } else if (Array.isArray(data.value)) {
             const files = data.value.filter((f: any) => f instanceof File)
@@ -197,4 +219,3 @@ export async function saveOffer({
     return { success: false, error: error.message || "Failed to save offer" }
   }
 }
-
