@@ -1,5 +1,6 @@
 "use client"
 
+import { saveOffer } from "@/app/actions/offers"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { QUESTION_TYPE_TO_LABEL } from "@/constants/offerFormQuestions"
@@ -24,6 +25,7 @@ interface OfferFormInteractiveViewProps {
   description?: string
   brandingConfig?: BrandingConfig
   profilePictureUrl?: string | null
+  formId?: string // Add formId to identify which form is being submitted
 }
 
 /**
@@ -38,6 +40,7 @@ export const OfferFormInteractiveView = ({
   description,
   brandingConfig,
   profilePictureUrl,
+  formId,
 }: OfferFormInteractiveViewProps) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
   const [formData, setFormData] = useState<Record<string, any>>({})
@@ -215,9 +218,37 @@ export const OfferFormInteractiveView = ({
       const schema = validationSchema()
       await schema.validate(formData, { abortEarly: false })
 
-      // In a real implementation, this would submit the form data
-      console.log("Form submitted with data:", formData)
-      toast.success("Form submitted successfully!")
+      // Check if formId is available
+      if (!formId) {
+        toast.error("Form ID is missing. Cannot submit offer.")
+        return
+      }
+
+      // Show loading state
+      toast.loading("Submitting your offer...", { id: "submitting-offer" })
+
+      // Save offer to database
+      const result = await saveOffer({
+        formData,
+        questions,
+        formId,
+      })
+
+      if (result.success) {
+        toast.success("Your offer has been submitted successfully!", {
+          id: "submitting-offer",
+        })
+        // Optionally reset form or redirect
+        setFormData({})
+        setCurrentPageIndex(0)
+      } else {
+        toast.error(
+          result.error || "Failed to submit offer. Please try again.",
+          {
+            id: "submitting-offer",
+          },
+        )
+      }
     } catch (error) {
       if (error instanceof yup.ValidationError) {
         const newErrors: Record<string, string> = {}
@@ -243,7 +274,13 @@ export const OfferFormInteractiveView = ({
           errorElement?.scrollIntoView({ behavior: "smooth", block: "center" })
         }
 
-        toast.error("Fill all of the required fields to proceed")
+        toast.error("Fill all of the required fields to proceed", {
+          id: "submitting-offer",
+        })
+      } else {
+        toast.error("An error occurred. Please try again.", {
+          id: "submitting-offer",
+        })
       }
     }
   }
@@ -401,22 +438,31 @@ export const OfferFormInteractiveView = ({
             }
           }
 
+          // For statement questions with tickbox, don't show the main label
+          // The statement text and tickbox are handled within QuestionRenderer
+          const isStatementWithTickbox =
+            question.type === "custom" &&
+            setupConfig.answer_type === "statement" &&
+            setupConfig.add_tickbox === "yes"
+
           return (
             <div
               key={question.id}
               className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
             >
-              <label
-                className="mb-3 block text-base font-medium"
-                style={{
-                  color: brandingConfig?.fontColor || undefined,
-                }}
-              >
-                {label}
-                {question.required && (
-                  <span className="ml-1 text-red-500">*</span>
-                )}
-              </label>
+              {!isStatementWithTickbox && (
+                <label
+                  className="mb-3 block text-base font-medium"
+                  style={{
+                    color: brandingConfig?.fontColor || undefined,
+                  }}
+                >
+                  {label}
+                  {question.required && (
+                    <span className="ml-1 text-red-500">*</span>
+                  )}
+                </label>
+              )}
               <QuestionRenderer
                 question={question}
                 disabled={false}

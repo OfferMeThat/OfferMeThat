@@ -1012,6 +1012,7 @@ export const QuestionRenderer = ({
     >(nameOfPurchaserValue.nameFields || {})
 
     // Helper to sync all state changes with parent
+    // Also includes ID files from fileUploads state
     const updateNameOfPurchaserData = (
       updates: Partial<{
         scenario: string
@@ -1022,14 +1023,29 @@ export const QuestionRenderer = ({
           string,
           { firstName: string; middleName: string; lastName: string }
         >
+        idFiles?: Record<string, File>
       }>,
     ) => {
+      // Extract ID files from fileUploads state
+      const idFiles: Record<string, File> = {}
+      Object.entries(fileUploads).forEach(([key, fileData]) => {
+        if (
+          key.startsWith(`${question.id}_`) &&
+          key.endsWith("_id") &&
+          fileData.file
+        ) {
+          const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
+          idFiles[prefix] = fileData.file
+        }
+      })
+
       const newData = {
         scenario,
         numPurchasers,
         numRepresentatives,
         purchaserTypes,
         nameFields,
+        ...(Object.keys(idFiles).length > 0 ? { idFiles } : {}),
         ...updates,
       }
       onChange?.(newData)
@@ -1063,8 +1079,17 @@ export const QuestionRenderer = ({
       const newNameFields =
         typeof updates === "function" ? updates(nameFields) : updates
       setNameFields(newNameFields)
+      // Also sync ID files when name fields change
       updateNameOfPurchaserData({ nameFields: newNameFields })
     }
+
+    // Sync ID files when they change in fileUploads
+    useEffect(() => {
+      if (!editingMode) {
+        updateNameOfPurchaserData({})
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fileUploads])
 
     return (
       <div className="space-y-4">
@@ -2773,45 +2798,52 @@ export const QuestionRenderer = ({
       const showTickbox = setupConfig.add_tickbox === "yes"
       // Only disable checkbox in editing mode, not in form preview/user-facing form
       const tickboxDisabled = editingMode || !showTickbox
+      const isRequired = setupConfig.tickbox_requirement === "essential"
+      const isOptional = !isRequired
 
       return (
         <div className="space-y-2">
-          <div className="relative inline-block">
-            <p className="text-sm text-gray-700">{setupConfig.question_text}</p>
-            {renderLabelOverlay(
-              "statementText",
-              setupConfig.question_text || "Statement text",
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              disabled={tickboxDisabled}
-              checked={editingMode ? false : (value as boolean) || false}
-              onCheckedChange={(checked) => {
-                if (!editingMode) {
-                  onChange?.(checked)
-                }
-              }}
-            />
-            <div className="relative inline-block">
-              <span
-                className={cn(
-                  "text-sm",
-                  !showTickbox ? "text-gray-400" : "text-gray-700",
-                )}
-              >
-                {setupConfig.tickbox_text || "I agree"}
-                {showTickbox &&
-                  setupConfig.tickbox_requirement === "essential" && (
-                    <span className="text-red-500"> *</span>
+          {showTickbox ? (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                disabled={tickboxDisabled}
+                checked={editingMode ? false : (value as boolean) || false}
+                onCheckedChange={(checked) => {
+                  if (!editingMode) {
+                    onChange?.(checked)
+                  }
+                }}
+              />
+              <div className="relative inline-block">
+                <span
+                  className={cn(
+                    "text-sm",
+                    !showTickbox ? "text-gray-400" : "text-gray-700",
                   )}
-              </span>
+                >
+                  {setupConfig.tickbox_text || "I agree"}
+                  {isRequired && <span className="text-red-500"> *</span>}
+                  {isOptional && (
+                    <span className="text-gray-500"> (Optional)</span>
+                  )}
+                </span>
+                {renderLabelOverlay(
+                  "tickboxText",
+                  setupConfig.tickbox_text || "I agree",
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="relative inline-block">
+              <p className="text-sm text-gray-700">
+                {setupConfig.question_text}
+              </p>
               {renderLabelOverlay(
-                "tickboxText",
-                setupConfig.tickbox_text || "I agree",
+                "statementText",
+                setupConfig.question_text || "Statement text",
               )}
             </div>
-          </div>
+          )}
         </div>
       )
     }

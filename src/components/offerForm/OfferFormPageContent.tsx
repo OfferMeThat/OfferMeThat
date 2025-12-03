@@ -300,6 +300,7 @@ const OfferFormPageContent = () => {
               description="Please provide details about your offer"
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}
+              formId={formId || undefined}
             />
           </div>
         </div>

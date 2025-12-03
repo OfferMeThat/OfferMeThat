@@ -20,6 +20,7 @@ export default async function PublicFormPage({
   }
 
   const {
+    formId,
     questions,
     pages,
     brandingConfig,
@@ -56,6 +57,7 @@ export default async function PublicFormPage({
             description="Please provide details about your offer"
             brandingConfig={brandingConfig}
             profilePictureUrl={profilePictureUrl}
+            formId={formId || undefined}
           />
         </div>
       </div>

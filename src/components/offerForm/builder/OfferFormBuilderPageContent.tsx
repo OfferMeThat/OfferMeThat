@@ -438,6 +438,7 @@ const OfferFormBuilderPageContent = () => {
           {/* White form card - fixed width, centered */}
           <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
             <OfferFormInteractiveView
+              formId={formId || undefined}
               questions={questions}
               pages={pages}
               title="Your Offer Form"
