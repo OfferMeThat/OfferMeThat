@@ -60,6 +60,16 @@ const QuestionCard = ({
 
   // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
+  
+  // For custom questions, especially statement questions, use setupConfig.question_text as the label
+  const isCustomQuestion = question.type === "custom"
+  const isStatementQuestion = isCustomQuestion && setupConfig.answer_type === "statement"
+  
+  const labelText = isStatementQuestion
+    ? setupConfig.question_text || "Question"
+    : isCustomQuestion
+    ? setupConfig.question_text || uiConfig.label || questionDefinition?.label || "Question"
+    : uiConfig.label || questionDefinition?.label || "Question"
 
   const handleLabelEdit = (fieldKey?: string, currentText?: string) => {
     // If called without parameters, it's the main label
@@ -95,13 +105,26 @@ const QuestionCard = ({
     if (editingField.type === "label") {
       // Check if it's the main label or a sub-question label
       if (editingField.id === "label") {
-        // Update main label (stored in uiConfig.label)
-        onUpdateQuestion(question.id, {
-          uiConfig: {
-            ...uiConfig,
-            label: newText,
-          },
-        })
+        // For Statement questions, save to setupConfig.question_text
+        // For other custom questions, also save to setupConfig.question_text
+        // For standard questions, save to uiConfig.label
+        if (isStatementQuestion || (isCustomQuestion && setupConfig.question_text)) {
+          // Update setupConfig.question_text for custom/statement questions
+          onUpdateQuestion(question.id, {
+            setupConfig: {
+              ...setupConfig,
+              question_text: newText,
+            },
+          })
+        } else {
+          // Update main label (stored in uiConfig.label) for standard questions
+          onUpdateQuestion(question.id, {
+            uiConfig: {
+              ...uiConfig,
+              label: newText,
+            },
+          })
+        }
       } else {
         // Update sub-question label
         onUpdateQuestion(question.id, {
@@ -123,9 +146,6 @@ const QuestionCard = ({
     setEditModalOpen(false)
     setEditingField(null)
   }
-
-  const labelText =
-    uiConfig.label || questionDefinition?.label || "Question label"
 
   // Determine if this is an essential question (cannot be modified)
   const isEssential = REQUIRED_QUESTION_TYPES.includes(question.type)

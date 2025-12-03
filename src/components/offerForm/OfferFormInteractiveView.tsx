@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { QUESTION_TYPE_TO_LABEL } from "@/constants/offerFormQuestions"
 import { buildFormValidationSchema } from "@/lib/offerFormValidation"
+import {
+  uploadFileToStorageClient,
+  uploadMultipleFilesToStorageClient,
+} from "@/lib/supabase/clientStorage"
 import { BrandingConfig } from "@/types/branding"
 import { Database } from "@/types/supabase"
 import { ChevronLeft, ChevronRight } from "lucide-react"
@@ -225,11 +229,232 @@ export const OfferFormInteractiveView = ({
       }
 
       // Show loading state
+      toast.loading("Uploading files...", { id: "submitting-offer" })
+
+      // Generate a temporary offer ID for file organization
+      const tempOfferId = crypto.randomUUID()
+
+      // Upload files to Supabase Storage first (client-side)
+      // This prevents sending large File objects through server actions
+      const processedFormData = { ...formData }
+
+      // Helper to check if value is a File
+      const isFile = (value: any): value is File => {
+        return value instanceof File
+      }
+
+      // Helper to check if value is an array of Files
+      const isFileArray = (value: any): value is File[] => {
+        return (
+          Array.isArray(value) && value.length > 0 && value[0] instanceof File
+        )
+      }
+
+      // Process form data and upload files
+      for (const [questionId, value] of Object.entries(processedFormData)) {
+        if (!value) continue
+
+        const question = questions.find((q) => q.id === questionId)
+        if (!question) continue
+
+        // Handle purchase agreement
+        if (question.type === "attachPurchaseAgreement" && isFile(value)) {
+          const timestamp = Date.now()
+          const fileExtension = value.name.split(".").pop() || "file"
+          const fileName = `${timestamp}-${value.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+          const path = `${tempOfferId}/purchase-agreement/${fileName}`
+
+          const fileUrl = await uploadFileToStorageClient(
+            "offer-documents",
+            path,
+            value,
+          )
+          processedFormData[questionId] = fileUrl
+        }
+
+        // Handle name of purchaser ID files
+        if (
+          question.type === "nameOfPurchaser" &&
+          typeof value === "object" &&
+          value !== null
+        ) {
+          const purchaserData = value as any
+
+          // Check if it's single_field (has name but no scenario) or individual_names (has scenario)
+          const isSingleField = purchaserData.name && !purchaserData.scenario
+          const isIndividualNames = purchaserData.scenario
+
+          // Single field method - single ID file
+          if (isSingleField && isFile(purchaserData.idFile)) {
+            const timestamp = Date.now()
+            const fileExtension =
+              purchaserData.idFile.name.split(".").pop() || "file"
+            const fileName = `${timestamp}-${purchaserData.idFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+            const path = `${tempOfferId}/purchaser-ids/${fileName}`
+
+            const fileUrl = await uploadFileToStorageClient(
+              "offer-ids",
+              path,
+              purchaserData.idFile,
+            )
+            processedFormData[questionId] = {
+              method: "single_field",
+              name: purchaserData.name,
+              idFileUrl: fileUrl,
+            }
+          } else if (isSingleField && !isFile(purchaserData.idFile)) {
+            // Single field without file - just preserve the structure
+            processedFormData[questionId] = {
+              method: "single_field",
+              name: purchaserData.name || value,
+            }
+          }
+
+          // Individual names method - multiple ID files
+          if (
+            isIndividualNames &&
+            purchaserData.idFiles &&
+            typeof purchaserData.idFiles === "object"
+          ) {
+            const idFiles = purchaserData.idFiles as Record<string, File>
+            const uploadedUrls: Record<string, string> = {}
+
+            for (const [key, file] of Object.entries(idFiles)) {
+              if (isFile(file)) {
+                const timestamp = Date.now()
+                const fileExtension = file.name.split(".").pop() || "file"
+                const fileName = `${timestamp}-${key}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+                const path = `${tempOfferId}/purchaser-ids/${fileName}`
+
+                const fileUrl = await uploadFileToStorageClient(
+                  "offer-ids",
+                  path,
+                  file,
+                )
+                uploadedUrls[key] = fileUrl
+              }
+            }
+
+            processedFormData[questionId] = {
+              method: "individual_names",
+              ...purchaserData,
+              idFileUrls: uploadedUrls,
+            }
+            delete processedFormData[questionId].idFiles
+          } else if (isIndividualNames && !purchaserData.idFiles) {
+            // Individual names without files - just preserve the structure
+            processedFormData[questionId] = {
+              method: "individual_names",
+              ...purchaserData,
+            }
+          }
+        }
+
+        // Handle subject to loan approval supporting documents
+        if (
+          question.type === "subjectToLoanApproval" &&
+          typeof value === "object" &&
+          value !== null
+        ) {
+          const loanData = value as any
+
+          if (isFile(loanData.supportingDocs)) {
+            const timestamp = Date.now()
+            const fileExtension =
+              loanData.supportingDocs.name.split(".").pop() || "file"
+            const fileName = `${timestamp}-${loanData.supportingDocs.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+            const path = `${tempOfferId}/loan-documents/${fileName}`
+
+            const fileUrl = await uploadFileToStorageClient(
+              "offer-documents",
+              path,
+              loanData.supportingDocs,
+            )
+            processedFormData[questionId] = {
+              ...loanData,
+              supportingDocsUrl: fileUrl,
+            }
+            delete processedFormData[questionId].supportingDocs
+          } else if (isFileArray(loanData.supportingDocs)) {
+            const urls = await uploadMultipleFilesToStorageClient(
+              "offer-documents",
+              loanData.supportingDocs,
+              tempOfferId,
+              "loan-documents",
+            )
+            processedFormData[questionId] = {
+              ...loanData,
+              supportingDocsUrls: urls,
+            }
+            delete processedFormData[questionId].supportingDocs
+          }
+        }
+
+        // Handle message to agent attachments
+        if (
+          question.type === "messageToAgent" &&
+          typeof value === "object" &&
+          value !== null
+        ) {
+          const messageData = value as any
+
+          if (isFileArray(messageData.attachments)) {
+            const urls = await uploadMultipleFilesToStorageClient(
+              "offer-attachments",
+              messageData.attachments,
+              tempOfferId,
+              "message-attachments",
+            )
+            processedFormData[questionId] = {
+              ...messageData,
+              attachmentUrls: urls,
+            }
+            delete processedFormData[questionId].attachments
+          }
+        }
+
+        // Handle custom question file uploads
+        if (
+          question.type === "custom" &&
+          typeof value !== "string" &&
+          typeof value !== "number" &&
+          typeof value !== "boolean"
+        ) {
+          const setupConfig =
+            (question.setupConfig as Record<string, any>) || {}
+          const answerType = setupConfig.answer_type
+
+          if (answerType === "file_upload") {
+            if (isFile(value)) {
+              const timestamp = Date.now()
+              const fileExtension = value.name.split(".").pop() || "file"
+              const fileName = `${timestamp}-${value.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+              const path = `${tempOfferId}/custom-files/${questionId}/${fileName}`
+
+              const fileUrl = await uploadFileToStorageClient(
+                "offer-attachments",
+                path,
+                value,
+              )
+              processedFormData[questionId] = fileUrl
+            } else if (isFileArray(value)) {
+              const urls = await uploadMultipleFilesToStorageClient(
+                "offer-attachments",
+                value,
+                tempOfferId,
+                `custom-files-${questionId}`,
+              )
+              processedFormData[questionId] = urls
+            }
+          }
+        }
+      }
+
       toast.loading("Submitting your offer...", { id: "submitting-offer" })
 
-      // Save offer to database
+      // Save offer to database (now with URLs instead of File objects)
       const result = await saveOffer({
-        formData,
+        formData: processedFormData,
         questions,
         formId,
       })
@@ -420,49 +645,53 @@ export const OfferFormInteractiveView = ({
             (question.setupConfig as Record<string, any>) || {}
 
           // Get label with proper fallback order:
-          // 1. User-customized label from uiConfig
-          // 2. Default label from QUESTION_TYPE_TO_LABEL
+          // 1. For statement questions, always use setupConfig.question_text
+          // 2. User-customized label from uiConfig
           // 3. For custom questions, check setupConfig.question_text
-          // 4. Fallback to "Question"
-          let label = uiConfig.label
-          if (!label) {
-            if (question.type === "custom") {
-              // For custom questions, use the question text from setupConfig
-              label =
-                setupConfig.question_text ||
-                QUESTION_TYPE_TO_LABEL[question.type] ||
-                "Question"
-            } else {
-              // For standard questions, use the default label from constants
-              label = QUESTION_TYPE_TO_LABEL[question.type] || "Question"
+          // 4. Default label from QUESTION_TYPE_TO_LABEL
+          // 5. Fallback to "Question"
+          const isStatementQuestion =
+            question.type === "custom" &&
+            setupConfig.answer_type === "statement"
+
+          let label: string
+          if (isStatementQuestion) {
+            // For statement questions, use the question text from setupConfig
+            label = setupConfig.question_text || "Question"
+          } else {
+            label = uiConfig.label
+            if (!label) {
+              if (question.type === "custom") {
+                // For other custom questions, use the question text from setupConfig
+                label =
+                  setupConfig.question_text ||
+                  QUESTION_TYPE_TO_LABEL[question.type] ||
+                  "Question"
+              } else {
+                // For standard questions, use the default label from constants
+                label = QUESTION_TYPE_TO_LABEL[question.type] || "Question"
+              }
             }
           }
 
-          // For statement questions with tickbox, don't show the main label
-          // The statement text and tickbox are handled within QuestionRenderer
-          const isStatementWithTickbox =
-            question.type === "custom" &&
-            setupConfig.answer_type === "statement" &&
-            setupConfig.add_tickbox === "yes"
+          const displayLabel = label
 
           return (
             <div
               key={question.id}
               className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
             >
-              {!isStatementWithTickbox && (
-                <label
-                  className="mb-3 block text-base font-medium"
-                  style={{
-                    color: brandingConfig?.fontColor || undefined,
-                  }}
-                >
-                  {label}
-                  {question.required && (
-                    <span className="ml-1 text-red-500">*</span>
-                  )}
-                </label>
-              )}
+              <label
+                className="mb-3 block text-base font-medium"
+                style={{
+                  color: brandingConfig?.fontColor || undefined,
+                }}
+              >
+                {displayLabel}
+                {question.required && (
+                  <span className="ml-1 text-red-500">*</span>
+                )}
+              </label>
               <QuestionRenderer
                 question={question}
                 disabled={false}

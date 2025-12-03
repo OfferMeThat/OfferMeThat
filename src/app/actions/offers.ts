@@ -49,24 +49,11 @@ export async function saveOffer({
     const supabase = await createClient()
 
     // Transform form data to database schema
+    // Note: Files should already be uploaded client-side and replaced with URLs
     const offerData = transformFormDataToOffer(formData, questions, formId)
 
-    // Generate a temporary offer ID for file organization
-    const tempOfferId = crypto.randomUUID()
-
-    // Handle file uploads before saving
-    // 1. Purchase Agreement
-    const purchaseAgreementFile = (offerData as any).__purchaseAgreementFile
-    if (purchaseAgreementFile instanceof File) {
-      const timestamp = Date.now()
-      const fileExtension = purchaseAgreementFile.name.split(".").pop() || "file"
-      const fileName = `${timestamp}-${purchaseAgreementFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-      const path = `${tempOfferId}/purchase-agreement/${fileName}`
-
-      const fileUrl = await uploadFileToStorage("offer-documents", path, purchaseAgreementFile)
-      offerData.purchaseAgreementFileUrl = fileUrl
-      delete (offerData as any).__purchaseAgreementFile
-    }
+    // Files are now already URLs (uploaded client-side), so we just need to handle them in the transform
+    // The transform function will handle purchase agreement URLs directly
 
     // 2. Name of Purchaser ID files
     if (offerData.purchaserData && typeof offerData.purchaserData === "object") {

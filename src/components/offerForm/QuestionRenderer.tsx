@@ -2803,7 +2803,9 @@ export const QuestionRenderer = ({
 
       return (
         <div className="space-y-2">
-          {showTickbox ? (
+          {/* Statement text is now shown as the main label in OfferFormInteractiveView */}
+          {/* Only show tickbox here */}
+          {showTickbox && (
             <div className="flex items-center gap-2">
               <Checkbox
                 disabled={tickboxDisabled}
@@ -2833,7 +2835,8 @@ export const QuestionRenderer = ({
                 )}
               </div>
             </div>
-          ) : (
+          )}
+          {!showTickbox && (
             <div className="relative inline-block">
               <p className="text-sm text-gray-700">
                 {setupConfig.question_text}

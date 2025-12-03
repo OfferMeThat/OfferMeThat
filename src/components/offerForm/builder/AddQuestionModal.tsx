@@ -195,7 +195,7 @@ const AddQuestionModal = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex max-h-[80vh] min-h-[500px] w-full max-w-4xl! flex-col gap-0 p-0">
+      <DialogContent className="flex max-h-[85vh] min-h-[500px] w-full max-w-4xl! flex-col gap-0 p-0">
         {wizardStep === "selection" ? renderSelectionStep() : renderSetupStep()}
       </DialogContent>
     </Dialog>

@@ -91,26 +91,25 @@ export function transformFormDataToOffer(
 
       case "nameOfPurchaser":
         // Can be string (single_field) or complex object (individual_names)
-        // For single_field: value is string OR { name: string, idFile?: File }
-        // For individual_names: value is { scenario, numPurchasers, nameFields, idFiles?: Record<string, File>, etc. }
+        // Files should already be uploaded client-side and replaced with URLs
         const purchaserData = value as any
         if (typeof value === "string") {
           // Single field - just a string
           offer.purchaserData = { method: "single_field", name: value }
         } else if (typeof value === "object" && value !== null) {
-          // Check if it's single_field with file or individual_names
+          // Check if it's single_field with file URL or individual_names
           if (value.name && !value.scenario) {
-            // Single field with optional file
+            // Single field with optional file URL (already uploaded)
             offer.purchaserData = {
               method: "single_field",
               name: value.name,
-              idFile: value.idFile, // File object, will be uploaded in save function
+              idFileUrl: value.idFileUrl, // URL string, file already uploaded
             }
           } else {
-            // Individual names method
+            // Individual names method (idFiles already converted to idFileUrls)
             offer.purchaserData = {
               method: "individual_names",
-              ...value, // Includes scenario, numPurchasers, nameFields, idFiles, etc.
+              ...value, // Includes scenario, numPurchasers, nameFields, idFileUrls, etc.
             }
           }
         }
@@ -134,17 +133,13 @@ export function transformFormDataToOffer(
         break
 
       case "subjectToLoanApproval":
-        // Complex loan approval data (files will be uploaded separately)
+        // Complex loan approval data (files already uploaded, URLs in supportingDocsUrl/supportingDocsUrls)
         offer.subjectToLoanApproval = value as any
         break
 
       case "attachPurchaseAgreement":
-        // File URL will be set after upload
-        // For now, store the File object reference (will be handled in save function)
-        if (value instanceof File) {
-          // Store reference, will be uploaded
-          ;(offer as any).__purchaseAgreementFile = value
-        } else if (typeof value === "string") {
+        // Value should be a URL string (file already uploaded client-side)
+        if (typeof value === "string") {
           offer.purchaseAgreementFileUrl = value
         }
         break
@@ -159,7 +154,7 @@ export function transformFormDataToOffer(
         break
 
       case "messageToAgent":
-        // Can be string or object with message and attachments
+        // Can be string or object with message and attachment URLs (files already uploaded)
         offer.messageToAgent = value as any
         break
 
