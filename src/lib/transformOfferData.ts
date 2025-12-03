@@ -16,8 +16,16 @@ export function transformFormDataToOffer(
   // Helper to get question type
   const getQuestionType = (id: string) => findQuestion(id)?.type
 
-  // Initialize the offer object
-  const offer: Database["public"]["Tables"]["offers"]["Insert"] = {
+  // Initialize the offer object with partial type since we'll fill required fields as we process questions
+  const offer: Partial<Database["public"]["Tables"]["offers"]["Insert"]> & {
+    formId: string
+    status: Database["public"]["Enums"]["offerStatus"]
+    paymentWay: Database["public"]["Enums"]["paymentWays"]
+    // These will be set as we process questions, but TypeScript needs them for the Insert type
+    amount?: number
+    buyerType?: Database["public"]["Enums"]["buyerType"]
+    listingId?: string
+  } = {
     formId,
     status: "pending",
     conditional: false,
@@ -77,7 +85,8 @@ export function transformFormDataToOffer(
         break
 
       case "offerAmount":
-        offer.amount = typeof value === "number" ? value : parseFloat(value) || 0
+        offer.amount =
+          typeof value === "number" ? value : parseFloat(value) || 0
         break
 
       case "nameOfPurchaser":
@@ -160,8 +169,9 @@ export function transformFormDataToOffer(
           offer.customQuestionsData = {} as any
         }
         const setupConfig = (question.setupConfig as Record<string, any>) || {}
+        const uiConfig = (question.uiConfig as Record<string, any>) || {}
         const questionText =
-          setupConfig.question_text || question.uiConfig?.label || "Custom Question"
+          setupConfig.question_text || uiConfig.label || "Custom Question"
         const answerType = setupConfig.answer_type
 
         ;(offer.customQuestionsData as any)[question.id] = {
@@ -180,9 +190,9 @@ export function transformFormDataToOffer(
         if (!offer.customQuestionsData) {
           offer.customQuestionsData = {} as any
         }
-        const uiConfig = (question.uiConfig as Record<string, any>) || {}
+        const defaultUiConfig = (question.uiConfig as Record<string, any>) || {}
         ;(offer.customQuestionsData as any)[question.id] = {
-          questionText: uiConfig.label || question.type,
+          questionText: defaultUiConfig.label || question.type,
           answerType: question.type,
           value,
         }
@@ -193,6 +203,25 @@ export function transformFormDataToOffer(
   // Store complete form data as backup
   offer.formData = formData as any
 
-  return offer
-}
+  // Ensure required fields are present (they should be set by processing questions)
+  // Provide defaults if somehow missing (shouldn't happen in normal flow)
+  if (!offer.amount && offer.amount !== 0) {
+    offer.amount = 0
+  }
+  if (!offer.buyerType) {
+    offer.buyerType = "buyer"
+  }
+  if (!offer.listingId) {
+    // If no listing ID was set, we need at least a placeholder
+    // This should not happen if specifyListing question is required
+    throw new Error("Listing ID is required but was not provided")
+  }
 
+  // Now all required fields should be present
+  return {
+    ...offer,
+    amount: offer.amount!,
+    buyerType: offer.buyerType!,
+    listingId: offer.listingId!,
+  } as Database["public"]["Tables"]["offers"]["Insert"]
+}
