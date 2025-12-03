@@ -73,41 +73,217 @@ export type Database = {
         }
         Relationships: []
       }
+      offerFormPages: {
+        Row: {
+          breakIndex: number | null
+          createdAt: string
+          description: string | null
+          formId: string
+          id: string
+          order: number
+          title: string
+        }
+        Insert: {
+          breakIndex?: number | null
+          createdAt?: string
+          description?: string | null
+          formId: string
+          id?: string
+          order: number
+          title: string
+        }
+        Update: {
+          breakIndex?: number | null
+          createdAt?: string
+          description?: string | null
+          formId?: string
+          id?: string
+          order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offerFormPages_formId_fkey"
+            columns: ["formId"]
+            isOneToOne: false
+            referencedRelation: "offerForms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offerFormQuestions: {
+        Row: {
+          createdAt: string
+          formId: string
+          id: string
+          order: number
+          pageId: string | null
+          required: boolean
+          setupConfig: Json | null
+          type: Database["public"]["Enums"]["questionType"]
+          uiConfig: Json | null
+        }
+        Insert: {
+          createdAt?: string
+          formId: string
+          id?: string
+          order: number
+          pageId?: string | null
+          required: boolean
+          setupConfig?: Json | null
+          type: Database["public"]["Enums"]["questionType"]
+          uiConfig?: Json | null
+        }
+        Update: {
+          createdAt?: string
+          formId?: string
+          id?: string
+          order?: number
+          pageId?: string | null
+          required?: boolean
+          setupConfig?: Json | null
+          type?: Database["public"]["Enums"]["questionType"]
+          uiConfig?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formQuestions_formId_fkey"
+            columns: ["formId"]
+            isOneToOne: false
+            referencedRelation: "offerForms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offerFormQuestions_pageId_fkey"
+            columns: ["pageId"]
+            isOneToOne: false
+            referencedRelation: "offerFormPages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offerForms: {
+        Row: {
+          brandingConfig: Json | null
+          createdAt: string
+          id: string
+          ownerId: string
+        }
+        Insert: {
+          brandingConfig?: Json | null
+          createdAt?: string
+          id?: string
+          ownerId: string
+        }
+        Update: {
+          brandingConfig?: Json | null
+          createdAt?: string
+          id?: string
+          ownerId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forms_ownerId_fkey"
+            columns: ["ownerId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       offers: {
         Row: {
           amount: number
           buyerType: Database["public"]["Enums"]["buyerType"]
           conditional: boolean
           createdAt: string
+          customListingAddress: string | null
+          customQuestionsData: Json | null
+          depositData: Json | null
           expires: string | null
+          expiryTime: string | null
+          formData: Json | null
+          formId: string | null
           id: string
           listingId: string
+          messageToAgent: Json | null
           paymentWay: Database["public"]["Enums"]["paymentWays"]
+          purchaseAgreementFileUrl: string | null
+          purchaserData: Json | null
+          settlementDateData: Json | null
+          specialConditions: string | null
           status: Database["public"]["Enums"]["offerStatus"]
+          subjectToLoanApproval: Json | null
+          submitterEmail: string | null
+          submitterFirstName: string | null
+          submitterLastName: string | null
+          submitterPhone: string | null
+          updatedAt: string | null
         }
         Insert: {
           amount: number
           buyerType: Database["public"]["Enums"]["buyerType"]
           conditional?: boolean
           createdAt?: string
+          customListingAddress?: string | null
+          customQuestionsData?: Json | null
+          depositData?: Json | null
           expires?: string | null
+          expiryTime?: string | null
+          formData?: Json | null
+          formId?: string | null
           id?: string
           listingId: string
+          messageToAgent?: Json | null
           paymentWay: Database["public"]["Enums"]["paymentWays"]
+          purchaseAgreementFileUrl?: string | null
+          purchaserData?: Json | null
+          settlementDateData?: Json | null
+          specialConditions?: string | null
           status: Database["public"]["Enums"]["offerStatus"]
+          subjectToLoanApproval?: Json | null
+          submitterEmail?: string | null
+          submitterFirstName?: string | null
+          submitterLastName?: string | null
+          submitterPhone?: string | null
+          updatedAt?: string | null
         }
         Update: {
           amount?: number
           buyerType?: Database["public"]["Enums"]["buyerType"]
           conditional?: boolean
           createdAt?: string
+          customListingAddress?: string | null
+          customQuestionsData?: Json | null
+          depositData?: Json | null
           expires?: string | null
+          expiryTime?: string | null
+          formData?: Json | null
+          formId?: string | null
           id?: string
           listingId?: string
+          messageToAgent?: Json | null
           paymentWay?: Database["public"]["Enums"]["paymentWays"]
+          purchaseAgreementFileUrl?: string | null
+          purchaserData?: Json | null
+          settlementDateData?: Json | null
+          specialConditions?: string | null
           status?: Database["public"]["Enums"]["offerStatus"]
+          subjectToLoanApproval?: Json | null
+          submitterEmail?: string | null
+          submitterFirstName?: string | null
+          submitterLastName?: string | null
+          submitterPhone?: string | null
+          updatedAt?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "offers_formId_fkey"
+            columns: ["formId"]
+            isOneToOne: false
+            referencedRelation: "offerForms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "offers_listingId_fkey"
             columns: ["listingId"]
@@ -124,6 +300,7 @@ export type Database = {
           email: string
           fullName: string
           id: string
+          username: string | null
         }
         Insert: {
           avatarUrl?: string | null
@@ -131,6 +308,7 @@ export type Database = {
           email: string
           fullName: string
           id?: string
+          username?: string | null
         }
         Update: {
           avatarUrl?: string | null
@@ -138,6 +316,7 @@ export type Database = {
           email?: string
           fullName?: string
           id?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -162,6 +341,32 @@ export type Database = {
         | "withdrawn"
         | "deleted"
       paymentWays: "cash" | "finance"
+      questionType:
+        | "specifyListing"
+        | "submitterName"
+        | "submitterEmail"
+        | "submitterPhone"
+        | "offerAmount"
+        | "submitButton"
+        | "submitterRole"
+        | "nameOfPurchaser"
+        | "attachPurchaseAgreement"
+        | "offerExpiry"
+        | "deposit"
+        | "subjectToLoanApproval"
+        | "specialConditions"
+        | "settlementDate"
+        | "messageToAgent"
+        | "custom"
+        | "shortText"
+        | "longText"
+        | "provideAmount"
+        | "uploadFiles"
+        | "provideTime"
+        | "yesNo"
+        | "singleChoiceSelect"
+        | "multiChoiceSelect"
+        | "statement"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -303,6 +508,33 @@ export const Constants = {
         "deleted",
       ],
       paymentWays: ["cash", "finance"],
+      questionType: [
+        "specifyListing",
+        "submitterName",
+        "submitterEmail",
+        "submitterPhone",
+        "offerAmount",
+        "submitButton",
+        "submitterRole",
+        "nameOfPurchaser",
+        "attachPurchaseAgreement",
+        "offerExpiry",
+        "deposit",
+        "subjectToLoanApproval",
+        "specialConditions",
+        "settlementDate",
+        "messageToAgent",
+        "custom",
+        "shortText",
+        "longText",
+        "provideAmount",
+        "uploadFiles",
+        "provideTime",
+        "yesNo",
+        "singleChoiceSelect",
+        "multiChoiceSelect",
+        "statement",
+      ],
     },
   },
 } as const

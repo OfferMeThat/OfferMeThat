@@ -27,7 +27,7 @@ const NumberSelect = ({
     <Select onValueChange={(newValue) => onValueChange(newValue)} value={value}>
       <SelectTrigger
         className={cn(
-          "w-full cursor-pointer transition-colors hover:bg-gray-100",
+          "w-full cursor-pointer transition-colors bg-white hover:bg-gray-100",
           className,
         )}
       >

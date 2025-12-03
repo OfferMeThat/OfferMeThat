@@ -48,7 +48,6 @@ const SignUpForm = () => {
     setErrors({})
 
     try {
-      // Validate form data
       await signUpSchema.validate(
         { fullName, email, password },
         { abortEarly: false },
@@ -85,8 +84,26 @@ const SignUpForm = () => {
           submit:
             "Please check your email to confirm your account before logging in.",
         })
-      } else {
+      } else if (data.user) {
         // Successful signup with auto-login
+
+        const camelCaseUsername = fullName.replace(/\s+/g, "")
+
+        const { error: usernameUpdateError } = await supabase
+          .from("profiles")
+          .update({
+            username: camelCaseUsername,
+          })
+          .eq("id", data.user?.id)
+
+        if (usernameUpdateError) {
+          console.error("Error updating username", usernameUpdateError)
+          setErrors({
+            submit: "An error occurred while updating your username.",
+          })
+          return
+        }
+
         router.push("/")
         router.refresh()
       }

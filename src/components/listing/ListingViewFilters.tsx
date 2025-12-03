@@ -97,7 +97,7 @@ const ListingViewFilters = ({
         <div className="flex flex-col gap-2">
           <button
             onClick={() => setShowMore((prev) => !prev)}
-            className="w-fit cursor-pointer text-sm font-medium text-green-800"
+            className="w-fit cursor-pointer text-sm font-medium text-teal-500"
           >
             {showMore ? "Hide More Filters" : "Show More Filters"}
           </button>

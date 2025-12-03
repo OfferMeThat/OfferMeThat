@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils"
 import {
   Edit,
   FileText,
+  FormInputIcon,
   HelpCircle,
   Layers,
   MessageSquare,
-  Plus,
   Settings,
   Target,
 } from "lucide-react"
@@ -26,8 +26,8 @@ const navigationLinks = [
   {
     section: "GO TO:",
     items: [
-      { name: "My Offer Form", href: "#", icon: Settings },
-      { name: "My Offers", href: "#", icon: FileText },
+      { name: "My Offer Form", href: "/offer-form", icon: FormInputIcon },
+      { name: "My Offers", href: "/offers", icon: FileText },
       { name: "My Lead Form", href: "#", icon: Edit },
       { name: "My Leads", href: "#", icon: Target },
       { name: "My Listings", href: "/", icon: Layers },
@@ -53,14 +53,14 @@ export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-gray-200 p-6">
+      <div className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500">
             <FileText className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">OfferMeThat</h1>
-            <p className="text-sm text-gray-600">High-Value Sales Platform</p>
+            <h1 className="text-lg font-bold text-gray-900">OfferMeThat</h1>
+            <p className="text-xs text-gray-600">High-Value Sales Platform</p>
           </div>
         </div>
       </div>
@@ -109,8 +109,8 @@ export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
 
       <div className="border-t border-gray-200 p-4">
         <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 bg-teal-600">
-            <AvatarFallback className="bg-teal-600 font-semibold text-white">
+          <Avatar className="h-10 w-10 bg-teal-500">
+            <AvatarFallback className="bg-teal-500 font-semibold text-white">
               U
             </AvatarFallback>
           </Avatar>
@@ -128,8 +128,8 @@ export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
 
 const Sidebar = () => {
   return (
-    <aside className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
-      <div className="flex flex-col border-r border-gray-200 bg-white">
+    <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+      <div className="flex h-screen flex-col border-r border-gray-200 bg-white">
         <SidebarContent />
       </div>
     </aside>
