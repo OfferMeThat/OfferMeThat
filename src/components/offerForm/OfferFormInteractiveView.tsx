@@ -30,6 +30,7 @@ interface OfferFormInteractiveViewProps {
   brandingConfig?: BrandingConfig
   profilePictureUrl?: string | null
   formId?: string // Add formId to identify which form is being submitted
+  isPreviewMode?: boolean // Add preview mode flag
 }
 
 /**
@@ -45,6 +46,7 @@ export const OfferFormInteractiveView = ({
   brandingConfig,
   profilePictureUrl,
   formId,
+  isPreviewMode = false,
 }: OfferFormInteractiveViewProps) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
   const [formData, setFormData] = useState<Record<string, any>>({})
@@ -221,6 +223,22 @@ export const OfferFormInteractiveView = ({
     try {
       const schema = validationSchema()
       await schema.validate(formData, { abortEarly: false })
+
+      // If in preview mode, show confirmation and reset form
+      if (isPreviewMode) {
+        toast.success(
+          "✓ Your form is working! This is a preview - your offer was not actually submitted.",
+          {
+            duration: 5000,
+          },
+        )
+        setFormData({})
+        setCurrentPageIndex(0)
+        setValidationErrors({})
+        setTouchedFields(new Set())
+        window.scrollTo({ top: 0, behavior: "smooth" })
+        return
+      }
 
       // Check if formId is available
       if (!formId) {
