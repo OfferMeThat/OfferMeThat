@@ -1,5 +1,5 @@
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default function NotFound() {
   return (
@@ -10,16 +10,14 @@ export default function NotFound() {
           Page Not Found
         </h2>
         <p className="mt-4 text-gray-600">
-          The page you&apos;re looking for doesn&apos;t exist or the username is
-          invalid.
+          The page you&apos;re looking for doesn&apos;t exist.
         </p>
         <div className="mt-8">
-          <Link href="/auth">
-            <Button>Go to Login</Button>
+          <Link href="/">
+            <Button>Return to Dashboard</Button>
           </Link>
         </div>
       </div>
     </div>
   )
 }
-
