@@ -28,9 +28,6 @@ const PageBreak = ({
       {/* Left: Button Section */}
       <div className="flex w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4">
         <p className="text-xl font-bold text-gray-900">BUTTON</p>
-        <Button variant="outline" className="mt-3 w-full" size="sm">
-          Edit Question
-        </Button>
       </div>
 
       {/* Middle: Page Break Preview */}
