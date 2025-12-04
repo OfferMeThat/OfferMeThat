@@ -108,3 +108,60 @@ export async function getFilteredListings(
 
   return filteredListings
 }
+
+export async function deleteListings(listingIds: string[]): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  try {
+    const { error } = await supabase
+      .from("listings")
+      .delete()
+      .in("id", listingIds)
+
+    if (error) {
+      console.error("Error deleting listings:", error)
+      return {
+        success: false,
+        error: error.message || "Failed to delete listings",
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in deleteListings:", error)
+    return {
+      success: false,
+      error: error?.message || "An unexpected error occurred",
+    }
+  }
+}
+
+export async function updateListingsStatus(
+  listingIds: string[],
+  status: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  try {
+    const { error } = await supabase
+      .from("listings")
+      .update({ status: status as any })
+      .in("id", listingIds)
+
+    if (error) {
+      console.error("Error updating listing status:", error)
+      return {
+        success: false,
+        error: error.message || "Failed to update listing status",
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in updateListingsStatus:", error)
+    return {
+      success: false,
+      error: error?.message || "An unexpected error occurred",
+    }
+  }
+}
