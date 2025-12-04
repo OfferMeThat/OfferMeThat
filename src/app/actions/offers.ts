@@ -364,3 +364,30 @@ export async function updateOffersStatus(
     }
   }
 }
+
+export async function getOfferById(
+  offerId: string,
+): Promise<OfferWithListing | null> {
+  const supabase = await createClient()
+
+  const { data: offer, error } = await supabase
+    .from("offers")
+    .select("*, listings(*)")
+    .eq("id", offerId)
+    .single()
+
+  if (!offer || error) {
+    console.error("Error fetching offer:", error)
+    return null
+  }
+
+  // Transform the data to match OfferWithListing type
+  const transformedOffer = {
+    ...offer,
+    listing: Array.isArray(offer.listings)
+      ? offer.listings[0] || null
+      : offer.listings || null,
+  } as OfferWithListing
+
+  return transformedOffer
+}

@@ -32,7 +32,9 @@ const OffersListTableView = ({
   const router = useRouter()
 
   const allSelected =
-    offers && offers.length > 0 && offers.every((offer) => selectedOffers.has(offer.id))
+    offers &&
+    offers.length > 0 &&
+    offers.every((offer) => selectedOffers.has(offer.id))
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -63,7 +65,7 @@ const OffersListTableView = ({
           <TableRow className="px-4">
             <TableHead className="min-w-12 font-medium text-gray-700">
               <Checkbox
-                checked={allSelected}
+                checked={!!allSelected}
                 onCheckedChange={(checked) => onToggleAll(checked === true)}
               />
             </TableHead>
@@ -108,7 +110,7 @@ const OffersListTableView = ({
             return (
               <TableRow
                 key={offer.id}
-                className="px-4 cursor-pointer hover:bg-gray-50"
+                className="cursor-pointer px-4 hover:bg-gray-50"
                 onClick={(e) => {
                   // Don't navigate if clicking on checkbox or actions
                   const target = e.target as HTMLElement
@@ -143,7 +145,7 @@ const OffersListTableView = ({
                 </TableCell>
                 <TableCell>
                   <Link
-                    href={`/offer/${offer.id}`}
+                    href={`/listing/${offer.listingId}`}
                     className="text-teal-600 hover:text-teal-700 hover:underline"
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -191,4 +193,3 @@ const OffersListTableView = ({
 }
 
 export default OffersListTableView
-
