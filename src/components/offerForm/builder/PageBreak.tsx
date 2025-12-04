@@ -40,9 +40,9 @@ const PageBreak = ({
             PAGE BREAK
           </h3>
         </div>
-        <div className="flex items-center justify-center rounded-md bg-teal-500 px-4 py-3">
-          <p className="text-base font-semibold text-white">Next</p>
-        </div>
+        <Button disabled className="w-full" size="lg">
+          Next
+        </Button>
       </div>
 
       {/* Right: Actions */}

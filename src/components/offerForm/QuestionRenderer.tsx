@@ -846,7 +846,7 @@ export const QuestionRenderer = ({
   // Submit Button
   if (question.type === "submitButton") {
     return (
-      <Button className="w-full" disabled={disabled} style={getButtonStyle()}>
+      <Button size="lg" disabled={disabled} style={getButtonStyle()}>
         {uiConfig.label || "Submit Offer"}
       </Button>
     )

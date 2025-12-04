@@ -738,6 +738,7 @@ export const OfferFormInteractiveView = ({
           </Button>
         ) : (
           <Button
+            size="lg"
             onClick={handleSubmit}
             className="gap-2"
             style={{
