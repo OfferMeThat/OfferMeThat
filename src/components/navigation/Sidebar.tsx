@@ -28,18 +28,30 @@ const navigationLinks = [
     items: [
       { name: "My Offer Form", href: "/offer-form", icon: FormInputIcon },
       { name: "My Offers", href: "/offers", icon: FileText },
-      { name: "My Lead Form", href: "#", icon: Edit },
-      { name: "My Leads", href: "#", icon: Target },
+      { name: "My Lead Form", href: "/to-be-implemented", icon: Edit },
+      { name: "My Leads", href: "/to-be-implemented", icon: Target },
       { name: "My Listings", href: "/", icon: Layers },
-      { name: "Message Centre", href: "#", icon: MessageSquare },
+      {
+        name: "Message Centre",
+        href: "/to-be-implemented",
+        icon: MessageSquare,
+      },
     ],
   },
   {
     section: "settings",
     items: [
-      { name: "My Details/Settings", href: "#", icon: Settings },
-      { name: "Help", href: "#", icon: HelpCircle },
-      { name: "Feedback/Suggestions", href: "#", icon: MessageSquare },
+      {
+        name: "My Details/Settings",
+        href: "/to-be-implemented",
+        icon: Settings,
+      },
+      { name: "Help", href: "/to-be-implemented", icon: HelpCircle },
+      {
+        name: "Feedback/Suggestions",
+        href: "/to-be-implemented",
+        icon: MessageSquare,
+      },
     ],
   },
 ]

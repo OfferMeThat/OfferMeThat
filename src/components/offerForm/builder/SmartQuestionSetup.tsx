@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getSmartQuestion } from "@/data/smartQuestions"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import DepositDueDateModal from "./DepositDueDateModal"
 import LoanDueDateModal from "./LoanDueDateModal"
 
@@ -178,11 +178,69 @@ const SmartQuestionSetup = ({
   const [showDueDateModal, setShowDueDateModal] = useState(false)
   const [showLoanDueDateModal, setShowLoanDueDateModal] = useState(false)
   const [currentConditionNumber, setCurrentConditionNumber] = useState(1)
+  const isSavingRef = useRef(false)
+  const hasCompletedRef = useRef(false)
+  const answersRef = useRef(answers)
+
+  // Keep answersRef in sync with answers
+  useEffect(() => {
+    answersRef.current = answers
+  }, [answers])
+
+  // Reset completion flag when component unmounts or mode changes
+  useEffect(() => {
+    hasCompletedRef.current = false
+    isSavingRef.current = false
+    return () => {
+      hasCompletedRef.current = false
+      isSavingRef.current = false
+    }
+  }, [mode])
+
+  const smartQuestion = getSmartQuestion(
+    questionId,
+  ) as unknown as SmartQuestionDefinition
+
+  // Memoize handleSave to prevent duplicate calls
+  const handleSave = useCallback(() => {
+    // Prevent duplicate saves
+    if (isSavingRef.current || hasCompletedRef.current) {
+      console.warn(
+        "handleSave: Already saving or completed, ignoring duplicate call",
+      )
+      return
+    }
+    isSavingRef.current = true
+    hasCompletedRef.current = true
+
+    try {
+      // All questions answered, generate properties and complete
+      const generatedProperties = smartQuestion.generateProperties(
+        answersRef.current,
+      )
+      onComplete(generatedProperties, answersRef.current)
+    } catch (error) {
+      console.error("Error in handleSave:", error)
+      isSavingRef.current = false
+      hasCompletedRef.current = false
+      throw error
+    }
+
+    // Reset after a delay to allow the save to complete
+    // Note: hasCompletedRef stays true to prevent any further calls
+    setTimeout(() => {
+      isSavingRef.current = false
+    }, 2000)
+  }, [smartQuestion, onComplete])
 
   // Add event listener for external save trigger
+  // This needs to be after canProceed is defined, so we'll use a ref-based approach
+  const canProceedRef = useRef<(() => boolean) | null>(null)
+
   useEffect(() => {
     const handleExternalSave = () => {
-      if (canProceed()) {
+      if (isSavingRef.current) return // Prevent duplicate saves
+      if (canProceedRef.current && canProceedRef.current()) {
         handleSave()
       }
     }
@@ -191,7 +249,7 @@ const SmartQuestionSetup = ({
     return () => {
       window.removeEventListener("smartQuestionSave", handleExternalSave)
     }
-  }, [answers])
+  }, [handleSave])
 
   // Ensure no currency fields are pre-populated on component mount
   useEffect(() => {
@@ -228,10 +286,6 @@ const SmartQuestionSetup = ({
       })
     }, 100)
   }, [])
-
-  const smartQuestion = getSmartQuestion(
-    questionId,
-  ) as unknown as SmartQuestionDefinition
 
   if (!smartQuestion) {
     return <div>Question not found</div>
@@ -695,12 +749,6 @@ const SmartQuestionSetup = ({
     }
   }
 
-  const handleSave = () => {
-    // All questions answered, generate properties and complete
-    const generatedProperties = smartQuestion.generateProperties(answers)
-    onComplete(generatedProperties, answers)
-  }
-
   interface DepositConfig {
     timeConstraint: string[]
     number: string[]
@@ -729,6 +777,7 @@ const SmartQuestionSetup = ({
 
   const canProceed = () => {
     // Check if all visible questions are answered (excluding currency option fields)
+    const visibleQuestions = getVisibleQuestions()
     const allQuestionsAnswered = visibleQuestions.every((question) => {
       // Skip currency option fields as they're handled specially
       if (question.id.includes("currency_options_")) {
@@ -889,6 +938,11 @@ const SmartQuestionSetup = ({
 
     return allQuestionsAnswered
   }
+
+  // Update the ref whenever canProceed function changes
+  useEffect(() => {
+    canProceedRef.current = canProceed
+  }, [answers, currentConditionNumber]) // Dependencies that affect canProceed
 
   return (
     <div className="mx-auto max-w-2xl rounded-lg bg-white p-6">

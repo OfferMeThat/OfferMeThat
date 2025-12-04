@@ -53,6 +53,14 @@ const MyListingsPageContent = ({
     })
   }, [filters])
 
+  const handleListingCreated = (newListing: any) => {
+    // Add the new listing to the current listings state
+    setListings((prevListings) => {
+      if (!prevListings) return [newListing]
+      return [newListing, ...prevListings]
+    })
+  }
+
   return (
     <main className="px-6 py-8">
       <div className="mb-4 flex flex-col gap-1">
@@ -64,7 +72,7 @@ const MyListingsPageContent = ({
         </span>
       </div>
 
-      <AddListingModal>
+      <AddListingModal onListingCreated={handleListingCreated}>
         <Button variant="default" size="lg" className="mb-6">
           <PlusIcon />
           <span>Add Listings</span>

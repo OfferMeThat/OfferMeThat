@@ -666,7 +666,6 @@ const DepositForm = ({
 
             {question_type === "calendar" && (
               <DatePicker
-                disabled={editingMode}
                 brandingConfig={brandingConfig}
                 value={
                   localFormData[id] ? new Date(localFormData[id]) : undefined
@@ -681,7 +680,6 @@ const DepositForm = ({
               <div className="space-y-1 pt-1.5">
                 <div className="relative">
                   <DatePicker
-                    disabled={editingMode}
                     brandingConfig={brandingConfig}
                     value={
                       localFormData[id]

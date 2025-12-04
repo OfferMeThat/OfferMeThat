@@ -301,6 +301,7 @@ const OfferFormPageContent = () => {
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}
               formId={formId || undefined}
+              isPreviewMode={true}
             />
           </div>
         </div>

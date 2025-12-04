@@ -28,9 +28,6 @@ const PageBreak = ({
       {/* Left: Button Section */}
       <div className="flex w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4">
         <p className="text-xl font-bold text-gray-900">BUTTON</p>
-        <Button variant="outline" className="mt-3 w-full" size="sm">
-          Edit Question
-        </Button>
       </div>
 
       {/* Middle: Page Break Preview */}
@@ -40,9 +37,9 @@ const PageBreak = ({
             PAGE BREAK
           </h3>
         </div>
-        <div className="flex items-center justify-center rounded-md bg-teal-500 px-4 py-3">
-          <p className="text-base font-semibold text-white">Next</p>
-        </div>
+        <Button disabled className="w-full" size="lg">
+          Next
+        </Button>
       </div>
 
       {/* Right: Actions */}

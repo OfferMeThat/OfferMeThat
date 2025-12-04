@@ -32,6 +32,7 @@ import {
 
 interface AddListingModalProps {
   children: React.ReactNode
+  onListingCreated?: (listing: any) => void
 }
 
 interface SellerData {
@@ -105,7 +106,10 @@ const validationSchema = yup.object().shape({
   }),
 })
 
-export const AddListingModal = ({ children }: AddListingModalProps) => {
+export const AddListingModal = ({
+  children,
+  onListingCreated,
+}: AddListingModalProps) => {
   const [open, setOpen] = useState(false)
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -132,7 +136,7 @@ export const AddListingModal = ({ children }: AddListingModalProps) => {
         return
       }
 
-      const { error: listingError } = await supabase
+      const { data: newListing, error: listingError } = await supabase
         .from("listings")
         .insert({
           address: formData.address,
@@ -142,6 +146,7 @@ export const AddListingModal = ({ children }: AddListingModalProps) => {
             ) || "forSale",
           createdBy: user.id,
         })
+        .select()
         .single()
 
       if (listingError) {
@@ -191,7 +196,11 @@ export const AddListingModal = ({ children }: AddListingModalProps) => {
       setFormData(initialFormData)
 
       toast.success("Listing has been created")
-      // TODO: add the new listing to the listing table view and listing tile view
+
+      // Call the callback to update the parent component's state
+      if (onListingCreated && newListing) {
+        onListingCreated(newListing)
+      }
     } catch (err) {
       if (err instanceof yup.ValidationError) {
         const validationErrors: Record<string, string> = {}

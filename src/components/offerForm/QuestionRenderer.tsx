@@ -609,7 +609,7 @@ export const QuestionRenderer = ({
           disabled={disabled}
         >
           <SelectTrigger
-            className={cn("min-w-52", editingMode && "cursor-not-allowed")}
+            className={cn("min-w-52")}
             style={getSelectStyle()}
             data-field-id={question.id}
           >
@@ -666,7 +666,7 @@ export const QuestionRenderer = ({
         >
           <div className="relative">
             <SelectTrigger
-              className={cn("min-w-52", editingMode && "cursor-not-allowed")}
+              className={cn("min-w-52")}
               style={getSelectStyle()}
               data-field-id={question.id}
             >
@@ -846,7 +846,7 @@ export const QuestionRenderer = ({
   // Submit Button
   if (question.type === "submitButton") {
     return (
-      <Button className="w-full" disabled={disabled} style={getButtonStyle()}>
+      <Button size="lg" disabled={disabled} style={getButtonStyle()}>
         {uiConfig.label || "Submit Offer"}
       </Button>
     )
@@ -1486,8 +1486,6 @@ export const QuestionRenderer = ({
           <div className="flex gap-2">
             <DatePicker
               label={uiConfig.dateLabel || "Select date"}
-              disabled={disabled}
-              btnClassName={cn(editingMode && "cursor-not-allowed")}
               value={expiryValue.expiryDate}
               onChange={(date) => {
                 if (!editingMode) {
@@ -1499,8 +1497,6 @@ export const QuestionRenderer = ({
             />
             <TimePicker
               label={uiConfig.timeLabel || "Select time"}
-              disabled={disabled}
-              btnClassName={cn(editingMode && "cursor-not-allowed")}
               value={expiryValue.expiryTime}
               onChange={(time) => {
                 if (!editingMode) {
@@ -2071,8 +2067,6 @@ export const QuestionRenderer = ({
           {dateType === "calendar" && (
             <div className="relative">
               <DatePicker
-                disabled={disabled}
-                btnClassName={cn(editingMode && "cursor-not-allowed")}
                 style={getInputStyle()}
                 value={formValues.settlementDate}
                 onChange={(date) => {
@@ -2088,8 +2082,6 @@ export const QuestionRenderer = ({
             <div className="flex gap-2">
               <div className="relative">
                 <DatePicker
-                  disabled={disabled}
-                  btnClassName={cn(editingMode && "cursor-not-allowed")}
                   style={getInputStyle()}
                   value={formValues.settlementDate}
                   onChange={(date) => {
@@ -2102,8 +2094,6 @@ export const QuestionRenderer = ({
               </div>
               <div className="relative">
                 <TimePicker
-                  disabled={disabled}
-                  btnClassName={cn(editingMode && "cursor-not-allowed")}
                   style={getInputStyle()}
                   value={formValues.settlementTime}
                   onChange={(time) => {
@@ -2473,8 +2463,6 @@ export const QuestionRenderer = ({
       return (
         <div className="relative">
           <DatePicker
-            disabled={disabled}
-            btnClassName={cn(editingMode && "cursor-not-allowed")}
             style={getInputStyle()}
             value={formValues[`${question.id}_date`]}
             onChange={(date) =>
@@ -2493,8 +2481,6 @@ export const QuestionRenderer = ({
       return (
         <div className="relative">
           <TimePicker
-            disabled={disabled}
-            btnClassName={cn(editingMode && "cursor-not-allowed")}
             style={getInputStyle()}
             value={formValues[`${question.id}_time`]}
             onChange={(time) =>
@@ -2699,7 +2685,6 @@ export const QuestionRenderer = ({
       if (timeType === "date") {
         return (
           <DatePicker
-            disabled={disabled}
             style={getInputStyle()}
             value={formValues[`${question.id}_date`]}
             onChange={(date) =>
@@ -2717,7 +2702,6 @@ export const QuestionRenderer = ({
         return (
           <div className="flex gap-2">
             <DatePicker
-              disabled={disabled}
               style={getInputStyle()}
               value={formValues[`${question.id}_date`]}
               onChange={(date) =>
@@ -2729,7 +2713,6 @@ export const QuestionRenderer = ({
               brandingConfig={brandingConfig}
             />
             <TimePicker
-              disabled={disabled}
               style={getInputStyle()}
               value={formValues[`${question.id}_time`]}
               onChange={(time) =>
