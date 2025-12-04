@@ -126,6 +126,7 @@ const ListingViewFilters = ({
                       date?.toISOString() || null,
                     )
                   }
+                  disablePastDates={false}
                 />
                 <DatePicker
                   label="To"
@@ -142,14 +143,14 @@ const ListingViewFilters = ({
                       date?.toISOString() || null,
                     )
                   }
+                  disablePastDates={false}
                 />
               </div>
             </div>
 
-            <div className="flex flex-col flex-wrap justify-between gap-2 sm:flex-row sm:items-center sm:gap-4">
-              <span className="block font-medium">Date Sold</span>
-
-              <div className="flex flex-1 gap-3 sm:justify-end">
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm font-medium">Date Sold</Label>
+              <div className="flex items-center gap-2">
                 <DatePicker
                   label="From"
                   btnClassName="w-full max-w-34"
@@ -165,6 +166,7 @@ const ListingViewFilters = ({
                       date?.toISOString() || null,
                     )
                   }
+                  disablePastDates={false}
                 />
                 <DatePicker
                   label="To"
@@ -181,6 +183,7 @@ const ListingViewFilters = ({
                       date?.toISOString() || null,
                     )
                   }
+                  disablePastDates={false}
                 />
               </div>
             </div>

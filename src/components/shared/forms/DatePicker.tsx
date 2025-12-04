@@ -10,8 +10,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { BrandingConfig } from "@/types/branding"
 import { cn } from "@/lib/utils"
+import { BrandingConfig } from "@/types/branding"
 
 export type DatePickerProps = {
   label?: string
@@ -21,6 +21,7 @@ export type DatePickerProps = {
   disabled?: boolean
   style?: React.CSSProperties
   brandingConfig?: BrandingConfig
+  disablePastDates?: boolean
 }
 
 const DatePicker = ({
@@ -31,8 +32,16 @@ const DatePicker = ({
   disabled = false,
   style,
   brandingConfig,
+  disablePastDates = true,
 }: DatePickerProps) => {
   const [open, setOpen] = React.useState(false)
+
+  // Get today's date at midnight for consistent comparison
+  const today = React.useMemo(() => {
+    const date = new Date()
+    date.setHours(0, 0, 0, 0)
+    return date
+  }, [])
 
   const getFieldStyle = () => {
     const baseStyle = {
@@ -89,6 +98,7 @@ const DatePicker = ({
             onChange?.(date)
             setOpen(false)
           }}
+          disabled={disablePastDates ? (date) => date < today : undefined}
         />
       </PopoverContent>
     </Popover>
