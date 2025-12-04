@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Pencil,
 } from "lucide-react"
+import Link from "next/link"
 import { Badge } from "../../ui/badge"
 import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
@@ -35,6 +36,21 @@ const ListingListTableView = ({
     listings &&
     listings.length > 0 &&
     listings.every((listing) => selectedListings.has(listing.id))
+
+  const handleRowClick = (listingId: string, e: React.MouseEvent) => {
+    // Don't navigate if clicking on checkbox or actions
+    const target = e.target as HTMLElement
+    if (
+      target.closest('input[type="checkbox"]') ||
+      target.closest("button") ||
+      target.closest("[role='dialog']") ||
+      target.closest("a")
+    ) {
+      return
+    }
+    window.location.href = `/listing/${listingId}`
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-100 shadow-md">
       <Table className="overflow-x-auto">
@@ -78,15 +94,25 @@ const ListingListTableView = ({
               year: "numeric",
             })
             return (
-              <TableRow key={item.id} className="px-4">
-                <TableCell>
+              <TableRow
+                key={item.id}
+                className="cursor-pointer px-4 hover:bg-gray-50"
+                onClick={(e) => handleRowClick(item.id, e)}
+              >
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     checked={selectedListings.has(item.id)}
                     onCheckedChange={() => onToggleListing(item.id)}
                   />
                 </TableCell>
                 <TableCell className="flex flex-col gap-1">
-                  <span className="font-medium">{item.address}</span>
+                  <Link
+                    href={`/listing/${item.id}`}
+                    className="font-medium text-teal-600 hover:text-teal-700 hover:underline"
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  >
+                    {item.address}
+                  </Link>
                   <span className="text-xs text-gray-700">
                     Listed on {formattedDate}
                   </span>
@@ -119,13 +145,15 @@ const ListingListTableView = ({
                       collisionPadding={64}
                     >
                       <div className="flex flex-col gap-1">
-                        <Button
-                          variant="ghost"
-                          className="hover: flex items-center justify-start gap-2 p-2"
-                        >
-                          <ArrowRight size={18} />
-                          <span className="text-sm">Go to Listing</span>
-                        </Button>
+                        <Link href={`/listing/${item.id}`}>
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start gap-2 p-2"
+                          >
+                            <ArrowRight size={18} />
+                            <span className="text-sm">Go to Listing</span>
+                          </Button>
+                        </Link>
                         <Button
                           variant="ghost"
                           className="hover: flex items-center justify-start gap-2 p-2"

@@ -165,3 +165,31 @@ export async function updateListingsStatus(
     }
   }
 }
+
+export async function getListingById(
+  listingId: string,
+): Promise<ListingWithOfferCounts | null> {
+  const supabase = await createClient()
+
+  const { data: listing, error } = await supabase
+    .from("listings")
+    .select("*, offers(*)")
+    .eq("id", listingId)
+    .single()
+
+  if (!listing || error) {
+    console.error("Error fetching listing:", error)
+    return null
+  }
+
+  const offers = listing.offers || []
+
+  return {
+    ...listing,
+    activeOffers: offers.filter((offer) => offer.status === "verified").length,
+    pendingOffers: offers.filter((offer) => offer.status === "unverified")
+      .length,
+    totalOffers: offers.length,
+    offers: undefined,
+  } as ListingWithOfferCounts
+}
