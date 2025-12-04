@@ -119,7 +119,12 @@ const QuestionSetupForm = ({
   }, [setupConfig, conditions, questionType, initialUIConfig, onComplete])
 
   // Add event listener for external save trigger
+  // Skip for deposit questions as they use SmartQuestionSetup which has its own handler
   useEffect(() => {
+    if (questionType === "deposit") {
+      return // Deposit questions use SmartQuestionSetup which handles the event
+    }
+
     const handleExternalSave = () => {
       handleComplete()
     }
@@ -128,7 +133,7 @@ const QuestionSetupForm = ({
     return () => {
       window.removeEventListener("smartQuestionSave", handleExternalSave)
     }
-  }, [handleComplete])
+  }, [handleComplete, questionType])
 
   // Special handling for deposit question using SmartQuestionSetup
   if (questionType === "deposit") {
