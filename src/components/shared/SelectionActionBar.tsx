@@ -89,7 +89,7 @@ const SelectionActionBar = ({
           "px-3 py-2",
         )}
       >
-        <div className="flex items-center justify-between gap-12">
+        <div className="sm:12 flex items-center justify-around gap-4 sm:justify-between">
           <Button
             variant="ghost"
             size="icon"
@@ -105,7 +105,7 @@ const SelectionActionBar = ({
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="hidden text-sm font-medium text-gray-700 sm:inline">
                 {selectedCount} {itemName} selected
               </span>
 
@@ -139,7 +139,7 @@ const SelectionActionBar = ({
                   className="gap-2"
                 >
                   <MessageSquare size={16} />
-                  Send Message
+                  <span className="hidden sm:inline">Message</span>
                 </Button>
               )}
             </div>
@@ -152,7 +152,7 @@ const SelectionActionBar = ({
             className="gap-2"
           >
             <Trash2 size={16} />
-            Delete
+            <span className="hidden sm:inline">Delete</span>
           </Button>
         </div>
       </div>
