@@ -2,8 +2,7 @@
 
 import { deleteOffers, updateOffersStatus } from "@/app/actions/offers"
 import { OFFER_STATUSES } from "@/constants/offers"
-import { OfferWithListing } from "@/types/offer"
-import { OfferStatus } from "@/types/offer"
+import { OfferStatus, OfferWithListing } from "@/types/offer"
 import { LayoutGrid, TableOfContents } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -16,13 +15,20 @@ import OffersListTileView from "./OffersListTileView"
 const OffersList = ({
   offers,
   onOffersUpdate,
+  onViewModeChange,
 }: {
   offers: Array<OfferWithListing> | null
   onOffersUpdate?: (offers: Array<OfferWithListing> | null) => void
+  onViewModeChange?: (mode: "table" | "tile") => void
 }) => {
   const router = useRouter()
   const [viewStyle, setViewStyle] = useState<"table" | "tile">("table")
   const [selectedOffers, setSelectedOffers] = useState<Set<string>>(new Set())
+
+  const handleViewChange = (mode: "table" | "tile") => {
+    setViewStyle(mode)
+    onViewModeChange?.(mode)
+  }
 
   const handleToggleOffer = (offerId: string) => {
     setSelectedOffers((prev) => {
@@ -46,17 +52,21 @@ const OffersList = ({
 
   const handleDelete = async () => {
     const offerIds = Array.from(selectedOffers)
-    
+
     // Optimistic update: remove offers from UI immediately
     if (offers && onOffersUpdate) {
-      const updatedOffers = offers.filter((offer) => !offerIds.includes(offer.id))
+      const updatedOffers = offers.filter(
+        (offer) => !offerIds.includes(offer.id),
+      )
       onOffersUpdate(updatedOffers.length > 0 ? updatedOffers : null)
     }
-    
+
     const result = await deleteOffers(offerIds)
 
     if (result.success) {
-      toast.success(`Successfully deleted ${offerIds.length} offer${offerIds.length > 1 ? "s" : ""}`)
+      toast.success(
+        `Successfully deleted ${offerIds.length} offer${offerIds.length > 1 ? "s" : ""}`,
+      )
       setSelectedOffers(new Set())
       router.refresh()
     } else {
@@ -70,21 +80,23 @@ const OffersList = ({
 
   const handleStatusChange = async (status: string) => {
     const offerIds = Array.from(selectedOffers)
-    
+
     // Optimistic update: update status in UI immediately
     if (offers && onOffersUpdate) {
       const updatedOffers = offers.map((offer) =>
         offerIds.includes(offer.id)
           ? { ...offer, status: status as OfferStatus }
-          : offer
+          : offer,
       )
       onOffersUpdate(updatedOffers)
     }
-    
+
     const result = await updateOffersStatus(offerIds, status)
 
     if (result.success) {
-      toast.success(`Successfully updated ${offerIds.length} offer${offerIds.length > 1 ? "s" : ""} status`)
+      toast.success(
+        `Successfully updated ${offerIds.length} offer${offerIds.length > 1 ? "s" : ""} status`,
+      )
       setSelectedOffers(new Set())
       router.refresh()
     } else {
@@ -101,10 +113,12 @@ const OffersList = ({
     toast.info("Send message functionality coming soon")
   }
 
-  const statusOptions = Object.entries(OFFER_STATUSES).map(([value, label]) => ({
-    value,
-    label,
-  }))
+  const statusOptions = Object.entries(OFFER_STATUSES).map(
+    ([value, label]) => ({
+      value,
+      label,
+    }),
+  )
 
   return (
     <>
@@ -112,7 +126,7 @@ const OffersList = ({
         <Button
           variant="ghost"
           active={viewStyle === "table"}
-          onClick={() => setViewStyle("table")}
+          onClick={() => handleViewChange("table")}
         >
           <TableOfContents size={18} />
           Table View
@@ -120,7 +134,7 @@ const OffersList = ({
         <Button
           variant="ghost"
           active={viewStyle === "tile"}
-          onClick={() => setViewStyle("tile")}
+          onClick={() => handleViewChange("tile")}
         >
           <LayoutGrid size={18} />
           Tile View
@@ -158,4 +172,3 @@ const OffersList = ({
 }
 
 export default OffersList
-

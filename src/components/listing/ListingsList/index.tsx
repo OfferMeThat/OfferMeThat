@@ -15,15 +15,22 @@ import ListingListTileView from "./ListingListTileView"
 const ListingsList = ({
   listings,
   onListingsUpdate,
+  onViewModeChange,
 }: {
   listings: Array<ListingWithOfferCounts> | null
   onListingsUpdate?: (listings: Array<ListingWithOfferCounts> | null) => void
+  onViewModeChange?: (mode: "table" | "tile") => void
 }) => {
   const router = useRouter()
   const [viewStyle, setViewStyle] = useState<"table" | "tile">("table")
   const [selectedListings, setSelectedListings] = useState<Set<string>>(
     new Set(),
   )
+
+  const handleViewChange = (mode: "table" | "tile") => {
+    setViewStyle(mode)
+    onViewModeChange?.(mode)
+  }
 
   const handleToggleListing = (listingId: string) => {
     setSelectedListings((prev) => {
@@ -116,7 +123,7 @@ const ListingsList = ({
         <Button
           variant="ghost"
           active={viewStyle === "table"}
-          onClick={() => setViewStyle("table")}
+          onClick={() => handleViewChange("table")}
         >
           <TableOfContents size={18} />
           Table View
@@ -124,7 +131,7 @@ const ListingsList = ({
         <Button
           variant="ghost"
           active={viewStyle === "tile"}
-          onClick={() => setViewStyle("tile")}
+          onClick={() => handleViewChange("tile")}
         >
           <LayoutGrid size={18} />
           Tile View

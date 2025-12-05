@@ -1,14 +1,13 @@
 "use client"
 
 import { getFilteredOffers } from "@/app/actions/offers"
-import { OfferWithListing } from "@/types/offer"
-import { OfferStatus } from "@/types/offer"
+import { Listing } from "@/types/listing"
+import { OfferStatus, OfferWithListing } from "@/types/offer"
 import { useEffect, useState, useTransition } from "react"
 import Heading from "../shared/typography/Heading"
-import { Spinner } from "../ui/spinner"
-import OffersViewFilters from "./OffersViewFilters"
+import { OffersTableSkeleton, OffersTileSkeleton } from "../ui/skeleton"
 import OffersList from "./OffersList"
-import { Listing } from "@/types/listing"
+import OffersViewFilters from "./OffersViewFilters"
 
 type SelectionFilter = { from: string | null; to: string | null }
 
@@ -38,9 +37,11 @@ const MyOffersPageContent = ({
   initialListings: Array<Listing> | null
 }) => {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
-  const [offers, setOffers] =
-    useState<Array<OfferWithListing> | null>(initialData)
+  const [offers, setOffers] = useState<Array<OfferWithListing> | null>(
+    initialData,
+  )
   const [isPending, startTransition] = useTransition()
+  const [viewMode, setViewMode] = useState<"table" | "tile">("table")
 
   // Fetch filtered offers when filters change
   useEffect(() => {
@@ -68,20 +69,21 @@ const MyOffersPageContent = ({
         listings={initialListings}
       />
 
-      {isPending && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
-          <Spinner />
-          Loading filtered results...
-        </div>
+      {isPending ? (
+        viewMode === "table" ? (
+          <OffersTableSkeleton />
+        ) : (
+          <OffersTileSkeleton />
+        )
+      ) : (
+        <OffersList
+          offers={offers}
+          onOffersUpdate={(updatedOffers) => setOffers(updatedOffers)}
+          onViewModeChange={setViewMode}
+        />
       )}
-
-      <OffersList
-        offers={offers}
-        onOffersUpdate={(updatedOffers) => setOffers(updatedOffers)}
-      />
     </main>
   )
 }
 
 export default MyOffersPageContent
-
