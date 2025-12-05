@@ -1,20 +1,34 @@
 "use client"
 
 import { OFFER_STATUSES, OFFER_TO_BADGE_MAP } from "@/constants/offers"
+import {
+  formatDepositData,
+  formatMessageToAgent,
+  formatPurchaserData,
+  formatSettlementDateData,
+  formatSubjectToLoanApproval,
+} from "@/lib/formatOfferData"
 import { parseAllCustomQuestions } from "@/lib/parseCustomQuestionsData"
 import { OfferWithListing } from "@/types/offer"
-import { ArrowLeft, Calendar, Check, Clock, DollarSign, FileText, Mail, MapPin, Phone, User } from "lucide-react"
+import {
+  ArrowLeft,
+  Calendar,
+  Check,
+  Clock,
+  DollarSign,
+  FileText,
+  Mail,
+  MapPin,
+  Phone,
+  User,
+} from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import Heading from "../shared/typography/Heading"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
-import Heading from "../shared/typography/Heading"
 
-const OfferDetailPage = ({
-  offer,
-}: {
-  offer: OfferWithListing | null
-}) => {
+const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
   const router = useRouter()
 
   if (!offer) {
@@ -36,14 +50,11 @@ const OfferDetailPage = ({
     )
   }
 
-  const formattedDate = new Date(offer.createdAt).toLocaleDateString(
-    "en-US",
-    {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    },
-  )
+  const formattedDate = new Date(offer.createdAt).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  })
 
   const getSubmitterName = () => {
     const firstName = offer.submitterFirstName || ""
@@ -68,21 +79,22 @@ const OfferDetailPage = ({
   }
 
   // Show listing link if listing exists and offer is not "unassigned" (has a listingId and listing exists)
-  const hasListing = offer.listing !== null && offer.listingId && offer.customListingAddress === null
+  const hasListing =
+    offer.listing !== null &&
+    offer.listingId &&
+    offer.customListingAddress === null
   const statusBadgeVariant = OFFER_TO_BADGE_MAP[offer.status]
   const statusLabel = OFFER_STATUSES[offer.status]
 
   // Parse custom questions data
-  const parsedCustomQuestions = parseAllCustomQuestions(offer.customQuestionsData as any)
+  const parsedCustomQuestions = parseAllCustomQuestions(
+    offer.customQuestionsData as any,
+  )
 
   return (
     <main className="px-6 py-8">
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => router.back()}
-          className="mb-4"
-        >
+        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
           <ArrowLeft size={16} className="mr-2" />
           Back
         </Button>
@@ -90,7 +102,12 @@ const OfferDetailPage = ({
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="mb-2 flex items-center gap-3">
-              <Heading as="h1" size="large" weight="bold" className="text-teal-500">
+              <Heading
+                as="h1"
+                size="large"
+                weight="bold"
+                className="text-teal-500"
+              >
                 Offer Details
               </Heading>
               <Badge variant={statusBadgeVariant} className="gap-1">
@@ -118,7 +135,9 @@ const OfferDetailPage = ({
             <div className="flex items-start gap-3">
               <DollarSign className="mt-1 h-5 w-5 text-gray-400" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-500">Offer Amount</p>
+                <p className="text-sm font-medium text-gray-500">
+                  Offer Amount
+                </p>
                 <p className="text-2xl font-bold text-gray-900">
                   {formatCurrency(offer.amount)}
                 </p>
@@ -157,7 +176,9 @@ const OfferDetailPage = ({
             <div className="flex items-start gap-3">
               <div className="mt-1 h-5 w-5" />
               <div>
-                <p className="text-sm font-medium text-gray-500">Payment Method</p>
+                <p className="text-sm font-medium text-gray-500">
+                  Payment Method
+                </p>
                 <p className="text-base font-semibold text-gray-900 capitalize">
                   {offer.paymentWay}
                 </p>
@@ -178,7 +199,9 @@ const OfferDetailPage = ({
               <div className="flex items-start gap-3">
                 <div className="mt-1 h-5 w-5" />
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Conditional</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    Conditional
+                  </p>
                   <p className="text-base font-semibold text-gray-900">
                     {offer.conditional ? "Yes" : "No"}
                   </p>
@@ -244,96 +267,94 @@ const OfferDetailPage = ({
           offer.settlementDateData ||
           offer.subjectToLoanApproval ||
           offer.customQuestionsData) && (
-          <div className="md:col-span-2 rounded-2xl border border-gray-100 bg-white p-6 shadow-md">
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-md md:col-span-2">
             <Heading as="h2" size="medium" weight="bold" className="mb-4">
               Additional Information
             </Heading>
             <div className="space-y-4">
               {offer.specialConditions && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">
+                  <p className="mb-2 text-sm font-medium text-gray-500">
                     Special Conditions
                   </p>
-                  <p className="text-base text-gray-900 whitespace-pre-wrap">
+                  <p className="text-base whitespace-pre-wrap text-gray-900">
                     {offer.specialConditions}
                   </p>
                 </div>
               )}
 
-              {offer.messageToAgent && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">
-                    Message to Agent
-                  </p>
-                  <div className="text-base text-gray-900">
-                    {typeof offer.messageToAgent === "object" ? (
-                      <pre className="whitespace-pre-wrap font-sans">
-                        {JSON.stringify(offer.messageToAgent, null, 2)}
-                      </pre>
-                    ) : (
-                      <p className="whitespace-pre-wrap">
-                        {String(offer.messageToAgent)}
+              {offer.messageToAgent &&
+                (() => {
+                  const formatted = formatMessageToAgent(offer.messageToAgent)
+                  return formatted ? (
+                    <div>
+                      <p className="mb-2 text-sm font-medium text-gray-500">
+                        Message to Agent
                       </p>
-                    )}
-                  </div>
-                </div>
-              )}
+                      <div className="text-base">{formatted}</div>
+                    </div>
+                  ) : null
+                })()}
 
-              {offer.purchaserData && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">
-                    Purchaser Data
-                  </p>
-                  <div className="text-base text-gray-900">
-                    <pre className="whitespace-pre-wrap font-sans text-sm bg-gray-50 p-3 rounded">
-                      {JSON.stringify(offer.purchaserData, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              )}
+              {offer.purchaserData &&
+                (() => {
+                  const formatted = formatPurchaserData(offer.purchaserData)
+                  return formatted ? (
+                    <div>
+                      <p className="mb-2 text-sm font-medium text-gray-500">
+                        Purchaser Data
+                      </p>
+                      <div className="text-base">{formatted}</div>
+                    </div>
+                  ) : null
+                })()}
 
-              {offer.depositData && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">
-                    Deposit Information
-                  </p>
-                  <div className="text-base text-gray-900">
-                    <pre className="whitespace-pre-wrap font-sans text-sm bg-gray-50 p-3 rounded">
-                      {JSON.stringify(offer.depositData, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              )}
+              {offer.depositData &&
+                (() => {
+                  const formatted = formatDepositData(offer.depositData)
+                  return formatted ? (
+                    <div>
+                      <p className="mb-2 text-sm font-medium text-gray-500">
+                        Deposit Information
+                      </p>
+                      <div className="text-base">{formatted}</div>
+                    </div>
+                  ) : null
+                })()}
 
-              {offer.settlementDateData && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">
-                    Settlement Date Information
-                  </p>
-                  <div className="text-base text-gray-900">
-                    <pre className="whitespace-pre-wrap font-sans text-sm bg-gray-50 p-3 rounded">
-                      {JSON.stringify(offer.settlementDateData, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              )}
+              {offer.settlementDateData &&
+                (() => {
+                  const formatted = formatSettlementDateData(
+                    offer.settlementDateData,
+                  )
+                  return formatted ? (
+                    <div>
+                      <p className="mb-2 text-sm font-medium text-gray-500">
+                        Settlement Date Information
+                      </p>
+                      <div className="text-base">{formatted}</div>
+                    </div>
+                  ) : null
+                })()}
 
-              {offer.subjectToLoanApproval && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">
-                    Subject to Loan Approval
-                  </p>
-                  <div className="text-base text-gray-900">
-                    <pre className="whitespace-pre-wrap font-sans text-sm bg-gray-50 p-3 rounded">
-                      {JSON.stringify(offer.subjectToLoanApproval, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              )}
+              {offer.subjectToLoanApproval &&
+                (() => {
+                  const formatted = formatSubjectToLoanApproval(
+                    offer.subjectToLoanApproval,
+                  )
+                  return formatted ? (
+                    <div>
+                      <p className="mb-2 text-sm font-medium text-gray-500">
+                        Subject to Loan Approval
+                      </p>
+                      <div className="text-base">{formatted}</div>
+                    </div>
+                  ) : null
+                })()}
 
               {parsedCustomQuestions.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-3">
+                  <p className="mb-3 text-sm font-medium text-gray-500">
                     Custom Questions
                   </p>
                   <div className="space-y-4">
@@ -342,7 +363,7 @@ const OfferDetailPage = ({
                         key={index}
                         className="border-b border-gray-100 pb-4 last:border-b-0 last:pb-0"
                       >
-                        <p className="text-sm font-semibold text-gray-700 mb-1">
+                        <p className="mb-1 text-sm font-semibold text-gray-700">
                           {question.questionText}
                         </p>
                         <div className="text-base text-gray-900">
@@ -351,28 +372,33 @@ const OfferDetailPage = ({
                             question.formattedValue.includes("[") &&
                             question.formattedValue.includes("](") ? (
                               <div className="whitespace-pre-wrap">
-                                {question.formattedValue.split(/(\[.*?\]\(.*?\))/g).map((part, i) => {
-                                  const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/)
-                                  if (linkMatch) {
-                                    const [, text, url] = linkMatch
-                                    return (
-                                      <a
-                                        key={i}
-                                        href={url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-teal-600 hover:text-teal-700 hover:underline inline-flex items-center gap-1"
-                                      >
-                                        <FileText size={14} />
-                                        {text}
-                                      </a>
-                                    )
-                                  }
-                                  return <span key={i}>{part}</span>
-                                })}
+                                {question.formattedValue
+                                  .split(/(\[.*?\]\(.*?\))/g)
+                                  .map((part, i) => {
+                                    const linkMatch =
+                                      part.match(/\[(.*?)\]\((.*?)\)/)
+                                    if (linkMatch) {
+                                      const [, text, url] = linkMatch
+                                      return (
+                                        <a
+                                          key={i}
+                                          href={url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
+                                        >
+                                          <FileText size={14} />
+                                          {text}
+                                        </a>
+                                      )
+                                    }
+                                    return <span key={i}>{part}</span>
+                                  })}
                               </div>
                             ) : (
-                              <p className="whitespace-pre-wrap">{question.formattedValue}</p>
+                              <p className="whitespace-pre-wrap">
+                                {question.formattedValue}
+                              </p>
                             )
                           ) : (
                             <div>{question.formattedValue}</div>
@@ -392,4 +418,3 @@ const OfferDetailPage = ({
 }
 
 export default OfferDetailPage
-

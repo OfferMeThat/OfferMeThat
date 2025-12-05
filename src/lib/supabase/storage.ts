@@ -67,3 +67,89 @@ export async function uploadMultipleFilesToStorage(
   return Promise.all(uploadPromises)
 }
 
+/**
+ * Create a signed URL for a file in Supabase Storage
+ * @param url - The public URL of the file
+ * @param expiresIn - Expiry duration in seconds (default: 1 hour)
+ * @returns The signed URL or original URL if bucket is public
+ */
+export async function createSignedUrl(
+  url: string,
+  expiresIn: number = 3600,
+): Promise<string> {
+  try {
+    // If URL doesn't contain the storage path, return as-is
+    if (!url.includes("/storage/v1/object/")) {
+      return url
+    }
+
+    const supabase = await createClient()
+
+    // Extract bucket and path from the URL
+    // Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
+    // or: https://[project].supabase.co/storage/v1/object/sign/[bucket]/[path]
+    let bucket: string
+    let path: string
+
+    if (url.includes("/storage/v1/object/public/")) {
+      const urlParts = url.split("/storage/v1/object/public/")
+      if (urlParts.length !== 2) {
+        console.warn(
+          "Invalid Supabase storage URL format, returning original URL",
+        )
+        return url
+      }
+      const [extractedBucket, ...pathParts] = urlParts[1].split("/")
+      bucket = extractedBucket
+      path = pathParts.join("/")
+    } else if (url.includes("/storage/v1/object/sign/")) {
+      const urlParts = url.split("/storage/v1/object/sign/")
+      if (urlParts.length !== 2) {
+        console.warn(
+          "Invalid Supabase storage URL format, returning original URL",
+        )
+        return url
+      }
+      const [extractedBucket, ...pathParts] = urlParts[1].split("/")
+      bucket = extractedBucket
+      path = pathParts.join("/")
+    } else {
+      console.warn("Unknown storage URL format, returning original URL")
+      return url
+    }
+
+    // Decode the path in case it has URL encoding
+    path = decodeURIComponent(path)
+
+    // Try to create signed URL
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, expiresIn)
+
+    if (error) {
+      console.error(`Error creating signed URL for ${bucket}/${path}:`, error)
+      // Return original URL as fallback
+      return url
+    }
+
+    return data.signedUrl
+  } catch (error) {
+    console.error("Error in createSignedUrl:", error)
+    // Fallback to original URL on any error
+    return url
+  }
+}
+
+/**
+ * Create signed URLs for multiple files
+ * @param urls - Array of public URLs
+ * @param expiresIn - Expiry duration in seconds (default: 1 hour)
+ * @returns Array of signed URLs
+ */
+export async function createSignedUrls(
+  urls: string[],
+  expiresIn: number = 3600,
+): Promise<string[]> {
+  const signedUrlPromises = urls.map((url) => createSignedUrl(url, expiresIn))
+  return Promise.all(signedUrlPromises)
+}
