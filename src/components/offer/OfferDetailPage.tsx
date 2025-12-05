@@ -208,6 +208,46 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                 </div>
               </div>
             )}
+
+            {(offer.expires || offer.expiryTime) && (
+              <div className="flex items-start gap-3">
+                <Clock className="mt-1 h-5 w-5 text-gray-400" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">
+                    Offer Expires
+                  </p>
+                  <p className="text-base font-semibold text-gray-900">
+                    {offer.expires &&
+                      new Date(offer.expires).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    {offer.expiryTime && ` at ${offer.expiryTime}`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {offer.updatedAt && (
+              <div className="flex items-start gap-3">
+                <div className="mt-1 h-5 w-5" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">
+                    Last Updated
+                  </p>
+                  <p className="text-base text-gray-600">
+                    {new Date(offer.updatedAt).toLocaleDateString("en-US", {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -280,6 +320,23 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                   <p className="text-base whitespace-pre-wrap text-gray-900">
                     {offer.specialConditions}
                   </p>
+                </div>
+              )}
+
+              {offer.purchaseAgreementFileUrl && (
+                <div>
+                  <p className="mb-2 text-sm font-medium text-gray-500">
+                    Purchase Agreement
+                  </p>
+                  <a
+                    href={offer.purchaseAgreementFileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 hover:underline"
+                  >
+                    <FileText size={16} />
+                    View Purchase Agreement
+                  </a>
                 </div>
               )}
 

@@ -98,6 +98,11 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
     })
   }
 
+  // Collect URL from purchaseAgreementFileUrl
+  if (processedOffer.purchaseAgreementFileUrl) {
+    collectUrl(processedOffer.purchaseAgreementFileUrl)
+  }
+
   // If no URLs to sign, return original offer
   if (urlsToSign.length === 0) {
     return processedOffer
@@ -203,6 +208,13 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
         }
       }
     })
+  }
+
+  // Replace URL in purchaseAgreementFileUrl
+  if (processedOffer.purchaseAgreementFileUrl) {
+    processedOffer.purchaseAgreementFileUrl =
+      getSignedUrl(processedOffer.purchaseAgreementFileUrl) ||
+      processedOffer.purchaseAgreementFileUrl
   }
 
   return processedOffer
