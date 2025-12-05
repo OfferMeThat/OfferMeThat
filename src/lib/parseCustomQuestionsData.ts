@@ -106,7 +106,7 @@ export function parseCustomQuestion(
   }
 
   const { questionText, answerType, value } = questionData
-  let formattedValue: string | JSX.Element
+  let formattedValue: string
 
   switch (answerType) {
     case "short_text":
