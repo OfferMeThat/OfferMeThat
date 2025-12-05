@@ -6,7 +6,7 @@ import { PlusIcon } from "lucide-react"
 import { useEffect, useState, useTransition } from "react"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
-import { Spinner } from "../ui/spinner"
+import { ListingsTableSkeleton, ListingsTileSkeleton } from "../ui/skeleton"
 import { AddListingModal } from "./AddListingModal"
 import ListingViewFilters from "./ListingViewFilters"
 import ListingsList from "./ListingsList"
@@ -44,6 +44,7 @@ const MyListingsPageContent = ({
   const [listings, setListings] =
     useState<Array<ListingWithOfferCounts> | null>(initialData)
   const [isPending, startTransition] = useTransition()
+  const [viewMode, setViewMode] = useState<"table" | "tile">("table")
 
   // Fetch filtered listings when filters change
   useEffect(() => {
@@ -62,7 +63,7 @@ const MyListingsPageContent = ({
   }
 
   return (
-    <main className="px-6 py-8">
+    <main className="px-6 py-8 pb-24">
       <div className="mb-4 flex flex-col gap-1">
         <Heading as="h1" size="large" weight="bold" className="text-teal-500">
           My Listings
@@ -81,14 +82,19 @@ const MyListingsPageContent = ({
 
       <ListingViewFilters filters={filters} setFilters={setFilters} />
 
-      {isPending && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
-          <Spinner />
-          Loading filtered results...
-        </div>
+      {isPending ? (
+        viewMode === "table" ? (
+          <ListingsTableSkeleton />
+        ) : (
+          <ListingsTileSkeleton />
+        )
+      ) : (
+        <ListingsList
+          listings={listings}
+          onListingsUpdate={(updatedListings) => setListings(updatedListings)}
+          onViewModeChange={setViewMode}
+        />
       )}
-
-      <ListingsList listings={listings} />
     </main>
   )
 }

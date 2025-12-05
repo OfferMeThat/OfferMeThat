@@ -219,3 +219,175 @@ export const saveOffer = async ({
     return { success: false, error: error.message || "Failed to save offer" }
   }
 }
+
+import { Filters } from "@/components/offer/MyOffersPageContent"
+import { Listing } from "@/types/listing"
+import { OfferWithListing } from "@/types/offer"
+
+export async function getAllListings(): Promise<Listing[] | null> {
+  const supabase = await createClient()
+
+  const { data: listings, error } = await supabase
+    .from("listings")
+    .select("*")
+    .order("address", { ascending: true })
+
+  if (!listings || error) {
+    console.error("Error fetching listings:", error)
+    return null
+  }
+
+  return listings
+}
+
+export async function getFilteredOffers(
+  filters: Filters,
+): Promise<OfferWithListing[] | null> {
+  const supabase = await createClient()
+
+  // Start building the query with listing join
+  let query = supabase
+    .from("offers")
+    .select("*, listings(*)")
+
+  // Apply status filter
+  if (filters.status) {
+    query = query.eq("status", filters.status)
+  }
+
+  // Apply listing filter
+  if (filters.listingId) {
+    query = query.eq("listingId", filters.listingId)
+  }
+
+  // Apply amount filters
+  if (filters.minAmount) {
+    query = query.gte("amount", filters.minAmount)
+  }
+  if (filters.maxAmount) {
+    query = query.lte("amount", filters.maxAmount)
+  }
+
+  // Apply date range filter (on createdAt)
+  if (filters.dateRange.from) {
+    query = query.gte("createdAt", filters.dateRange.from)
+  }
+  if (filters.dateRange.to) {
+    query = query.lte("createdAt", filters.dateRange.to)
+  }
+
+  // Execute the query
+  const { data: offers, error } = await query
+
+  if (!offers || error) {
+    console.error("Error fetching filtered offers:", error)
+    return null
+  }
+
+  // Transform the data to match OfferWithListing type
+  let transformedOffers = offers.map((offer: any) => ({
+    ...offer,
+    listing: Array.isArray(offer.listings) ? offer.listings[0] || null : offer.listings || null,
+  })) as OfferWithListing[]
+
+  // Apply name search client-side (searches in submitterFirstName and submitterLastName)
+  if (filters.nameSearch) {
+    const searchLower = filters.nameSearch.toLowerCase()
+    transformedOffers = transformedOffers.filter((offer) => {
+      const firstName = (offer.submitterFirstName || "").toLowerCase()
+      const lastName = (offer.submitterLastName || "").toLowerCase()
+      const fullName = `${firstName} ${lastName}`.trim()
+      return (
+        firstName.includes(searchLower) ||
+        lastName.includes(searchLower) ||
+        fullName.includes(searchLower)
+      )
+    })
+  }
+
+  return transformedOffers
+}
+
+export async function deleteOffers(offerIds: string[]): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  try {
+    const { error } = await supabase
+      .from("offers")
+      .delete()
+      .in("id", offerIds)
+
+    if (error) {
+      console.error("Error deleting offers:", error)
+      return {
+        success: false,
+        error: error.message || "Failed to delete offers",
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in deleteOffers:", error)
+    return {
+      success: false,
+      error: error?.message || "An unexpected error occurred",
+    }
+  }
+}
+
+export async function updateOffersStatus(
+  offerIds: string[],
+  status: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  try {
+    const { error } = await supabase
+      .from("offers")
+      .update({ status: status as any })
+      .in("id", offerIds)
+
+    if (error) {
+      console.error("Error updating offer status:", error)
+      return {
+        success: false,
+        error: error.message || "Failed to update offer status",
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in updateOffersStatus:", error)
+    return {
+      success: false,
+      error: error?.message || "An unexpected error occurred",
+    }
+  }
+}
+
+export async function getOfferById(
+  offerId: string,
+): Promise<OfferWithListing | null> {
+  const supabase = await createClient()
+
+  const { data: offer, error } = await supabase
+    .from("offers")
+    .select("*, listings(*)")
+    .eq("id", offerId)
+    .single()
+
+  if (!offer || error) {
+    console.error("Error fetching offer:", error)
+    return null
+  }
+
+  // Transform the data to match OfferWithListing type
+  const transformedOffer = {
+    ...offer,
+    listing: Array.isArray(offer.listings)
+      ? offer.listings[0] || null
+      : offer.listings || null,
+  } as OfferWithListing
+
+  return transformedOffer
+}
