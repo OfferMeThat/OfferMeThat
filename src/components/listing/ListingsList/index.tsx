@@ -9,6 +9,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import SelectionActionBar from "../../shared/SelectionActionBar"
 import { Button } from "../../ui/button"
+import ReportGenerationModal from "../ReportGenerationModal"
 import ListingListTableView from "./ListingListTableView"
 import ListingListTileView from "./ListingListTileView"
 
@@ -26,6 +27,7 @@ const ListingsList = ({
   const [selectedListings, setSelectedListings] = useState<Set<string>>(
     new Set(),
   )
+  const [reportModalOpen, setReportModalOpen] = useState(false)
 
   const handleViewChange = (mode: "table" | "tile") => {
     setViewStyle(mode)
@@ -110,12 +112,20 @@ const ListingsList = ({
     }
   }
 
+  const handleGenerateReport = () => {
+    setReportModalOpen(true)
+  }
+
   const statusOptions = Object.entries(LISTING_STATUSES).map(
     ([value, label]) => ({
       value,
       label,
     }),
   )
+
+  // Get selected listings data for report generation
+  const selectedListingsData =
+    listings?.filter((listing) => selectedListings.has(listing.id)) || []
 
   return (
     <>
@@ -153,11 +163,18 @@ const ListingsList = ({
         selectedCount={selectedListings.size}
         onDelete={handleDelete}
         onStatusChange={handleStatusChange}
+        onGenerateReport={handleGenerateReport}
         onClearSelection={() => setSelectedListings(new Set())}
         statusOptions={statusOptions}
         statusLabel="Listing Status"
         itemType="listings"
         showMessageButton={false}
+      />
+
+      <ReportGenerationModal
+        open={reportModalOpen}
+        onOpenChange={setReportModalOpen}
+        listings={selectedListingsData}
       />
     </>
   )
