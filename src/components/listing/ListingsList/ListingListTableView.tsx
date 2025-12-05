@@ -11,6 +11,7 @@ import Link from "next/link"
 import { Badge } from "../../ui/badge"
 import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
+import { EmptyState } from "../../ui/empty-state"
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
 import {
   Table,
@@ -49,6 +50,17 @@ const ListingListTableView = ({
       return
     }
     window.location.href = `/listing/${listingId}`
+  }
+
+  // Show empty state if no listings
+  if (!listings || listings.length === 0) {
+    return (
+      <EmptyState
+        icon="search"
+        title="No listings found"
+        description="No listings match your current filters. Try adjusting your search criteria or add a new listing."
+      />
+    )
   }
 
   return (

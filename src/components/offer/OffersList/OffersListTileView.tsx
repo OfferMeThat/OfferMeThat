@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { Badge } from "../../ui/badge"
 import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
+import { EmptyState } from "../../ui/empty-state"
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
 
 const OffersListTileView = ({
@@ -45,9 +46,11 @@ const OffersListTileView = ({
 
   if (!offers || offers.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-100 p-8 text-center shadow-md">
-        <p className="text-gray-500">No offers found</p>
-      </div>
+      <EmptyState
+        icon="inbox"
+        title="No offers found"
+        description="No offers match your current filters. Try adjusting your search criteria."
+      />
     )
   }
 
@@ -68,7 +71,7 @@ const OffersListTileView = ({
         return (
           <div
             key={offer.id}
-            className="col-span-1 flex flex-col gap-3 rounded-lg border border-gray-100 p-4 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+            className="col-span-1 flex cursor-pointer flex-col gap-3 rounded-lg border border-gray-100 p-4 shadow-md transition-shadow hover:shadow-lg"
             onClick={(e) => {
               // Don't navigate if clicking on checkbox or actions
               const target = e.target as HTMLElement
@@ -132,7 +135,7 @@ const OffersListTileView = ({
               </div>
             </div>
 
-            <div className="mt-auto flex items-center justify-between pt-2 border-t border-gray-100">
+            <div className="mt-auto flex items-center justify-between border-t border-gray-100 pt-2">
               <span className="text-xs text-gray-600">
                 Received: {formattedDate}
               </span>
@@ -168,4 +171,3 @@ const OffersListTileView = ({
 }
 
 export default OffersListTileView
-

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import { LISTING_STATUSES, LISTING_TO_BADGE_MAP } from "@/constants/listings"
 import { ListingWithOfferCounts } from "@/types/listing"
 import { SquarePen } from "lucide-react"
@@ -11,9 +12,11 @@ const ListingListTileView = ({
 }) => {
   if (!listings || listings.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-100 p-8 text-center shadow-md">
-        <p className="text-gray-500">No listings found</p>
-      </div>
+      <EmptyState
+        icon="search"
+        title="No listings found"
+        description="No listings match your current filters. Try adjusting your search criteria or add a new listing."
+      />
     )
   }
 

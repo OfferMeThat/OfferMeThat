@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { Badge } from "../../ui/badge"
 import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
+import { EmptyState } from "../../ui/empty-state"
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
 import {
   Table,
@@ -56,6 +57,17 @@ const OffersListTableView = ({
       return offer.customListingAddress
     }
     return offer.listing?.address || "N/A"
+  }
+
+  // Show empty state if no offers
+  if (!offers || offers.length === 0) {
+    return (
+      <EmptyState
+        icon="inbox"
+        title="No offers found"
+        description="No offers match your current filters. Try adjusting your search criteria."
+      />
+    )
   }
 
   return (
