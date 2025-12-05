@@ -1,4 +1,5 @@
 import { ListingWithOfferCounts } from "./listing"
+import { OfferWithListing } from "./offer"
 
 export type ReportFieldKey =
   | "address"
@@ -37,4 +38,34 @@ export type ReportData = {
 export type ReportGenerationProps = {
   listings: ListingWithOfferCounts[]
   selectedFields: ReportFieldKey[]
+}
+
+// Offer Report Types
+export type OfferReportFieldKey =
+  | "received"
+  | "status"
+  | "listingAddress"
+  | "submitterName"
+  | "submitterEmail"
+  | "submitterPhone"
+  | "offerAmount"
+
+export type OfferReportField = {
+  key: OfferReportFieldKey
+  label: string
+}
+
+export const OFFER_REPORT_FIELDS: OfferReportField[] = [
+  { key: "received", label: "Received" },
+  { key: "status", label: "Status" },
+  { key: "listingAddress", label: "Specify Listing" },
+  { key: "submitterName", label: "Submitter Name" },
+  { key: "submitterEmail", label: "Submitter Email" },
+  { key: "submitterPhone", label: "Submitter Phone" },
+  { key: "offerAmount", label: "Offer Amount" },
+]
+
+export type OfferReportGenerationProps = {
+  offers: OfferWithListing[]
+  selectedFields: OfferReportFieldKey[]
 }

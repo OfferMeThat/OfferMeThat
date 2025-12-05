@@ -132,7 +132,7 @@ const SelectionActionBar = ({
                 </div>
               )}
 
-              {itemType === "listings" && onGenerateReport && (
+              {onGenerateReport && (
                 <Button
                   variant="outline"
                   size="sm"
