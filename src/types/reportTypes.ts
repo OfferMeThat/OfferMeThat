@@ -49,6 +49,19 @@ export type OfferReportFieldKey =
   | "submitterEmail"
   | "submitterPhone"
   | "offerAmount"
+  | "buyerType"
+  | "paymentWay"
+  | "conditional"
+  | "expires"
+  | "updatedAt"
+  | "hasPurchaseAgreement"
+  | "purchaserName"
+  | "depositAmount"
+  | "depositDue"
+  | "settlementDate"
+  | "subjectToLoan"
+  | "specialConditions"
+  | "messageToAgent"
 
 export type OfferReportField = {
   key: OfferReportFieldKey
@@ -63,6 +76,19 @@ export const OFFER_REPORT_FIELDS: OfferReportField[] = [
   { key: "submitterEmail", label: "Submitter Email" },
   { key: "submitterPhone", label: "Submitter Phone" },
   { key: "offerAmount", label: "Offer Amount" },
+  { key: "buyerType", label: "Buyer Type" },
+  { key: "paymentWay", label: "Payment Way" },
+  { key: "conditional", label: "Conditional" },
+  { key: "expires", label: "Offer Expires" },
+  { key: "updatedAt", label: "Last Updated" },
+  { key: "hasPurchaseAgreement", label: "Purchase Agreement" },
+  { key: "purchaserName", label: "Purchaser Name(s)" },
+  { key: "depositAmount", label: "Deposit Amount" },
+  { key: "depositDue", label: "Deposit Due" },
+  { key: "settlementDate", label: "Settlement Date" },
+  { key: "subjectToLoan", label: "Subject to Loan" },
+  { key: "specialConditions", label: "Special Conditions" },
+  { key: "messageToAgent", label: "Message to Agent" },
 ]
 
 export type OfferReportGenerationProps = {

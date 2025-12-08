@@ -1,6 +1,6 @@
 import { OFFER_STATUSES } from "@/constants/offers"
 import { OfferWithListing } from "@/types/offer"
-import { OfferReportFieldKey } from "@/types/reportTypes"
+import { OFFER_REPORT_FIELDS, OfferReportFieldKey } from "@/types/reportTypes"
 
 /**
  * Formats a date string to a human-readable format
@@ -27,6 +27,48 @@ const formatCurrency = (amount: number): string => {
 }
 
 /**
+ * Formats buyer type enum to readable string
+ */
+const formatBuyerType = (buyerType: string): string => {
+  const buyerTypeLabels: Record<string, string> = {
+    buyer: "Buyer",
+    agent: "Agent",
+    affiliate: "Affiliate",
+  }
+  return buyerTypeLabels[buyerType] || buyerType
+}
+
+/**
+ * Formats payment way enum to readable string
+ */
+const formatPaymentWay = (paymentWay: string): string => {
+  const paymentWayLabels: Record<string, string> = {
+    cash: "Cash",
+    finance: "Finance",
+  }
+  return paymentWayLabels[paymentWay] || paymentWay
+}
+
+/**
+ * Formats boolean to Yes/No
+ */
+const formatYesNo = (value: boolean): string => {
+  return value ? "Yes" : "No"
+}
+
+/**
+ * Formats expiry date and time
+ */
+const formatExpiry = (offer: OfferWithListing): string => {
+  if (!offer.expires) {
+    return "N/A"
+  }
+  const dateStr = formatDate(offer.expires)
+  const timeStr = offer.expiryTime || ""
+  return timeStr ? `${dateStr} ${timeStr}` : dateStr
+}
+
+/**
  * Gets submitter name from offer
  */
 const getSubmitterName = (offer: OfferWithListing): string => {
@@ -43,6 +85,161 @@ const getListingAddress = (offer: OfferWithListing): string => {
     return offer.customListingAddress
   }
   return offer.listing?.address || "N/A"
+}
+
+/**
+ * Gets purchaser names from purchaserData
+ */
+const getPurchaserNames = (offer: OfferWithListing): string => {
+  if (!offer.purchaserData) return "N/A"
+
+  const data = offer.purchaserData as any
+
+  // Single field method
+  if (data.method === "single_field" && data.name) {
+    return data.name
+  }
+
+  // Individual names method
+  if (data.method === "individual_names" && data.nameFields) {
+    const names = Object.values(data.nameFields).map((nameData: any) => {
+      return [nameData.firstName, nameData.middleName, nameData.lastName]
+        .filter(Boolean)
+        .join(" ")
+    })
+    return names.join(", ")
+  }
+
+  return "N/A"
+}
+
+/**
+ * Gets deposit amount from depositData
+ */
+const getDepositAmount = (offer: OfferWithListing): string => {
+  if (!offer.depositData) return "N/A"
+
+  const data = offer.depositData as any
+
+  // Check for multiple instalments
+  if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
+    return "Multiple instalments"
+  }
+
+  // Single instalment - amount
+  if (data.depositType === "amount" || data.amount) {
+    return formatCurrency(data.amount)
+  }
+
+  // Single instalment - percentage
+  if (data.depositType === "percentage" || data.percentage) {
+    return `${data.percentage}% of purchase price`
+  }
+
+  return "N/A"
+}
+
+/**
+ * Gets deposit due date from depositData
+ */
+const getDepositDue = (offer: OfferWithListing): string => {
+  if (!offer.depositData) return "N/A"
+
+  const data = offer.depositData as any
+
+  // Check for multiple instalments
+  if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
+    return "See deposit details"
+  }
+
+  // Text description
+  if (data.depositDueText) {
+    return data.depositDueText
+  }
+
+  // Specific date
+  if (data.depositDue) {
+    return formatDate(data.depositDue)
+  }
+
+  // Within X days
+  if (data.depositDueWithin) {
+    const { number, unit } = data.depositDueWithin
+    return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
+  }
+
+  return "N/A"
+}
+
+/**
+ * Gets settlement date from settlementDateData
+ */
+const getSettlementDate = (offer: OfferWithListing): string => {
+  if (!offer.settlementDateData) return "N/A"
+
+  const data = offer.settlementDateData as any
+
+  // Text description
+  if (data.settlementDateText) {
+    return data.settlementDateText
+  }
+
+  // Date and time
+  if (data.settlementDateTime) {
+    return formatDate(data.settlementDateTime)
+  }
+
+  // Date with optional time
+  if (data.settlementDate) {
+    const dateStr = formatDate(data.settlementDate)
+    return data.settlementTime
+      ? `${dateStr} at ${data.settlementTime}`
+      : dateStr
+  }
+
+  // Within X days
+  if (data.settlementDateWithin) {
+    const { number, unit } = data.settlementDateWithin
+    return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
+  }
+
+  return "N/A"
+}
+
+/**
+ * Gets subject to loan approval status
+ */
+const getSubjectToLoan = (offer: OfferWithListing): string => {
+  if (!offer.subjectToLoanApproval) return "N/A"
+
+  const data = offer.subjectToLoanApproval as any
+  const isSubjectToLoan =
+    data.subjectToLoanApproval === "yes" || data.subjectToLoanApproval === true
+
+  return isSubjectToLoan ? "Yes" : "No"
+}
+
+/**
+ * Gets special conditions text
+ */
+const getSpecialConditions = (offer: OfferWithListing): string => {
+  return offer.specialConditions || "N/A"
+}
+
+/**
+ * Gets message to agent text
+ */
+const getMessageToAgent = (offer: OfferWithListing): string => {
+  if (!offer.messageToAgent) return "N/A"
+
+  // Handle string message
+  if (typeof offer.messageToAgent === "string") {
+    return offer.messageToAgent
+  }
+
+  // Handle object message
+  const data = offer.messageToAgent as any
+  return data.message || data.text || "N/A"
 }
 
 /**
@@ -76,23 +273,21 @@ export const generateOfferReport = (
     return ""
   }
 
+  // Convert selectedFields array to Set for O(1) lookup
+  const selectedFieldsSet = new Set(selectedFields)
+
+  // Filter and order fields based on OFFER_REPORT_FIELDS order
+  const orderedFields = OFFER_REPORT_FIELDS.filter((field) =>
+    selectedFieldsSet.has(field.key),
+  )
+
   // Create header row
-  const headers = selectedFields.map((fieldKey) => {
-    const fieldLabels: Record<OfferReportFieldKey, string> = {
-      received: "Received",
-      status: "Status",
-      listingAddress: "Specify Listing",
-      submitterName: "Submitter Name",
-      submitterEmail: "Submitter Email",
-      submitterPhone: "Submitter Phone",
-      offerAmount: "Offer Amount",
-    }
-    return fieldLabels[fieldKey]
-  })
+  const headers = orderedFields.map((field) => field.label)
 
   // Create data rows
   const rows = offers.map((offer) => {
-    return selectedFields.map((fieldKey) => {
+    return orderedFields.map((field) => {
+      const fieldKey = field.key
       switch (fieldKey) {
         case "received":
           return escapeCsvField(formatDate(offer.createdAt))
@@ -108,6 +303,34 @@ export const generateOfferReport = (
           return escapeCsvField(offer.submitterPhone || "N/A")
         case "offerAmount":
           return escapeCsvField(formatCurrency(offer.amount))
+        case "buyerType":
+          return escapeCsvField(formatBuyerType(offer.buyerType))
+        case "paymentWay":
+          return escapeCsvField(formatPaymentWay(offer.paymentWay))
+        case "conditional":
+          return escapeCsvField(formatYesNo(offer.conditional))
+        case "expires":
+          return escapeCsvField(formatExpiry(offer))
+        case "updatedAt":
+          return escapeCsvField(
+            offer.updatedAt ? formatDate(offer.updatedAt) : "N/A",
+          )
+        case "hasPurchaseAgreement":
+          return escapeCsvField(formatYesNo(!!offer.purchaseAgreementFileUrl))
+        case "purchaserName":
+          return escapeCsvField(getPurchaserNames(offer))
+        case "depositAmount":
+          return escapeCsvField(getDepositAmount(offer))
+        case "depositDue":
+          return escapeCsvField(getDepositDue(offer))
+        case "settlementDate":
+          return escapeCsvField(getSettlementDate(offer))
+        case "subjectToLoan":
+          return escapeCsvField(getSubjectToLoan(offer))
+        case "specialConditions":
+          return escapeCsvField(getSpecialConditions(offer))
+        case "messageToAgent":
+          return escapeCsvField(getMessageToAgent(offer))
         default:
           return ""
       }

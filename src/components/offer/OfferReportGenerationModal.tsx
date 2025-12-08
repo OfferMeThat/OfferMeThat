@@ -114,6 +114,172 @@ const OfferReportGenerationModal = ({
     return offer.listing?.address || "N/A"
   }
 
+  // Format buyer type
+  const formatBuyerType = (buyerType: string): string => {
+    const buyerTypeLabels: Record<string, string> = {
+      buyer: "Buyer",
+      agent: "Agent",
+      affiliate: "Affiliate",
+    }
+    return buyerTypeLabels[buyerType] || buyerType
+  }
+
+  // Format payment way
+  const formatPaymentWay = (paymentWay: string): string => {
+    const paymentWayLabels: Record<string, string> = {
+      cash: "Cash",
+      finance: "Finance",
+    }
+    return paymentWayLabels[paymentWay] || paymentWay
+  }
+
+  // Format boolean to Yes/No
+  const formatYesNo = (value: boolean): string => {
+    return value ? "Yes" : "No"
+  }
+
+  // Format expiry
+  const formatExpiry = (offer: OfferWithListing): string => {
+    if (!offer.expires) {
+      return "N/A"
+    }
+    const dateStr = formatDate(offer.expires)
+    const timeStr = offer.expiryTime || ""
+    return timeStr ? `${dateStr} ${timeStr}` : dateStr
+  }
+
+  // Get purchaser names
+  const getPurchaserNames = (offer: OfferWithListing): string => {
+    if (!offer.purchaserData) return "N/A"
+
+    const data = offer.purchaserData as any
+
+    if (data.method === "single_field" && data.name) {
+      return data.name
+    }
+
+    if (data.method === "individual_names" && data.nameFields) {
+      const names = Object.values(data.nameFields).map((nameData: any) => {
+        return [nameData.firstName, nameData.middleName, nameData.lastName]
+          .filter(Boolean)
+          .join(" ")
+      })
+      return names.join(", ")
+    }
+
+    return "N/A"
+  }
+
+  // Get deposit amount
+  const getDepositAmount = (offer: OfferWithListing): string => {
+    if (!offer.depositData) return "N/A"
+
+    const data = offer.depositData as any
+
+    if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
+      return "Multiple instalments"
+    }
+
+    if (data.depositType === "amount" || data.amount) {
+      return formatCurrency(data.amount)
+    }
+
+    if (data.depositType === "percentage" || data.percentage) {
+      return `${data.percentage}% of purchase price`
+    }
+
+    return "N/A"
+  }
+
+  // Get deposit due
+  const getDepositDue = (offer: OfferWithListing): string => {
+    if (!offer.depositData) return "N/A"
+
+    const data = offer.depositData as any
+
+    if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
+      return "See deposit details"
+    }
+
+    if (data.depositDueText) {
+      return data.depositDueText
+    }
+
+    if (data.depositDue) {
+      return formatDate(data.depositDue)
+    }
+
+    if (data.depositDueWithin) {
+      const { number, unit } = data.depositDueWithin
+      return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
+    }
+
+    return "N/A"
+  }
+
+  // Get settlement date
+  const getSettlementDate = (offer: OfferWithListing): string => {
+    if (!offer.settlementDateData) return "N/A"
+
+    const data = offer.settlementDateData as any
+
+    if (data.settlementDateText) {
+      return data.settlementDateText
+    }
+
+    if (data.settlementDateTime) {
+      return formatDate(data.settlementDateTime)
+    }
+
+    if (data.settlementDate) {
+      const dateStr = formatDate(data.settlementDate)
+      return data.settlementTime
+        ? `${dateStr} at ${data.settlementTime}`
+        : dateStr
+    }
+
+    if (data.settlementDateWithin) {
+      const { number, unit } = data.settlementDateWithin
+      return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
+    }
+
+    return "N/A"
+  }
+
+  // Get subject to loan
+  const getSubjectToLoan = (offer: OfferWithListing): string => {
+    if (!offer.subjectToLoanApproval) return "N/A"
+
+    const data = offer.subjectToLoanApproval as any
+    const isSubjectToLoan =
+      data.subjectToLoanApproval === "yes" ||
+      data.subjectToLoanApproval === true
+
+    return isSubjectToLoan ? "Yes" : "No"
+  }
+
+  // Get special conditions (truncated for preview)
+  const getSpecialConditions = (offer: OfferWithListing): string => {
+    if (!offer.specialConditions) return "N/A"
+    const text = offer.specialConditions
+    return text.length > 100 ? text.substring(0, 100) + "..." : text
+  }
+
+  // Get message to agent (truncated for preview)
+  const getMessageToAgent = (offer: OfferWithListing): string => {
+    if (!offer.messageToAgent) return "N/A"
+
+    let text = ""
+    if (typeof offer.messageToAgent === "string") {
+      text = offer.messageToAgent
+    } else {
+      const data = offer.messageToAgent as any
+      text = data.message || data.text || "N/A"
+    }
+
+    return text.length > 100 ? text.substring(0, 100) + "..." : text
+  }
+
   // Get preview data (first 5 offers)
   const previewOffers = offers.slice(0, 5)
 
@@ -184,22 +350,22 @@ const OfferReportGenerationModal = ({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {Array.from(selectedFields).map((fieldKey) => {
-                        const field = OFFER_REPORT_FIELDS.find(
-                          (f) => f.key === fieldKey,
-                        )
-                        return (
-                          <TableHead key={fieldKey} className="font-medium">
-                            {field?.label}
-                          </TableHead>
-                        )
-                      })}
+                      {OFFER_REPORT_FIELDS.filter((field) =>
+                        selectedFields.has(field.key),
+                      ).map((field) => (
+                        <TableHead key={field.key} className="font-medium">
+                          {field.label}
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {previewOffers.map((offer) => (
                       <TableRow key={offer.id}>
-                        {Array.from(selectedFields).map((fieldKey) => {
+                        {OFFER_REPORT_FIELDS.filter((field) =>
+                          selectedFields.has(field.key),
+                        ).map((field) => {
+                          const fieldKey = field.key
                           let cellContent: React.ReactNode = ""
 
                           switch (fieldKey) {
@@ -223,6 +389,49 @@ const OfferReportGenerationModal = ({
                               break
                             case "offerAmount":
                               cellContent = formatCurrency(offer.amount)
+                              break
+                            case "buyerType":
+                              cellContent = formatBuyerType(offer.buyerType)
+                              break
+                            case "paymentWay":
+                              cellContent = formatPaymentWay(offer.paymentWay)
+                              break
+                            case "conditional":
+                              cellContent = formatYesNo(offer.conditional)
+                              break
+                            case "expires":
+                              cellContent = formatExpiry(offer)
+                              break
+                            case "updatedAt":
+                              cellContent = offer.updatedAt
+                                ? formatDate(offer.updatedAt)
+                                : "N/A"
+                              break
+                            case "hasPurchaseAgreement":
+                              cellContent = formatYesNo(
+                                !!offer.purchaseAgreementFileUrl,
+                              )
+                              break
+                            case "purchaserName":
+                              cellContent = getPurchaserNames(offer)
+                              break
+                            case "depositAmount":
+                              cellContent = getDepositAmount(offer)
+                              break
+                            case "depositDue":
+                              cellContent = getDepositDue(offer)
+                              break
+                            case "settlementDate":
+                              cellContent = getSettlementDate(offer)
+                              break
+                            case "subjectToLoan":
+                              cellContent = getSubjectToLoan(offer)
+                              break
+                            case "specialConditions":
+                              cellContent = getSpecialConditions(offer)
+                              break
+                            case "messageToAgent":
+                              cellContent = getMessageToAgent(offer)
                               break
                           }
 
