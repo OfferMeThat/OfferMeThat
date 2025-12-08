@@ -9,6 +9,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import SelectionActionBar from "../../shared/SelectionActionBar"
 import { Button } from "../../ui/button"
+import OfferReportGenerationModal from "../OfferReportGenerationModal"
 import OffersListTableView from "./OffersListTableView"
 import OffersListTileView from "./OffersListTileView"
 
@@ -24,6 +25,7 @@ const OffersList = ({
   const router = useRouter()
   const [viewStyle, setViewStyle] = useState<"table" | "tile">("table")
   const [selectedOffers, setSelectedOffers] = useState<Set<string>>(new Set())
+  const [reportModalOpen, setReportModalOpen] = useState(false)
 
   const handleViewChange = (mode: "table" | "tile") => {
     setViewStyle(mode)
@@ -113,12 +115,20 @@ const OffersList = ({
     toast.info("Send message functionality coming soon")
   }
 
+  const handleGenerateReport = () => {
+    setReportModalOpen(true)
+  }
+
   const statusOptions = Object.entries(OFFER_STATUSES).map(
     ([value, label]) => ({
       value,
       label,
     }),
   )
+
+  // Get selected offers data for report generation
+  const selectedOffersData =
+    offers?.filter((offer) => selectedOffers.has(offer.id)) || []
 
   return (
     <>
@@ -161,11 +171,18 @@ const OffersList = ({
         onDelete={handleDelete}
         onStatusChange={handleStatusChange}
         onSendMessage={handleSendMessage}
+        onGenerateReport={handleGenerateReport}
         onClearSelection={() => setSelectedOffers(new Set())}
         statusOptions={statusOptions}
         statusLabel="Offer Status"
         itemType="offers"
         showMessageButton={true}
+      />
+
+      <OfferReportGenerationModal
+        open={reportModalOpen}
+        onOpenChange={setReportModalOpen}
+        offers={selectedOffersData}
       />
     </>
   )

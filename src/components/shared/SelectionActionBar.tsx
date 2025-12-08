@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { MessageSquare, Trash2, X } from "lucide-react"
+import { FileSpreadsheet, MessageSquare, Trash2, X } from "lucide-react"
 import { useState } from "react"
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ export type SelectionActionBarProps = {
   onDelete: () => Promise<void>
   onStatusChange?: (status: string) => Promise<void>
   onSendMessage?: () => void
+  onGenerateReport?: () => void
   onClearSelection?: () => void
   statusOptions?: Array<{ value: string; label: string }>
   statusLabel?: string
@@ -39,6 +40,7 @@ const SelectionActionBar = ({
   onDelete,
   onStatusChange,
   onSendMessage,
+  onGenerateReport,
   onClearSelection,
   statusOptions = [],
   statusLabel = "Status",
@@ -89,7 +91,7 @@ const SelectionActionBar = ({
           "px-3 py-2",
         )}
       >
-        <div className="sm:12 flex items-center justify-around gap-4 sm:justify-between">
+        <div className="md:12 flex items-center justify-around gap-4 md:justify-between">
           <Button
             variant="ghost"
             size="icon"
@@ -105,10 +107,9 @@ const SelectionActionBar = ({
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-4">
-              <span className="hidden text-sm font-medium text-gray-700 sm:inline">
+              <span className="hidden text-sm font-medium text-gray-700 md:inline">
                 {selectedCount} {itemName} selected
               </span>
-
               {onStatusChange && statusOptions.length > 0 && (
                 <div className="flex items-center gap-2">
                   <Select
@@ -131,6 +132,18 @@ const SelectionActionBar = ({
                 </div>
               )}
 
+              {onGenerateReport && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onGenerateReport}
+                  className="gap-2"
+                >
+                  <FileSpreadsheet size={16} />
+                  <span className="hidden md:inline">Generate Report</span>
+                </Button>
+              )}
+
               {showMessageButton && onSendMessage && (
                 <Button
                   variant="outline"
@@ -139,7 +152,7 @@ const SelectionActionBar = ({
                   className="gap-2"
                 >
                   <MessageSquare size={16} />
-                  <span className="hidden sm:inline">Message</span>
+                  <span className="hidden md:inline">Message</span>
                 </Button>
               )}
             </div>
@@ -152,7 +165,7 @@ const SelectionActionBar = ({
             className="gap-2"
           >
             <Trash2 size={16} />
-            <span className="hidden sm:inline">Delete</span>
+            <span className="hidden md:inline">Delete</span>
           </Button>
         </div>
       </div>
