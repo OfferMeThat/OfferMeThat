@@ -8,6 +8,11 @@ import {
   QUESTION_TYPE_TO_LABEL,
   REQUIRED_QUESTION_TYPES,
 } from "@/constants/offerFormQuestions"
+import {
+  parseUIConfig,
+  updateSubQuestionLabel,
+  updateSubQuestionPlaceholder,
+} from "@/types/questionUIConfig"
 import { Database } from "@/types/supabase"
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react"
 import { useState } from "react"
@@ -45,12 +50,8 @@ const QuestionCard = ({
     text: string
     type: "label" | "placeholder"
   } | null>(null)
-  // Get UI configuration from uiConfig JSONB field
-  const uiConfig =
-    (question.uiConfig as {
-      label?: string
-      placeholder?: string
-    } | null) || {}
+  // Get UI configuration from uiConfig JSONB field - use standardized type
+  const uiConfig = parseUIConfig(question.uiConfig)
 
   // Get question definition for description
   const questionDefinition = QUESTION_DEFINITIONS[question.type]
@@ -133,7 +134,141 @@ const QuestionCard = ({
           })
         }
       } else {
-        // Update sub-question label
+        // Sub-question label - check if it's a sub-question ID (format: "deposit_amount", "deposit_due", etc.)
+        // or a legacy format ("sub_question_text_deposit_amount")
+        let subQuestionId = editingField.id
+
+        // Handle legacy format: "sub_question_text_deposit_amount" -> "deposit_amount"
+        if (subQuestionId.startsWith("sub_question_text_")) {
+          subQuestionId = subQuestionId.replace("sub_question_text_", "")
+        } else if (subQuestionId.startsWith("sub_question_placeholder_")) {
+          subQuestionId = subQuestionId.replace("sub_question_placeholder_", "")
+        }
+
+        // Check if this is a sub-question for complex question types
+        // Complex questions have sub-questions: deposit, subjectToLoanApproval, settlementDate
+        const isComplexQuestion =
+          question.type === "deposit" ||
+          question.type === "subjectToLoanApproval" ||
+          question.type === "settlementDate"
+
+        // Known sub-question ID patterns for complex questions and other question types
+        // These are fields that should be saved to subQuestions, not direct uiConfig
+        const isSubQuestionId =
+          subQuestionId.startsWith("deposit_") ||
+          subQuestionId.startsWith("loan_") ||
+          subQuestionId.startsWith("settlement_") ||
+          subQuestionId === "loanAmountLabel" ||
+          subQuestionId === "companyNameLabel" ||
+          subQuestionId === "contactNameLabel" ||
+          subQuestionId === "contactPhoneLabel" ||
+          subQuestionId === "contactEmailLabel" ||
+          subQuestionId === "customConditionLabel" ||
+          subQuestionId === "settlementLocationLabel" ||
+          subQuestionId === "firstNameLabel" ||
+          subQuestionId === "middleNameLabel" ||
+          subQuestionId === "lastNameLabel" ||
+          subQuestionId === "idUploadLabel" ||
+          subQuestionId === "loanAmountPlaceholder" ||
+          subQuestionId === "companyNamePlaceholder" ||
+          subQuestionId === "contactNamePlaceholder" ||
+          subQuestionId === "contactPhonePlaceholder" ||
+          subQuestionId === "contactEmailPlaceholder" ||
+          subQuestionId === "customConditionPlaceholder" ||
+          subQuestionId === "locationPlaceholder" ||
+          subQuestionId === "daysPlaceholder" ||
+          subQuestionId === "firstNamePlaceholder" ||
+          subQuestionId === "middleNamePlaceholder" ||
+          subQuestionId === "lastNamePlaceholder" ||
+          (isComplexQuestion && subQuestionId.includes("_")) ||
+          // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
+          (question.type === "custom" &&
+            (subQuestionId.endsWith("Label") ||
+              subQuestionId.endsWith("Placeholder")))
+
+        // Save to subQuestions if it's a known sub-question ID, regardless of question type
+        if (isSubQuestionId) {
+          // Save to uiConfig.subQuestions using standardized structure
+          const updatedUIConfig = updateSubQuestionLabel(
+            uiConfig,
+            subQuestionId,
+            newText,
+          )
+          onUpdateQuestion(question.id, {
+            uiConfig: updatedUIConfig,
+          })
+        } else {
+          // Regular sub-field label (e.g., firstNameLabel, lastNameLabel) - save directly to uiConfig
+          onUpdateQuestion(question.id, {
+            uiConfig: {
+              ...uiConfig,
+              [editingField.id]: newText,
+            },
+          })
+        }
+      }
+    } else {
+      // Update placeholder
+      let subQuestionId = editingField.id
+
+      // Handle legacy format
+      if (subQuestionId.startsWith("sub_question_placeholder_")) {
+        subQuestionId = subQuestionId.replace("sub_question_placeholder_", "")
+      }
+
+      // Check if this is a sub-question for complex question types
+      const isComplexQuestion =
+        question.type === "deposit" ||
+        question.type === "subjectToLoanApproval" ||
+        question.type === "settlementDate"
+
+      // Known sub-question ID patterns for complex questions and other question types
+      // These are fields that should be saved to subQuestions, not direct uiConfig
+      const isSubQuestionId =
+        subQuestionId.startsWith("deposit_") ||
+        subQuestionId.startsWith("loan_") ||
+        subQuestionId.startsWith("settlement_") ||
+        subQuestionId === "loanAmountLabel" ||
+        subQuestionId === "companyNameLabel" ||
+        subQuestionId === "contactNameLabel" ||
+        subQuestionId === "contactPhoneLabel" ||
+        subQuestionId === "contactEmailLabel" ||
+        subQuestionId === "customConditionLabel" ||
+        subQuestionId === "settlementLocationLabel" ||
+        subQuestionId === "firstNameLabel" ||
+        subQuestionId === "middleNameLabel" ||
+        subQuestionId === "lastNameLabel" ||
+        subQuestionId === "idUploadLabel" ||
+        subQuestionId === "loanAmountPlaceholder" ||
+        subQuestionId === "companyNamePlaceholder" ||
+        subQuestionId === "contactNamePlaceholder" ||
+        subQuestionId === "contactPhonePlaceholder" ||
+        subQuestionId === "contactEmailPlaceholder" ||
+        subQuestionId === "customConditionPlaceholder" ||
+        subQuestionId === "locationPlaceholder" ||
+        subQuestionId === "daysPlaceholder" ||
+        subQuestionId === "firstNamePlaceholder" ||
+        subQuestionId === "middleNamePlaceholder" ||
+        subQuestionId === "lastNamePlaceholder" ||
+        (isComplexQuestion && subQuestionId.includes("_")) ||
+        // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
+        (question.type === "custom" &&
+          (subQuestionId.endsWith("Label") ||
+            subQuestionId.endsWith("Placeholder")))
+
+      // Save to subQuestions if it's a known sub-question ID, regardless of question type
+      if (isSubQuestionId) {
+        // Save to uiConfig.subQuestions using standardized structure
+        const updatedUIConfig = updateSubQuestionPlaceholder(
+          uiConfig,
+          subQuestionId,
+          newText,
+        )
+        onUpdateQuestion(question.id, {
+          uiConfig: updatedUIConfig,
+        })
+      } else {
+        // Regular placeholder - save directly to uiConfig
         onUpdateQuestion(question.id, {
           uiConfig: {
             ...uiConfig,
@@ -141,14 +276,6 @@ const QuestionCard = ({
           },
         })
       }
-    } else {
-      // Update placeholder
-      onUpdateQuestion(question.id, {
-        uiConfig: {
-          ...uiConfig,
-          [editingField.id]: newText,
-        },
-      })
     }
     setEditModalOpen(false)
     setEditingField(null)

@@ -19,6 +19,12 @@ import { getSmartQuestion } from "@/data/smartQuestions"
 import { validateFileSize } from "@/lib/offerFormValidation"
 import { cn } from "@/lib/utils"
 import { BrandingConfig } from "@/types/branding"
+import {
+  getSubQuestionLabel,
+  getSubQuestionPlaceholder,
+  parseUIConfig,
+  QuestionUIConfig,
+} from "@/types/questionUIConfig"
 import { Database } from "@/types/supabase"
 import { X } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -64,7 +70,7 @@ interface PersonNameFieldsProps {
   >
   collectMiddleNames: string
   collectId: string
-  uiConfig: Record<string, any>
+  uiConfig: QuestionUIConfig
   disabled: boolean
   editingMode: boolean
   renderLabelOverlay: (
@@ -133,13 +139,22 @@ const PersonNameFields = ({
     <div className="space-y-3">
       <div>
         <div className="relative inline-block">
-          <Label className="mb-1 block text-sm">First Name:</Label>
-          {renderLabelOverlay("firstNameLabel", "First Name:")}
+          <Label className="mb-1 block text-sm">
+            {getSubQuestionLabel(uiConfig, "firstNameLabel", "First Name:")}
+          </Label>
+          {renderLabelOverlay(
+            "firstNameLabel",
+            getSubQuestionLabel(uiConfig, "firstNameLabel", "First Name:"),
+          )}
         </div>
         <div className="relative">
           <Input
             type="text"
-            placeholder={uiConfig.firstNamePlaceholder || "Enter first name"}
+            placeholder={getSubQuestionPlaceholder(
+              uiConfig,
+              "firstNamePlaceholder",
+              "Enter first name",
+            )}
             disabled={disabled}
             className={cn(editingMode && "cursor-not-allowed")}
             style={getInputStyle()}
@@ -164,22 +179,33 @@ const PersonNameFields = ({
           />
           {renderEditOverlay(
             "firstNamePlaceholder",
-            uiConfig.firstNamePlaceholder || "Enter first name",
+            getSubQuestionPlaceholder(
+              uiConfig,
+              "firstNamePlaceholder",
+              "Enter first name",
+            ),
           )}
         </div>
       </div>
       {shouldShowMiddleName && (
         <div>
           <div className="relative inline-block">
-            <Label className="mb-1 block text-sm">Middle Name:</Label>
-            {renderLabelOverlay("middleNameLabel", "Middle Name:")}
+            <Label className="mb-1 block text-sm">
+              {getSubQuestionLabel(uiConfig, "middleNameLabel", "Middle Name:")}
+            </Label>
+            {renderLabelOverlay(
+              "middleNameLabel",
+              getSubQuestionLabel(uiConfig, "middleNameLabel", "Middle Name:"),
+            )}
           </div>
           <div className="relative">
             <Input
               type="text"
-              placeholder={
-                uiConfig.middleNamePlaceholder || "Enter middle name"
-              }
+              placeholder={getSubQuestionPlaceholder(
+                uiConfig,
+                "middleNamePlaceholder",
+                "Enter middle name",
+              )}
               disabled={disabled}
               className={cn(editingMode && "cursor-not-allowed")}
               style={getInputStyle()}
@@ -204,20 +230,33 @@ const PersonNameFields = ({
             />
             {renderEditOverlay(
               "middleNamePlaceholder",
-              uiConfig.middleNamePlaceholder || "Enter middle name",
+              getSubQuestionPlaceholder(
+                uiConfig,
+                "middleNamePlaceholder",
+                "Enter middle name",
+              ),
             )}
           </div>
         </div>
       )}
       <div>
         <div className="relative inline-block">
-          <Label className="mb-1 block text-sm">Last Name:</Label>
-          {renderLabelOverlay("lastNameLabel", "Last Name:")}
+          <Label className="mb-1 block text-sm">
+            {getSubQuestionLabel(uiConfig, "lastNameLabel", "Last Name:")}
+          </Label>
+          {renderLabelOverlay(
+            "lastNameLabel",
+            getSubQuestionLabel(uiConfig, "lastNameLabel", "Last Name:"),
+          )}
         </div>
         <div className="relative">
           <Input
             type="text"
-            placeholder={uiConfig.lastNamePlaceholder || "Enter last name"}
+            placeholder={getSubQuestionPlaceholder(
+              uiConfig,
+              "lastNamePlaceholder",
+              "Enter last name",
+            )}
             disabled={disabled}
             className={cn(editingMode && "cursor-not-allowed")}
             style={getInputStyle()}
@@ -242,7 +281,11 @@ const PersonNameFields = ({
           />
           {renderEditOverlay(
             "lastNamePlaceholder",
-            uiConfig.lastNamePlaceholder || "Enter last name",
+            getSubQuestionPlaceholder(
+              uiConfig,
+              "lastNamePlaceholder",
+              "Enter last name",
+            ),
           )}
         </div>
       </div>
@@ -250,12 +293,15 @@ const PersonNameFields = ({
         <div>
           <div className="relative inline-block">
             <Label className="mb-1 block text-sm">
-              ID Upload{" "}
+              {getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload")}{" "}
               {collectId === "mandatory" && (
                 <span className="text-red-500">*</span>
               )}
             </Label>
-            {renderLabelOverlay("idUploadLabel", "ID Upload")}
+            {renderLabelOverlay(
+              "idUploadLabel",
+              getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload"),
+            )}
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -397,7 +443,7 @@ export const QuestionRenderer = ({
 
   // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
-  const uiConfig = (question.uiConfig as Record<string, any>) || {}
+  const uiConfig = parseUIConfig(question.uiConfig)
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
@@ -1529,10 +1575,17 @@ export const QuestionRenderer = ({
       ...generated,
       id: question.id,
       is_essential: question.required,
+      // Include uiConfig and setupConfig from the original question so edits are preserved
+      uiConfig: question.uiConfig,
+      setupConfig: question.setupConfig,
     }
+
+    // Create a key that includes the uiConfig to force re-render when it changes
+    const questionKey = `${question.id}-${JSON.stringify(question.uiConfig || {})}`
 
     return (
       <DepositPreview
+        key={questionKey}
         question={previewQuestion}
         setupAnswers={setupConfig}
         editingMode={editingMode}
@@ -1600,20 +1653,30 @@ export const QuestionRenderer = ({
               <div>
                 <div className="relative inline-block">
                   <Label className="mb-2 block text-sm font-medium">
-                    What is your Loan Amount?{" "}
+                    {getSubQuestionLabel(
+                      uiConfig,
+                      "loanAmountLabel",
+                      "What is your Loan Amount?",
+                    )}{" "}
                     <span className="font-bold text-red-500">*</span>
                   </Label>
                   {renderLabelOverlay(
                     "loanAmountLabel",
-                    "What is your Loan Amount?",
+                    getSubQuestionLabel(
+                      uiConfig,
+                      "loanAmountLabel",
+                      "What is your Loan Amount?",
+                    ),
                   )}
                 </div>
                 <div className="relative">
                   <Input
                     type="text"
-                    placeholder={
-                      uiConfig.loanAmountPlaceholder || "Enter amount"
-                    }
+                    placeholder={getSubQuestionPlaceholder(
+                      uiConfig,
+                      "loanAmountPlaceholder",
+                      "Enter amount",
+                    )}
                     className={cn(
                       "max-w-56",
                       editingMode && "cursor-not-allowed",
@@ -1629,7 +1692,11 @@ export const QuestionRenderer = ({
                   />
                   {renderEditOverlay(
                     "loanAmountPlaceholder",
-                    uiConfig.loanAmountPlaceholder || "Enter amount",
+                    getSubQuestionPlaceholder(
+                      uiConfig,
+                      "loanAmountPlaceholder",
+                      "Enter amount",
+                    ),
                   )}
                 </div>
               </div>
@@ -1641,17 +1708,29 @@ export const QuestionRenderer = ({
                 <div className="flex items-start gap-3">
                   <div className="relative inline-block">
                     <Label className="w-32 pt-2 text-sm font-medium">
-                      Company Name:
+                      {getSubQuestionLabel(
+                        uiConfig,
+                        "companyNameLabel",
+                        "Company Name:",
+                      )}
                     </Label>
-                    {renderLabelOverlay("companyNameLabel", "Company Name:")}
+                    {renderLabelOverlay(
+                      "companyNameLabel",
+                      getSubQuestionLabel(
+                        uiConfig,
+                        "companyNameLabel",
+                        "Company Name:",
+                      ),
+                    )}
                   </div>
                   <div className="relative flex-1">
                     <Input
                       type="text"
-                      placeholder={
-                        uiConfig.companyNamePlaceholder ||
-                        `Enter company name or "I don't know yet"`
-                      }
+                      placeholder={getSubQuestionPlaceholder(
+                        uiConfig,
+                        "companyNamePlaceholder",
+                        `Enter company name or "I don't know yet"`,
+                      )}
                       disabled={disabled}
                       className={cn(editingMode && "cursor-not-allowed")}
                       style={getInputStyle()}
@@ -1667,8 +1746,11 @@ export const QuestionRenderer = ({
                     />
                     {renderEditOverlay(
                       "companyNamePlaceholder",
-                      uiConfig.companyNamePlaceholder ||
+                      getSubQuestionPlaceholder(
+                        uiConfig,
+                        "companyNamePlaceholder",
                         `Enter company name or "I don't know yet"`,
+                      ),
                     )}
                   </div>
                 </div>
@@ -1701,17 +1783,29 @@ export const QuestionRenderer = ({
                   <div className="flex items-center gap-3">
                     <div className="relative inline-block">
                       <Label className="w-32 text-sm font-medium">
-                        Contact Name:
+                        {getSubQuestionLabel(
+                          uiConfig,
+                          "contactNameLabel",
+                          "Contact Name:",
+                        )}
                       </Label>
-                      {renderLabelOverlay("contactNameLabel", "Contact Name:")}
+                      {renderLabelOverlay(
+                        "contactNameLabel",
+                        getSubQuestionLabel(
+                          uiConfig,
+                          "contactNameLabel",
+                          "Contact Name:",
+                        ),
+                      )}
                     </div>
                     <div className="relative flex-1">
                       <Input
                         type="text"
-                        placeholder={
-                          uiConfig.contactNamePlaceholder ||
-                          `Enter contact name or "I don't know yet"`
-                        }
+                        placeholder={getSubQuestionPlaceholder(
+                          uiConfig,
+                          "contactNamePlaceholder",
+                          `Enter contact name or "I don't know yet"`,
+                        )}
                         disabled={disabled}
                         className={cn(
                           "flex-1",
@@ -1730,8 +1824,11 @@ export const QuestionRenderer = ({
                       />
                       {renderEditOverlay(
                         "contactNamePlaceholder",
-                        uiConfig.contactNamePlaceholder ||
+                        getSubQuestionPlaceholder(
+                          uiConfig,
+                          "contactNamePlaceholder",
                           `Enter contact name or "I don't know yet"`,
+                        ),
                       )}
                     </div>
                   </div>
@@ -1740,20 +1837,29 @@ export const QuestionRenderer = ({
                   <div className="flex items-center gap-3">
                     <div className="relative inline-block">
                       <Label className="w-32 text-sm font-medium">
-                        Contact Phone:
+                        {getSubQuestionLabel(
+                          uiConfig,
+                          "contactPhoneLabel",
+                          "Contact Phone:",
+                        )}
                       </Label>
                       {renderLabelOverlay(
                         "contactPhoneLabel",
-                        "Contact Phone:",
+                        getSubQuestionLabel(
+                          uiConfig,
+                          "contactPhoneLabel",
+                          "Contact Phone:",
+                        ),
                       )}
                     </div>
                     <div className="relative flex-1">
                       <Input
                         type="tel"
-                        placeholder={
-                          uiConfig.contactPhonePlaceholder ||
-                          `Enter phone number or "I don't know yet"`
-                        }
+                        placeholder={getSubQuestionPlaceholder(
+                          uiConfig,
+                          "contactPhonePlaceholder",
+                          `Enter phone number or "I don't know yet"`,
+                        )}
                         disabled={disabled}
                         className={cn(
                           "flex-1",
@@ -1772,8 +1878,11 @@ export const QuestionRenderer = ({
                       />
                       {renderEditOverlay(
                         "contactPhonePlaceholder",
-                        uiConfig.contactPhonePlaceholder ||
+                        getSubQuestionPlaceholder(
+                          uiConfig,
+                          "contactPhonePlaceholder",
                           `Enter phone number or "I don't know yet"`,
+                        ),
                       )}
                     </div>
                   </div>
@@ -1782,20 +1891,29 @@ export const QuestionRenderer = ({
                   <div className="flex items-center gap-3">
                     <div className="relative inline-block">
                       <Label className="w-32 text-sm font-medium">
-                        Contact Email:
+                        {getSubQuestionLabel(
+                          uiConfig,
+                          "contactEmailLabel",
+                          "Contact Email:",
+                        )}
                       </Label>
                       {renderLabelOverlay(
                         "contactEmailLabel",
-                        "Contact Email:",
+                        getSubQuestionLabel(
+                          uiConfig,
+                          "contactEmailLabel",
+                          "Contact Email:",
+                        ),
                       )}
                     </div>
                     <div className="relative flex-1">
                       <Input
                         type="email"
-                        placeholder={
-                          uiConfig.contactEmailPlaceholder ||
-                          `Enter email address or "I don't know yet"`
-                        }
+                        placeholder={getSubQuestionPlaceholder(
+                          uiConfig,
+                          "contactEmailPlaceholder",
+                          `Enter email address or "I don't know yet"`,
+                        )}
                         disabled={disabled}
                         className={cn(
                           "flex-1",
@@ -1814,8 +1932,11 @@ export const QuestionRenderer = ({
                       />
                       {renderEditOverlay(
                         "contactEmailPlaceholder",
-                        uiConfig.contactEmailPlaceholder ||
+                        getSubQuestionPlaceholder(
+                          uiConfig,
+                          "contactEmailPlaceholder",
                           `Enter email address or "I don't know yet"`,
+                        ),
                       )}
                     </div>
                   </div>
@@ -2024,19 +2145,28 @@ export const QuestionRenderer = ({
           <div className="mt-3 border-t pt-3">
             <div className="relative inline-block">
               <Label className="mb-2 block text-sm font-medium">
-                Add Custom Condition
+                {getSubQuestionLabel(
+                  uiConfig,
+                  "customConditionLabel",
+                  "Add Custom Condition",
+                )}
               </Label>
               {renderLabelOverlay(
                 "customConditionLabel",
-                "Add Custom Condition",
+                getSubQuestionLabel(
+                  uiConfig,
+                  "customConditionLabel",
+                  "Add Custom Condition",
+                ),
               )}
             </div>
             <div className="relative">
               <Textarea
-                placeholder={
-                  uiConfig.customConditionPlaceholder ||
-                  "Type your custom condition here..."
-                }
+                placeholder={getSubQuestionPlaceholder(
+                  uiConfig,
+                  "customConditionPlaceholder",
+                  "Type your custom condition here...",
+                )}
                 disabled={disabled}
                 className={cn(
                   "max-h-[300px] min-h-[100px]",
@@ -2046,8 +2176,11 @@ export const QuestionRenderer = ({
               />
               {renderEditOverlay(
                 "customConditionPlaceholder",
-                uiConfig.customConditionPlaceholder ||
+                getSubQuestionPlaceholder(
+                  uiConfig,
+                  "customConditionPlaceholder",
                   "Enter your custom condition...",
+                ),
               )}
             </div>
           </div>
@@ -2145,7 +2278,11 @@ export const QuestionRenderer = ({
                 <Input
                   type="number"
                   min="0"
-                  placeholder={uiConfig.daysPlaceholder || "Number of days"}
+                  placeholder={getSubQuestionPlaceholder(
+                    uiConfig,
+                    "daysPlaceholder",
+                    "Number of days",
+                  )}
                   disabled={disabled}
                   className={cn(editingMode && "cursor-not-allowed")}
                   style={getInputStyle()}
@@ -2167,7 +2304,11 @@ export const QuestionRenderer = ({
                 />
                 {renderEditOverlay(
                   "daysPlaceholder",
-                  uiConfig.daysPlaceholder || "Number of days",
+                  getSubQuestionPlaceholder(
+                    uiConfig,
+                    "daysPlaceholder",
+                    "Number of days",
+                  ),
                 )}
               </div>
               <span className="flex items-center text-sm text-gray-600">
@@ -2209,27 +2350,41 @@ export const QuestionRenderer = ({
           <div>
             <div className="relative inline-block">
               <Label className="mb-2 block text-sm font-medium">
-                Settlement Location
+                {getSubQuestionLabel(
+                  uiConfig,
+                  "settlementLocationLabel",
+                  "Settlement Location",
+                )}
               </Label>
               {renderLabelOverlay(
                 "settlementLocationLabel",
-                "Settlement Location",
+                getSubQuestionLabel(
+                  uiConfig,
+                  "settlementLocationLabel",
+                  "Settlement Location",
+                ),
               )}
             </div>
             {location === "buyer_text" && (
               <div className="relative">
                 <Input
                   type="text"
-                  placeholder={
-                    uiConfig.locationPlaceholder || "Enter settlement location"
-                  }
+                  placeholder={getSubQuestionPlaceholder(
+                    uiConfig,
+                    "locationPlaceholder",
+                    "Enter settlement location",
+                  )}
                   disabled={disabled}
                   className={cn(editingMode && "cursor-not-allowed")}
                   style={getInputStyle()}
                 />
                 {renderEditOverlay(
                   "locationPlaceholder",
-                  uiConfig.locationPlaceholder || "Enter settlement location",
+                  getSubQuestionPlaceholder(
+                    uiConfig,
+                    "locationPlaceholder",
+                    "Enter settlement location",
+                  ),
                 )}
               </div>
             )}

@@ -13,7 +13,12 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { BrandingConfig } from "@/types/branding"
-import { useEffect, useState } from "react"
+import {
+  getSubQuestionLabel,
+  getSubQuestionPlaceholder,
+  parseUIConfig,
+} from "@/types/questionUIConfig"
+import { useEffect, useMemo, useState } from "react"
 
 interface DepositQuestion {
   id: string
@@ -44,6 +49,8 @@ interface Question {
   question_text?: string
   sub_questions?: Record<string, any>
   deposit_questions?: DepositQuestion[]
+  uiConfig?: unknown // JSON field from database
+  setupConfig?: unknown // JSON field from database
 }
 
 interface DepositFormProps {
@@ -67,6 +74,13 @@ const DepositForm = ({
   onEditPlaceholder = null,
   brandingConfig,
 }: DepositFormProps) => {
+  // Parse uiConfig using standardized type - re-parse when question.uiConfig changes
+  // Use JSON.stringify to detect deep changes in the JSON object
+  const uiConfigString = JSON.stringify(question.uiConfig || {})
+  const uiConfig = useMemo(
+    () => parseUIConfig(question.uiConfig),
+    [uiConfigString],
+  )
   const [localFormData, setLocalFormData] = useState<Record<string, any>>({})
 
   // Helper: Get input style with branding
@@ -111,9 +125,9 @@ const DepositForm = ({
 
   // CRITICAL: Re-render when question prop changes to pick up updated text
   useEffect(() => {
-    // This ensures the component re-renders when question.sub_questions OR question.question_text changes
+    // This ensures the component re-renders when uiConfig, sub_questions, or question_text changes
     // No state updates needed here, just dependency tracking
-  }, [question.sub_questions, question.question_text])
+  }, [question.uiConfig, question.sub_questions, question.question_text])
 
   const handleFieldChange = (fieldId: string, value: any) => {
     const newFormData = {
@@ -262,18 +276,35 @@ const DepositForm = ({
   }
 
   // CRITICAL: Helper Functions for Text Management
+  // Now uses standardized uiConfig.subQuestions structure
   const getQuestionText = (
     questionId: string,
     fallbackText: string,
   ): string => {
-    // First check if there's an edited version in sub_questions (flat structure)
+    // First check standardized uiConfig.subQuestions (new structure)
+    const subQuestionLabel = getSubQuestionLabel(uiConfig, questionId, "")
+    if (subQuestionLabel) {
+      return subQuestionLabel
+    }
+
+    // Legacy fallback: check setupConfig.sub_questions
+    const setupConfig = (question.setupConfig as Record<string, any>) || {}
+    if (
+      setupConfig.sub_questions &&
+      setupConfig.sub_questions[`sub_question_text_${questionId}`]
+    ) {
+      return setupConfig.sub_questions[`sub_question_text_${questionId}`]
+    }
+
+    // Legacy fallback: check question.sub_questions
     if (
       question.sub_questions &&
       question.sub_questions[`sub_question_text_${questionId}`]
     ) {
       return question.sub_questions[`sub_question_text_${questionId}`]
     }
-    // Then check if there's a version in deposit_questions
+
+    // Then check if there's a version in deposit_questions (generated from setupConfig)
     if (question.deposit_questions) {
       const depositQuestion = question.deposit_questions.find(
         (q: DepositQuestion) => q.id === questionId,
@@ -289,14 +320,34 @@ const DepositForm = ({
     questionId: string,
     fallbackText: string,
   ): string => {
-    // First check if there's an edited version in sub_questions (flat structure)
+    // First check standardized uiConfig.subQuestions (new structure)
+    const subQuestionPlaceholder = getSubQuestionPlaceholder(
+      uiConfig,
+      questionId,
+      "",
+    )
+    if (subQuestionPlaceholder) {
+      return subQuestionPlaceholder
+    }
+
+    // Legacy fallback: check setupConfig.sub_questions
+    const setupConfig = (question.setupConfig as Record<string, any>) || {}
+    if (
+      setupConfig.sub_questions &&
+      setupConfig.sub_questions[`sub_question_placeholder_${questionId}`]
+    ) {
+      return setupConfig.sub_questions[`sub_question_placeholder_${questionId}`]
+    }
+
+    // Legacy fallback: check question.sub_questions
     if (
       question.sub_questions &&
       question.sub_questions[`sub_question_placeholder_${questionId}`]
     ) {
       return question.sub_questions[`sub_question_placeholder_${questionId}`]
     }
-    // Then check if there's a version in deposit_questions
+
+    // Then check if there's a version in deposit_questions (generated from setupConfig)
     if (question.deposit_questions) {
       const depositQuestion = question.deposit_questions.find(
         (q: DepositQuestion) => q.id === questionId,
@@ -409,7 +460,9 @@ const DepositForm = ({
               className={labelClassName}
               onClick={() => {
                 if (editingMode && onEditQuestion) {
-                  onEditQuestion(`sub_question_text_${id}`, currentQuestionText)
+                  // Use the question ID directly (e.g., "deposit_amount", "deposit_due")
+                  // The handler will detect it's a sub-question and save to uiConfig.subQuestions
+                  onEditQuestion(id, currentQuestionText)
                 }
               }}
               title={editingMode ? "Click to edit question text" : ""}
@@ -444,10 +497,9 @@ const DepositForm = ({
                           className="absolute inset-0 cursor-pointer bg-transparent"
                           onClick={() => {
                             if (onEditPlaceholder) {
-                              onEditPlaceholder(
-                                `sub_question_placeholder_${id}`,
-                                currentPlaceholder,
-                              )
+                              // Use the question ID directly
+                              // The handler will detect it's a sub-question and save to uiConfig.subQuestions
+                              onEditPlaceholder(id, currentPlaceholder)
                             }
                           }}
                           title="Click to edit placeholder text"
