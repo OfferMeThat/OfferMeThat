@@ -84,11 +84,8 @@ const QuestionCard = ({
   const handleLabelEdit = (fieldKey?: string, currentText?: string) => {
     // If called without parameters, it's the main label
     if (fieldKey === undefined) {
-      // Check if this is an essential question trying to edit the main label
-      if (isEssential) {
-        setEssentialQuestionModal({ isOpen: true, action: "edit" })
-        return
-      }
+      // Allow editing labels even for essential questions
+      // Only "Edit Question" button and required checkbox are blocked
       setEditingField({
         id: "label",
         text: labelText,
@@ -293,6 +290,21 @@ const QuestionCard = ({
 
   // Determine if this is an essential question (cannot be modified)
   const isEssential = REQUIRED_QUESTION_TYPES.includes(question.type)
+  
+  // Determine if this question is locked in position
+  const isLockedInPosition = 
+    (question.type === "specifyListing" && question.order === 1) ||
+    (question.type === "submitterRole" && question.order === 2)
+  
+  // Determine if move up is disabled
+  // "Specify Listing" at position 1 can't move up
+  // "Submitter Role" at position 2 can't move up (would go to position 1 which is locked)
+  const canMoveUp = !isFirst && !isLockedInPosition && 
+    !(question.type === "submitterRole" && question.order === 2)
+  
+  // Determine if move down is disabled
+  // Both locked questions can't move down from their positions
+  const canMoveDown = !isLast && !isLockedInPosition
 
   const handleRequiredToggle = () => {
     if (isEssential) {
@@ -341,7 +353,7 @@ const QuestionCard = ({
               size="icon"
               variant="ghost"
               onClick={onMoveUp}
-              disabled={isFirst}
+              disabled={!canMoveUp}
             >
               <ChevronUp size={16} />
             </Button>
@@ -349,7 +361,7 @@ const QuestionCard = ({
               size="icon"
               variant="ghost"
               onClick={onMoveDown}
-              disabled={isLast}
+              disabled={!canMoveDown}
             >
               <ChevronDown size={16} />
             </Button>
@@ -445,7 +457,7 @@ const QuestionCard = ({
             size="xs"
             variant="ghost"
             onClick={onMoveUp}
-            disabled={isFirst}
+            disabled={!canMoveUp}
             className="justify-baseline"
           >
             <ChevronUp size={16} />
@@ -455,7 +467,7 @@ const QuestionCard = ({
             size="xs"
             variant="ghost"
             onClick={onMoveDown}
-            disabled={isLast}
+            disabled={!canMoveDown}
             className="justify-baseline"
           >
             <ChevronDown size={16} />
