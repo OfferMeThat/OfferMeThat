@@ -651,8 +651,8 @@ export const OfferFormInteractiveView = ({
       </div>
 
       {/* Questions */}
-      <div className="space-y-6">
-        {currentPage.questions.map((question) => {
+      <div className="space-y-0">
+        {currentPage.questions.map((question, index) => {
           // Skip rendering the submit button in the questions list
           if (question.type === "submitButton") {
             return null
@@ -694,37 +694,44 @@ export const OfferFormInteractiveView = ({
 
           const displayLabel = label
 
+          // Check if this is the first question
+          const isFirstQuestion = index === 0
+
           return (
-            <div
-              key={question.id}
-              className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
-            >
-              <label
-                className="mb-3 block text-base font-medium"
-                style={{
-                  color: brandingConfig?.fontColor || undefined,
-                }}
-              >
-                {displayLabel}
-                {question.required && (
-                  <span className="ml-1 text-red-500">*</span>
-                )}
-              </label>
-              <QuestionRenderer
-                question={question}
-                disabled={false}
-                editingMode={false}
-                formId={question.formId}
-                brandingConfig={brandingConfig}
-                value={formData[question.id]}
-                onChange={(value) => handleFieldChange(question.id, value)}
-                onBlur={() => handleFieldBlur(question.id)}
-                error={
-                  touchedFields.has(question.id)
-                    ? validationErrors[question.id]
-                    : undefined
-                }
-              />
+            <div key={question.id}>
+              {/* Decorative divider (not shown for first question) */}
+              {!isFirstQuestion && (
+                <div className="my-4 border-t border-gray-200" />
+              )}
+
+              <div className="py-4">
+                <label
+                  className="mb-3 block text-base font-medium"
+                  style={{
+                    color: brandingConfig?.fontColor || undefined,
+                  }}
+                >
+                  {displayLabel}
+                  {question.required && (
+                    <span className="ml-1 text-red-500">*</span>
+                  )}
+                </label>
+                <QuestionRenderer
+                  question={question}
+                  disabled={false}
+                  editingMode={false}
+                  formId={question.formId}
+                  brandingConfig={brandingConfig}
+                  value={formData[question.id]}
+                  onChange={(value) => handleFieldChange(question.id, value)}
+                  onBlur={() => handleFieldBlur(question.id)}
+                  error={
+                    touchedFields.has(question.id)
+                      ? validationErrors[question.id]
+                      : undefined
+                  }
+                />
+              </div>
             </div>
           )
         })}
