@@ -19,6 +19,7 @@ import { useState } from "react"
 import { QuestionRenderer } from "../QuestionRenderer"
 import EditQuestionModal from "./EditQuestionModal"
 import EditTextModal from "./EditTextModal"
+import EssentialQuestionModal from "./EssentialQuestionModal"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 
@@ -45,6 +46,10 @@ const QuestionCard = ({
 }: QuestionCardProps) => {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editQuestionModalOpen, setEditQuestionModalOpen] = useState(false)
+  const [essentialQuestionModal, setEssentialQuestionModal] = useState<{
+    isOpen: boolean
+    action: "delete" | "edit" | "makeOptional"
+  }>({ isOpen: false, action: "delete" })
   const [editingField, setEditingField] = useState<{
     id: string
     text: string
@@ -79,6 +84,11 @@ const QuestionCard = ({
   const handleLabelEdit = (fieldKey?: string, currentText?: string) => {
     // If called without parameters, it's the main label
     if (fieldKey === undefined) {
+      // Check if this is an essential question trying to edit the main label
+      if (isEssential) {
+        setEssentialQuestionModal({ isOpen: true, action: "edit" })
+        return
+      }
       setEditingField({
         id: "label",
         text: labelText,
@@ -285,11 +295,29 @@ const QuestionCard = ({
   const isEssential = REQUIRED_QUESTION_TYPES.includes(question.type)
 
   const handleRequiredToggle = () => {
-    if (!isEssential) {
-      onUpdateQuestion(question.id, {
-        required: !question.required,
-      })
+    if (isEssential) {
+      setEssentialQuestionModal({ isOpen: true, action: "makeOptional" })
+      return
     }
+    onUpdateQuestion(question.id, {
+      required: !question.required,
+    })
+  }
+
+  const handleDelete = () => {
+    if (isEssential) {
+      setEssentialQuestionModal({ isOpen: true, action: "delete" })
+      return
+    }
+    onDelete()
+  }
+
+  const handleEditQuestion = () => {
+    if (isEssential) {
+      setEssentialQuestionModal({ isOpen: true, action: "edit" })
+      return
+    }
+    setEditQuestionModalOpen(true)
   }
 
   return (
@@ -327,9 +355,8 @@ const QuestionCard = ({
             </Button>
             <Button
               size="icon"
-              disabled={isEssential}
               variant="ghostDesctructive"
-              onClick={onDelete}
+              onClick={handleDelete}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -345,21 +372,18 @@ const QuestionCard = ({
           <div className="mt-3 flex items-center gap-2">
             <Checkbox
               checked={question.required}
-              disabled={isEssential}
               onCheckedChange={handleRequiredToggle}
             />
             <span className="text-sm text-gray-700">Required field</span>
           </div>
-          {!isEssential && (
-            <Button
-              variant="outline"
-              className="mt-3 w-full"
-              size="sm"
-              onClick={() => setEditQuestionModalOpen(true)}
-            >
-              Edit Question
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            className="mt-3 w-full"
+            size="sm"
+            onClick={handleEditQuestion}
+          >
+            Edit Question
+          </Button>
         </div>
 
         {/* Middle: Question Preview (Both Mobile and Desktop) */}
@@ -401,20 +425,17 @@ const QuestionCard = ({
             <div className="flex items-center gap-2">
               <Checkbox
                 checked={question.required}
-                disabled={isEssential}
                 onCheckedChange={handleRequiredToggle}
               />
               <span className="text-sm text-gray-700">Required field</span>
             </div>
-            {!isEssential && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditQuestionModalOpen(true)}
-              >
-                Edit Question
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleEditQuestion}
+            >
+              Edit Question
+            </Button>
           </div>
         </div>
 
@@ -442,9 +463,8 @@ const QuestionCard = ({
           </Button>
           <Button
             size="xs"
-            disabled={isEssential}
             variant="ghostDesctructive"
-            onClick={onDelete}
+            onClick={handleDelete}
             className="justify-baseline"
           >
             <Trash2 className="h-4 w-4" />
@@ -477,6 +497,16 @@ const QuestionCard = ({
           onOpenChange={setEditQuestionModalOpen}
           question={question}
           onUpdateQuestion={onUpdateQuestion}
+        />
+
+        {/* Essential Question Modal */}
+        <EssentialQuestionModal
+          isOpen={essentialQuestionModal.isOpen}
+          onClose={() =>
+            setEssentialQuestionModal({ isOpen: false, action: "delete" })
+          }
+          action={essentialQuestionModal.action}
+          questionType={QUESTION_TYPE_TO_LABEL[question.type] || question.type}
         />
       </div>
     </>
