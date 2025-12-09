@@ -8,12 +8,18 @@ import {
   QUESTION_TYPE_TO_LABEL,
   REQUIRED_QUESTION_TYPES,
 } from "@/constants/offerFormQuestions"
+import {
+  parseUIConfig,
+  updateSubQuestionLabel,
+  updateSubQuestionPlaceholder,
+} from "@/types/questionUIConfig"
 import { Database } from "@/types/supabase"
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { QuestionRenderer } from "../QuestionRenderer"
 import EditQuestionModal from "./EditQuestionModal"
 import EditTextModal from "./EditTextModal"
+import EssentialQuestionModal from "./EssentialQuestionModal"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 
@@ -40,17 +46,17 @@ const QuestionCard = ({
 }: QuestionCardProps) => {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editQuestionModalOpen, setEditQuestionModalOpen] = useState(false)
+  const [essentialQuestionModal, setEssentialQuestionModal] = useState<{
+    isOpen: boolean
+    action: "delete" | "edit" | "makeOptional"
+  }>({ isOpen: false, action: "delete" })
   const [editingField, setEditingField] = useState<{
     id: string
     text: string
     type: "label" | "placeholder"
   } | null>(null)
-  // Get UI configuration from uiConfig JSONB field
-  const uiConfig =
-    (question.uiConfig as {
-      label?: string
-      placeholder?: string
-    } | null) || {}
+  // Get UI configuration from uiConfig JSONB field - use standardized type
+  const uiConfig = parseUIConfig(question.uiConfig)
 
   // Get question definition for description
   const questionDefinition = QUESTION_DEFINITIONS[question.type]
@@ -60,20 +66,26 @@ const QuestionCard = ({
 
   // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
-  
+
   // For custom questions, especially statement questions, use setupConfig.question_text as the label
   const isCustomQuestion = question.type === "custom"
-  const isStatementQuestion = isCustomQuestion && setupConfig.answer_type === "statement"
-  
+  const isStatementQuestion =
+    isCustomQuestion && setupConfig.answer_type === "statement"
+
   const labelText = isStatementQuestion
     ? setupConfig.question_text || "Question"
     : isCustomQuestion
-    ? setupConfig.question_text || uiConfig.label || questionDefinition?.label || "Question"
-    : uiConfig.label || questionDefinition?.label || "Question"
+      ? setupConfig.question_text ||
+        uiConfig.label ||
+        questionDefinition?.label ||
+        "Question"
+      : uiConfig.label || questionDefinition?.label || "Question"
 
   const handleLabelEdit = (fieldKey?: string, currentText?: string) => {
     // If called without parameters, it's the main label
     if (fieldKey === undefined) {
+      // Allow editing labels even for essential questions
+      // Only "Edit Question" button and required checkbox are blocked
       setEditingField({
         id: "label",
         text: labelText,
@@ -108,7 +120,10 @@ const QuestionCard = ({
         // For Statement questions, save to setupConfig.question_text
         // For other custom questions, also save to setupConfig.question_text
         // For standard questions, save to uiConfig.label
-        if (isStatementQuestion || (isCustomQuestion && setupConfig.question_text)) {
+        if (
+          isStatementQuestion ||
+          (isCustomQuestion && setupConfig.question_text)
+        ) {
           // Update setupConfig.question_text for custom/statement questions
           onUpdateQuestion(question.id, {
             setupConfig: {
@@ -126,7 +141,141 @@ const QuestionCard = ({
           })
         }
       } else {
-        // Update sub-question label
+        // Sub-question label - check if it's a sub-question ID (format: "deposit_amount", "deposit_due", etc.)
+        // or a legacy format ("sub_question_text_deposit_amount")
+        let subQuestionId = editingField.id
+
+        // Handle legacy format: "sub_question_text_deposit_amount" -> "deposit_amount"
+        if (subQuestionId.startsWith("sub_question_text_")) {
+          subQuestionId = subQuestionId.replace("sub_question_text_", "")
+        } else if (subQuestionId.startsWith("sub_question_placeholder_")) {
+          subQuestionId = subQuestionId.replace("sub_question_placeholder_", "")
+        }
+
+        // Check if this is a sub-question for complex question types
+        // Complex questions have sub-questions: deposit, subjectToLoanApproval, settlementDate
+        const isComplexQuestion =
+          question.type === "deposit" ||
+          question.type === "subjectToLoanApproval" ||
+          question.type === "settlementDate"
+
+        // Known sub-question ID patterns for complex questions and other question types
+        // These are fields that should be saved to subQuestions, not direct uiConfig
+        const isSubQuestionId =
+          subQuestionId.startsWith("deposit_") ||
+          subQuestionId.startsWith("loan_") ||
+          subQuestionId.startsWith("settlement_") ||
+          subQuestionId === "loanAmountLabel" ||
+          subQuestionId === "companyNameLabel" ||
+          subQuestionId === "contactNameLabel" ||
+          subQuestionId === "contactPhoneLabel" ||
+          subQuestionId === "contactEmailLabel" ||
+          subQuestionId === "customConditionLabel" ||
+          subQuestionId === "settlementLocationLabel" ||
+          subQuestionId === "firstNameLabel" ||
+          subQuestionId === "middleNameLabel" ||
+          subQuestionId === "lastNameLabel" ||
+          subQuestionId === "idUploadLabel" ||
+          subQuestionId === "loanAmountPlaceholder" ||
+          subQuestionId === "companyNamePlaceholder" ||
+          subQuestionId === "contactNamePlaceholder" ||
+          subQuestionId === "contactPhonePlaceholder" ||
+          subQuestionId === "contactEmailPlaceholder" ||
+          subQuestionId === "customConditionPlaceholder" ||
+          subQuestionId === "locationPlaceholder" ||
+          subQuestionId === "daysPlaceholder" ||
+          subQuestionId === "firstNamePlaceholder" ||
+          subQuestionId === "middleNamePlaceholder" ||
+          subQuestionId === "lastNamePlaceholder" ||
+          (isComplexQuestion && subQuestionId.includes("_")) ||
+          // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
+          (question.type === "custom" &&
+            (subQuestionId.endsWith("Label") ||
+              subQuestionId.endsWith("Placeholder")))
+
+        // Save to subQuestions if it's a known sub-question ID, regardless of question type
+        if (isSubQuestionId) {
+          // Save to uiConfig.subQuestions using standardized structure
+          const updatedUIConfig = updateSubQuestionLabel(
+            uiConfig,
+            subQuestionId,
+            newText,
+          )
+          onUpdateQuestion(question.id, {
+            uiConfig: updatedUIConfig,
+          })
+        } else {
+          // Regular sub-field label (e.g., firstNameLabel, lastNameLabel) - save directly to uiConfig
+          onUpdateQuestion(question.id, {
+            uiConfig: {
+              ...uiConfig,
+              [editingField.id]: newText,
+            },
+          })
+        }
+      }
+    } else {
+      // Update placeholder
+      let subQuestionId = editingField.id
+
+      // Handle legacy format
+      if (subQuestionId.startsWith("sub_question_placeholder_")) {
+        subQuestionId = subQuestionId.replace("sub_question_placeholder_", "")
+      }
+
+      // Check if this is a sub-question for complex question types
+      const isComplexQuestion =
+        question.type === "deposit" ||
+        question.type === "subjectToLoanApproval" ||
+        question.type === "settlementDate"
+
+      // Known sub-question ID patterns for complex questions and other question types
+      // These are fields that should be saved to subQuestions, not direct uiConfig
+      const isSubQuestionId =
+        subQuestionId.startsWith("deposit_") ||
+        subQuestionId.startsWith("loan_") ||
+        subQuestionId.startsWith("settlement_") ||
+        subQuestionId === "loanAmountLabel" ||
+        subQuestionId === "companyNameLabel" ||
+        subQuestionId === "contactNameLabel" ||
+        subQuestionId === "contactPhoneLabel" ||
+        subQuestionId === "contactEmailLabel" ||
+        subQuestionId === "customConditionLabel" ||
+        subQuestionId === "settlementLocationLabel" ||
+        subQuestionId === "firstNameLabel" ||
+        subQuestionId === "middleNameLabel" ||
+        subQuestionId === "lastNameLabel" ||
+        subQuestionId === "idUploadLabel" ||
+        subQuestionId === "loanAmountPlaceholder" ||
+        subQuestionId === "companyNamePlaceholder" ||
+        subQuestionId === "contactNamePlaceholder" ||
+        subQuestionId === "contactPhonePlaceholder" ||
+        subQuestionId === "contactEmailPlaceholder" ||
+        subQuestionId === "customConditionPlaceholder" ||
+        subQuestionId === "locationPlaceholder" ||
+        subQuestionId === "daysPlaceholder" ||
+        subQuestionId === "firstNamePlaceholder" ||
+        subQuestionId === "middleNamePlaceholder" ||
+        subQuestionId === "lastNamePlaceholder" ||
+        (isComplexQuestion && subQuestionId.includes("_")) ||
+        // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
+        (question.type === "custom" &&
+          (subQuestionId.endsWith("Label") ||
+            subQuestionId.endsWith("Placeholder")))
+
+      // Save to subQuestions if it's a known sub-question ID, regardless of question type
+      if (isSubQuestionId) {
+        // Save to uiConfig.subQuestions using standardized structure
+        const updatedUIConfig = updateSubQuestionPlaceholder(
+          uiConfig,
+          subQuestionId,
+          newText,
+        )
+        onUpdateQuestion(question.id, {
+          uiConfig: updatedUIConfig,
+        })
+      } else {
+        // Regular placeholder - save directly to uiConfig
         onUpdateQuestion(question.id, {
           uiConfig: {
             ...uiConfig,
@@ -134,14 +283,6 @@ const QuestionCard = ({
           },
         })
       }
-    } else {
-      // Update placeholder
-      onUpdateQuestion(question.id, {
-        uiConfig: {
-          ...uiConfig,
-          [editingField.id]: newText,
-        },
-      })
     }
     setEditModalOpen(false)
     setEditingField(null)
@@ -149,198 +290,238 @@ const QuestionCard = ({
 
   // Determine if this is an essential question (cannot be modified)
   const isEssential = REQUIRED_QUESTION_TYPES.includes(question.type)
+  
+  // Determine if this question is locked in position
+  const isLockedInPosition = 
+    (question.type === "specifyListing" && question.order === 1) ||
+    (question.type === "submitterRole" && question.order === 2)
+  
+  // Determine if move up is disabled
+  // "Specify Listing" at position 1 can't move up
+  // "Submitter Role" at position 2 can't move up (would go to position 1 which is locked)
+  const canMoveUp = !isFirst && !isLockedInPosition && 
+    !(question.type === "submitterRole" && question.order === 2)
+  
+  // Determine if move down is disabled
+  // Both locked questions can't move down from their positions
+  const canMoveDown = !isLast && !isLockedInPosition
 
   const handleRequiredToggle = () => {
-    if (!isEssential) {
-      onUpdateQuestion(question.id, {
-        required: !question.required,
-      })
+    if (isEssential) {
+      setEssentialQuestionModal({ isOpen: true, action: "makeOptional" })
+      return
     }
+    onUpdateQuestion(question.id, {
+      required: !question.required,
+    })
+  }
+
+  const handleDelete = () => {
+    if (isEssential) {
+      setEssentialQuestionModal({ isOpen: true, action: "delete" })
+      return
+    }
+    onDelete()
+  }
+
+  const handleEditQuestion = () => {
+    if (isEssential) {
+      setEssentialQuestionModal({ isOpen: true, action: "edit" })
+      return
+    }
+    setEditQuestionModalOpen(true)
   }
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
-      {/* Mobile: Top row with question number and actions */}
-      <div className="flex items-center justify-between gap-4 md:hidden">
-        {/* Question Number (Mobile) */}
-        <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-2">
-          <p className="text-sm font-bold text-gray-900">
-            QUESTION {questionNumber} of {totalQuestions}
-          </p>
-        </div>
+    <>
+      {/* Decorative divider (not shown for first question) */}
+      {!isFirst && <div className="my-4 border-t border-gray-200" />}
 
-        {/* Actions (Mobile) */}
-        <div className="flex items-center gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onMoveUp}
-            disabled={isFirst}
-          >
-            <ChevronUp size={16} />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onMoveDown}
-            disabled={isLast}
-          >
-            <ChevronDown size={16} />
-          </Button>
-          <Button
-            size="icon"
-            disabled={isEssential}
-            variant="ghostDesctructive"
-            onClick={onDelete}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Desktop: Left - Question Info */}
-      <div className="hidden w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4 md:flex">
-        <p className="text-xl font-bold text-gray-900">QUESTION</p>
-        <p className="text-sm font-bold text-gray-900">
-          {questionNumber} of {totalQuestions}
-        </p>
-        <div className="mt-3 flex items-center gap-2">
-          <Checkbox
-            checked={question.required}
-            disabled={isEssential}
-            onCheckedChange={handleRequiredToggle}
-          />
-          <span className="text-sm text-gray-700">Required field</span>
-        </div>
-        {!isEssential && (
-          <Button 
-            variant="outline" 
-            className="mt-3 w-full" 
-            size="sm"
-            onClick={() => setEditQuestionModalOpen(true)}
-          >
-            Edit Question
-          </Button>
-        )}
-      </div>
-
-      {/* Middle: Question Preview (Both Mobile and Desktop) */}
-      <div className="flex flex-1 flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold tracking-wide text-gray-500 uppercase">
-            {QUESTION_TYPE_TO_LABEL[question.type]}
-          </h3>
-          {isEssential && (
-            <Badge size="xs" variant="destructiveLight" className="text-xs">
-              Essential
-            </Badge>
-          )}
-        </div>
-        <div className="flex flex-1 flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4">
-          <p
-            className="cursor-pointer text-base font-medium text-gray-900 transition-colors hover:text-cyan-600"
-            onClick={() => handleLabelEdit()}
-            title="Click to edit question text"
-          >
-            {labelText}
-            {question.required && <span className="text-red-500"> *</span>}
-          </p>
-
-          {/* Render appropriate input based on question type and setup */}
-          <QuestionRenderer
-            question={question}
-            disabled
-            editingMode={true}
-            onUpdateQuestion={onUpdateQuestion}
-            onEditPlaceholder={handlePlaceholderEdit}
-            onEditLabel={handleLabelEdit}
-            formId={question.formId}
-          />
-        </div>
-
-        {/* Mobile: Required field checkbox and Edit button */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
+        {/* Mobile: Top row with question number and actions */}
         <div className="flex items-center justify-between gap-4 md:hidden">
-          <div className="flex items-center gap-2">
+          {/* Question Number (Mobile) */}
+          <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-2">
+            <p className="text-sm font-bold text-gray-900">
+              QUESTION {questionNumber} of {totalQuestions}
+            </p>
+          </div>
+
+          {/* Actions (Mobile) */}
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onMoveUp}
+              disabled={!canMoveUp}
+            >
+              <ChevronUp size={16} />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onMoveDown}
+              disabled={!canMoveDown}
+            >
+              <ChevronDown size={16} />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghostDesctructive"
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Desktop: Left - Question Info */}
+        <div className="hidden w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4 md:flex">
+          <p className="text-xl font-bold text-gray-900">QUESTION</p>
+          <p className="text-sm font-bold text-gray-900">
+            {questionNumber} of {totalQuestions}
+          </p>
+          <div className="mt-3 flex items-center gap-2">
             <Checkbox
               checked={question.required}
-              disabled={isEssential}
               onCheckedChange={handleRequiredToggle}
             />
             <span className="text-sm text-gray-700">Required field</span>
           </div>
-          {!isEssential && (
-            <Button 
-              variant="outline" 
+          <Button
+            variant="outline"
+            className="mt-3 w-full"
+            size="sm"
+            onClick={handleEditQuestion}
+          >
+            Edit Question
+          </Button>
+        </div>
+
+        {/* Middle: Question Preview (Both Mobile and Desktop) */}
+        <div className="flex flex-1 flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold tracking-wide text-gray-500 uppercase">
+              {QUESTION_TYPE_TO_LABEL[question.type]}
+            </h3>
+            {isEssential && (
+              <Badge size="xs" variant="destructiveLight" className="text-xs">
+                Essential
+              </Badge>
+            )}
+          </div>
+          <div className="flex flex-1 flex-col gap-2 py-4">
+            <p
+              className="cursor-pointer text-base font-medium text-gray-900 transition-colors hover:text-cyan-600"
+              onClick={() => handleLabelEdit()}
+              title="Click to edit question text"
+            >
+              {labelText}
+              {question.required && <span className="text-red-500"> *</span>}
+            </p>
+
+            {/* Render appropriate input based on question type and setup */}
+            <QuestionRenderer
+              question={question}
+              disabled
+              editingMode={true}
+              onUpdateQuestion={onUpdateQuestion}
+              onEditPlaceholder={handlePlaceholderEdit}
+              onEditLabel={handleLabelEdit}
+              formId={question.formId}
+            />
+          </div>
+
+          {/* Mobile: Required field checkbox and Edit button */}
+          <div className="flex items-center justify-between gap-4 md:hidden">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={question.required}
+                onCheckedChange={handleRequiredToggle}
+              />
+              <span className="text-sm text-gray-700">Required field</span>
+            </div>
+            <Button
+              variant="outline"
               size="sm"
-              onClick={() => setEditQuestionModalOpen(true)}
+              onClick={handleEditQuestion}
             >
               Edit Question
             </Button>
-          )}
+          </div>
         </div>
-      </div>
 
-      {/* Desktop: Right - Actions */}
-      <div className="hidden w-auto flex-col justify-center gap-1 md:flex">
-        <Button
-          size="xs"
-          variant="ghost"
-          onClick={onMoveUp}
-          disabled={isFirst}
-          className="justify-baseline"
-        >
-          <ChevronUp size={16} />
-          Move Up
-        </Button>
-        <Button
-          size="xs"
-          variant="ghost"
-          onClick={onMoveDown}
-          disabled={isLast}
-          className="justify-baseline"
-        >
-          <ChevronDown size={16} />
-          Move Down
-        </Button>
-        <Button
-          size="xs"
-          disabled={isEssential}
-          variant="ghostDesctructive"
-          onClick={onDelete}
-          className="justify-baseline"
-        >
-          <Trash2 className="h-4 w-4" />
-          Delete
-        </Button>
-      </div>
+        {/* Desktop: Right - Actions */}
+        <div className="hidden w-auto flex-col justify-center gap-1 md:flex">
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+            className="justify-baseline"
+          >
+            <ChevronUp size={16} />
+            Move Up
+          </Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+            className="justify-baseline"
+          >
+            <ChevronDown size={16} />
+            Move Down
+          </Button>
+          <Button
+            size="xs"
+            variant="ghostDesctructive"
+            onClick={handleDelete}
+            className="justify-baseline"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        </div>
 
-      {/* Edit Text Modal */}
-      {editingField && (
-        <EditTextModal
-          isOpen={editModalOpen}
-          onClose={() => {
-            setEditModalOpen(false)
-            setEditingField(null)
-          }}
-          title={
-            editingField.type === "label"
-              ? "Edit Question Text"
-              : "Edit Placeholder"
-          }
-          currentText={editingField.text}
-          onSave={handleSaveEdit}
-          fieldType={editingField.type}
+        {/* Edit Text Modal */}
+        {editingField && (
+          <EditTextModal
+            isOpen={editModalOpen}
+            onClose={() => {
+              setEditModalOpen(false)
+              setEditingField(null)
+            }}
+            title={
+              editingField.type === "label"
+                ? "Edit Question Text"
+                : "Edit Placeholder"
+            }
+            currentText={editingField.text}
+            onSave={handleSaveEdit}
+            fieldType={editingField.type}
+          />
+        )}
+
+        {/* Edit Question Setup Modal */}
+        <EditQuestionModal
+          open={editQuestionModalOpen}
+          onOpenChange={setEditQuestionModalOpen}
+          question={question}
+          onUpdateQuestion={onUpdateQuestion}
         />
-      )}
 
-      {/* Edit Question Setup Modal */}
-      <EditQuestionModal
-        open={editQuestionModalOpen}
-        onOpenChange={setEditQuestionModalOpen}
-        question={question}
-        onUpdateQuestion={onUpdateQuestion}
-      />
-    </div>
+        {/* Essential Question Modal */}
+        <EssentialQuestionModal
+          isOpen={essentialQuestionModal.isOpen}
+          onClose={() =>
+            setEssentialQuestionModal({ isOpen: false, action: "delete" })
+          }
+          action={essentialQuestionModal.action}
+          questionType={QUESTION_TYPE_TO_LABEL[question.type] || question.type}
+        />
+      </div>
+    </>
   )
 }
 

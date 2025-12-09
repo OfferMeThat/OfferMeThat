@@ -6,7 +6,6 @@ export const REQUIRED_QUESTION_TYPES: Array<QuestionType> = [
   "submitterName",
   "submitterEmail",
   "submitterPhone",
-  "nameOfPurchaser",
   "offerAmount",
   "submitButton",
 ]

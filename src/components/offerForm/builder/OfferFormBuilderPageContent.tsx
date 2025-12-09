@@ -94,8 +94,46 @@ const OfferFormBuilderPageContent = () => {
     initializeForm()
   }, [])
 
-  const handleMoveUp = (questionId: string, currentOrder: number) => {
+  const handleMoveUp = (
+    questionId: string,
+    currentOrder: number,
+    questionType: QuestionType,
+  ) => {
     if (currentOrder === 1) return
+
+    // Check if "Specify Listing" exists and is at position 1
+    const specifyListingQuestion = questions.find(
+      (q) => q.type === "specifyListing",
+    )
+    const isSpecifyListingAtPosition1 = specifyListingQuestion?.order === 1
+
+    // Check if "Submitter Role" exists and is at position 2
+    const submitterRoleQuestion = questions.find(
+      (q) => q.type === "submitterRole",
+    )
+    const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
+
+    // Lock "Specify Listing" in position 1 (if it exists)
+    if (questionType === "specifyListing" && currentOrder === 1) return
+
+    // Lock "Submitter Role" in position 2 - can't move up to position 1 (if it exists)
+    if (
+      questionType === "submitterRole" &&
+      currentOrder === 2 &&
+      isSpecifyListingAtPosition1
+    )
+      return
+
+    // Prevent other questions from moving into locked positions
+    const targetPosition = currentOrder - 1
+    if (targetPosition === 1 && isSpecifyListingAtPosition1) {
+      // Position 1 is locked by "Specify Listing"
+      if (questionType !== "specifyListing") return
+    }
+    if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
+      // Position 2 is locked by "Submitter Role"
+      if (questionType !== "submitterRole") return
+    }
 
     startTransition(async () => {
       try {
@@ -104,6 +142,15 @@ const OfferFormBuilderPageContent = () => {
           (q) => q.order === currentOrder - 1,
         )
         if (!questionAbove) return
+
+        // Check if the question above is locked in its position
+        if (
+          questionAbove.type === "specifyListing" &&
+          questionAbove.order === 1
+        )
+          return
+        if (questionAbove.type === "submitterRole" && questionAbove.order === 2)
+          return
 
         // Swap orders
         await updateQuestionOrder(questionId, currentOrder - 1)
@@ -129,8 +176,31 @@ const OfferFormBuilderPageContent = () => {
     })
   }
 
-  const handleMoveDown = (questionId: string, currentOrder: number) => {
+  const handleMoveDown = (
+    questionId: string,
+    currentOrder: number,
+    questionType: QuestionType,
+  ) => {
     if (currentOrder === questions.length) return
+
+    // Check if "Submitter Role" exists and is at position 2
+    const submitterRoleQuestion = questions.find(
+      (q) => q.type === "submitterRole",
+    )
+    const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
+
+    // Lock "Specify Listing" in position 1 - can't move down
+    if (questionType === "specifyListing" && currentOrder === 1) return
+
+    // Lock "Submitter Role" in position 2 - can't move down (if it exists)
+    if (questionType === "submitterRole" && currentOrder === 2) return
+
+    // Prevent moving into position 2 if it's locked
+    const targetPosition = currentOrder + 1
+    if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
+      // Position 2 is locked by "Submitter Role"
+      if (questionType !== "submitterRole") return
+    }
 
     startTransition(async () => {
       try {
@@ -139,6 +209,11 @@ const OfferFormBuilderPageContent = () => {
           (q) => q.order === currentOrder + 1,
         )
         if (!questionBelow) return
+
+        // Check if moving would put this question into a locked position
+        const targetPosition = currentOrder + 1
+        if (targetPosition === 1 && questionType !== "specifyListing") return
+        if (targetPosition === 2 && questionType !== "submitterRole") return
 
         // Swap orders
         await updateQuestionOrder(questionId, currentOrder + 1)
@@ -286,6 +361,31 @@ const OfferFormBuilderPageContent = () => {
   }
 
   const handleOpenAddQuestionModal = (afterOrder: number) => {
+    // Check if "Specify Listing" exists at position 1
+    const specifyListingQuestion = questions.find(
+      (q) => q.type === "specifyListing",
+    )
+    const isSpecifyListingAtPosition1 = specifyListingQuestion?.order === 1
+
+    // Check if "Submitter Role" exists at position 2
+    const submitterRoleQuestion = questions.find(
+      (q) => q.type === "submitterRole",
+    )
+    const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
+
+    // Prevent adding questions between position 1 and 2
+    // If adding after position 1, the new question would be at position 2
+    if (
+      afterOrder === 1 &&
+      isSpecifyListingAtPosition1 &&
+      isSubmitterRoleAtPosition2
+    ) {
+      toast.error(
+        "Cannot add questions between 'Specify Listing' and 'Submitter Role'",
+      )
+      return
+    }
+
     setAddQuestionAfterOrder(afterOrder)
     setShowAddQuestionModal(true)
   }
@@ -466,22 +566,52 @@ const OfferFormBuilderPageContent = () => {
                     question={question}
                     isFirst={index === 0}
                     isLast={index === questions.length - 1}
-                    onMoveUp={() => handleMoveUp(question.id, question.order)}
+                    onMoveUp={() =>
+                      handleMoveUp(question.id, question.order, question.type)
+                    }
                     onMoveDown={() =>
-                      handleMoveDown(question.id, question.order)
+                      handleMoveDown(question.id, question.order, question.type)
                     }
                     onDelete={() => handleDelete(question.id)}
                     onUpdateQuestion={handleUpdateQuestion}
                   />
 
                   <div className="my-8 flex flex-wrap items-center justify-center gap-4">
-                    <Button
-                      size="sm"
-                      variant="dashed"
-                      onClick={() => handleOpenAddQuestionModal(question.order)}
-                    >
-                      + Add New Question Here
-                    </Button>
+                    {/* Check if we can add a question here (not between position 1 and 2) */}
+                    {(() => {
+                      // Check if "Specify Listing" exists at position 1
+                      const specifyListingQuestion = questions.find(
+                        (q) => q.type === "specifyListing",
+                      )
+                      const isSpecifyListingAtPosition1 =
+                        specifyListingQuestion?.order === 1
+
+                      // Check if "Submitter Role" exists at position 2
+                      const submitterRoleQuestion = questions.find(
+                        (q) => q.type === "submitterRole",
+                      )
+                      const isSubmitterRoleAtPosition2 =
+                        submitterRoleQuestion?.order === 2
+
+                      // Hide button if adding after position 1 would place question at position 2
+                      const wouldAddAtPosition2 =
+                        question.order === 1 &&
+                        isSpecifyListingAtPosition1 &&
+                        isSubmitterRoleAtPosition2
+
+                      return (
+                        <Button
+                          disabled={wouldAddAtPosition2}
+                          size="sm"
+                          variant="dashed"
+                          onClick={() =>
+                            handleOpenAddQuestionModal(question.order)
+                          }
+                        >
+                          + Add New Question Here
+                        </Button>
+                      )
+                    })()}
                     <Button
                       disabled={index === questions.length - 1}
                       size="sm"
@@ -566,15 +696,43 @@ const OfferFormBuilderPageContent = () => {
 
                       {/* Add buttons after page break */}
                       <div className="my-8 flex flex-wrap items-center justify-center gap-4">
-                        <Button
-                          size="sm"
-                          variant="dashed"
-                          onClick={() =>
-                            handleOpenAddQuestionModal(question.order)
+                        {(() => {
+                          // Check if "Specify Listing" exists at position 1
+                          const specifyListingQuestion = questions.find(
+                            (q) => q.type === "specifyListing",
+                          )
+                          const isSpecifyListingAtPosition1 =
+                            specifyListingQuestion?.order === 1
+
+                          // Check if "Submitter Role" exists at position 2
+                          const submitterRoleQuestion = questions.find(
+                            (q) => q.type === "submitterRole",
+                          )
+                          const isSubmitterRoleAtPosition2 =
+                            submitterRoleQuestion?.order === 2
+
+                          // Hide button if adding after position 1 would place question at position 2
+                          const wouldAddAtPosition2 =
+                            question.order === 1 &&
+                            isSpecifyListingAtPosition1 &&
+                            isSubmitterRoleAtPosition2
+
+                          if (wouldAddAtPosition2) {
+                            return null
                           }
-                        >
-                          + Add New Question Here
-                        </Button>
+
+                          return (
+                            <Button
+                              size="sm"
+                              variant="dashed"
+                              onClick={() =>
+                                handleOpenAddQuestionModal(question.order)
+                              }
+                            >
+                              + Add New Question Here
+                            </Button>
+                          )
+                        })()}
                         <Button disabled size="sm" variant="dashed">
                           + Add a Page Break Here
                         </Button>
