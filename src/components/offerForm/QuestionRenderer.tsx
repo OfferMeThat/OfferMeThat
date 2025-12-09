@@ -52,13 +52,23 @@ interface PersonNameFieldsProps {
   questionId: string
   nameFields: Record<
     string,
-    { firstName: string; middleName: string; lastName: string }
+    {
+      firstName: string
+      middleName: string
+      lastName: string
+      skipMiddleName?: boolean
+    }
   >
   setNameFields: React.Dispatch<
     React.SetStateAction<
       Record<
         string,
-        { firstName: string; middleName: string; lastName: string }
+        {
+          firstName: string
+          middleName: string
+          lastName: string
+          skipMiddleName?: boolean
+        }
       >
     >
   >
@@ -104,6 +114,7 @@ const PersonNameFields = ({
     firstName: "",
     middleName: "",
     lastName: "",
+    skipMiddleName: false,
   }
   // Use top-level fileUploads state with question id prefix to avoid conflicts
   const fileData: { file: File | null; fileName: string; error?: string } =
@@ -134,6 +145,10 @@ const PersonNameFields = ({
   }
   // Show middle name based on setup configuration
   const shouldShowMiddleName = collectMiddleNames === "yes"
+
+  // State for "I don't have a middle name" checkbox
+  // Check if this preference is stored in nameFields (for each person)
+  const skipMiddleName = nameFields[prefix]?.skipMiddleName || false
 
   return (
     <div className="space-y-3">
@@ -166,6 +181,7 @@ const PersonNameFields = ({
                   firstName: "",
                   middleName: "",
                   lastName: "",
+                  skipMiddleName: false,
                 }
                 return {
                   ...prev,
@@ -188,56 +204,106 @@ const PersonNameFields = ({
         </div>
       </div>
       {shouldShowMiddleName && (
-        <div>
-          <div className="relative inline-block">
-            <Label className="mb-1 block text-sm">
-              {getSubQuestionLabel(uiConfig, "middleNameLabel", "Middle Name:")}
-            </Label>
-            {renderLabelOverlay(
-              "middleNameLabel",
-              getSubQuestionLabel(uiConfig, "middleNameLabel", "Middle Name:"),
-            )}
-          </div>
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder={getSubQuestionPlaceholder(
-                uiConfig,
-                "middleNamePlaceholder",
-                "Enter middle name",
-              )}
-              disabled={disabled}
-              className={cn(editingMode && "cursor-not-allowed")}
-              style={getInputStyle()}
-              value={nameData.middleName}
-              onChange={(e) => {
-                const value = e.target.value
-                setNameFields((prev) => {
-                  const current = prev[prefix] || {
-                    firstName: "",
-                    middleName: "",
-                    lastName: "",
+        <>
+          {!skipMiddleName && (
+            <div>
+              <div className="relative inline-block">
+                <Label className="mb-1 block text-sm">
+                  {getSubQuestionLabel(
+                    uiConfig,
+                    "middleNameLabel",
+                    "Middle Name:",
+                  )}
+                </Label>
+                {renderLabelOverlay(
+                  "middleNameLabel",
+                  getSubQuestionLabel(
+                    uiConfig,
+                    "middleNameLabel",
+                    "Middle Name:",
+                  ),
+                )}
+              </div>
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder={getSubQuestionPlaceholder(
+                    uiConfig,
+                    "middleNamePlaceholder",
+                    "Enter middle name",
+                  )}
+                  disabled={disabled}
+                  className={cn(editingMode && "cursor-not-allowed")}
+                  style={getInputStyle()}
+                  value={nameData.middleName}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setNameFields((prev) => {
+                      const current = prev[prefix] || {
+                        firstName: "",
+                        middleName: "",
+                        lastName: "",
+                        skipMiddleName: false,
+                      }
+                      return {
+                        ...prev,
+                        [prefix]: {
+                          ...current,
+                          middleName: value,
+                        },
+                      }
+                    })
+                  }}
+                />
+                {renderEditOverlay(
+                  "middleNamePlaceholder",
+                  getSubQuestionPlaceholder(
+                    uiConfig,
+                    "middleNamePlaceholder",
+                    "Enter middle name",
+                  ),
+                )}
+              </div>
+            </div>
+          )}
+          {!editingMode && (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={`${questionId}_${prefix}_skip_middle_name`}
+                checked={skipMiddleName}
+                onCheckedChange={(checked) => {
+                  if (!disabled) {
+                    setNameFields((prev) => {
+                      const current = prev[prefix] || {
+                        firstName: "",
+                        middleName: "",
+                        lastName: "",
+                        skipMiddleName: false,
+                      }
+                      return {
+                        ...prev,
+                        [prefix]: {
+                          ...current,
+                          skipMiddleName: checked === true,
+                          // Clear middle name when checkbox is checked
+                          middleName:
+                            checked === true ? "" : current.middleName,
+                        },
+                      }
+                    })
                   }
-                  return {
-                    ...prev,
-                    [prefix]: {
-                      ...current,
-                      middleName: value,
-                    },
-                  }
-                })
-              }}
-            />
-            {renderEditOverlay(
-              "middleNamePlaceholder",
-              getSubQuestionPlaceholder(
-                uiConfig,
-                "middleNamePlaceholder",
-                "Enter middle name",
-              ),
-            )}
-          </div>
-        </div>
+                }}
+                disabled={disabled}
+              />
+              <Label
+                htmlFor={`${questionId}_${prefix}_skip_middle_name`}
+                className="cursor-pointer text-sm font-normal"
+              >
+                I don&apos;t have a middle name
+              </Label>
+            </div>
+          )}
+        </>
       )}
       <div>
         <div className="relative inline-block">
@@ -1053,7 +1119,12 @@ export const QuestionRenderer = ({
     const [nameFields, setNameFields] = useState<
       Record<
         string,
-        { firstName: string; middleName: string; lastName: string }
+        {
+          firstName: string
+          middleName: string
+          lastName: string
+          skipMiddleName?: boolean
+        }
       >
     >(nameOfPurchaserValue.nameFields || {})
 
@@ -1067,7 +1138,12 @@ export const QuestionRenderer = ({
         purchaserTypes: Record<number, string>
         nameFields: Record<
           string,
-          { firstName: string; middleName: string; lastName: string }
+          {
+            firstName: string
+            middleName: string
+            lastName: string
+            skipMiddleName?: boolean
+          }
         >
         idFiles?: Record<string, File>
       }>,
