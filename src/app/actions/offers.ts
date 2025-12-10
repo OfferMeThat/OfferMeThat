@@ -249,6 +249,7 @@ export async function getAllListings(): Promise<Listing[] | null> {
 
 export async function getFilteredOffers(
   filters: Filters,
+  isTestMode: boolean = false,
 ): Promise<OfferWithListing[] | null> {
   const supabase = await createClient()
 
@@ -284,8 +285,13 @@ export async function getFilteredOffers(
   // Exclude unassigned offers from main query (they're shown separately)
   query = query.neq("status", "unassigned")
 
-  // Exclude test offers (isTest is null or false)
-  query = query.or("isTest.is.null,isTest.eq.false")
+  if (isTestMode) {
+    // Only show test offers
+    query = query.eq("isTest", true)
+  } else {
+    // Exclude test offers (isTest is null or false)
+    query = query.or("isTest.is.null,isTest.eq.false")
+  }
 
   // Apply status filter
   if (filters.status) {
@@ -319,6 +325,56 @@ export async function getFilteredOffers(
   if (!offers || error) {
     console.error("Error fetching filtered offers:", error)
     return null
+  }
+
+  // If in test mode, filter out expired offers and delete them
+  if (isTestMode) {
+    const now = new Date()
+    const validOffers: any[] = []
+    const expiredOfferIds: string[] = []
+
+    offers.forEach((offer) => {
+      const createdAt = new Date(offer.createdAt)
+      const diffInHours =
+        (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60)
+
+      if (diffInHours < 72) {
+        validOffers.push(offer)
+      } else {
+        expiredOfferIds.push(offer.id)
+      }
+    })
+
+    // Delete expired offers in background
+    if (expiredOfferIds.length > 0) {
+      deleteOffers(expiredOfferIds).catch((err) =>
+        console.error("Failed to delete expired test offers:", err),
+      )
+    }
+
+    // Transform the data to match OfferWithListing type
+    const transformedValidOffers = validOffers.map((offer: any) => ({
+      ...offer,
+      listing: Array.isArray(offer.listings)
+        ? offer.listings[0] || null
+        : offer.listings || null,
+    })) as OfferWithListing[]
+
+    // Apply name search filter in memory
+    if (filters.nameSearch) {
+      const searchLower = filters.nameSearch.toLowerCase()
+      return transformedValidOffers.filter((offer) => {
+        const listingAddress = offer.listing?.address?.toLowerCase() || ""
+        const submitterName =
+          `${offer.submitterFirstName} ${offer.submitterLastName}`.toLowerCase()
+        return (
+          listingAddress.includes(searchLower) ||
+          submitterName.includes(searchLower)
+        )
+      })
+    }
+
+    return transformedValidOffers
   }
 
   // Transform the data to match OfferWithListing type
@@ -601,4 +657,30 @@ export async function getTestOffers(): Promise<OfferWithListing[] | null> {
   })) as OfferWithListing[]
 
   return transformedOffers
+}
+
+export async function hasTestOffers(): Promise<boolean> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return false
+
+  const { data: userForms } = await supabase
+    .from("offerForms")
+    .select("id")
+    .eq("ownerId", user.id)
+
+  if (!userForms || userForms.length === 0) return false
+
+  const userFormIds = userForms.map((form) => form.id)
+
+  const { count } = await supabase
+    .from("offers")
+    .select("*", { count: "exact", head: true })
+    .eq("isTest", true)
+    .in("formId", userFormIds)
+
+  return (count || 0) > 0
 }

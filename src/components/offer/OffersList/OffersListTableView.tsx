@@ -88,7 +88,7 @@ const OffersListTableView = ({
               Status
             </TableHead>
             <TableHead className="min-w-48 font-medium text-gray-700">
-              Specify Listing
+              Listing
             </TableHead>
             <TableHead className="min-w-40 font-medium text-gray-700">
               Submitter Name
