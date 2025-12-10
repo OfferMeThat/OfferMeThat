@@ -7,10 +7,15 @@ export const LISTING_STATUSES: Record<ListingStatus, string> = {
   sold: "Sold",
   underContract: "Under Contract",
   withdrawn: "Withdrawn",
+  unassigned: "Unassigned",
 }
-export const LISTING_TO_BADGE_MAP: Record<ListingStatus, VariantProps<typeof badgeVariants>['variant']> = {
+export const LISTING_TO_BADGE_MAP: Record<
+  ListingStatus,
+  VariantProps<typeof badgeVariants>["variant"]
+> = {
   forSale: "success",
   sold: "success",
   underContract: "secondary",
   withdrawn: "destructive",
+  unassigned: "default",
 }
