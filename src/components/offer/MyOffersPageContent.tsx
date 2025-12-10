@@ -94,17 +94,8 @@ const MyOffersPageContent = ({
         )
       ) : (
         <>
-          <OffersList
-            offers={offers}
-            onOffersUpdate={(updatedOffers) => setOffers(updatedOffers)}
-            onViewModeChange={setViewMode}
-            listings={initialListings}
-            isTestMode={isTestMode}
-          />
-
-          {/* Unassigned Offers Section - Only show in normal mode */}
           {!isTestMode && unassignedOffers && unassignedOffers.length > 0 && (
-            <div className="mt-12">
+            <div className="my-12">
               <div className="mb-4">
                 <Heading
                   as="h2"
@@ -139,6 +130,25 @@ const MyOffersPageContent = ({
               />
             </div>
           )}
+
+          {unassignedOffers && unassignedOffers.length > 0 && (
+            <Heading
+              as="h2"
+              size="medium"
+              weight="bold"
+              className="text-gray-700"
+            >
+              Offers
+            </Heading>
+          )}
+
+          <OffersList
+            offers={offers}
+            onOffersUpdate={(updatedOffers) => setOffers(updatedOffers)}
+            onViewModeChange={setViewMode}
+            listings={initialListings}
+            isTestMode={isTestMode}
+          />
         </>
       )}
     </main>
