@@ -1,10 +1,6 @@
 "use client"
 
-import {
-  getFilteredOffers,
-  getTestOffers,
-  getUnassignedOffers,
-} from "@/app/actions/offers"
+import { getFilteredOffers, getUnassignedOffers } from "@/app/actions/offers"
 import { Listing } from "@/types/listing"
 import { OfferStatus, OfferWithListing } from "@/types/offer"
 import { useEffect, useState, useTransition } from "react"
@@ -37,10 +33,12 @@ const MyOffersPageContent = ({
   initialData,
   initialUnassignedData,
   initialListings,
+  isTestMode = false,
 }: {
   initialData: Array<OfferWithListing> | null
   initialUnassignedData: Array<OfferWithListing> | null
   initialListings: Array<Listing> | null
+  isTestMode?: boolean
 }) => {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [offers, setOffers] = useState<Array<OfferWithListing> | null>(
@@ -48,35 +46,37 @@ const MyOffersPageContent = ({
   )
   const [unassignedOffers, setUnassignedOffers] =
     useState<Array<OfferWithListing> | null>(initialUnassignedData)
-  const [testOffers, setTestOffers] = useState<Array<OfferWithListing> | null>(
-    null,
-  )
   const [isPending, startTransition] = useTransition()
   const [viewMode, setViewMode] = useState<"table" | "tile">("table")
 
   // Fetch filtered offers when filters change
   useEffect(() => {
     startTransition(async () => {
-      const filteredData = await getFilteredOffers(filters)
+      const filteredData = await getFilteredOffers(filters, isTestMode)
       setOffers(filteredData)
-      // Also refresh unassigned offers
-      const unassignedData = await getUnassignedOffers()
-      setUnassignedOffers(unassignedData)
-      // Refresh test offers
-      const testData = await getTestOffers()
-      setTestOffers(testData)
+      // Also refresh unassigned offers (only for normal mode)
+      if (!isTestMode) {
+        const unassignedData = await getUnassignedOffers()
+        setUnassignedOffers(unassignedData)
+      }
     })
-  }, [filters])
+  }, [filters, isTestMode])
 
   return (
     <main className="px-6 py-8 pb-24">
       <div className="mb-4 flex flex-col gap-1">
-        <Heading as="h1" size="large" weight="bold" className="text-teal-500">
-          Offers
+        <Heading
+          as="h1"
+          size="large"
+          weight="bold"
+          className={isTestMode ? "text-red-600" : "text-teal-500"}
+        >
+          {isTestMode ? "My Test Offers" : "Offers"}
         </Heading>
         <span className="text-md font-medium opacity-75">
-          Manage and track all incoming offers, send Counter Offers, generate
-          Offer Reports and send Broadcast Messages to selected Buyers.
+          {isTestMode
+            ? "These offers are for testing purposes only and will expire in 72 hours."
+            : "Manage and track all incoming offers, send Counter Offers, generate Offer Reports and send Broadcast Messages to selected Buyers."}
         </span>
       </div>
 
@@ -94,16 +94,8 @@ const MyOffersPageContent = ({
         )
       ) : (
         <>
-          <OffersList
-            offers={offers}
-            onOffersUpdate={(updatedOffers) => setOffers(updatedOffers)}
-            onViewModeChange={setViewMode}
-            listings={initialListings}
-          />
-
-          {/* Unassigned Offers Section */}
-          {unassignedOffers && unassignedOffers.length > 0 && (
-            <div className="mt-12">
+          {!isTestMode && unassignedOffers && unassignedOffers.length > 0 && (
+            <div className="my-12">
               <div className="mb-4">
                 <Heading
                   as="h2"
@@ -125,7 +117,10 @@ const MyOffersPageContent = ({
                 onAssignSuccess={() => {
                   // Refresh main offers list after successful assignment
                   startTransition(async () => {
-                    const filteredData = await getFilteredOffers(filters)
+                    const filteredData = await getFilteredOffers(
+                      filters,
+                      isTestMode,
+                    )
                     setOffers(filteredData)
                   })
                 }}
@@ -136,31 +131,24 @@ const MyOffersPageContent = ({
             </div>
           )}
 
-          {/* Test Offers Section */}
-          {testOffers && testOffers.length > 0 && (
-            <div className="mt-12">
-              <div className="mb-4">
-                <Heading
-                  as="h2"
-                  size="medium"
-                  weight="bold"
-                  className="text-red-600"
-                >
-                  My Test Offers
-                </Heading>
-                <span className="text-sm">
-                  These offers are for testing purposes only and will expire in
-                  72 hours.
-                </span>
-              </div>
-              <OffersList
-                offers={testOffers}
-                onOffersUpdate={(updatedOffers) => setTestOffers(updatedOffers)}
-                onViewModeChange={setViewMode}
-                listings={initialListings}
-              />
-            </div>
+          {unassignedOffers && unassignedOffers.length > 0 && (
+            <Heading
+              as="h2"
+              size="medium"
+              weight="bold"
+              className="text-gray-700"
+            >
+              Offers
+            </Heading>
           )}
+
+          <OffersList
+            offers={offers}
+            onOffersUpdate={(updatedOffers) => setOffers(updatedOffers)}
+            onViewModeChange={setViewMode}
+            listings={initialListings}
+            isTestMode={isTestMode}
+          />
         </>
       )}
     </main>

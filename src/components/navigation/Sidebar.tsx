@@ -58,10 +58,50 @@ const navigationLinks = [
 
 interface SidebarContentProps {
   onLinkClick?: () => void
+  hasTestOffers?: boolean
 }
 
-export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
+export const SidebarContent = ({
+  onLinkClick,
+  hasTestOffers = false,
+}: SidebarContentProps) => {
   const pathname = usePathname()
+
+  // Clone navigation links to avoid mutating the original array
+  const links = [...navigationLinks]
+
+  // Add Test Offers link if hasTestOffers is true
+  if (hasTestOffers) {
+    const goToSection = links.find((section) => section.section === "GO TO:")
+    if (goToSection) {
+      // Check if link already exists to avoid duplicates
+      const hasTestLink = goToSection.items.some(
+        (item) => item.href === "/test-offers",
+      )
+      if (!hasTestLink) {
+        // Insert after "My Offers"
+        const myOffersIndex = goToSection.items.findIndex(
+          (item) => item.href === "/offers",
+        )
+        const insertIndex = myOffersIndex !== -1 ? myOffersIndex + 1 : 1
+
+        const newItems = [...goToSection.items]
+        newItems.splice(insertIndex, 0, {
+          name: "My Test Offers",
+          href: "/test-offers",
+          icon: FileText,
+        })
+
+        // Create a new section object with updated items
+        const newSection = { ...goToSection, items: newItems }
+        // Replace the old section in the links array
+        const sectionIndex = links.findIndex(
+          (section) => section.section === "GO TO:",
+        )
+        links[sectionIndex] = newSection
+      }
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -78,8 +118,8 @@ export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
       </div>
 
       <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
-        {navigationLinks.map((section, sectionIdx) => {
-          const isLast = sectionIdx === navigationLinks.length - 1
+        {links.map((section, sectionIdx) => {
+          const isLast = sectionIdx === links.length - 1
           return (
             <div
               key={section.section}
@@ -103,9 +143,13 @@ export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
                       onClick={onLinkClick}
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-gray-100 text-gray-900"
-                          : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
+                        item.href === "/test-offers"
+                          ? isActive
+                            ? "bg-red-100 text-red-900"
+                            : "text-red-600 hover:bg-red-50 hover:text-red-900"
+                          : isActive
+                            ? "bg-gray-100 text-gray-900"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
                       )}
                     >
                       <Icon className="h-5 w-5" />
@@ -138,11 +182,15 @@ export const SidebarContent = ({ onLinkClick }: SidebarContentProps) => {
   )
 }
 
-const Sidebar = () => {
+interface SidebarProps {
+  hasTestOffers?: boolean
+}
+
+const Sidebar = ({ hasTestOffers = false }: SidebarProps) => {
   return (
     <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
       <div className="flex h-screen flex-col border-r border-gray-200 bg-white">
-        <SidebarContent />
+        <SidebarContent hasTestOffers={hasTestOffers} />
       </div>
     </aside>
   )

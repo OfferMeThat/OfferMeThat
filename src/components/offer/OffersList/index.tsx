@@ -31,6 +31,7 @@ const OffersList = ({
   listings?: Array<{ id: string; address: string }> | null
   isUnassigned?: boolean
   onAssignSuccess?: () => void
+  isTestMode?: boolean
 }) => {
   const router = useRouter()
   const [viewStyle, setViewStyle] = useState<"table" | "tile">("table")

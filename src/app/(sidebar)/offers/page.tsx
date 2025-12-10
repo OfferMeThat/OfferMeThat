@@ -1,5 +1,9 @@
 import MyOffersPageContent from "@/components/offer/MyOffersPageContent"
-import { getFilteredOffers, getAllListings, getUnassignedOffers } from "../../actions/offers"
+import {
+  getAllListings,
+  getFilteredOffers,
+  getUnassignedOffers,
+} from "../../actions/offers"
 
 const DEFAULT_FILTERS = {
   nameSearch: "",
@@ -20,9 +24,9 @@ const OffersPage = async () => {
       initialData={offerData}
       initialUnassignedData={unassignedOfferData}
       initialListings={listingsData}
+      isTestMode={false}
     />
   )
 }
 
 export default OffersPage
-

@@ -11,7 +11,11 @@ import { Menu } from "lucide-react"
 import { useState } from "react"
 import { SidebarContent } from "./Sidebar"
 
-const MobileSidebar = () => {
+interface MobileSidebarProps {
+  hasTestOffers?: boolean
+}
+
+const MobileSidebar = ({ hasTestOffers = false }: MobileSidebarProps) => {
   const [open, setOpen] = useState(false)
 
   return (
@@ -32,7 +36,10 @@ const MobileSidebar = () => {
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
           </SheetHeader>
-          <SidebarContent onLinkClick={() => setOpen(false)} />
+          <SidebarContent
+            onLinkClick={() => setOpen(false)}
+            hasTestOffers={hasTestOffers}
+          />
         </SheetContent>
       </Sheet>
     </>
