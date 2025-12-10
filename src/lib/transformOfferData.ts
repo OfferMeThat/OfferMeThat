@@ -9,6 +9,7 @@ export function transformFormDataToOffer(
   formData: Record<string, any>,
   questions: Question[],
   formId: string,
+  isTest: boolean = false,
 ): Database["public"]["Tables"]["offers"]["Insert"] {
   // Helper to find question by ID
   const findQuestion = (id: string) => questions.find((q) => q.id === id)
@@ -27,7 +28,7 @@ export function transformFormDataToOffer(
     listingId?: string
   } = {
     formId,
-    status: "pending",
+    status: isTest ? "test" : "pending",
     conditional: false,
     // paymentWay is required but not collected by any question, set default to "cash"
     paymentWay: "cash",
@@ -208,7 +209,7 @@ export function transformFormDataToOffer(
   if (!offer.buyerType) {
     offer.buyerType = "buyer"
   }
-  
+
   // If offer is unassigned, listingId can be null
   if (!offer.listingId && offer.status !== "unassigned") {
     // If no listing ID was set and it's not unassigned, we need at least a placeholder
@@ -223,8 +224,9 @@ export function transformFormDataToOffer(
     ...offer,
     amount: offer.amount!,
     buyerType: offer.buyerType!,
-    listingId: offer.listingId || (offer.status === "unassigned" ? null : undefined),
+    listingId:
+      offer.listingId || (offer.status === "unassigned" ? null : undefined),
   } as any as Database["public"]["Tables"]["offers"]["Insert"]
-  
+
   return result
 }

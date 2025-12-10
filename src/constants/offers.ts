@@ -13,6 +13,7 @@ export const OFFER_STATUSES: Record<OfferStatus, string> = {
   withdrawn: "Withdrawn",
   deleted: "Deleted",
   unassigned: "Unassigned",
+  test: "Test Offer",
 }
 
 export const OFFER_TO_BADGE_MAP: Record<
@@ -29,5 +30,5 @@ export const OFFER_TO_BADGE_MAP: Record<
   withdrawn: "destructiveLight",
   deleted: "destructive",
   unassigned: "outline",
+  test: "destructiveLight",
 }
-

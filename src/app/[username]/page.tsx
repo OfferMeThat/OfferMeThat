@@ -4,12 +4,16 @@ import { notFound } from "next/navigation"
 
 interface PublicFormPageProps {
   params: Promise<{ username: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
 export default async function PublicFormPage({
   params,
+  searchParams,
 }: PublicFormPageProps) {
   const { username } = await params
+  const resolvedSearchParams = await searchParams
+  const isTestMode = resolvedSearchParams.test === "true"
 
   // Fetch form data by username
   const formData = await getFormByUsername(username)
@@ -53,15 +57,17 @@ export default async function PublicFormPage({
             questions={questions}
             pages={pages}
             isLoading={false}
-            title={ownerName ? `Submit an Offer to ${ownerName}` : "Submit an Offer"}
+            title={
+              ownerName ? `Submit an Offer to ${ownerName}` : "Submit an Offer"
+            }
             description="Please provide details about your offer"
             brandingConfig={brandingConfig}
             profilePictureUrl={profilePictureUrl}
             formId={formId || undefined}
+            isTestMode={isTestMode}
           />
         </div>
       </div>
     </div>
   )
 }
-

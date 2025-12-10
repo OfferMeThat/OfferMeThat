@@ -7,4 +7,3 @@ export type Listing = Database["public"]["Tables"]["listings"]["Row"]
 export type OfferWithListing = Offer & {
   listing: Listing | null
 }
-

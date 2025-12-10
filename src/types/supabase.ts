@@ -205,6 +205,7 @@ export type Database = {
           formData: Json | null
           formId: string | null
           id: string
+          isTest: boolean | null
           listingId: string | null
           messageToAgent: Json | null
           paymentWay: Database["public"]["Enums"]["paymentWays"]
@@ -233,6 +234,7 @@ export type Database = {
           formData?: Json | null
           formId?: string | null
           id?: string
+          isTest?: boolean | null
           listingId?: string | null
           messageToAgent?: Json | null
           paymentWay: Database["public"]["Enums"]["paymentWays"]
@@ -261,6 +263,7 @@ export type Database = {
           formData?: Json | null
           formId?: string | null
           id?: string
+          isTest?: boolean | null
           listingId?: string | null
           messageToAgent?: Json | null
           paymentWay?: Database["public"]["Enums"]["paymentWays"]
@@ -346,6 +349,7 @@ export type Database = {
         | "withdrawn"
         | "deleted"
         | "unassigned"
+        | "test"
       paymentWays: "cash" | "finance"
       questionType:
         | "specifyListing"
@@ -519,6 +523,7 @@ export const Constants = {
         "withdrawn",
         "deleted",
         "unassigned",
+        "test",
       ],
       paymentWays: ["cash", "finance"],
       questionType: [

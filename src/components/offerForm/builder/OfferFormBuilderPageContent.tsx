@@ -7,6 +7,7 @@ import {
   deleteQuestion,
   getBrandingConfig,
   getFormOwnerProfilePicture,
+  getFormOwnerUsername,
   getFormPages,
   getFormQuestions,
   getOrCreateOfferForm,
@@ -60,6 +61,7 @@ const OfferFormBuilderPageContent = () => {
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
     null,
   )
+  const [username, setUsername] = useState<string | null>(null)
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -72,17 +74,20 @@ const OfferFormBuilderPageContent = () => {
           fetchedPages,
           fetchedBranding,
           fetchedProfilePicture,
+          fetchedUsername,
         ] = await Promise.all([
           getFormQuestions(id),
           getFormPages(id),
           getBrandingConfig(id),
           getFormOwnerProfilePicture(id),
+          getFormOwnerUsername(id),
         ])
 
         setQuestions(fetchedQuestions)
         setPages(fetchedPages)
         setBrandingConfig(fetchedBranding)
         setProfilePictureUrl(fetchedProfilePicture)
+        setUsername(fetchedUsername)
       } catch (error) {
         console.error("Error initializing form:", error)
         toast.error("Failed to load form")
@@ -500,6 +505,13 @@ const OfferFormBuilderPageContent = () => {
           </p>
         </div>
         <div className="flex gap-3">
+          {username && (
+            <Button variant="outline" asChild>
+              <Link href={`/${username}?test=true`} target="_blank">
+                Test it out
+              </Link>
+            </Button>
+          )}
           {viewMode === "builder" && (
             <Button
               variant="destructive"
