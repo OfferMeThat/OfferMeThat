@@ -26,12 +26,14 @@ export function transformFormDataToOffer(
     amount?: number
     buyerType?: Database["public"]["Enums"]["buyerType"]
     listingId?: string
+    isTest?: boolean
   } = {
     formId,
-    status: isTest ? "test" : "pending",
+    status: "pending",
     conditional: false,
     // paymentWay is required but not collected by any question, set default to "cash"
     paymentWay: "cash",
+    isTest: isTest,
   }
 
   // Process each question's data
@@ -226,7 +228,9 @@ export function transformFormDataToOffer(
     buyerType: offer.buyerType!,
     listingId:
       offer.listingId || (offer.status === "unassigned" ? null : undefined),
-  } as any as Database["public"]["Tables"]["offers"]["Insert"]
+  } as any as Database["public"]["Tables"]["offers"]["Insert"] & {
+    isTest?: boolean
+  }
 
   return result
 }

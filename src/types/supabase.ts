@@ -349,7 +349,6 @@ export type Database = {
         | "withdrawn"
         | "deleted"
         | "unassigned"
-        | "test"
       paymentWays: "cash" | "finance"
       questionType:
         | "specifyListing"
@@ -523,7 +522,6 @@ export const Constants = {
         "withdrawn",
         "deleted",
         "unassigned",
-        "test",
       ],
       paymentWays: ["cash", "finance"],
       questionType: [

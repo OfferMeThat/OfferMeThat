@@ -284,8 +284,8 @@ export async function getFilteredOffers(
   // Exclude unassigned offers from main query (they're shown separately)
   query = query.neq("status", "unassigned")
 
-  // Exclude test offers
-  query = query.neq("status", "test")
+  // Exclude test offers (isTest is null or false)
+  query = query.or("isTest.is.null,isTest.eq.false")
 
   // Apply status filter
   if (filters.status) {
@@ -462,6 +462,7 @@ export async function getUnassignedOffers(): Promise<
     .from("offers")
     .select("*, listings(*)")
     .eq("status", "unassigned")
+    .or("isTest.is.null,isTest.eq.false")
     .in("formId", userFormIds)
     .order("createdAt", { ascending: false })
 
@@ -559,7 +560,7 @@ export async function getTestOffers(): Promise<OfferWithListing[] | null> {
   const { data: offers, error } = await supabase
     .from("offers")
     .select("*, listings(*)")
-    .eq("status", "test")
+    .eq("isTest", true)
     .in("formId", userFormIds)
     .order("createdAt", { ascending: false })
 

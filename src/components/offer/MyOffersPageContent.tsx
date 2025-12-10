@@ -148,7 +148,7 @@ const MyOffersPageContent = ({
                 >
                   My Test Offers
                 </Heading>
-                <span className="text-sm font-medium text-red-500">
+                <span className="text-sm">
                   These offers are for testing purposes only and will expire in
                   72 hours.
                 </span>
