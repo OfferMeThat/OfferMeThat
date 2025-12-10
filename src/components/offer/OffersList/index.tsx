@@ -1,6 +1,10 @@
 "use client"
 
-import { deleteOffers, updateOffersStatus } from "@/app/actions/offers"
+import {
+  assignOffersToListing,
+  deleteOffers,
+  updateOffersStatus,
+} from "@/app/actions/offers"
 import { OFFER_STATUSES } from "@/constants/offers"
 import { OfferStatus, OfferWithListing } from "@/types/offer"
 import { LayoutGrid, TableOfContents } from "lucide-react"
@@ -17,10 +21,16 @@ const OffersList = ({
   offers,
   onOffersUpdate,
   onViewModeChange,
+  listings,
+  isUnassigned = false,
+  onAssignSuccess,
 }: {
   offers: Array<OfferWithListing> | null
   onOffersUpdate?: (offers: Array<OfferWithListing> | null) => void
   onViewModeChange?: (mode: "table" | "tile") => void
+  listings?: Array<{ id: string; address: string }> | null
+  isUnassigned?: boolean
+  onAssignSuccess?: () => void
 }) => {
   const router = useRouter()
   const [viewStyle, setViewStyle] = useState<"table" | "tile">("table")
@@ -119,6 +129,35 @@ const OffersList = ({
     setReportModalOpen(true)
   }
 
+  const handleAssignToListing = async (listingId: string) => {
+    const offerIds = Array.from(selectedOffers)
+
+    // Optimistic update: remove offers from unassigned list immediately
+    if (offers && onOffersUpdate && isUnassigned) {
+      const updatedOffers = offers.filter(
+        (offer) => !offerIds.includes(offer.id),
+      )
+      onOffersUpdate(updatedOffers.length > 0 ? updatedOffers : null)
+    }
+
+    const result = await assignOffersToListing(offerIds, listingId)
+
+    if (result.success) {
+      toast.success(
+        `Successfully assigned ${offerIds.length} offer${offerIds.length > 1 ? "s" : ""} to listing`,
+      )
+      setSelectedOffers(new Set())
+      router.refresh()
+      onAssignSuccess?.()
+    } else {
+      // Revert optimistic update on error
+      if (onOffersUpdate && isUnassigned) {
+        onOffersUpdate(offers)
+      }
+      toast.error(result.error || "Failed to assign offers to listing")
+    }
+  }
+
   const statusOptions = Object.entries(OFFER_STATUSES).map(
     ([value, label]) => ({
       value,
@@ -177,6 +216,8 @@ const OffersList = ({
         statusLabel="Offer Status"
         itemType="offers"
         showMessageButton={true}
+        onAssignToListing={isUnassigned ? handleAssignToListing : undefined}
+        listings={listings || []}
       />
 
       <OfferReportGenerationModal

@@ -205,7 +205,7 @@ export type Database = {
           formData: Json | null
           formId: string | null
           id: string
-          listingId: string
+          listingId: string | null
           messageToAgent: Json | null
           paymentWay: Database["public"]["Enums"]["paymentWays"]
           purchaseAgreementFileUrl: string | null
@@ -233,7 +233,7 @@ export type Database = {
           formData?: Json | null
           formId?: string | null
           id?: string
-          listingId: string
+          listingId?: string | null
           messageToAgent?: Json | null
           paymentWay: Database["public"]["Enums"]["paymentWays"]
           purchaseAgreementFileUrl?: string | null
@@ -261,7 +261,7 @@ export type Database = {
           formData?: Json | null
           formId?: string | null
           id?: string
-          listingId?: string
+          listingId?: string | null
           messageToAgent?: Json | null
           paymentWay?: Database["public"]["Enums"]["paymentWays"]
           purchaseAgreementFileUrl?: string | null
@@ -329,7 +329,12 @@ export type Database = {
     }
     Enums: {
       buyerType: "buyer" | "agent" | "affiliate"
-      listingStatus: "forSale" | "underContract" | "sold" | "withdrawn"
+      listingStatus:
+        | "forSale"
+        | "underContract"
+        | "sold"
+        | "withdrawn"
+        | "unassigned"
       offerStatus:
         | "pending"
         | "active"
@@ -340,6 +345,7 @@ export type Database = {
         | "expired"
         | "withdrawn"
         | "deleted"
+        | "unassigned"
       paymentWays: "cash" | "finance"
       questionType:
         | "specifyListing"
@@ -495,7 +501,13 @@ export const Constants = {
   public: {
     Enums: {
       buyerType: ["buyer", "agent", "affiliate"],
-      listingStatus: ["forSale", "underContract", "sold", "withdrawn"],
+      listingStatus: [
+        "forSale",
+        "underContract",
+        "sold",
+        "withdrawn",
+        "unassigned",
+      ],
       offerStatus: [
         "pending",
         "active",
@@ -506,6 +518,7 @@ export const Constants = {
         "expired",
         "withdrawn",
         "deleted",
+        "unassigned",
       ],
       paymentWays: ["cash", "finance"],
       questionType: [

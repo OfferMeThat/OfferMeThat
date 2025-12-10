@@ -1,6 +1,6 @@
 "use client"
 
-import { getFilteredOffers } from "@/app/actions/offers"
+import { getFilteredOffers, getUnassignedOffers } from "@/app/actions/offers"
 import { Listing } from "@/types/listing"
 import { OfferStatus, OfferWithListing } from "@/types/offer"
 import { useEffect, useState, useTransition } from "react"
@@ -31,15 +31,19 @@ const DEFAULT_FILTERS: Filters = {
 
 const MyOffersPageContent = ({
   initialData,
+  initialUnassignedData,
   initialListings,
 }: {
   initialData: Array<OfferWithListing> | null
+  initialUnassignedData: Array<OfferWithListing> | null
   initialListings: Array<Listing> | null
 }) => {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [offers, setOffers] = useState<Array<OfferWithListing> | null>(
     initialData,
   )
+  const [unassignedOffers, setUnassignedOffers] =
+    useState<Array<OfferWithListing> | null>(initialUnassignedData)
   const [isPending, startTransition] = useTransition()
   const [viewMode, setViewMode] = useState<"table" | "tile">("table")
 
@@ -48,6 +52,9 @@ const MyOffersPageContent = ({
     startTransition(async () => {
       const filteredData = await getFilteredOffers(filters)
       setOffers(filteredData)
+      // Also refresh unassigned offers
+      const unassignedData = await getUnassignedOffers()
+      setUnassignedOffers(unassignedData)
     })
   }, [filters])
 
@@ -76,11 +83,49 @@ const MyOffersPageContent = ({
           <OffersTileSkeleton />
         )
       ) : (
-        <OffersList
-          offers={offers}
-          onOffersUpdate={(updatedOffers) => setOffers(updatedOffers)}
-          onViewModeChange={setViewMode}
-        />
+        <>
+          <OffersList
+            offers={offers}
+            onOffersUpdate={(updatedOffers) => setOffers(updatedOffers)}
+            onViewModeChange={setViewMode}
+            listings={initialListings}
+          />
+
+          {/* Unassigned Offers Section */}
+          {unassignedOffers && unassignedOffers.length > 0 && (
+            <div className="mt-12">
+              <div className="mb-4">
+                <Heading
+                  as="h2"
+                  size="medium"
+                  weight="bold"
+                  className="text-gray-700"
+                >
+                  Unassigned Offers
+                </Heading>
+                <span className="text-sm font-medium text-gray-500">
+                  Offers that need to be assigned to a listing
+                </span>
+              </div>
+              <OffersList
+                offers={unassignedOffers}
+                onOffersUpdate={(updatedOffers) => {
+                  setUnassignedOffers(updatedOffers)
+                }}
+                onAssignSuccess={() => {
+                  // Refresh main offers list after successful assignment
+                  startTransition(async () => {
+                    const filteredData = await getFilteredOffers(filters)
+                    setOffers(filteredData)
+                  })
+                }}
+                onViewModeChange={setViewMode}
+                listings={initialListings}
+                isUnassigned={true}
+              />
+            </div>
+          )}
+        </>
       )}
     </main>
   )
