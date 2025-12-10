@@ -50,7 +50,9 @@ export function transformFormDataToOffer(
           if (uuidRegex.test(value)) {
             offer.listingId = value
           } else {
+            // Custom address entered - set status to unassigned
             offer.customListingAddress = value
+            offer.status = "unassigned"
           }
         }
         break
@@ -206,17 +208,23 @@ export function transformFormDataToOffer(
   if (!offer.buyerType) {
     offer.buyerType = "buyer"
   }
-  if (!offer.listingId) {
-    // If no listing ID was set, we need at least a placeholder
+  
+  // If offer is unassigned, listingId can be null
+  if (!offer.listingId && offer.status !== "unassigned") {
+    // If no listing ID was set and it's not unassigned, we need at least a placeholder
     // This should not happen if specifyListing question is required
     throw new Error("Listing ID is required but was not provided")
   }
 
   // Now all required fields should be present
-  return {
+  // For unassigned offers, listingId can be null (database schema should allow this)
+  // Use type assertion to allow null listingId for unassigned offers
+  const result = {
     ...offer,
     amount: offer.amount!,
     buyerType: offer.buyerType!,
-    listingId: offer.listingId!,
-  } as Database["public"]["Tables"]["offers"]["Insert"]
+    listingId: offer.listingId || (offer.status === "unassigned" ? null : undefined),
+  } as any as Database["public"]["Tables"]["offers"]["Insert"]
+  
+  return result
 }

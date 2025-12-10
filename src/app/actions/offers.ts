@@ -245,10 +245,37 @@ export async function getFilteredOffers(
 ): Promise<OfferWithListing[] | null> {
   const supabase = await createClient()
 
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    console.error("User not authenticated")
+    return null
+  }
+
+  // Get user's offer form(s)
+  const { data: userForms, error: formsError } = await supabase
+    .from("offerForms")
+    .select("id")
+    .eq("ownerId", user.id)
+
+  if (formsError || !userForms || userForms.length === 0) {
+    // User has no forms, return empty array
+    return []
+  }
+
+  const userFormIds = userForms.map((form) => form.id)
+
   // Start building the query with listing join
-  let query = supabase
-    .from("offers")
-    .select("*, listings(*)")
+  let query = supabase.from("offers").select("*, listings(*)")
+
+  // Filter by user's formIds
+  query = query.in("formId", userFormIds)
+
+  // Exclude unassigned offers from main query (they're shown separately)
+  query = query.neq("status", "unassigned")
 
   // Apply status filter
   if (filters.status) {
@@ -287,7 +314,9 @@ export async function getFilteredOffers(
   // Transform the data to match OfferWithListing type
   let transformedOffers = offers.map((offer: any) => ({
     ...offer,
-    listing: Array.isArray(offer.listings) ? offer.listings[0] || null : offer.listings || null,
+    listing: Array.isArray(offer.listings)
+      ? offer.listings[0] || null
+      : offer.listings || null,
   })) as OfferWithListing[]
 
   // Apply name search client-side (searches in submitterFirstName and submitterLastName)
@@ -308,14 +337,13 @@ export async function getFilteredOffers(
   return transformedOffers
 }
 
-export async function deleteOffers(offerIds: string[]): Promise<{ success: boolean; error?: string }> {
+export async function deleteOffers(
+  offerIds: string[],
+): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
 
   try {
-    const { error } = await supabase
-      .from("offers")
-      .delete()
-      .in("id", offerIds)
+    const { error } = await supabase.from("offers").delete().in("id", offerIds)
 
     if (error) {
       console.error("Error deleting offers:", error)
@@ -390,4 +418,105 @@ export async function getOfferById(
   } as OfferWithListing
 
   return transformedOffer
+}
+
+export async function getUnassignedOffers(): Promise<
+  OfferWithListing[] | null
+> {
+  const supabase = await createClient()
+
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    console.error("User not authenticated")
+    return null
+  }
+
+  // Get user's offer form(s)
+  const { data: userForms, error: formsError } = await supabase
+    .from("offerForms")
+    .select("id")
+    .eq("ownerId", user.id)
+
+  if (formsError || !userForms || userForms.length === 0) {
+    // User has no forms, return empty array
+    return []
+  }
+
+  const userFormIds = userForms.map((form) => form.id)
+
+  const { data: offers, error } = await supabase
+    .from("offers")
+    .select("*, listings(*)")
+    .eq("status", "unassigned")
+    .in("formId", userFormIds)
+    .order("createdAt", { ascending: false })
+
+  if (!offers || error) {
+    console.error("Error fetching unassigned offers:", error)
+    return null
+  }
+
+  // Transform the data to match OfferWithListing type
+  const transformedOffers = offers.map((offer: any) => ({
+    ...offer,
+    listing: Array.isArray(offer.listings)
+      ? offer.listings[0] || null
+      : offer.listings || null,
+  })) as OfferWithListing[]
+
+  return transformedOffers
+}
+
+export async function assignOffersToListing(
+  offerIds: string[],
+  listingId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  try {
+    // First, verify the listing exists
+    const { data: listing, error: listingError } = await supabase
+      .from("listings")
+      .select("id")
+      .eq("id", listingId)
+      .single()
+
+    if (listingError || !listing) {
+      return {
+        success: false,
+        error: "Listing not found",
+      }
+    }
+
+    // Update offers: set listingId, clear customListingAddress, change status to pending
+    const { error } = await supabase
+      .from("offers")
+      .update({
+        listingId: listingId,
+        customListingAddress: null,
+        status: "pending",
+      })
+      .in("id", offerIds)
+      .eq("status", "unassigned")
+
+    if (error) {
+      console.error("Error assigning offers to listing:", error)
+      return {
+        success: false,
+        error: error.message || "Failed to assign offers to listing",
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in assignOffersToListing:", error)
+    return {
+      success: false,
+      error: error?.message || "An unexpected error occurred",
+    }
+  }
 }
