@@ -14,6 +14,7 @@ interface SaveOfferParams {
   formData: Record<string, any>
   questions: Question[]
   formId: string
+  isTest?: boolean
 }
 
 // Helper to get a random uuid (works in most recent Node/Browser)
@@ -32,6 +33,7 @@ export const saveOffer = async ({
   formData,
   questions,
   formId,
+  isTest = false,
 }: SaveOfferParams): Promise<{
   success: boolean
   offerId?: string
@@ -43,7 +45,12 @@ export const saveOffer = async ({
     const tempOfferId = getTempId()
 
     // Transform form data to database schema
-    const offerData = transformFormDataToOffer(formData, questions, formId)
+    const offerData = transformFormDataToOffer(
+      formData,
+      questions,
+      formId,
+      isTest,
+    )
 
     // Purchaser ID files
     if (
@@ -277,6 +284,9 @@ export async function getFilteredOffers(
   // Exclude unassigned offers from main query (they're shown separately)
   query = query.neq("status", "unassigned")
 
+  // Exclude test offers (isTest is null or false)
+  query = query.or("isTest.is.null,isTest.eq.false")
+
   // Apply status filter
   if (filters.status) {
     query = query.eq("status", filters.status)
@@ -452,6 +462,7 @@ export async function getUnassignedOffers(): Promise<
     .from("offers")
     .select("*, listings(*)")
     .eq("status", "unassigned")
+    .or("isTest.is.null,isTest.eq.false")
     .in("formId", userFormIds)
     .order("createdAt", { ascending: false })
 
@@ -519,4 +530,75 @@ export async function assignOffersToListing(
       error: error?.message || "An unexpected error occurred",
     }
   }
+}
+
+export async function getTestOffers(): Promise<OfferWithListing[] | null> {
+  const supabase = await createClient()
+
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    console.error("User not authenticated")
+    return null
+  }
+
+  // Get user's offer form(s)
+  const { data: userForms, error: formsError } = await supabase
+    .from("offerForms")
+    .select("id")
+    .eq("ownerId", user.id)
+
+  if (formsError || !userForms || userForms.length === 0) {
+    return []
+  }
+
+  const userFormIds = userForms.map((form) => form.id)
+
+  const { data: offers, error } = await supabase
+    .from("offers")
+    .select("*, listings(*)")
+    .eq("isTest", true)
+    .in("formId", userFormIds)
+    .order("createdAt", { ascending: false })
+
+  if (!offers || error) {
+    console.error("Error fetching test offers:", error)
+    return null
+  }
+
+  // Filter expired offers (older than 72h)
+  const now = new Date()
+  const validOffers: any[] = []
+  const expiredOfferIds: string[] = []
+
+  for (const offer of offers) {
+    const createdAt = new Date(offer.createdAt)
+    const diffHours = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60)
+    if (diffHours > 72) {
+      expiredOfferIds.push(offer.id)
+    } else {
+      validOffers.push(offer)
+    }
+  }
+
+  // Delete expired offers
+  if (expiredOfferIds.length > 0) {
+    // Fire and forget deletion
+    deleteOffers(expiredOfferIds).catch((err) =>
+      console.error("Failed to delete expired test offers", err),
+    )
+  }
+
+  // Transform the data to match OfferWithListing type
+  const transformedOffers = validOffers.map((offer: any) => ({
+    ...offer,
+    listing: Array.isArray(offer.listings)
+      ? offer.listings[0] || null
+      : offer.listings || null,
+  })) as OfferWithListing[]
+
+  return transformedOffers
 }

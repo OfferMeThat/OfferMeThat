@@ -803,6 +803,36 @@ export const getFormOwnerProfilePicture = async (
   return profile.avatarUrl
 }
 
+export const getFormOwnerUsername = async (
+  formId: string,
+): Promise<string | null> => {
+  const supabase = await createClient()
+
+  const { data: form, error: formError } = await supabase
+    .from("offerForms")
+    .select("ownerId")
+    .eq("id", formId)
+    .single()
+
+  if (formError || !form) {
+    console.error("Error fetching form owner:", formError)
+    return null
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("id", form.ownerId)
+    .single()
+
+  if (profileError || !profile) {
+    console.error("Error fetching owner profile:", profileError)
+    return null
+  }
+
+  return profile.username
+}
+
 /**
  * Get form data by username (public access)
  * Returns form ID, questions, pages, branding, profile picture, and owner name

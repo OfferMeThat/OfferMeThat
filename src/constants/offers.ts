@@ -30,4 +30,3 @@ export const OFFER_TO_BADGE_MAP: Record<
   deleted: "destructive",
   unassigned: "outline",
 }
-

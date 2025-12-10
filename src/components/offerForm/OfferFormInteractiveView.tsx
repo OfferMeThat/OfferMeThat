@@ -30,7 +30,8 @@ interface OfferFormInteractiveViewProps {
   brandingConfig?: BrandingConfig
   profilePictureUrl?: string | null
   formId?: string // Add formId to identify which form is being submitted
-  isPreviewMode?: boolean // Add preview mode flag
+  isPreviewMode?: boolean
+  isTestMode?: boolean
 }
 
 /**
@@ -47,6 +48,7 @@ export const OfferFormInteractiveView = ({
   profilePictureUrl,
   formId,
   isPreviewMode = false,
+  isTestMode = false,
 }: OfferFormInteractiveViewProps) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
   const [formData, setFormData] = useState<Record<string, any>>({})
@@ -475,6 +477,7 @@ export const OfferFormInteractiveView = ({
         formData: processedFormData,
         questions,
         formId,
+        isTest: isTestMode,
       })
 
       if (result.success) {
@@ -605,6 +608,14 @@ export const OfferFormInteractiveView = ({
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Test Mode Banner */}
+      {isTestMode && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-center text-red-800">
+          <strong>Test Mode:</strong> Offers submitted here will be marked as
+          test offers and will expire in 72 hours.
         </div>
       )}
 

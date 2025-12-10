@@ -1,6 +1,10 @@
 "use client"
 
-import { getFilteredOffers, getUnassignedOffers } from "@/app/actions/offers"
+import {
+  getFilteredOffers,
+  getTestOffers,
+  getUnassignedOffers,
+} from "@/app/actions/offers"
 import { Listing } from "@/types/listing"
 import { OfferStatus, OfferWithListing } from "@/types/offer"
 import { useEffect, useState, useTransition } from "react"
@@ -44,6 +48,9 @@ const MyOffersPageContent = ({
   )
   const [unassignedOffers, setUnassignedOffers] =
     useState<Array<OfferWithListing> | null>(initialUnassignedData)
+  const [testOffers, setTestOffers] = useState<Array<OfferWithListing> | null>(
+    null,
+  )
   const [isPending, startTransition] = useTransition()
   const [viewMode, setViewMode] = useState<"table" | "tile">("table")
 
@@ -55,6 +62,9 @@ const MyOffersPageContent = ({
       // Also refresh unassigned offers
       const unassignedData = await getUnassignedOffers()
       setUnassignedOffers(unassignedData)
+      // Refresh test offers
+      const testData = await getTestOffers()
+      setTestOffers(testData)
     })
   }, [filters])
 
@@ -122,6 +132,32 @@ const MyOffersPageContent = ({
                 onViewModeChange={setViewMode}
                 listings={initialListings}
                 isUnassigned={true}
+              />
+            </div>
+          )}
+
+          {/* Test Offers Section */}
+          {testOffers && testOffers.length > 0 && (
+            <div className="mt-12">
+              <div className="mb-4">
+                <Heading
+                  as="h2"
+                  size="medium"
+                  weight="bold"
+                  className="text-red-600"
+                >
+                  My Test Offers
+                </Heading>
+                <span className="text-sm">
+                  These offers are for testing purposes only and will expire in
+                  72 hours.
+                </span>
+              </div>
+              <OffersList
+                offers={testOffers}
+                onOffersUpdate={(updatedOffers) => setTestOffers(updatedOffers)}
+                onViewModeChange={setViewMode}
+                listings={initialListings}
               />
             </div>
           )}

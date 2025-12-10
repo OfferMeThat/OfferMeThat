@@ -205,7 +205,7 @@ const OfferFormPageContent = () => {
                 <span className="text-sm text-gray-700">
                   Want to see it in action?
                 </span>
-                <Link href={`/${username}`} target="_blank">
+                <Link href={`/${username}?test=true`} target="_blank">
                   <Button className="w-38 gap-2">
                     <ExternalLink className="h-4 w-4" />
                     Test it out!
