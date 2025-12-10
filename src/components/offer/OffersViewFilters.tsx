@@ -69,9 +69,9 @@ const OffersViewFilters = ({
 
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <Label>Type name here...</Label>
+          <Label>Search by Listing Name</Label>
           <Input
-            placeholder="Type name here..."
+            placeholder="Search by listing address..."
             className="max-w-64"
             value={filters.nameSearch || ""}
             onChange={(e) => handleFilterChange("nameSearch", e.target.value)}

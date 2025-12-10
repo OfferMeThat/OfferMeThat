@@ -360,16 +360,15 @@ export async function getFilteredOffers(
         : offer.listings || null,
     })) as OfferWithListing[]
 
-    // Apply name search filter in memory
+    // Apply name search filter in memory (searches in listing address and custom listing address)
     if (filters.nameSearch) {
       const searchLower = filters.nameSearch.toLowerCase()
       return transformedValidOffers.filter((offer) => {
-        const listingAddress = offer.listing?.address?.toLowerCase() || ""
-        const submitterName =
-          `${offer.submitterFirstName} ${offer.submitterLastName}`.toLowerCase()
+        const listingAddress = (offer.listing?.address || "").toLowerCase()
+        const customAddress = (offer.customListingAddress || "").toLowerCase()
         return (
           listingAddress.includes(searchLower) ||
-          submitterName.includes(searchLower)
+          customAddress.includes(searchLower)
         )
       })
     }
@@ -385,17 +384,15 @@ export async function getFilteredOffers(
       : offer.listings || null,
   })) as OfferWithListing[]
 
-  // Apply name search client-side (searches in submitterFirstName and submitterLastName)
+  // Apply name search client-side (searches in listing address and custom listing address)
   if (filters.nameSearch) {
     const searchLower = filters.nameSearch.toLowerCase()
     transformedOffers = transformedOffers.filter((offer) => {
-      const firstName = (offer.submitterFirstName || "").toLowerCase()
-      const lastName = (offer.submitterLastName || "").toLowerCase()
-      const fullName = `${firstName} ${lastName}`.trim()
+      const listingAddress = (offer.listing?.address || "").toLowerCase()
+      const customAddress = (offer.customListingAddress || "").toLowerCase()
       return (
-        firstName.includes(searchLower) ||
-        lastName.includes(searchLower) ||
-        fullName.includes(searchLower)
+        listingAddress.includes(searchLower) ||
+        customAddress.includes(searchLower)
       )
     })
   }
