@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
 import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { Eye, Upload, X } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 interface BrandingModalProps {
@@ -33,6 +33,16 @@ const BrandingModal = ({
     ...initialConfig,
   })
   const [uploading, setUploading] = useState<string | null>(null)
+
+  // Reset config to initialConfig when modal opens or initialConfig changes
+  useEffect(() => {
+    if (open) {
+      setConfig({
+        ...DEFAULT_BRANDING_CONFIG,
+        ...initialConfig,
+      })
+    }
+  }, [open, initialConfig])
 
   const handleColorChange = (field: keyof BrandingConfig, value: string) => {
     setConfig((prev) => ({ ...prev, [field]: value }))
@@ -96,6 +106,7 @@ const BrandingModal = ({
   const handleSave = async () => {
     try {
       await onSave(config)
+      // Don't reset config when saving - the parent will update initialConfig
       onOpenChange(false)
     } catch (error) {
       console.error("Error saving branding config:", error)
@@ -111,8 +122,20 @@ const BrandingModal = ({
     onOpenChange(false)
   }
 
+  // Handle clicking outside the modal (onOpenChange is called)
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      // Modal is closing - reset config to initial values
+      setConfig({
+        ...DEFAULT_BRANDING_CONFIG,
+        ...initialConfig,
+      })
+    }
+    onOpenChange(newOpen)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl! overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Colors and Branding</DialogTitle>
@@ -352,10 +375,6 @@ const BrandingModal = ({
           <Button
             onClick={handleSave}
             disabled={uploading !== null}
-            style={{
-              backgroundColor: config.buttonColor,
-              color: config.buttonTextColor,
-            }}
           >
             Save Changes
           </Button>
