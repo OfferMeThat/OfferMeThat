@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input"
 import { useEffect, useState } from "react"
 
 type PhoneInputProps = {
-  value: string
-  onChange: (value: string) => void
+  value: string | { countryCode: string; number: string }
+  onChange: (value: { countryCode: string; number: string }) => void
   disabled?: boolean
   placeholder?: string
   className?: string
@@ -50,15 +50,27 @@ const PhoneInput = ({
   editingMode = false,
   ...props
 }: PhoneInputProps) => {
-  const parsed = parsePhoneNumber(value || "")
+  // Parse value - can be string (legacy) or object (new format)
+  const getParsedValue = () => {
+    if (typeof value === "object" && value !== null && "countryCode" in value) {
+      return {
+        countryCode: value.countryCode || "+1",
+        number: value.number || "",
+      }
+    }
+    return parsePhoneNumber((value as string) || "")
+  }
+
+  const parsed = getParsedValue()
   const [countryCode, setCountryCode] = useState<string>(parsed.countryCode)
   const [phoneNumber, setPhoneNumber] = useState<string>(parsed.number)
 
   // Update local state when value prop changes
   useEffect(() => {
-    const parsed = parsePhoneNumber(value || "")
+    const parsed = getParsedValue()
     setCountryCode(parsed.countryCode)
     setPhoneNumber(parsed.number)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
 
   const handleCountryCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,26 +87,58 @@ const PhoneInput = ({
       newCode = "+" + newCode.replace(/\+/g, "")
     }
 
+    // Only update local state - don't call onChange yet
     setCountryCode(newCode)
-    // Combine and call onChange
-    const combined = newCode + phoneNumber
-    onChange(combined)
+  }
+
+  const handleCountryCodeBlur = () => {
+    // Save separately as object - ensure we use the latest state values
+    const finalValue = {
+      countryCode: countryCode || "+1",
+      number: phoneNumber || "",
+    }
+    onChange(finalValue)
   }
 
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newNumber = e.target.value
+    let newNumber = e.target.value
+
+    // Handle autocomplete: if the number starts with +, it might include the country code
+    // Parse it and update both country code and number
+    if (newNumber.startsWith("+")) {
+      const parsed = parsePhoneNumber(newNumber)
+      setCountryCode(parsed.countryCode)
+      setPhoneNumber(parsed.number)
+      // Call onChange immediately with parsed value so parent gets correct format
+      onChange({ countryCode: parsed.countryCode, number: parsed.number })
+      return
+    }
+
+    // Only update local state - don't call onChange yet
     setPhoneNumber(newNumber)
-    // Combine and call onChange
-    const combined = countryCode + newNumber
-    onChange(combined)
+  }
+
+  // Handle autocomplete event (when browser fills the field)
+  const handlePhoneNumberInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const newNumber = e.currentTarget.value
+
+    // If autocomplete filled a number starting with +, parse it
+    if (newNumber.startsWith("+")) {
+      const parsed = parsePhoneNumber(newNumber)
+      setCountryCode(parsed.countryCode)
+      setPhoneNumber(parsed.number)
+      // Call onChange immediately with parsed value so parent gets correct format
+      onChange({ countryCode: parsed.countryCode, number: parsed.number })
+    }
   }
 
   const handlePhoneNumberBlur = () => {
     // Trim the phone number on blur
     const trimmed = phoneNumber.trim()
     setPhoneNumber(trimmed)
-    const combined = countryCode + trimmed
-    onChange(combined)
+    // Save separately as object - ensure we use the latest state values
+    const finalValue = { countryCode: countryCode || "+1", number: trimmed }
+    onChange(finalValue)
     onBlur?.()
   }
 
@@ -106,11 +150,13 @@ const PhoneInput = ({
         type="text"
         value={countryCode}
         onChange={handleCountryCodeChange}
+        onBlur={handleCountryCodeBlur}
         disabled={isCountryCodeDisabled}
         placeholder="+1"
         className="w-[80px]"
         style={style}
         maxLength={4}
+        autoComplete="tel-country-code"
       />
 
       <Input
@@ -119,10 +165,12 @@ const PhoneInput = ({
         placeholder={placeholder}
         value={phoneNumber}
         onChange={handlePhoneNumberChange}
+        onInput={handlePhoneNumberInput}
         onBlur={handlePhoneNumberBlur}
         disabled={disabled}
         className={className}
         style={style}
+        autoComplete="tel"
         {...props}
       />
     </div>

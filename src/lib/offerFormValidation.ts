@@ -47,16 +47,43 @@ export const buildQuestionValidation = (
       break
 
     case "submitterPhone":
-      schema = yup
-        .string()
-        .max(150, "Maximum 150 characters allowed")
-        .matches(/^\+?[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
-        .test("min-digits", "Phone number must be at least 8 digits", (value) => {
-          if (!value) return !required
-          // Count only digits (excluding country code +)
-          const digits = value.replace(/\D/g, "")
-          return digits.length >= 8
-        })
+      // Phone can be a string (legacy) or an object { countryCode: string, number: string }
+      schema = yup.lazy((value) => {
+        if (typeof value === "object" && value !== null && "countryCode" in value) {
+          // New format: object with countryCode and number
+          return yup.object().shape({
+            countryCode: yup
+              .string()
+              .matches(/^\+[0-9]{1,3}$/, "Please enter a valid country code")
+              .required(required ? "Country code is required" : undefined),
+            number: yup
+              .string()
+              .matches(/^[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
+              .test("min-digits", "Phone number must be at least 4 digits", (numValue) => {
+                if (!numValue) return !required
+                // Count only digits (excluding formatting characters)
+                const digits = numValue.replace(/\D/g, "")
+                // Minimum 4 digits (shortest valid phone numbers globally)
+                return digits.length >= 4
+              })
+              .required(required ? "Phone number is required" : undefined),
+          })
+        }
+        // Legacy format: string
+        return yup
+          .string()
+          .max(150, "Maximum 150 characters allowed")
+          .matches(/^\+?[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
+          .test("min-digits", "Phone number must be at least 4 digits", (value) => {
+            if (!value) return !required
+            // Count only digits (excluding country code + and formatting)
+            const digits = value.replace(/\D/g, "")
+            // Minimum 4 digits (shortest valid phone numbers globally)
+            return digits.length >= 4
+          })
+      }) as unknown as yup.AnySchema
+      // Mark this as a lazy schema so we don't add .required() to it later
+      ;(schema as any)._isLazy = true
       break
 
     case "offerAmount":
@@ -289,16 +316,43 @@ export const buildQuestionValidation = (
             "Please enter a valid email address",
           )
       } else if (answerType === "phone") {
-        schema = yup
-          .string()
-          .max(150, "Maximum 150 characters allowed")
-          .matches(/^\+?[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
-          .test("min-digits", "Phone number must be at least 8 digits", (value) => {
-            if (!value) return !required
-            // Count only digits (excluding country code +)
-            const digits = value.replace(/\D/g, "")
-            return digits.length >= 8
-          })
+        // Phone can be a string (legacy) or an object { countryCode: string, number: string }
+        schema = yup.lazy((value) => {
+          if (typeof value === "object" && value !== null && "countryCode" in value) {
+            // New format: object with countryCode and number
+            return yup.object().shape({
+              countryCode: yup
+                .string()
+                .matches(/^\+[0-9]{1,3}$/, "Please enter a valid country code")
+                .required(required ? "Country code is required" : undefined),
+              number: yup
+                .string()
+                .matches(/^[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
+                .test("min-digits", "Phone number must be at least 4 digits", (numValue) => {
+                  if (!numValue) return !required
+                  // Count only digits (excluding formatting characters)
+                  const digits = numValue.replace(/\D/g, "")
+                  // Minimum 4 digits (shortest valid phone numbers globally)
+                  return digits.length >= 4
+                })
+                .required(required ? "Phone number is required" : undefined),
+            })
+          }
+          // Legacy format: string
+          return yup
+            .string()
+            .max(150, "Maximum 150 characters allowed")
+            .matches(/^\+?[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
+            .test("min-digits", "Phone number must be at least 4 digits", (value) => {
+              if (!value) return !required
+              // Count only digits (excluding country code + and formatting)
+              const digits = value.replace(/\D/g, "")
+              // Minimum 4 digits (shortest valid phone numbers globally)
+              return digits.length >= 4
+            })
+        }) as unknown as yup.AnySchema
+        // Mark this as a lazy schema so we don't add .required() to it later
+        ;(schema as any)._isLazy = true
       } else if (answerType === "time_date") {
         // Time/date questions - validate as mixed (can be Date object or string)
         // Validate that date is not before today
@@ -625,13 +679,19 @@ export const buildQuestionValidation = (
  */
 export const buildFormValidationSchema = (
   questions: Question[],
+  isTestMode?: boolean,
 ): yup.ObjectSchema<Record<string, any>> => {
   const shape: Record<string, yup.AnySchema> = {}
 
   questions.forEach((question) => {
     if (question.type === "submitButton") return
 
-    const schema = buildQuestionValidation(question)
+    // In test mode, make specifyListing optional
+    const isRequired = isTestMode && question.type === "specifyListing" 
+      ? false 
+      : question.required
+
+    const schema = buildQuestionValidation({ ...question, required: isRequired })
     if (schema) {
       // Use question ID as the key
       shape[question.id] = schema

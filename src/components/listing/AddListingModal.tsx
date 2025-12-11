@@ -38,7 +38,7 @@ interface AddListingModalProps {
 interface SellerData {
   fullName: string
   email: string
-  mobile: string
+  mobile: string | { countryCode: string; number: string }
 }
 
 interface FormData {
@@ -53,7 +53,7 @@ interface FormData {
 const initialSellerData: SellerData = {
   fullName: "",
   email: "",
-  mobile: "",
+  mobile: { countryCode: "+1", number: "" },
 }
 
 const initialFormData: FormData = {
@@ -78,11 +78,23 @@ const sellerSchema = yup.object().shape({
       /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
       "Please enter a valid email address",
     ),
-  mobile: yup
-    .string()
-    .required("Mobile number is required")
-    .matches(/^[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
-    .min(8, "Phone number must be at least 8 digits"),
+  mobile: yup.lazy((value) => {
+    if (typeof value === "object" && value !== null && "countryCode" in value) {
+      return yup.object().shape({
+        countryCode: yup.string().required("Country code is required"),
+        number: yup
+          .string()
+          .required("Mobile number is required")
+          .matches(/^[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
+          .min(6, "Phone number must be at least 6 digits"),
+      })
+    }
+    return yup
+      .string()
+      .required("Mobile number is required")
+      .matches(/^[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
+      .min(6, "Phone number must be at least 6 digits")
+  }) as unknown as yup.StringSchema,
 })
 
 const validationSchema = yup.object().shape({
@@ -155,12 +167,21 @@ export const AddListingModal = ({
         return
       }
 
+      // Transform phone from object to string if needed
+      const seller1Phone =
+        typeof formData.seller1.mobile === "object" &&
+        formData.seller1.mobile !== null &&
+        "countryCode" in formData.seller1.mobile
+          ? (formData.seller1.mobile.countryCode || "") +
+            (formData.seller1.mobile.number || "")
+          : formData.seller1.mobile
+
       const { error: seller1Error } = await supabase
         .from("listingSellers")
         .insert({
           fullName: formData.seller1.fullName,
           email: formData.seller1.email,
-          phone: formData.seller1.mobile,
+          phone: seller1Phone,
           sendUpdateByEmail: formData.sendEmailUpdates,
         })
 
@@ -173,12 +194,21 @@ export const AddListingModal = ({
       }
 
       if (formData.addSecondSeller) {
+        // Transform phone from object to string if needed
+        const seller2Phone =
+          typeof formData.seller2.mobile === "object" &&
+          formData.seller2.mobile !== null &&
+          "countryCode" in formData.seller2.mobile
+            ? (formData.seller2.mobile.countryCode || "") +
+              (formData.seller2.mobile.number || "")
+            : formData.seller2.mobile
+
         const { error: seller2Error } = await supabase
           .from("listingSellers")
           .insert({
             fullName: formData.seller2.fullName,
             email: formData.seller2.email,
-            phone: formData.seller2.mobile,
+            phone: seller2Phone,
             sendUpdateByEmail: false,
           })
 
@@ -223,14 +253,20 @@ export const AddListingModal = ({
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const updateSeller1 = (field: keyof SellerData, value: string) => {
+  const updateSeller1 = (
+    field: keyof SellerData,
+    value: string | { countryCode: string; number: string },
+  ) => {
     setFormData((prev) => ({
       ...prev,
       seller1: { ...prev.seller1, [field]: value },
     }))
   }
 
-  const updateSeller2 = (field: keyof SellerData, value: string) => {
+  const updateSeller2 = (
+    field: keyof SellerData,
+    value: string | { countryCode: string; number: string },
+  ) => {
     setFormData((prev) => ({
       ...prev,
       seller2: { ...prev.seller2, [field]: value },

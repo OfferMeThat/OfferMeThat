@@ -45,6 +45,7 @@ interface QuestionRendererProps {
   onChange?: (value: any) => void
   onBlur?: () => void
   error?: string
+  isTestMode?: boolean
 }
 
 // PersonNameFields component extracted to prevent re-creation on every render
@@ -709,40 +710,45 @@ export const QuestionRenderer = ({
     // Input appears below when "custom" is selected
     return (
       <div className="space-y-3">
-        <Select
-          value={selectedListingId || (showCustomInput ? "custom" : "")}
-          onValueChange={(selectValue) => {
-            if (selectValue === "custom") {
-              setShowCustomInput(true)
-              setSelectedListingId("")
-              onChange?.("")
-            } else {
-              setSelectedListingId(selectValue)
-              setShowCustomInput(false)
-              setCustomAddress("")
-              onChange?.(selectValue)
-            }
-          }}
-          disabled={disabled}
-        >
-          <SelectTrigger
-            className={cn("min-w-52")}
-            style={getSelectStyle()}
-            data-field-id={question.id}
+        <div>
+          <Select
+            value={selectedListingId || (showCustomInput ? "custom" : "")}
+            onValueChange={(selectValue) => {
+              if (selectValue === "custom") {
+                setShowCustomInput(true)
+                setSelectedListingId("")
+                onChange?.("")
+              } else {
+                setSelectedListingId(selectValue)
+                setShowCustomInput(false)
+                setCustomAddress("")
+                // Call onChange with the listing ID - this should clear the error via handleFieldChange
+                onChange?.(selectValue)
+              }
+            }}
+            disabled={disabled}
           >
-            <SelectValue placeholder="Select a listing..." />
-          </SelectTrigger>
-          <SelectContent>
-            {listings.map((listing) => (
-              <SelectItem key={listing.id} value={listing.id}>
-                {listing.address}
+            <SelectTrigger
+              className={cn("min-w-52")}
+              style={getSelectStyle()}
+              data-field-id={question.id}
+            >
+              <SelectValue placeholder="Select a listing..." />
+            </SelectTrigger>
+            <SelectContent>
+              {listings.map((listing) => (
+                <SelectItem key={listing.id} value={listing.id}>
+                  {listing.address}
+                </SelectItem>
+              ))}
+              <SelectItem value="custom">
+                The Listing I want isn&apos;t here
               </SelectItem>
-            ))}
-            <SelectItem value="custom">
-              The Listing I want isn&apos;t here
-            </SelectItem>
-          </SelectContent>
-        </Select>
+            </SelectContent>
+          </Select>
+          {/* Show error for Select dropdown when not in custom input mode */}
+          {!showCustomInput && renderError(error)}
+        </div>
         {showCustomInput && (
           <div>
             <div className="relative">
@@ -899,13 +905,21 @@ export const QuestionRenderer = ({
 
   // Submitter Phone - Use PhoneInput with country code
   if (question.type === "submitterPhone") {
+    // Handle both string (legacy) and object (new format) values
+    const phoneValue = editingMode
+      ? ""
+      : typeof value === "object" && value !== null && "countryCode" in value
+        ? value
+        : (value as string) || { countryCode: "+1", number: "" }
+
     return (
       <div>
         <div className="relative">
           <PhoneInput
-            value={editingMode ? "" : (value as string) || ""}
+            value={phoneValue}
             onChange={(newValue) => {
               if (!editingMode) {
+                // Save as object with separate countryCode and number
                 onChange?.(newValue)
               }
             }}
@@ -3225,13 +3239,21 @@ export const QuestionRenderer = ({
         </div>
       )
     } else if (answerType === "phone") {
+      // Handle both string (legacy) and object (new format) values
+      const phoneValue = editingMode
+        ? ""
+        : typeof value === "object" && value !== null && "countryCode" in value
+          ? value
+          : (value as string) || { countryCode: "+1", number: "" }
+
       return (
         <div>
           <div className="relative">
             <PhoneInput
-              value={editingMode ? "" : (value as string) || ""}
+              value={phoneValue}
               onChange={(newValue) => {
                 if (!editingMode) {
+                  // Save as object with separate countryCode and number
                   onChange?.(newValue)
                 }
               }}

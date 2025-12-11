@@ -120,13 +120,19 @@ const OffersListTileView = ({
                   (offer.customQuestionsData as any)?.currency || "USD",
                 )}
               </span>
-              <Link
-                href={`/offer/${offer.id}`}
-                className="text-sm text-teal-600 hover:text-teal-700 hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {getListingAddress(offer)}
-              </Link>
+              {offer.listingId ? (
+                <Link
+                  href={`/listing/${offer.listingId}`}
+                  className="text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {getListingAddress(offer)}
+                </Link>
+              ) : (
+                <span className="text-sm text-gray-900">
+                  {getListingAddress(offer)}
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col gap-2 text-sm">

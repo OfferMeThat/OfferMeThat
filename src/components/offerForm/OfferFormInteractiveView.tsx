@@ -59,8 +59,8 @@ export const OfferFormInteractiveView = ({
 
   // Build validation schema
   const validationSchema = useCallback(() => {
-    return buildFormValidationSchema(questions)
-  }, [questions])
+    return buildFormValidationSchema(questions, isTestMode)
+  }, [questions, isTestMode])
 
   if (isLoading) {
     return (
@@ -135,7 +135,10 @@ export const OfferFormInteractiveView = ({
       const currentPageQuestions = currentPage.questions.filter(
         (q) => q.type !== "submitButton",
       )
-      const pageSchema = buildFormValidationSchema(currentPageQuestions)
+      const pageSchema = buildFormValidationSchema(
+        currentPageQuestions,
+        isTestMode,
+      )
 
       const currentPageData: Record<string, any> = {}
 
@@ -538,6 +541,7 @@ export const OfferFormInteractiveView = ({
           }
         })
         setValidationErrors(newErrors)
+        console.error("Validation error:", newErrors)
 
         // Mark all fields as touched
         const allFieldIds = questions
@@ -568,25 +572,56 @@ export const OfferFormInteractiveView = ({
   const handleFieldChange = (fieldId: string, value: any) => {
     setFormData((prev) => ({ ...prev, [fieldId]: value }))
 
-    // Clear error for this field when user starts typing
+    // Clear error for this field when value changes
     if (validationErrors[fieldId]) {
-      setValidationErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors[fieldId]
-        return newErrors
-      })
+      // For phone numbers (object with countryCode and number), check if both are valid
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "countryCode" in value &&
+        "number" in value
+      ) {
+        const phoneValue = value as { countryCode: string; number: string }
+        // Clear error if both country code and number are present
+        if (
+          phoneValue.countryCode &&
+          phoneValue.number &&
+          phoneValue.number.trim() !== ""
+        ) {
+          // Count digits in number to ensure it meets minimum
+          const digits = phoneValue.number.replace(/\D/g, "")
+          if (digits.length >= 4) {
+            setValidationErrors((prev) => {
+              const newErrors = { ...prev }
+              delete newErrors[fieldId]
+              return newErrors
+            })
+          }
+        }
+      } else if (value !== undefined && value !== null && value !== "") {
+        // For other field types, clear error if value is set
+        setValidationErrors((prev) => {
+          const newErrors = { ...prev }
+          delete newErrors[fieldId]
+          return newErrors
+        })
+      }
     }
   }
 
   const handleFieldBlur = async (fieldId: string) => {
     setTouchedFields((prev) => new Set(prev).add(fieldId))
 
-    // Validate single field
+    // Validate single field - wait a tick to ensure state updates from onChange have completed
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
     try {
       const schema = validationSchema() as yup.ObjectSchema<any>
       const fieldSchema = schema.fields[fieldId]
       if (fieldSchema && "validate" in fieldSchema) {
-        await (fieldSchema as yup.AnySchema).validate(formData[fieldId])
+        // Get the latest formData value
+        const currentValue = formData[fieldId]
+        await (fieldSchema as yup.AnySchema).validate(currentValue)
         // Clear error if validation passes
         setValidationErrors((prev) => {
           const newErrors = { ...prev }
@@ -749,9 +784,11 @@ export const OfferFormInteractiveView = ({
                   }}
                 >
                   {displayLabel}
-                  {question.required && (
-                    <span className="ml-1 text-red-500">*</span>
-                  )}
+                  {/* In test mode, specifyListing is optional */}
+                  {question.required &&
+                    !(isTestMode && question.type === "specifyListing") && (
+                      <span className="ml-1 text-red-500">*</span>
+                    )}
                 </label>
                 <QuestionRenderer
                   question={question}
@@ -759,6 +796,7 @@ export const OfferFormInteractiveView = ({
                   editingMode={false}
                   formId={question.formId}
                   brandingConfig={brandingConfig}
+                  isTestMode={isTestMode}
                   value={formData[question.id]}
                   onChange={(value) => handleFieldChange(question.id, value)}
                   onBlur={() => handleFieldBlur(question.id)}

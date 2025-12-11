@@ -156,13 +156,17 @@ const OffersListTableView = ({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Link
-                    href={`/listing/${offer.listingId}`}
-                    className="text-teal-600 hover:text-teal-700 hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {getListingAddress(offer)}
-                  </Link>
+                  {offer.listingId ? (
+                    <Link
+                      href={`/listing/${offer.listingId}`}
+                      className="text-teal-600 hover:text-teal-700 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {getListingAddress(offer)}
+                    </Link>
+                  ) : (
+                    <span>{getListingAddress(offer)}</span>
+                  )}
                 </TableCell>
                 <TableCell>{getSubmitterName(offer)}</TableCell>
                 <TableCell>{offer.submitterEmail || "N/A"}</TableCell>

@@ -86,7 +86,15 @@ export function transformFormDataToOffer(
         break
 
       case "submitterPhone":
-        offer.submitterPhone = value as string
+        // Handle both object format (new) and string format (legacy)
+        if (typeof value === "object" && value !== null && "countryCode" in value) {
+          // Combine country code and number for database storage
+          const phoneObj = value as { countryCode: string; number: string }
+          offer.submitterPhone = (phoneObj.countryCode || "") + (phoneObj.number || "")
+        } else {
+          // Legacy string format
+          offer.submitterPhone = value as string
+        }
         break
 
       case "offerAmount":
@@ -221,22 +229,22 @@ export function transformFormDataToOffer(
     offer.buyerType = "buyer"
   }
 
-  // If offer is unassigned, listingId can be null
-  if (!offer.listingId && offer.status !== "unassigned") {
-    // If no listing ID was set and it's not unassigned, we need at least a placeholder
-    // This should not happen if specifyListing question is required
+  // If offer is unassigned or test, listingId can be null
+  if (!offer.listingId && offer.status !== "unassigned" && !isTest) {
+    // If no listing ID was set and it's not unassigned or test, we need at least a placeholder
+    // This should not happen if specifyListing question is required (and not in test mode)
     throw new Error("Listing ID is required but was not provided")
   }
 
   // Now all required fields should be present
-  // For unassigned offers, listingId can be null (database schema should allow this)
-  // Use type assertion to allow null listingId for unassigned offers
+  // For unassigned offers or test offers, listingId can be null (database schema should allow this)
+  // Use type assertion to allow null listingId for unassigned or test offers
   const result = {
     ...offer,
     amount: offer.amount!,
     buyerType: offer.buyerType!,
     listingId:
-      offer.listingId || (offer.status === "unassigned" ? null : undefined),
+      offer.listingId || (offer.status === "unassigned" || isTest ? null : undefined),
   } as any as Database["public"]["Tables"]["offers"]["Insert"] & {
     isTest?: boolean
   }
