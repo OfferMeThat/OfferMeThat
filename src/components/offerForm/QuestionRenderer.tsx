@@ -1,6 +1,7 @@
 import { getFormOwnerListings } from "@/app/actions/offerForm"
 import DepositPreview from "@/components/offerForm/DepositPreview"
 import DatePicker from "@/components/shared/forms/DatePicker"
+import PhoneInput from "@/components/shared/forms/PhoneInput"
 import TimePicker from "@/components/shared/forms/TimePicker"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -896,24 +897,24 @@ export const QuestionRenderer = ({
     )
   }
 
-  // Submitter Phone - Use tel input type
+  // Submitter Phone - Use PhoneInput with country code
   if (question.type === "submitterPhone") {
     return (
       <div>
         <div className="relative">
-          <Input
-            type="tel"
-            placeholder={uiConfig.placeholder || "Enter your phone number"}
-            disabled={disabled}
-            className={cn(editingMode && "cursor-not-allowed")}
-            style={getInputStyle()}
+          <PhoneInput
             value={editingMode ? "" : (value as string) || ""}
-            onChange={(e) => {
+            onChange={(newValue) => {
               if (!editingMode) {
-                onChange?.(e.target.value)
+                onChange?.(newValue)
               }
             }}
             onBlur={onBlur}
+            disabled={disabled || editingMode}
+            editingMode={editingMode}
+            placeholder={uiConfig.placeholder || "555-123-4567"}
+            className={cn(editingMode && "cursor-not-allowed")}
+            style={getInputStyle()}
             data-field-id={question.id}
           />
           {renderEditOverlay(
@@ -3221,6 +3222,33 @@ export const QuestionRenderer = ({
               )}
             </div>
           )}
+        </div>
+      )
+    } else if (answerType === "phone") {
+      return (
+        <div>
+          <div className="relative">
+            <PhoneInput
+              value={editingMode ? "" : (value as string) || ""}
+              onChange={(newValue) => {
+                if (!editingMode) {
+                  onChange?.(newValue)
+                }
+              }}
+              onBlur={onBlur}
+              disabled={disabled || editingMode}
+              editingMode={editingMode}
+              placeholder={uiConfig.placeholder || "555-123-4567"}
+              className={cn(editingMode && "cursor-not-allowed")}
+              style={getInputStyle()}
+              data-field-id={question.id}
+            />
+            {renderEditOverlay(
+              "placeholder",
+              uiConfig.placeholder || "Enter your phone number",
+            )}
+          </div>
+          {renderError(error)}
         </div>
       )
     }

@@ -50,8 +50,13 @@ export const buildQuestionValidation = (
       schema = yup
         .string()
         .max(150, "Maximum 150 characters allowed")
-        .matches(/^[0-9\s\-\(\)\+]+$/, "Please enter a valid phone number")
-        .min(8, "Phone number must be at least 8 digits")
+        .matches(/^\+?[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
+        .test("min-digits", "Phone number must be at least 8 digits", (value) => {
+          if (!value) return !required
+          // Count only digits (excluding country code +)
+          const digits = value.replace(/\D/g, "")
+          return digits.length >= 8
+        })
       break
 
     case "offerAmount":
@@ -287,8 +292,13 @@ export const buildQuestionValidation = (
         schema = yup
           .string()
           .max(150, "Maximum 150 characters allowed")
-          .matches(/^[0-9\s\-\(\)\+]+$/, "Please enter a valid phone number")
-          .min(8, "Phone number must be at least 8 digits")
+          .matches(/^\+?[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
+          .test("min-digits", "Phone number must be at least 8 digits", (value) => {
+            if (!value) return !required
+            // Count only digits (excluding country code +)
+            const digits = value.replace(/\D/g, "")
+            return digits.length >= 8
+          })
       } else if (answerType === "time_date") {
         // Time/date questions - validate as mixed (can be Date object or string)
         // Validate that date is not before today
