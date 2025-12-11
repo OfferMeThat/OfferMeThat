@@ -645,14 +645,6 @@ export const OfferFormInteractiveView = ({
         </div>
       )}
 
-      {/* Test Mode Banner */}
-      {isTestMode && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-center text-red-800">
-          <strong>Test Mode:</strong> Offers submitted here will be marked as
-          test offers and will expire in 72 hours.
-        </div>
-      )}
-
       {/* Header */}
       <div className="mb-6">
         <Heading
