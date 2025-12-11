@@ -12,18 +12,24 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
+import { currencyNames } from "@/constants/forms"
 import { getQuestionRequiredFromSetup } from "@/lib/questionHelpers"
 import { cn } from "@/lib/utils"
 import { QuestionType } from "@/types/form"
 import { QuestionSetupConfig, QuestionUIConfig } from "@/types/questionConfig"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 import SmartQuestionSetup from "./SmartQuestionSetup"
 
 interface QuestionSetupFormProps {
   questionType: QuestionType
   initialSetupConfig?: QuestionSetupConfig
   initialUIConfig?: QuestionUIConfig
-  onComplete: (setupConfig: QuestionSetupConfig, uiConfig?: QuestionUIConfig, requiredOverride?: boolean) => void
+  onComplete: (
+    setupConfig: QuestionSetupConfig,
+    uiConfig?: QuestionUIConfig,
+    requiredOverride?: boolean,
+  ) => void
   onCancel: () => void
   hideButtons?: boolean
   mode?: "add" | "edit"
@@ -38,29 +44,63 @@ const QuestionSetupForm = ({
   hideButtons = false,
   mode = "add",
 }: QuestionSetupFormProps) => {
-  const [setupConfig, setSetupConfig] = useState<Record<string, any>>(initialSetupConfig)
-  const [conditions, setConditions] = useState<Array<{ name: string; details: string }>>(
-    (initialSetupConfig as any)?.conditions || []
-  )
+  // Initialize setupConfig with defaults for offerAmount
+  const initialConfig = useMemo(() => {
+    const config = { ...initialSetupConfig }
+    
+    // Set default currency_mode to "any" for offerAmount if not set
+    if (
+      questionType === "offerAmount" &&
+      !config.currency_mode
+    ) {
+      config.currency_mode = "any"
+      // Also set default fixed_currency if switching to fixed mode later
+      if (!config.fixed_currency) {
+        config.fixed_currency = "USD"
+      }
+    }
+    
+    return config
+  }, [initialSetupConfig, questionType])
+
+  const [setupConfig, setSetupConfig] =
+    useState<Record<string, any>>(initialConfig)
+  const [conditions, setConditions] = useState<
+    Array<{ name: string; details: string }>
+  >((initialSetupConfig as any)?.conditions || [])
 
   // Use ref to track previous config to avoid infinite loops
   const prevConfigRef = useRef<string>("")
-  const prevQuestionTypeRef = useRef<QuestionType | null>(null)
+  const questionTypeRef = useRef<QuestionType | null>(null)
 
   // Update state when initial config changes (for edit mode)
-  // Only update if the serialized config actually changed or questionType changed
+  // Only update if the serialized config actually changed or question type changed
   useEffect(() => {
     const currentConfigString = JSON.stringify(initialSetupConfig)
-    const questionTypeChanged = prevQuestionTypeRef.current !== questionType
-    
+    const questionTypeChanged = questionTypeRef.current !== questionType
+
     // Only update if config actually changed or question type changed
     if (currentConfigString !== prevConfigRef.current || questionTypeChanged) {
-      setSetupConfig(initialSetupConfig)
-      if ((initialSetupConfig as any)?.conditions) {
-        setConditions((initialSetupConfig as any).conditions)
+      const configToSet = { ...initialSetupConfig }
+      
+      // Set default currency_mode to "any" for offerAmount if not set
+      if (
+        questionType === "offerAmount" &&
+        !configToSet.currency_mode
+      ) {
+        configToSet.currency_mode = "any"
+        // Also set default fixed_currency if switching to fixed mode later
+        if (!configToSet.fixed_currency) {
+          configToSet.fixed_currency = "USD"
+        }
       }
-      prevConfigRef.current = currentConfigString
-      prevQuestionTypeRef.current = questionType
+      
+      setSetupConfig(configToSet)
+      if ((configToSet as any)?.conditions) {
+        setConditions((configToSet as any).conditions)
+      }
+      prevConfigRef.current = JSON.stringify(configToSet)
+      questionTypeRef.current = questionType
     }
   }, [initialSetupConfig, questionType])
 
@@ -93,17 +133,39 @@ const QuestionSetupForm = ({
 
   const handleComplete = useCallback(() => {
     // For Special Conditions, include the conditions array in setupConfig
-    const finalConfig =
+    let finalConfig =
       questionType === "specialConditions"
         ? { ...setupConfig, conditions }
-        : setupConfig
-    
+        : { ...setupConfig }
+
+    // For Offer Amount with currency_options mode, filter out empty values and validate
+    if (
+      questionType === "offerAmount" &&
+      finalConfig.currency_mode === "options"
+    ) {
+      if (Array.isArray(finalConfig.currency_options)) {
+        finalConfig.currency_options = finalConfig.currency_options.filter(
+          (opt: string) => opt && opt !== "",
+        )
+      }
+      
+      // Validate: must have at least 2 currencies selected
+      const validCurrencies = Array.isArray(finalConfig.currency_options)
+        ? finalConfig.currency_options.filter((opt: string) => opt && opt !== "")
+        : []
+      
+      if (validCurrencies.length < 2) {
+        toast.error("Please select at least 2 currencies for the currency options mode.")
+        return // Prevent saving
+      }
+    }
+
     // For custom questions (except statement type), build uiConfig with label from question_text
     // Statement type has separate fields: uiConfig.label (main label) and setupConfig.question_text (statement text)
     let finalUIConfig = initialUIConfig
     if (
-      questionType === "custom" && 
-      finalConfig.question_text && 
+      questionType === "custom" &&
+      finalConfig.question_text &&
       finalConfig.answer_type !== "statement"
     ) {
       finalUIConfig = {
@@ -111,10 +173,13 @@ const QuestionSetupForm = ({
         label: finalConfig.question_text,
       }
     }
-    
+
     // Check if setup config determines the required status
-    const requiredFromSetup = getQuestionRequiredFromSetup(questionType, finalConfig)
-    
+    const requiredFromSetup = getQuestionRequiredFromSetup(
+      questionType,
+      finalConfig,
+    )
+
     onComplete(finalConfig, finalUIConfig, requiredFromSetup ?? undefined)
   }, [setupConfig, conditions, questionType, initialUIConfig, onComplete])
 
@@ -190,7 +255,27 @@ const QuestionSetupForm = ({
                     <div
                       key={option.value}
                       className="flex cursor-pointer items-start gap-3"
-                      onClick={() => handleConfigChange(question.id, option.value)}
+                      onClick={() => {
+                        handleConfigChange(question.id, option.value)
+                        // Initialize currency_options when switching to "options" mode
+                        if (
+                          question.id === "currency_mode" &&
+                          option.value === "options" &&
+                          !setupConfig.currency_options
+                        ) {
+                          handleConfigChange("currency_options", ["", ""])
+                        }
+                        // Initialize fixed_currency when switching to "fixed" mode
+                        if (
+                          question.id === "currency_mode" &&
+                          option.value === "fixed"
+                        ) {
+                          // Always set to USD if not already set, or ensure it's set
+                          if (!setupConfig.fixed_currency) {
+                            handleConfigChange("fixed_currency", "USD")
+                          }
+                        }
+                      }}
                     >
                       <div
                         className={cn(
@@ -215,7 +300,9 @@ const QuestionSetupForm = ({
             {question.type === "select" && question.options && (
               <Select
                 value={setupConfig[question.id] || ""}
-                onValueChange={(value) => handleConfigChange(question.id, value)}
+                onValueChange={(value) =>
+                  handleConfigChange(question.id, value)
+                }
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select an option" />
@@ -235,7 +322,9 @@ const QuestionSetupForm = ({
               <Input
                 type="text"
                 value={setupConfig[question.id] || ""}
-                onChange={(e) => handleConfigChange(question.id, e.target.value)}
+                onChange={(e) =>
+                  handleConfigChange(question.id, e.target.value)
+                }
                 placeholder={question.placeholder}
               />
             )}
@@ -245,7 +334,9 @@ const QuestionSetupForm = ({
               <Input
                 type="number"
                 value={setupConfig[question.id] || ""}
-                onChange={(e) => handleConfigChange(question.id, e.target.value)}
+                onChange={(e) =>
+                  handleConfigChange(question.id, e.target.value)
+                }
                 placeholder={question.placeholder}
               />
             )}
@@ -326,6 +417,141 @@ const QuestionSetupForm = ({
         </div>
       )}
 
+      {/* Special handling for Offer Amount - Dynamic Currency Selection */}
+      {questionType === "offerAmount" && (
+        <>
+          {/* Currency Options Builder (when mode is 'options') */}
+          {setupConfig.currency_mode === "options" && (
+            <div className="mt-4 space-y-4 border-t pt-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-900">
+                    Currency Options
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    Select at least 2 currencies
+                  </span>
+                </div>
+
+                {(() => {
+                  const currentOptions =
+                    (setupConfig.currency_options as string[]) || ["", ""]
+                  const validOptions = currentOptions.filter((opt) => opt !== "")
+                  const needsMore = validOptions.length < 2
+
+                  return (
+                    <>
+                      {currentOptions.map((currency, index) => {
+                        // Always read from latest setupConfig to avoid closure issues
+                        const latestOptions = (setupConfig.currency_options as string[]) || ["", ""]
+                        return (
+                          <div key={`currency-${index}-${currency || "empty"}`} className="flex items-center gap-2">
+                            <span className="w-32 text-xs font-medium text-gray-700">
+                              Currency Option {index + 1}:
+                            </span>
+                            <Select
+                              key={`select-${index}-${currency || "empty"}`}
+                              value={currency || ""}
+                              onValueChange={(value) => {
+                                // Read fresh from setupConfig to avoid stale closure
+                                const freshOptions = (setupConfig.currency_options as string[]) || ["", ""]
+                                const newOptions = [...freshOptions]
+                                newOptions[index] = value
+                                handleConfigChange("currency_options", newOptions)
+                              }}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select Currency" />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-[300px]">
+                                {Object.entries(currencyNames).map(
+                                  ([code, name]) => (
+                                    <SelectItem key={code} value={code}>
+                                      {code} - {name}
+                                    </SelectItem>
+                                  ),
+                                )}
+                              </SelectContent>
+                            </Select>
+                            {latestOptions.length > 2 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newOptions = latestOptions.filter(
+                                    (_, i) => i !== index,
+                                  )
+                                  handleConfigChange("currency_options", newOptions)
+                                }}
+                                className="text-xs text-red-600 hover:text-red-700"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+
+                      {needsMore && (
+                        <p className="text-xs text-amber-600">
+                          Please select at least 2 currencies for buyers to choose
+                          from.
+                        </p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const latestOptions = (setupConfig.currency_options as string[]) || [
+                            "",
+                            "",
+                          ]
+                          handleConfigChange("currency_options", [
+                            ...latestOptions,
+                            "",
+                          ])
+                        }}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                      >
+                        + Add another Currency
+                      </button>
+                    </>
+                  )
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Fixed Currency Selector (when mode is 'fixed') */}
+          {setupConfig.currency_mode === "fixed" && (
+            <div className="mt-4 space-y-3 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <span className="w-32 text-sm font-medium text-gray-900">
+                  Choose Currency:
+                </span>
+                <Select
+                  key={`fixed-currency-${setupConfig.fixed_currency || "USD"}`}
+                  value={setupConfig.fixed_currency || "USD"}
+                  onValueChange={(value) => {
+                    handleConfigChange("fixed_currency", value)
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Currency" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {Object.entries(currencyNames).map(([code, name]) => (
+                      <SelectItem key={code} value={code}>
+                        {code} - {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {!hideButtons && (
         <div className="flex justify-end gap-3 pt-4">
           <Button variant="outline" onClick={onCancel}>
@@ -341,4 +567,3 @@ const QuestionSetupForm = ({
 }
 
 export default QuestionSetupForm
-

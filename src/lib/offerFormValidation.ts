@@ -55,11 +55,49 @@ export const buildQuestionValidation = (
       break
 
     case "offerAmount":
-      schema = yup
-        .number()
-        .typeError("Please enter a valid number")
-        .positive("Amount must be positive")
-        .required(required ? "This field is required" : undefined)
+      // offerAmount can be a number (legacy) or an object { amount: number, currency: string }
+      schema = yup.lazy((value) => {
+        if (typeof value === "object" && value !== null) {
+          const objectSchema = yup.object().shape({
+            amount: yup
+              .number()
+              .typeError("Please enter a valid number")
+              .positive("Amount must be positive")
+              .required(required ? "Amount is required" : undefined),
+            currency: yup
+              .string()
+              .default("USD") // Default to USD if not provided
+              .required(required ? "Currency is required" : undefined),
+          })
+          // Add required to the object schema if needed
+          return required ? objectSchema.required("This field is required") : objectSchema
+        }
+        // If value is undefined or null, and question is required, validate as object with default currency
+        if (value === undefined || value === null) {
+          if (required) {
+            return yup.object().shape({
+              amount: yup
+                .number()
+                .typeError("Please enter a valid number")
+                .positive("Amount must be positive")
+                .required("Amount is required"),
+              currency: yup
+                .string()
+                .default("USD")
+                .required("Currency is required"),
+            }).required("This field is required")
+          }
+          return yup.mixed().nullable().optional()
+        }
+        // Legacy: number format
+        const numberSchema = yup
+          .number()
+          .typeError("Please enter a valid number")
+          .positive("Amount must be positive")
+        return required ? numberSchema.required("This field is required") : numberSchema
+      }) as unknown as yup.AnySchema
+      // Mark this as a lazy schema so we don't add .required() to it later
+      ;(schema as any)._isLazy = true
       break
 
     case "specifyListing":
@@ -549,9 +587,10 @@ export const buildQuestionValidation = (
   }
 
   // Add required validation if needed
-  if (required && schema) {
+  // Skip adding .required() to lazy schemas as they handle it internally
+  if (required && schema && !(schema as any)._isLazy) {
     schema = schema.required("This field is required")
-  } else if (schema && !required) {
+  } else if (schema && !required && !(schema as any)._isLazy) {
     // For optional fields, allow empty strings, null, and undefined
     // Use transform to normalize empty values
     if (schema instanceof yup.StringSchema) {

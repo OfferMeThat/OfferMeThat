@@ -92,7 +92,18 @@ const EditQuestionModal = ({
       <div className="flex-1 overflow-y-auto px-6 py-4">
         <QuestionSetupForm
           questionType={question.type}
-          initialSetupConfig={(question.setupConfig as QuestionSetupConfig) || {}}
+          initialSetupConfig={(() => {
+            const config = (question.setupConfig as QuestionSetupConfig) || {}
+            // Ensure offerAmount has default currency_mode and fixed_currency
+            if (question.type === "offerAmount") {
+              return {
+                currency_mode: config.currency_mode || "any",
+                fixed_currency: config.fixed_currency || "USD",
+                ...config,
+              }
+            }
+            return config
+          })()}
           initialUIConfig={(question.uiConfig as QuestionUIConfig) || {}}
           onComplete={handleComplete}
           onCancel={handleClose}

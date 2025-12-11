@@ -14,6 +14,7 @@ interface DefaultQuestion {
   type: QuestionType
   order: number
   required: boolean
+  setupConfig?: Record<string, any>
   uiConfig: {
     label: string
     placeholder?: string
@@ -75,6 +76,10 @@ const DEFAULT_QUESTIONS: DefaultQuestion[] = [
     type: "offerAmount",
     order: 6,
     required: true,
+    setupConfig: {
+      currency_mode: "any", // Default: let buyer choose any currency
+      fixed_currency: "USD", // Default currency for fixed mode
+    },
     uiConfig: {
       label: "What is your offer amount?",
       placeholder: "$0.00",
@@ -145,7 +150,7 @@ export const getOrCreateOfferForm = async () => {
     order: q.order,
     required: q.required,
     uiConfig: q.uiConfig,
-    setupConfig: {},
+    setupConfig: q.setupConfig || {},
   }))
 
   const { error: questionsError } = await supabase
@@ -170,6 +175,24 @@ export const getFormQuestions = async (formId: string) => {
 
   if (error) {
     throw new Error("Failed to fetch questions")
+  }
+
+  // Normalize setupConfig for offerAmount questions to ensure currency_mode and fixed_currency are always present
+  if (data) {
+    return data.map((question) => {
+      if (question.type === "offerAmount") {
+        const setupConfig = (question.setupConfig as Record<string, any>) || {}
+        return {
+          ...question,
+          setupConfig: {
+            currency_mode: setupConfig.currency_mode || "any",
+            fixed_currency: setupConfig.fixed_currency || "USD",
+            ...setupConfig,
+          },
+        }
+      }
+      return question
+    })
   }
 
   return data
@@ -282,7 +305,7 @@ export const resetFormToDefault = async (formId: string) => {
     order: q.order,
     required: q.required,
     uiConfig: q.uiConfig,
-    setupConfig: {},
+    setupConfig: q.setupConfig || {},
   }))
 
   const { error: insertError } = await supabase

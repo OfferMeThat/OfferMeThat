@@ -90,10 +90,10 @@ const OfferReportGenerationModal = ({
   }
 
   // Format currency for preview
-  const formatCurrency = (amount: number): string => {
+  const formatCurrency = (amount: number, currency: string = "USD"): string => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
@@ -388,7 +388,11 @@ const OfferReportGenerationModal = ({
                               cellContent = offer.submitterPhone || "N/A"
                               break
                             case "offerAmount":
-                              cellContent = formatCurrency(offer.amount)
+                              cellContent = formatCurrency(
+                                offer.amount,
+                                (offer.customQuestionsData as any)?.currency ||
+                                  "USD",
+                              )
                               break
                             case "buyerType":
                               cellContent = formatBuyerType(offer.buyerType)

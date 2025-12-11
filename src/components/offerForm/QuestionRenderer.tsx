@@ -463,6 +463,10 @@ export const QuestionRenderer = ({
     if (value && typeof value === "object" && !Array.isArray(value)) {
       return value as Record<string, any>
     }
+    // For offerAmount questions, initialize with USD as default currency
+    if (question.type === "offerAmount") {
+      return { currency: "USD" }
+    }
     return {}
   })
 
@@ -924,31 +928,187 @@ export const QuestionRenderer = ({
 
   // Offer Amount
   if (question.type === "offerAmount") {
+    const currencyMode = setupConfig.currency_mode || "any"
+    const currencyOptions = Array.isArray(setupConfig.currency_options)
+      ? setupConfig.currency_options
+      : []
+    const fixedCurrency = setupConfig.fixed_currency || "USD"
+
+    // Standard currencies for "any" mode
+    const STANDARD_CURRENCIES = [
+      "USD",
+      "EUR",
+      "GBP",
+      "CAD",
+      "AUD",
+      "NZD",
+      "SGD",
+      "JPY",
+      "CNY",
+      "CHF",
+    ]
+
+    // Parse current value - use formValues for builder preview, value prop for actual form
+    let currentAmount: string | number = ""
+    let currentCurrency = "USD" // Default to USD
+
+    // In editing mode (builder preview), use formValues for local state
+    // Otherwise use the value prop
+    const displayValue = editingMode && !onChange ? formValues : value
+
+    if (typeof displayValue === "object" && displayValue !== null) {
+      currentAmount =
+        displayValue.amount !== undefined ? displayValue.amount : ""
+      // Use currency from value if provided, otherwise keep USD default
+      if (displayValue.currency) {
+        currentCurrency = displayValue.currency
+      }
+    } else {
+      currentAmount =
+        displayValue !== undefined && displayValue !== null ? displayValue : ""
+      // Default currency logic if not set
+      if (currencyMode === "fixed") {
+        currentCurrency = fixedCurrency
+      } else if (currencyMode === "options" && currencyOptions.length > 0) {
+        // For options mode, prefer USD if available, otherwise first option
+        currentCurrency = currencyOptions.includes("USD")
+          ? "USD"
+          : currencyOptions[0]
+      } else {
+        currentCurrency = "USD"
+      }
+    }
+
+    // Ensure currentCurrency is valid for the mode
+    if (
+      currencyMode === "options" &&
+      !currencyOptions.includes(currentCurrency) &&
+      currencyOptions.length > 0
+    ) {
+      // Prefer USD if available in options, otherwise use first option
+      currentCurrency = currencyOptions.includes("USD")
+        ? "USD"
+        : currencyOptions[0]
+    }
+
+    // If currency is still empty or invalid, default to USD
+    if (!currentCurrency) {
+      currentCurrency = "USD"
+    }
+
+    const handleAmountChange = (val: string) => {
+      const num = val === "" ? "" : Number(val)
+      // Ensure currency is always set (use currentCurrency or default to USD)
+      const currency = currentCurrency || "USD"
+      const newValue = { amount: num, currency: currency }
+
+      if (editingMode && !onChange) {
+        // In builder preview, update local state
+        setFormValues(newValue)
+      } else {
+        // In actual form, call onChange
+        onChange?.(newValue)
+      }
+    }
+
+    const handleCurrencyChange = (val: string) => {
+      // Get the current amount from formData or formValues
+      const currentAmountValue =
+        editingMode && !onChange
+          ? formValues.amount !== undefined
+            ? formValues.amount
+            : currentAmount
+          : typeof value === "object" && value !== null
+            ? value.amount
+            : currentAmount
+      const num =
+        currentAmountValue === "" || currentAmountValue === undefined
+          ? ""
+          : Number(currentAmountValue)
+      const newValue = { amount: num, currency: val }
+
+      if (editingMode && !onChange) {
+        // In builder preview, update local state
+        setFormValues(newValue)
+      } else {
+        // In actual form, call onChange
+        onChange?.(newValue)
+      }
+    }
+
     return (
       <div>
-        <div className="relative">
-          <Input
-            type="number"
-            min="0"
-            placeholder={uiConfig.placeholder || "Enter offer amount"}
-            disabled={disabled}
-            className={cn(editingMode && "cursor-not-allowed")}
-            style={getInputStyle()}
-            value={editingMode ? "" : (value as number | string) || ""}
-            onChange={(e) => {
-              if (!editingMode) {
-                const numValue =
-                  e.target.value === "" ? "" : Number(e.target.value)
-                onChange?.(numValue)
-              }
-            }}
-            onBlur={onBlur}
-            data-field-id={question.id}
-          />
-          {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Enter offer amount",
+        <div className="flex gap-2">
+          {/* Currency Selector */}
+          {(currencyMode === "options" || currencyMode === "any") && (
+            <Select
+              value={currentCurrency}
+              onValueChange={(val) => {
+                // Allow currency changes even in editing mode (for builder preview)
+                handleCurrencyChange(val)
+              }}
+              disabled={disabled}
+            >
+              <SelectTrigger className="w-[100px]" style={getSelectStyle()}>
+                <SelectValue placeholder="Curr" />
+              </SelectTrigger>
+              <SelectContent>
+                {currencyMode === "options"
+                  ? currencyOptions.map((c: string) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))
+                  : STANDARD_CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+              </SelectContent>
+            </Select>
           )}
+
+          {/* Fixed Currency Display */}
+          {currencyMode === "fixed" && (
+            <div
+              className="flex items-center justify-center rounded-md border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-500"
+              style={
+                brandingConfig?.fieldColor &&
+                brandingConfig.fieldColor !== "#ffffff"
+                  ? {
+                      backgroundColor: brandingConfig.fieldColor,
+                      borderColor: brandingConfig.fieldColor,
+                    }
+                  : {}
+              }
+            >
+              {fixedCurrency}
+            </div>
+          )}
+
+          {/* Amount Input */}
+          <div className="relative flex-1">
+            <Input
+              type="number"
+              min="0"
+              placeholder={uiConfig.placeholder || "Enter offer amount"}
+              disabled={disabled}
+              className={cn(editingMode && "cursor-not-allowed")}
+              style={getInputStyle()}
+              value={editingMode ? "" : currentAmount}
+              onChange={(e) => {
+                if (!editingMode) {
+                  handleAmountChange(e.target.value)
+                }
+              }}
+              onBlur={onBlur}
+              data-field-id={question.id}
+            />
+            {renderEditOverlay(
+              "placeholder",
+              uiConfig.placeholder || "Enter offer amount",
+            )}
+          </div>
         </div>
         {renderError(error)}
       </div>

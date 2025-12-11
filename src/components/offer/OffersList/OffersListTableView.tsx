@@ -37,10 +37,10 @@ const OffersListTableView = ({
     offers.length > 0 &&
     offers.every((offer) => selectedOffers.has(offer.id))
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency: string = "USD") => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
@@ -168,7 +168,10 @@ const OffersListTableView = ({
                 <TableCell>{offer.submitterEmail || "N/A"}</TableCell>
                 <TableCell>{offer.submitterPhone || "N/A"}</TableCell>
                 <TableCell className="font-bold">
-                  {formatCurrency(offer.amount)}
+                  {formatCurrency(
+                    offer.amount,
+                    (offer.customQuestionsData as any)?.currency || "USD",
+                  )}
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <Popover>

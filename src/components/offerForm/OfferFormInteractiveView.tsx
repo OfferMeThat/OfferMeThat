@@ -141,7 +141,23 @@ export const OfferFormInteractiveView = ({
 
       // Collect data for current page questions
       currentPageQuestions.forEach((question) => {
-        const value = formData[question.id]
+        let value = formData[question.id]
+
+        // For offerAmount questions, ensure currency is set if amount is present
+        if (
+          question.type === "offerAmount" &&
+          value &&
+          typeof value === "object"
+        ) {
+          if (
+            value.amount !== undefined &&
+            value.amount !== "" &&
+            !value.currency
+          ) {
+            value = { ...value, currency: "USD" }
+          }
+        }
+
         // Preserve the actual value - don't convert to null/undefined
         // Empty strings should be preserved so validation can work correctly
         currentPageData[question.id] = value
@@ -223,8 +239,25 @@ export const OfferFormInteractiveView = ({
 
   const handleSubmit = async () => {
     try {
+      // Ensure offerAmount questions have currency set before validation
+      const validationData = { ...formData }
+      questions.forEach((question) => {
+        if (question.type === "offerAmount" && validationData[question.id]) {
+          const value = validationData[question.id]
+          if (typeof value === "object" && value !== null) {
+            if (
+              value.amount !== undefined &&
+              value.amount !== "" &&
+              !value.currency
+            ) {
+              validationData[question.id] = { ...value, currency: "USD" }
+            }
+          }
+        }
+      })
+
       const schema = validationSchema()
-      await schema.validate(formData, { abortEarly: false })
+      await schema.validate(validationData, { abortEarly: false })
 
       // If in preview mode, show confirmation and reset form
       if (isPreviewMode) {
@@ -496,6 +529,7 @@ export const OfferFormInteractiveView = ({
         )
       }
     } catch (error) {
+      console.error("Error submitting offer:", error)
       if (error instanceof yup.ValidationError) {
         const newErrors: Record<string, string> = {}
         error.inner.forEach((err) => {

@@ -17,10 +17,10 @@ const formatDate = (dateString: string): string => {
 /**
  * Formats a number as currency
  */
-const formatCurrency = (amount: number): string => {
+const formatCurrency = (amount: number, currency: string = "USD"): string => {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency: currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount)
@@ -302,7 +302,12 @@ export const generateOfferReport = (
         case "submitterPhone":
           return escapeCsvField(offer.submitterPhone || "N/A")
         case "offerAmount":
-          return escapeCsvField(formatCurrency(offer.amount))
+          return escapeCsvField(
+            formatCurrency(
+              offer.amount,
+              (offer.customQuestionsData as any)?.currency || "USD",
+            ),
+          )
         case "buyerType":
           return escapeCsvField(formatBuyerType(offer.buyerType))
         case "paymentWay":

@@ -90,8 +90,17 @@ export function transformFormDataToOffer(
         break
 
       case "offerAmount":
-        offer.amount =
-          typeof value === "number" ? value : parseFloat(value) || 0
+        if (typeof value === "object" && value !== null) {
+          offer.amount = Number(value.amount) || 0
+          // Store currency in customQuestionsData for easy access
+          if (!offer.customQuestionsData) {
+            offer.customQuestionsData = {} as any
+          }
+          ;(offer.customQuestionsData as any).currency = value.currency
+        } else {
+          offer.amount =
+            typeof value === "number" ? value : parseFloat(value) || 0
+        }
         break
 
       case "nameOfPurchaser":
