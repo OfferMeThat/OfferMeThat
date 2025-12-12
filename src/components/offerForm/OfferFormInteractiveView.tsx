@@ -30,6 +30,7 @@ interface OfferFormInteractiveViewProps {
   brandingConfig?: BrandingConfig
   profilePictureUrl?: string | null
   formId?: string // Add formId to identify which form is being submitted
+  ownerId?: string // Add ownerId for public forms
   isPreviewMode?: boolean
   isTestMode?: boolean
 }
@@ -47,6 +48,7 @@ export const OfferFormInteractiveView = ({
   brandingConfig,
   profilePictureUrl,
   formId,
+  ownerId,
   isPreviewMode = false,
   isTestMode = false,
 }: OfferFormInteractiveViewProps) => {
@@ -795,6 +797,7 @@ export const OfferFormInteractiveView = ({
                   disabled={false}
                   editingMode={false}
                   formId={question.formId}
+                  ownerId={ownerId}
                   brandingConfig={brandingConfig}
                   isTestMode={isTestMode}
                   value={formData[question.id]}

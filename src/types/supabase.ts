@@ -20,6 +20,7 @@ export type Database = {
           createdAt: string
           createdBy: string
           id: string
+          isTest: boolean | null
           status: Database["public"]["Enums"]["listingStatus"]
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           createdAt?: string
           createdBy: string
           id?: string
+          isTest?: boolean | null
           status: Database["public"]["Enums"]["listingStatus"]
         }
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           createdAt?: string
           createdBy?: string
           id?: string
+          isTest?: boolean | null
           status?: Database["public"]["Enums"]["listingStatus"]
         }
         Relationships: [

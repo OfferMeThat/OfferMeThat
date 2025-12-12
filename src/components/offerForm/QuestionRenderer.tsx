@@ -40,6 +40,7 @@ interface QuestionRendererProps {
   onEditPlaceholder?: (fieldKey: string, currentText?: string) => void
   onEditLabel?: (fieldKey: string, currentText?: string) => void
   formId?: string
+  ownerId?: string
   brandingConfig?: BrandingConfig
   value?: any
   onChange?: (value: any) => void
@@ -453,11 +454,13 @@ export const QuestionRenderer = ({
   onEditPlaceholder,
   onEditLabel,
   formId,
+  ownerId,
   brandingConfig,
   value,
   onChange,
   onBlur,
   error,
+  isTestMode,
 }: QuestionRendererProps) => {
   // State for interactive fields (used for complex fields like dates, times, etc.)
   // Initialize from value prop if available
@@ -495,23 +498,29 @@ export const QuestionRenderer = ({
 
   // Fetch listings for specifyListing question
   useEffect(() => {
-    if (question.type === "specifyListing" && formId && !editingMode) {
+    if (question.type === "specifyListing" && !editingMode) {
       if (listings === null) {
-        getFormOwnerListings(formId)
-          .then((ownerListings) => {
-            setListings(ownerListings)
-          })
-          .catch((error) => {
-            console.error("Error fetching listings:", error)
-            setListings([])
-          })
+        // Use ownerId if available (for public forms), otherwise use formId
+        const idToUse = ownerId || formId
+        const useOwnerId = !!ownerId
+
+        if (idToUse) {
+          getFormOwnerListings(idToUse, isTestMode, useOwnerId)
+            .then((ownerListings) => {
+              setListings(ownerListings)
+            })
+            .catch((error) => {
+              console.error("Error fetching listings:", error)
+              setListings([])
+            })
+        }
       }
     } else if (editingMode && question.type === "specifyListing") {
       // In editing mode, don't fetch listings
       setListings([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formId, editingMode, question.type, question.id])
+  }, [formId, ownerId, editingMode, question.type, question.id, isTestMode])
 
   // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}

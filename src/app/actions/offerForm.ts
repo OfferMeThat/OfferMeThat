@@ -700,28 +700,53 @@ export const getFormPages = async (formId: string) => {
   return data
 }
 
-export const getFormOwnerListings = async (formId: string) => {
+export const getFormOwnerListings = async (
+  formIdOrOwnerId: string,
+  isTestMode: boolean = false,
+  isOwnerId: boolean = false,
+) => {
   const supabase = await createClient()
 
-  // Get the form to find the owner
-  const { data: form, error: formError } = await supabase
-    .from("offerForms")
-    .select("ownerId")
-    .eq("id", formId)
-    .single()
+  let ownerId: string
 
-  if (formError || !form) {
-    throw new Error("Failed to fetch form")
+  if (isOwnerId) {
+    // Direct owner ID provided
+    ownerId = formIdOrOwnerId
+  } else {
+    // Get the form to find the owner
+    const { data: form, error: formError } = await supabase
+      .from("offerForms")
+      .select("ownerId")
+      .eq("id", formIdOrOwnerId)
+      .single()
+
+    if (formError || !form) {
+      throw new Error("Failed to fetch form")
+    }
+
+    ownerId = form.ownerId
   }
 
-  // Get listings for the owner
-  const { data: listings, error: listingsError } = await supabase
+  // Build query to get listings for the owner, filtering by isTest status
+  let query = supabase
     .from("listings")
-    .select("id, address")
-    .eq("createdBy", form.ownerId)
+    .select("id, address, status, isTest")
+    .eq("createdBy", ownerId)
     .order("createdAt", { ascending: false })
 
+  // Filter by isTest based on mode
+  if (isTestMode) {
+    // Test mode: show only test listings
+    query = query.eq("isTest", true)
+  } else {
+    // Real mode: show only non-test listings (null or false)
+    query = query.or("isTest.is.null,isTest.eq.false")
+  }
+
+  const { data: listings, error: listingsError } = await query
+
   if (listingsError) {
+    console.error("Failed to fetch listings:", listingsError)
     throw new Error("Failed to fetch listings")
   }
 
@@ -885,6 +910,7 @@ export const getFormByUsername = async (username: string) => {
     // User exists but no form - return default form structure
     return {
       formId: null,
+      ownerId: profile.id,
       questions: [],
       pages: [],
       brandingConfig: DEFAULT_BRANDING_CONFIG,
@@ -917,6 +943,7 @@ export const getFormByUsername = async (username: string) => {
 
   return {
     formId: form.id,
+    ownerId: profile.id,
     questions,
     pages,
     brandingConfig,

@@ -44,6 +44,7 @@ interface SellerData {
 interface FormData {
   address: string
   status: string
+  isTest: boolean
   seller1: SellerData
   sendEmailUpdates: boolean
   addSecondSeller: boolean
@@ -59,6 +60,7 @@ const initialSellerData: SellerData = {
 const initialFormData: FormData = {
   address: "",
   status: "",
+  isTest: false,
   seller1: { ...initialSellerData },
   sendEmailUpdates: false,
   addSecondSeller: false,
@@ -157,6 +159,7 @@ export const AddListingModal = ({
               (key) => LISTING_STATUSES[key] === formData.status,
             ) || "forSale",
           createdBy: user.id,
+          isTest: formData.isTest,
         })
         .select()
         .single()
@@ -324,6 +327,22 @@ export const AddListingModal = ({
             {errors.status && (
               <p className="text-sm text-red-500">{errors.status}</p>
             )}
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="isTest"
+              checked={formData.isTest}
+              onCheckedChange={(checked) =>
+                updateFormData("isTest", checked === true)
+              }
+            />
+            <Label
+              htmlFor="isTest"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              This is a test listing
+            </Label>
           </div>
 
           <div className="space-y-4 rounded-lg border p-4">

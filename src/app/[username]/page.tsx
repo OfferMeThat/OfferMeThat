@@ -25,6 +25,7 @@ export default async function PublicFormPage({
 
   const {
     formId,
+    ownerId,
     questions,
     pages,
     brandingConfig,
@@ -70,6 +71,7 @@ export default async function PublicFormPage({
             brandingConfig={brandingConfig}
             profilePictureUrl={profilePictureUrl}
             formId={formId || undefined}
+            ownerId={ownerId}
             isTestMode={isTestMode}
           />
         </div>

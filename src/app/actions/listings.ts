@@ -9,8 +9,22 @@ export async function getFilteredListings(
 ): Promise<ListingWithOfferCounts[] | null> {
   const supabase = await createClient()
 
-  // Start building the query
-  let query = supabase.from("listings").select("*, offers(*)")
+  // Get the current user to filter by createdBy
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    console.error("User not authenticated")
+    return null
+  }
+
+  // Start building the query - filter by current user's listings only
+  let query = supabase
+    .from("listings")
+    .select("*, offers(*)")
+    .eq("createdBy", user.id)
+    .or("isTest.is.null,isTest.eq.false") // Exclude test listings
 
   // Apply address filter
   if (filters.address) {
