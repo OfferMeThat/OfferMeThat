@@ -9,12 +9,12 @@ import {
   getFormOwnerProfilePicture,
   getFormPages,
   getFormQuestions,
-  getOrCreateOfferForm,
+  getOrCreateLeadForm,
   movePageBreak,
   resetFormToDefault,
   updateQuestion,
   updateQuestionOrder,
-} from "@/app/actions/offerForm"
+} from "@/app/actions/leadForm"
 import Heading from "@/components/shared/typography/Heading"
 import {
   AlertDialog,
@@ -34,20 +34,21 @@ import { Database } from "@/types/supabase"
 import Link from "next/link"
 import { useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
+import { FormPreview } from "../../shared/FormPreview"
 import {
-  QUESTION_DEFINITIONS,
   QUESTION_TYPE_TO_LABEL,
+  QUESTION_DEFINITIONS,
   REQUIRED_QUESTION_TYPES,
-} from "@/constants/offerFormQuestions"
-import { OfferFormInteractiveView } from "../OfferFormInteractiveView"
-import AddQuestionModal from "./AddQuestionModal"
-import PageBreak from "./PageBreak"
-import QuestionCard from "./QuestionCard"
+} from "@/constants/leadFormQuestions"
+import { buildFormValidationSchema } from "@/lib/leadFormValidation"
+import AddQuestionModal from "../../offerForm/builder/AddQuestionModal"
+import PageBreak from "../../offerForm/builder/PageBreak"
+import QuestionCard from "../../offerForm/builder/QuestionCard"
 
-type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
-type Page = Database["public"]["Tables"]["offerFormPages"]["Row"]
+type Question = Database["public"]["Tables"]["leadFormQuestions"]["Row"]
+type Page = Database["public"]["Tables"]["leadFormPages"]["Row"]
 
-const OfferFormBuilderPageContent = () => {
+const LeadFormBuilderPageContent = () => {
   const [formId, setFormId] = useState<string | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
   const [pages, setPages] = useState<Page[]>([])
@@ -69,7 +70,7 @@ const OfferFormBuilderPageContent = () => {
   useEffect(() => {
     const initializeForm = async () => {
       try {
-        const id = await getOrCreateOfferForm()
+        const id = await getOrCreateLeadForm()
         setFormId(id)
 
         const [
@@ -106,37 +107,35 @@ const OfferFormBuilderPageContent = () => {
   ) => {
     if (currentOrder === 1) return
 
-    // Check if "Specify Listing" exists and is at position 1
-    const specifyListingQuestion = questions.find(
-      (q) => q.type === "specifyListing",
+    // Check if "Listing Interest" exists at position 1
+    const listingInterestQuestion = questions.find(
+      (q) => q.type === "listingInterest",
     )
-    const isSpecifyListingAtPosition1 = specifyListingQuestion?.order === 1
+    const isListingInterestAtPosition1 = listingInterestQuestion?.order === 1
 
-    // Check if "Submitter Role" exists and is at position 2
+    // Check if "Submitter Role" exists at position 2
     const submitterRoleQuestion = questions.find(
       (q) => q.type === "submitterRole",
     )
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
-    // Lock "Specify Listing" in position 1 (if it exists)
-    if (questionType === "specifyListing" && currentOrder === 1) return
+    // Lock "Listing Interest" in position 1 (if it exists)
+    if (questionType === "listingInterest" && currentOrder === 1) return
 
     // Lock "Submitter Role" in position 2 - can't move up to position 1 (if it exists)
     if (
       questionType === "submitterRole" &&
       currentOrder === 2 &&
-      isSpecifyListingAtPosition1
+      isListingInterestAtPosition1
     )
       return
 
     // Prevent other questions from moving into locked positions
     const targetPosition = currentOrder - 1
-    if (targetPosition === 1 && isSpecifyListingAtPosition1) {
-      // Position 1 is locked by "Specify Listing"
-      if (questionType !== "specifyListing") return
+    if (targetPosition === 1 && isListingInterestAtPosition1) {
+      if (questionType !== "listingInterest") return
     }
     if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
-      // Position 2 is locked by "Submitter Role"
       if (questionType !== "submitterRole") return
     }
 
@@ -150,7 +149,7 @@ const OfferFormBuilderPageContent = () => {
 
         // Check if the question above is locked in its position
         if (
-          questionAbove.type === "specifyListing" &&
+          questionAbove.type === "listingInterest" &&
           questionAbove.order === 1
         )
           return
@@ -194,8 +193,8 @@ const OfferFormBuilderPageContent = () => {
     )
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
-    // Lock "Specify Listing" in position 1 - can't move down
-    if (questionType === "specifyListing" && currentOrder === 1) return
+    // Lock "Listing Interest" in position 1 - can't move down
+    if (questionType === "listingInterest" && currentOrder === 1) return
 
     // Lock "Submitter Role" in position 2 - can't move down (if it exists)
     if (questionType === "submitterRole" && currentOrder === 2) return
@@ -203,7 +202,6 @@ const OfferFormBuilderPageContent = () => {
     // Prevent moving into position 2 if it's locked
     const targetPosition = currentOrder + 1
     if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
-      // Position 2 is locked by "Submitter Role"
       if (questionType !== "submitterRole") return
     }
 
@@ -217,7 +215,7 @@ const OfferFormBuilderPageContent = () => {
 
         // Check if moving would put this question into a locked position
         const targetPosition = currentOrder + 1
-        if (targetPosition === 1 && questionType !== "specifyListing") return
+        if (targetPosition === 1 && questionType !== "listingInterest") return
         if (targetPosition === 2 && questionType !== "submitterRole") return
 
         // Swap orders
@@ -366,11 +364,11 @@ const OfferFormBuilderPageContent = () => {
   }
 
   const handleOpenAddQuestionModal = (afterOrder: number) => {
-    // Check if "Specify Listing" exists at position 1
-    const specifyListingQuestion = questions.find(
-      (q) => q.type === "specifyListing",
+    // Check if "Listing Interest" exists at position 1
+    const listingInterestQuestion = questions.find(
+      (q) => q.type === "listingInterest",
     )
-    const isSpecifyListingAtPosition1 = specifyListingQuestion?.order === 1
+    const isListingInterestAtPosition1 = listingInterestQuestion?.order === 1
 
     // Check if "Submitter Role" exists at position 2
     const submitterRoleQuestion = questions.find(
@@ -379,14 +377,13 @@ const OfferFormBuilderPageContent = () => {
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
     // Prevent adding questions between position 1 and 2
-    // If adding after position 1, the new question would be at position 2
     if (
       afterOrder === 1 &&
-      isSpecifyListingAtPosition1 &&
+      isListingInterestAtPosition1 &&
       isSubmitterRoleAtPosition2
     ) {
       toast.error(
-        "Cannot add questions between 'Specify Listing' and 'Submitter Role'",
+        "Cannot add questions between 'Listing Interest' and 'Submitter Role'",
       )
       return
     }
@@ -486,12 +483,12 @@ const OfferFormBuilderPageContent = () => {
       <div className="flex items-center justify-between border-b bg-white px-6 py-6">
         <div>
           <Heading as="h1" size="large" weight="bold">
-            {viewMode === "builder" ? "Customize Offer Form" : "Form Preview"}
+            {viewMode === "builder" ? "Customize Lead Form" : "Form Preview"}
           </Heading>
           <p className="mt-1 text-sm text-gray-600">
             {viewMode === "builder" ? (
               <>
-                Add, remove and edit questions to build your Offer Form. <br />
+                Add, remove and edit questions to build your Lead Form. <br />
                 <Link
                   href="#"
                   className="font-medium text-teal-500 hover:text-teal-700"
@@ -500,7 +497,7 @@ const OfferFormBuilderPageContent = () => {
                 </Link>
               </>
             ) : (
-              "This is how your offer form will appear to buyers."
+              "This is how your lead form will appear to visitors."
             )}
           </p>
         </div>
@@ -542,16 +539,17 @@ const OfferFormBuilderPageContent = () => {
         >
           {/* White form card - fixed width, centered */}
           <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
-            <OfferFormInteractiveView
+            <FormPreview
               questions={questions}
               pages={pages}
               isLoading={false}
-              title="Your Offer Form"
-              description="This is how your form will appear to buyers who access your offer link."
+              title="Your Lead Form"
+              description="This is how your form will appear to visitors who access your lead link."
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}
-              formId={formId || undefined}
-              isPreviewMode={true}
+              questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
+              buildValidationSchema={buildFormValidationSchema as any}
+              formType="lead"
             />
           </div>
         </div>
@@ -568,7 +566,7 @@ const OfferFormBuilderPageContent = () => {
                 <div key={question.id}>
                   <QuestionCard
                     questionsAmount={questions.length}
-                    question={question}
+                    question={question as any}
                     isFirst={index === 0}
                     isLast={index === questions.length - 1}
                     onMoveUp={() =>
@@ -587,12 +585,12 @@ const OfferFormBuilderPageContent = () => {
                   <div className="my-8 flex flex-wrap items-center justify-center gap-4">
                     {/* Check if we can add a question here (not between position 1 and 2) */}
                     {(() => {
-                      // Check if "Specify Listing" exists at position 1
-                      const specifyListingQuestion = questions.find(
-                        (q) => q.type === "specifyListing",
+                      // Check if "Listing Interest" exists at position 1
+                      const listingInterestQuestion = questions.find(
+                        (q) => q.type === "listingInterest",
                       )
-                      const isSpecifyListingAtPosition1 =
-                        specifyListingQuestion?.order === 1
+                      const isListingInterestAtPosition1 =
+                        listingInterestQuestion?.order === 1
 
                       // Check if "Submitter Role" exists at position 2
                       const submitterRoleQuestion = questions.find(
@@ -604,7 +602,7 @@ const OfferFormBuilderPageContent = () => {
                       // Hide button if adding after position 1 would place question at position 2
                       const wouldAddAtPosition2 =
                         question.order === 1 &&
-                        isSpecifyListingAtPosition1 &&
+                        isListingInterestAtPosition1 &&
                         isSubmitterRoleAtPosition2
 
                       return (
@@ -686,7 +684,7 @@ const OfferFormBuilderPageContent = () => {
 
                         return (
                           <PageBreak
-                            page={pageBreakAfter}
+                            page={pageBreakAfter as any}
                             isFirst={!canMoveUp}
                             isLast={!canMoveDown}
                             onMoveUp={() =>
@@ -705,12 +703,12 @@ const OfferFormBuilderPageContent = () => {
                       {/* Add buttons after page break */}
                       <div className="my-8 flex flex-wrap items-center justify-center gap-4">
                         {(() => {
-                          // Check if "Specify Listing" exists at position 1
-                          const specifyListingQuestion = questions.find(
-                            (q) => q.type === "specifyListing",
+                          // Check if "Listing Interest" exists at position 1
+                          const listingInterestQuestion = questions.find(
+                            (q) => q.type === "listingInterest",
                           )
-                          const isSpecifyListingAtPosition1 =
-                            specifyListingQuestion?.order === 1
+                          const isListingInterestAtPosition1 =
+                            listingInterestQuestion?.order === 1
 
                           // Check if "Submitter Role" exists at position 2
                           const submitterRoleQuestion = questions.find(
@@ -722,7 +720,7 @@ const OfferFormBuilderPageContent = () => {
                           // Hide button if adding after position 1 would place question at position 2
                           const wouldAddAtPosition2 =
                             question.order === 1 &&
-                            isSpecifyListingAtPosition1 &&
+                            isListingInterestAtPosition1 &&
                             isSubmitterRoleAtPosition2
 
                           if (wouldAddAtPosition2) {
@@ -770,7 +768,7 @@ const OfferFormBuilderPageContent = () => {
             <AlertDialogTitle>Reset Form to Default?</AlertDialogTitle>
             <AlertDialogDescription>
               This action will delete all your custom questions and restore the
-              form to its default state with the 7 essential questions.
+              form to its default state with the essential questions.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -796,4 +794,5 @@ const OfferFormBuilderPageContent = () => {
   )
 }
 
-export default OfferFormBuilderPageContent
+export default LeadFormBuilderPageContent
+

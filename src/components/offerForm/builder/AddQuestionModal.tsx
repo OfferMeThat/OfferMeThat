@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
+import { QUESTION_DEFINITIONS as OFFER_QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
 import { cn } from "@/lib/utils"
 import { QuestionType } from "@/types/form"
 import { Check, ChevronLeft } from "lucide-react"
@@ -25,6 +25,7 @@ interface AddQuestionModalProps {
     uiConfig?: Record<string, any>,
   ) => void
   existingQuestionTypes: QuestionType[]
+  questionDefinitions?: Partial<Record<QuestionType, any>>
 }
 
 const AddQuestionModal = ({
@@ -32,6 +33,7 @@ const AddQuestionModal = ({
   onOpenChange,
   onAddQuestion,
   existingQuestionTypes,
+  questionDefinitions = OFFER_QUESTION_DEFINITIONS,
 }: AddQuestionModalProps) => {
   const [selectedType, setSelectedType] = useState<QuestionType | null>(null)
   const [wizardStep, setWizardStep] = useState<"selection" | "setup">(
@@ -45,7 +47,7 @@ const AddQuestionModal = ({
   const handleNext = () => {
     if (!selectedType) return
 
-    const definition = QUESTION_DEFINITIONS[selectedType]
+    const definition = questionDefinitions[selectedType]
     if (definition?.setupQuestions && definition.setupQuestions.length > 0) {
       setWizardStep("setup")
     } else {
@@ -94,7 +96,7 @@ const AddQuestionModal = ({
 
       <div className="flex-1 overflow-y-auto px-4">
         <div className="space-y-2 divide-y divide-gray-200 py-2">
-          {Object.entries(QUESTION_DEFINITIONS).map(([type, details]) => {
+          {Object.entries(questionDefinitions).map(([type, details]) => {
             const questionType = type as QuestionType
             // Allow unlimited custom questions, but only one of each other type
             const isOnForm =
@@ -153,7 +155,7 @@ const AddQuestionModal = ({
   const renderSetupStep = () => {
     if (!selectedType) return null
 
-    const definition = QUESTION_DEFINITIONS[selectedType]
+    const definition = questionDefinitions[selectedType]
     if (!definition?.setupQuestions) return null
 
     return (
