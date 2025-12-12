@@ -187,6 +187,17 @@ const SmartQuestionSetup = ({
     answersRef.current = answers
   }, [answers])
 
+  // Sync answers with initialSetupConfig when it changes in edit mode
+  useEffect(() => {
+    if (mode === "edit" && initialSetupConfig) {
+      setAnswers((prev) => {
+        // Merge with existing answers to preserve any user changes
+        // but update with any new values from initialSetupConfig
+        return { ...prev, ...initialSetupConfig }
+      })
+    }
+  }, [mode, initialSetupConfig])
+
   // Reset completion flag when component unmounts or mode changes
   useEffect(() => {
     hasCompletedRef.current = false
@@ -240,6 +251,7 @@ const SmartQuestionSetup = ({
   useEffect(() => {
     const handleExternalSave = () => {
       if (isSavingRef.current) return // Prevent duplicate saves
+      // Always validate before saving, even in edit mode
       if (canProceedRef.current && canProceedRef.current()) {
         handleSave()
       }
@@ -252,7 +264,13 @@ const SmartQuestionSetup = ({
   }, [handleSave])
 
   // Ensure no currency fields are pre-populated on component mount
+  // Only clear in "add" mode, not "edit" mode (where we want to preserve saved values)
   useEffect(() => {
+    // Skip clearing in edit mode - we want to preserve the saved values
+    if (mode === "edit") {
+      return
+    }
+
     // Force clear all currency fields by setting them to empty string
     const currencyFields = [
       "currency_options_1",
@@ -280,12 +298,15 @@ const SmartQuestionSetup = ({
       setAnswers((prev) => {
         const newAnswers = { ...prev }
         currencyFields.forEach((field) => {
-          newAnswers[field] = "" // Force set to empty string
+          // Only clear if the field doesn't already have a value from initialSetupConfig
+          if (!initialSetupConfig[field]) {
+            newAnswers[field] = "" // Force set to empty string
+          }
         })
         return newAnswers
       })
     }, 100)
-  }, [])
+  }, [mode, initialSetupConfig])
 
   if (!smartQuestion) {
     return <div>Question not found</div>
@@ -933,6 +954,50 @@ const SmartQuestionSetup = ({
       const firstConditionName = answers["condition_1_name"]
       if (!firstConditionName || firstConditionName.trim() === "") {
         return false // Need at least the first condition name
+      }
+    }
+
+    // Special validation for Deposit questions: ensure all visible required fields are filled
+    if (smartQuestion.id === "deposit") {
+      // Check all visible questions for deposit-specific validation
+      for (const question of visibleQuestions) {
+        // Check if this is a required field that needs a value
+        if (question.required !== false) {
+          const value = answers[question.id]
+          
+          // Skip currency option fields as they're handled separately
+          if (question.id.includes("currency_options_")) {
+            continue
+          }
+          
+          // Check if the field is empty
+          if (value === undefined || value === "" || value === null) {
+            return false
+          }
+          
+          // Special validation for deposit_holding_details when deposit_holding is "stipulate"
+          if (question.id.includes("deposit_holding_details")) {
+            const holdingFieldId = question.id.replace("_details", "")
+            if (answers[holdingFieldId] === "stipulate") {
+              if (!value || value.trim() === "") {
+                return false
+              }
+            }
+          }
+          
+          // Special validation for fixed_deposit fields
+          if (question.id.includes("fixed_deposit_amount") && !question.id.includes("currency")) {
+            // If fixed_amount is selected, check for corresponding currency
+            const currencyFieldId = question.id.replace("amount", "currency")
+            const hasCurrencyField = visibleQuestions.some(q => q.id === currencyFieldId)
+            if (hasCurrencyField) {
+              const currencyValue = answers[currencyFieldId]
+              if (!currencyValue || currencyValue === "") {
+                return false
+              }
+            }
+          }
+        }
       }
     }
 

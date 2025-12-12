@@ -1504,6 +1504,7 @@ export const smartQuestionsConfig = {
         question.currency_field = this.generateCurrencyField(
           currentCurrencyStipulation,
           setupAnswers,
+          "",
         )
       } else if (currentDepositManagement === "buyer_percentage") {
         question.placeholder = "Enter percentage"
@@ -1511,12 +1512,14 @@ export const smartQuestionsConfig = {
         question.currency_field = this.generateCurrencyField(
           currentCurrencyStipulation,
           setupAnswers,
+          "",
         )
       } else if (currentDepositManagement === "buyer_choice") {
         question.placeholder = "Enter amount or percentage"
         question.conditional_currency = this.generateCurrencyField(
           currentCurrencyStipulation,
           setupAnswers,
+          "",
         )
         question.conditional_suffix = "% of purchase price"
       } else if (currentDepositManagement === "fixed_amount") {
@@ -1532,7 +1535,7 @@ export const smartQuestionsConfig = {
       return question
     },
 
-    generateCurrencyField: function (currencyStipulation, setupAnswers) {
+    generateCurrencyField: function (currencyStipulation, setupAnswers, suffix = "") {
       if (currencyStipulation === "any") {
         return {
           type: "select",
@@ -1543,15 +1546,112 @@ export const smartQuestionsConfig = {
             { value: "GBP", label: "GBP - British Pound" },
             { value: "CAD", label: "CAD - Canadian Dollar" },
             { value: "AUD", label: "AUD - Australian Dollar" },
+            { value: "JPY", label: "JPY - Japanese Yen" },
+            { value: "CHF", label: "CHF - Swiss Franc" },
+            { value: "CNY", label: "CNY - Chinese Yuan" },
+            { value: "SEK", label: "SEK - Swedish Krona" },
+            { value: "NOK", label: "NOK - Norwegian Krone" },
+            { value: "DKK", label: "DKK - Danish Krone" },
+            { value: "PLN", label: "PLN - Polish Zloty" },
+            { value: "CZK", label: "CZK - Czech Koruna" },
+            { value: "HUF", label: "HUF - Hungarian Forint" },
+            { value: "RON", label: "RON - Romanian Leu" },
+            { value: "BGN", label: "BGN - Bulgarian Lev" },
+            { value: "HRK", label: "HRK - Croatian Kuna" },
+            { value: "RSD", label: "RSD - Serbian Dinar" },
+            { value: "MKD", label: "MKD - Macedonian Denar" },
+            { value: "ALL", label: "ALL - Albanian Lek" },
+            { value: "BAM", label: "BAM - Bosnia-Herzegovina Mark" },
+            { value: "ISK", label: "ISK - Icelandic Krona" },
+            { value: "MDL", label: "MDL - Moldovan Leu" },
+            { value: "UAH", label: "UAH - Ukrainian Hryvnia" },
+            { value: "BYN", label: "BYN - Belarusian Ruble" },
+            { value: "RUB", label: "RUB - Russian Ruble" },
+            { value: "TRY", label: "TRY - Turkish Lira" },
+            { value: "ILS", label: "ILS - Israeli Shekel" },
+            { value: "AED", label: "AED - UAE Dirham" },
+            { value: "SAR", label: "SAR - Saudi Riyal" },
+            { value: "QAR", label: "QAR - Qatari Riyal" },
+            { value: "KWD", label: "KWD - Kuwaiti Dinar" },
+            { value: "BHD", label: "BHD - Bahraini Dinar" },
+            { value: "OMR", label: "OMR - Omani Rial" },
+            { value: "JOD", label: "JOD - Jordanian Dinar" },
+            { value: "LBP", label: "LBP - Lebanese Pound" },
+            { value: "EGP", label: "EGP - Egyptian Pound" },
+            { value: "MAD", label: "MAD - Moroccan Dirham" },
+            { value: "TND", label: "TND - Tunisian Dinar" },
+            { value: "DZD", label: "DZD - Algerian Dinar" },
+            { value: "ZAR", label: "ZAR - South African Rand" },
+            { value: "NGN", label: "NGN - Nigerian Naira" },
+            { value: "GHS", label: "GHS - Ghanaian Cedi" },
+            { value: "KES", label: "KES - Kenyan Shilling" },
+            { value: "UGX", label: "UGX - Ugandan Shilling" },
+            { value: "TZS", label: "TZS - Tanzanian Shilling" },
+            { value: "ETB", label: "ETB - Ethiopian Birr" },
+            { value: "MUR", label: "MUR - Mauritian Rupee" },
+            { value: "BRL", label: "BRL - Brazilian Real" },
+            { value: "ARS", label: "ARS - Argentine Peso" },
+            { value: "CLP", label: "CLP - Chilean Peso" },
+            { value: "COP", label: "COP - Colombian Peso" },
+            { value: "PEN", label: "PEN - Peruvian Sol" },
+            { value: "UYU", label: "UYU - Uruguayan Peso" },
+            { value: "VES", label: "VES - Venezuelan Bolivar" },
+            { value: "MXN", label: "MXN - Mexican Peso" },
+            { value: "GTQ", label: "GTQ - Guatemalan Quetzal" },
+            { value: "HNL", label: "HNL - Honduran Lempira" },
+            { value: "NIO", label: "NIO - Nicaraguan Cordoba" },
+            { value: "CRC", label: "CRC - Costa Rican Colon" },
+            { value: "PAB", label: "PAB - Panamanian Balboa" },
+            { value: "DOP", label: "DOP - Dominican Peso" },
+            { value: "JMD", label: "JMD - Jamaican Dollar" },
+            { value: "TTD", label: "TTD - Trinidad & Tobago Dollar" },
+            { value: "BBD", label: "BBD - Barbadian Dollar" },
+            { value: "XCD", label: "XCD - East Caribbean Dollar" },
+            { value: "AWG", label: "AWG - Aruban Florin" },
+            { value: "BZD", label: "BZD - Belize Dollar" },
+            { value: "KYD", label: "KYD - Cayman Islands Dollar" },
+            { value: "SGD", label: "SGD - Singapore Dollar" },
+            { value: "MYR", label: "MYR - Malaysian Ringgit" },
+            { value: "THB", label: "THB - Thai Baht" },
+            { value: "VND", label: "VND - Vietnamese Dong" },
+            { value: "IDR", label: "IDR - Indonesian Rupiah" },
+            { value: "PHP", label: "PHP - Philippine Peso" },
+            { value: "KRW", label: "KRW - South Korean Won" },
+            { value: "TWD", label: "TWD - Taiwan Dollar" },
+            { value: "HKD", label: "HKD - Hong Kong Dollar" },
+            { value: "INR", label: "INR - Indian Rupee" },
+            { value: "PKR", label: "PKR - Pakistani Rupee" },
+            { value: "BDT", label: "BDT - Bangladeshi Taka" },
+            { value: "LKR", label: "LKR - Sri Lankan Rupee" },
+            { value: "NPR", label: "NPR - Nepalese Rupee" },
+            { value: "MMK", label: "MMK - Myanmar Kyat" },
+            { value: "KHR", label: "KHR - Cambodian Riel" },
+            { value: "LAK", label: "LAK - Laotian Kip" },
+            { value: "MOP", label: "MOP - Macanese Pataca" },
+            { value: "BND", label: "BND - Brunei Dollar" },
+            { value: "FJD", label: "FJD - Fijian Dollar" },
+            { value: "PGK", label: "PGK - Papua New Guinea Kina" },
+            { value: "SBD", label: "SBD - Solomon Islands Dollar" },
+            { value: "VUV", label: "VUV - Vanuatu Vatu" },
+            { value: "WST", label: "WST - Samoan Tala" },
+            { value: "TOP", label: "TOP - Tongan Pa'anga" },
+            { value: "NZD", label: "NZD - New Zealand Dollar" },
             // Add more currencies as needed
           ],
         }
       } else if (currencyStipulation === "options") {
         const currencyOptions = []
         for (let i = 1; i <= 2; i++) {
-          const currencyValue = setupAnswers[`currency_options_${i}`]
+          const currencyValue = setupAnswers[`currency_options_${i}${suffix}`] || setupAnswers[`currency_options_${i}`]
           if (currencyValue) {
-            currencyOptions.push({ value: currencyValue, label: currencyValue })
+            // Get the full currency name for better display
+            const currencyName = this.getCurrencyDisplayName
+              ? this.getCurrencyDisplayName(currencyValue)
+              : currencyValue
+            currencyOptions.push({
+              value: currencyValue,
+              label: `${currencyValue} - ${currencyName}`,
+            })
           }
         }
         return {
@@ -1560,9 +1660,10 @@ export const smartQuestionsConfig = {
           options: currencyOptions,
         }
       } else if (currencyStipulation === "fixed") {
+        const fixedCurrency = setupAnswers[`stipulated_currency${suffix}`] || setupAnswers.stipulated_currency
         return {
           type: "display",
-          value: setupAnswers.stipulated_currency,
+          value: fixedCurrency || "",
         }
       }
 
@@ -1670,8 +1771,13 @@ export const smartQuestionsConfig = {
 
     generateQuestionsForInstalment: function (setupAnswers, instalmentNumber) {
       const questions = []
+      // For two_always, both instalments use _instalment_X suffix
+      // For one_or_two/three_plus, instalment 1 uses main fields (no suffix), instalment 2+ use suffix
+      const isTwoAlways = setupAnswers.instalments === "two_always"
       const suffix =
-        instalmentNumber > 1 ? `_instalment_${instalmentNumber}` : ""
+        instalmentNumber > 1 || isTwoAlways
+          ? `_instalment_${instalmentNumber}`
+          : ""
 
       // Question: What will your Deposit be? (only for buyer_choice scenarios)
       const depositManagement =
@@ -1725,8 +1831,13 @@ export const smartQuestionsConfig = {
       setupAnswers,
       instalmentNumber,
     ) {
+      // For two_always, both instalments use _instalment_X suffix
+      // For one_or_two/three_plus, instalment 1 uses main fields (no suffix), instalment 2+ use suffix
+      const isTwoAlways = setupAnswers.instalments === "two_always"
       const suffix =
-        instalmentNumber > 1 ? `_instalment_${instalmentNumber}` : ""
+        instalmentNumber > 1 || isTwoAlways
+          ? `_instalment_${instalmentNumber}`
+          : ""
       const depositManagement =
         setupAnswers[`deposit_management${suffix}`] ||
         setupAnswers.deposit_management
@@ -1747,6 +1858,7 @@ export const smartQuestionsConfig = {
         question.currency_field = this.generateCurrencyField(
           currencyStipulation,
           setupAnswers,
+          suffix,
         )
       } else if (depositManagement === "buyer_percentage") {
         question.placeholder = "Enter percentage"
@@ -1754,12 +1866,14 @@ export const smartQuestionsConfig = {
         question.currency_field = this.generateCurrencyField(
           currencyStipulation,
           setupAnswers,
+          suffix,
         )
       } else if (depositManagement === "buyer_choice") {
         question.placeholder = "Enter amount or percentage"
         question.conditional_currency = this.generateCurrencyField(
           currencyStipulation,
           setupAnswers,
+          suffix,
         )
         question.conditional_suffix = "% of purchase price"
       } else if (depositManagement === "fixed_amount") {
@@ -1788,8 +1902,13 @@ export const smartQuestionsConfig = {
       setupAnswers,
       instalmentNumber,
     ) {
+      // For two_always, both instalments use _instalment_X suffix
+      // For one_or_two/three_plus, instalment 1 uses main fields (no suffix), instalment 2+ use suffix
+      const isTwoAlways = setupAnswers.instalments === "two_always"
       const suffix =
-        instalmentNumber > 1 ? `_instalment_${instalmentNumber}` : ""
+        instalmentNumber > 1 || isTwoAlways
+          ? `_instalment_${instalmentNumber}`
+          : ""
       const depositDue =
         setupAnswers[`deposit_due${suffix}`] || setupAnswers.deposit_due
       const sellerDueDateText =
@@ -1835,8 +1954,13 @@ export const smartQuestionsConfig = {
       setupAnswers,
       instalmentNumber,
     ) {
+      // For two_always, both instalments use _instalment_X suffix
+      // For one_or_two/three_plus, instalment 1 uses main fields (no suffix), instalment 2+ use suffix
+      const isTwoAlways = setupAnswers.instalments === "two_always"
       const suffix =
-        instalmentNumber > 1 ? `_instalment_${instalmentNumber}` : ""
+        instalmentNumber > 1 || isTwoAlways
+          ? `_instalment_${instalmentNumber}`
+          : ""
       const depositHolding =
         setupAnswers[`deposit_holding${suffix}`] || setupAnswers.deposit_holding
       const depositHoldingDetails =
@@ -1863,40 +1987,52 @@ export const smartQuestionsConfig = {
     generateProperties: function (setupAnswers) {
       const questions = []
 
-      // Question 1: How many instalments will your Deposit be paid in?
-      if (setupAnswers.instalments !== "single") {
-        const instalmentsQuestion = this.generateInstalmentsQuestion(
-          setupAnswers.instalments,
-        )
-        questions.push(instalmentsQuestion)
-      }
-
       // For single instalment, show questions normally
       if (setupAnswers.instalments === "single") {
-        // Question 2: What will your Deposit be?
+        // Question 1: What will your Deposit be? (only for buyer_choice)
         if (setupAnswers.deposit_management === "buyer_choice") {
           const depositTypeQuestion = this.generateDepositTypeQuestion()
           questions.push(depositTypeQuestion)
         }
 
-        // Question 3: What is your Deposit Amount?
+        // Question 2: What is your Deposit Amount?
         const depositAmountQuestion =
           this.generateDepositAmountQuestion(setupAnswers)
         questions.push(depositAmountQuestion)
 
-        // Question 4: Deposit Due
+        // Question 3: Deposit Due
         const depositDueQuestion = this.generateDepositDueQuestion(setupAnswers)
         questions.push(depositDueQuestion)
 
-        // Question 5: Deposit to be held
+        // Question 4: Deposit to be held
         if (setupAnswers.deposit_holding !== "no_ascertain") {
           const depositHoldingQuestion =
             this.generateDepositHoldingQuestion(setupAnswers)
           questions.push(depositHoldingQuestion)
         }
       }
-      // For multiple instalments, we only show the instalments question initially
-      // The conditional logic in DepositForm will handle what appears next
+      // For two_always, generate questions for both instalments immediately
+      else if (setupAnswers.instalments === "two_always") {
+        const instalmentQuestions = this.generateInstalmentQuestions(
+          setupAnswers,
+          "2",
+        )
+        questions.push(...instalmentQuestions)
+      }
+      // For one_or_two or three_plus, show instalments selector first
+      // The user will select how many, then questions will be generated dynamically
+      else if (
+        setupAnswers.instalments === "one_or_two" ||
+        setupAnswers.instalments === "three_plus"
+      ) {
+        // Question 1: How many instalments will your Deposit be paid in?
+        const instalmentsQuestion = this.generateInstalmentsQuestion(
+          setupAnswers.instalments,
+        )
+        questions.push(instalmentsQuestion)
+        // Note: Additional questions will be generated dynamically based on user's selection
+        // This is handled in DepositPreview's generateAdditionalQuestions
+      }
 
       return {
         question_type: "deposit",
