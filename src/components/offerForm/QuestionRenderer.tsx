@@ -165,7 +165,7 @@ const PersonNameFields = ({
             getSubQuestionLabel(uiConfig, "firstNameLabel", "First Name:"),
           )}
         </div>
-        <div className="relative">
+        <div className="relative max-w-md">
           <Input
             type="text"
             placeholder={getSubQuestionPlaceholder(
@@ -174,7 +174,7 @@ const PersonNameFields = ({
               "Enter first name",
             )}
             disabled={disabled}
-            className={cn(editingMode && "cursor-not-allowed")}
+            className={cn(editingMode && "cursor-not-allowed", "w-full")}
             style={getInputStyle()}
             value={nameData.firstName}
             onChange={(e) => {
@@ -227,7 +227,7 @@ const PersonNameFields = ({
                   ),
                 )}
               </div>
-              <div className="relative">
+              <div className="relative max-w-md">
                 <Input
                   type="text"
                   placeholder={getSubQuestionPlaceholder(
@@ -236,7 +236,7 @@ const PersonNameFields = ({
                     "Enter middle name",
                   )}
                   disabled={disabled}
-                  className={cn(editingMode && "cursor-not-allowed")}
+                  className={cn(editingMode && "cursor-not-allowed", "w-full")}
                   style={getInputStyle()}
                   value={nameData.middleName}
                   onChange={(e) => {
@@ -318,7 +318,7 @@ const PersonNameFields = ({
             getSubQuestionLabel(uiConfig, "lastNameLabel", "Last Name:"),
           )}
         </div>
-        <div className="relative">
+        <div className="relative max-w-md">
           <Input
             type="text"
             placeholder={getSubQuestionPlaceholder(
@@ -327,7 +327,7 @@ const PersonNameFields = ({
               "Enter last name",
             )}
             disabled={disabled}
-            className={cn(editingMode && "cursor-not-allowed")}
+            className={cn(editingMode && "cursor-not-allowed", "w-full")}
             style={getInputStyle()}
             value={nameData.lastName}
             onChange={(e) => {
@@ -685,14 +685,14 @@ export const QuestionRenderer = ({
       const inputValue = editingMode ? "" : (value as string) || customAddress
       return (
         <div>
-          <div className="relative">
+          <div className="relative max-w-md">
             <Input
               type="text"
               placeholder={
                 uiConfig.placeholder || "Enter listing address or ID..."
               }
               disabled={disabled}
-              className={cn(editingMode && "cursor-not-allowed")}
+              className={cn(editingMode && "cursor-not-allowed", "w-full")}
               style={getInputStyle()}
               value={inputValue}
               onChange={(e) => {
@@ -738,7 +738,7 @@ export const QuestionRenderer = ({
             disabled={disabled}
           >
             <SelectTrigger
-              className={cn("min-w-52")}
+              className={cn("w-full max-w-md")}
               style={getSelectStyle()}
               data-field-id={question.id}
             >
@@ -760,11 +760,12 @@ export const QuestionRenderer = ({
         </div>
         {showCustomInput && (
           <div>
-            <div className="relative">
+            <div className="relative max-w-md">
               <Input
                 type="text"
                 placeholder={uiConfig.placeholder || "Enter listing address..."}
                 disabled={disabled}
+                className="w-full"
                 style={getInputStyle()}
                 value={customAddress}
                 onChange={(e) => {
@@ -796,9 +797,9 @@ export const QuestionRenderer = ({
             }
           }}
         >
-          <div className="relative">
+          <div className="relative max-w-md">
             <SelectTrigger
-              className={cn("min-w-52")}
+              className={cn("w-full")}
               style={getSelectStyle()}
               data-field-id={question.id}
             >
@@ -833,13 +834,13 @@ export const QuestionRenderer = ({
     const nameValue = (value as { firstName?: string; lastName?: string }) || {}
     return (
       <div>
-        <div className="flex gap-2">
+        <div className="flex max-w-md gap-2">
           <div className="relative flex-1">
             <Input
               type="text"
               placeholder={uiConfig.firstNamePlaceholder || "First Name"}
               disabled={disabled}
-              className={cn(editingMode && "cursor-not-allowed")}
+              className={cn(editingMode && "cursor-not-allowed", "w-full")}
               style={getInputStyle()}
               value={editingMode ? "" : nameValue.firstName || ""}
               onChange={(e) => {
@@ -860,7 +861,7 @@ export const QuestionRenderer = ({
               type="text"
               placeholder={uiConfig.lastNamePlaceholder || "Last Name"}
               disabled={disabled}
-              className={cn(editingMode && "cursor-not-allowed")}
+              className={cn(editingMode && "cursor-not-allowed", "w-full")}
               style={getInputStyle()}
               value={editingMode ? "" : nameValue.lastName || ""}
               onChange={(e) => {
@@ -886,12 +887,12 @@ export const QuestionRenderer = ({
   if (question.type === "submitterEmail") {
     return (
       <div>
-        <div className="relative">
+        <div className="relative max-w-md">
           <Input
             type="email"
             placeholder={uiConfig.placeholder || "Enter your email address"}
             disabled={disabled}
-            className={cn(editingMode && "cursor-not-allowed")}
+            className={cn(editingMode && "cursor-not-allowed", "w-full")}
             style={getInputStyle()}
             value={editingMode ? "" : (value as string) || ""}
             onChange={(e) => {
@@ -923,7 +924,7 @@ export const QuestionRenderer = ({
 
     return (
       <div>
-        <div className="relative">
+        <div className="relative max-w-md">
           <PhoneInput
             value={phoneValue}
             onChange={(newValue) => {
@@ -936,7 +937,7 @@ export const QuestionRenderer = ({
             disabled={disabled || editingMode}
             editingMode={editingMode}
             placeholder={uiConfig.placeholder || "555-123-4567"}
-            className={cn(editingMode && "cursor-not-allowed")}
+            className={cn(editingMode && "cursor-not-allowed", "w-full")}
             style={getInputStyle()}
             data-field-id={question.id}
           />
@@ -1073,7 +1074,10 @@ export const QuestionRenderer = ({
               }}
               disabled={disabled}
             >
-              <SelectTrigger className="w-[100px]" style={getSelectStyle()}>
+              <SelectTrigger
+                className="w-full max-w-xs"
+                style={getSelectStyle()}
+              >
                 <SelectValue placeholder="Curr" />
               </SelectTrigger>
               <SelectContent>
@@ -1111,13 +1115,13 @@ export const QuestionRenderer = ({
           )}
 
           {/* Amount Input */}
-          <div className="relative flex-1">
+          <div className="relative max-w-md flex-1">
             <Input
               type="number"
               min="0"
               placeholder={uiConfig.placeholder || "Enter offer amount"}
               disabled={disabled}
-              className={cn(editingMode && "cursor-not-allowed")}
+              className={cn(editingMode && "cursor-not-allowed", "w-full")}
               style={getInputStyle()}
               value={editingMode ? "" : currentAmount}
               onChange={(e) => {
@@ -1160,14 +1164,14 @@ export const QuestionRenderer = ({
         typeof value === "string" ? value : value?.name || ""
       return (
         <div className="space-y-3">
-          <div className="relative">
+          <div className="relative max-w-md">
             <Input
               type="text"
               placeholder={
                 uiConfig.placeholder || "Enter name(s) of purchaser(s)"
               }
               disabled={disabled}
-              className={cn(editingMode && "cursor-not-allowed")}
+              className={cn(editingMode && "cursor-not-allowed", "w-full")}
               style={getInputStyle()}
               value={editingMode ? "" : singleFieldValue}
               onChange={(e) => {
@@ -1224,7 +1228,7 @@ export const QuestionRenderer = ({
                   }
                 }}
               />
-              <div className="flex items-center gap-2">
+              <div className="flex max-w-md items-center gap-2">
                 <label
                   htmlFor={`${question.id}_single_id_upload`}
                   className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
@@ -1402,7 +1406,7 @@ export const QuestionRenderer = ({
         {/* Main scenario selector */}
         <div>
           <Select value={scenario} onValueChange={handleScenarioChange}>
-            <SelectTrigger className="min-w-52" style={getSelectStyle()}>
+            <SelectTrigger className="w-full max-w-md" style={getSelectStyle()}>
               <SelectValue placeholder="Select option" />
             </SelectTrigger>
             <SelectContent>
@@ -1454,7 +1458,10 @@ export const QuestionRenderer = ({
                   handleNumPurchasersChange(parseInt(val))
                 }
               >
-                <SelectTrigger className="min-w-52" style={getSelectStyle()}>
+                <SelectTrigger
+                  className="w-full max-w-md"
+                  style={getSelectStyle()}
+                >
                   <SelectValue placeholder="Select number" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1500,11 +1507,15 @@ export const QuestionRenderer = ({
           <div className="space-y-4">
             <div>
               <Label className="mb-1 block text-sm">Corporation Name:</Label>
-              <Input
-                type="text"
-                placeholder="Enter corporation name"
-                disabled={disabled}
-              />
+              <div className="max-w-md">
+                <Input
+                  type="text"
+                  placeholder="Enter corporation name"
+                  disabled={disabled}
+                  className="w-full"
+                  style={getInputStyle()}
+                />
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -1578,7 +1589,7 @@ export const QuestionRenderer = ({
                       }
                     >
                       <SelectTrigger
-                        className="min-w-52"
+                        className="w-full max-w-md"
                         style={getSelectStyle()}
                       >
                         <SelectValue placeholder="Select option" />
@@ -1615,11 +1626,15 @@ export const QuestionRenderer = ({
                         <Label className="mb-1 block text-sm">
                           Corporation Name:
                         </Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter corporation name"
-                          disabled={disabled}
-                        />
+                        <div className="max-w-md">
+                          <Input
+                            type="text"
+                            placeholder="Enter corporation name"
+                            disabled={disabled}
+                            className="w-full"
+                            style={getInputStyle()}
+                          />
+                        </div>
                       </div>
                       <h5 className="text-sm font-medium">
                         Corporation Representative:
@@ -1703,7 +1718,7 @@ export const QuestionRenderer = ({
             }}
             data-field-id={question.id}
           />
-          <div className="flex items-center gap-2">
+          <div className="flex max-w-md items-center gap-2">
             <label
               htmlFor={`${question.id}_purchase_agreement_file`}
               className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
@@ -1789,29 +1804,35 @@ export const QuestionRenderer = ({
         )}
 
         {(!isOptional || hasExpiry) && (
-          <div className="flex gap-2">
-            <DatePicker
-              label={uiConfig.dateLabel || "Select date"}
-              value={expiryValue.expiryDate}
-              onChange={(date) => {
-                if (!editingMode) {
-                  onChange?.({ ...expiryValue, expiryDate: date })
-                }
-              }}
-              brandingConfig={brandingConfig}
-              data-field-id={question.id}
-            />
-            <TimePicker
-              label={uiConfig.timeLabel || "Select time"}
-              value={expiryValue.expiryTime}
-              onChange={(time) => {
-                if (!editingMode) {
-                  onChange?.({ ...expiryValue, expiryTime: time })
-                }
-              }}
-              brandingConfig={brandingConfig}
-              data-field-id={question.id}
-            />
+          <div className="flex max-w-md gap-2">
+            <div className="min-w-0 flex-1">
+              <DatePicker
+                label={uiConfig.dateLabel || "Select date"}
+                value={expiryValue.expiryDate}
+                onChange={(date) => {
+                  if (!editingMode) {
+                    onChange?.({ ...expiryValue, expiryDate: date })
+                  }
+                }}
+                brandingConfig={brandingConfig}
+                data-field-id={question.id}
+                btnClassName="w-full"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <TimePicker
+                label={uiConfig.timeLabel || "Select time"}
+                value={expiryValue.expiryTime}
+                onChange={(time) => {
+                  if (!editingMode) {
+                    onChange?.({ ...expiryValue, expiryTime: time })
+                  }
+                }}
+                brandingConfig={brandingConfig}
+                data-field-id={question.id}
+                btnClassName="w-full"
+              />
+            </div>
           </div>
         )}
         {renderError(error)}
@@ -1889,13 +1910,11 @@ export const QuestionRenderer = ({
           <Select
             value={loanValue.subjectToLoan || ""}
             onValueChange={(val) => {
-              if (!editingMode) {
-                onChange?.({ ...loanValue, subjectToLoan: val })
-              }
+              onChange?.({ ...loanValue, subjectToLoan: val })
             }}
             disabled={disabled}
           >
-            <SelectTrigger className="min-w-52" style={getSelectStyle()}>
+            <SelectTrigger className="w-full max-w-md" style={getSelectStyle()}>
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
@@ -1929,7 +1948,7 @@ export const QuestionRenderer = ({
                     ),
                   )}
                 </div>
-                <div className="relative">
+                <div className="relative max-w-md">
                   <Input
                     type="text"
                     placeholder={getSubQuestionPlaceholder(
@@ -1938,7 +1957,7 @@ export const QuestionRenderer = ({
                       "Enter amount",
                     )}
                     className={cn(
-                      "max-w-56",
+                      "w-full",
                       editingMode && "cursor-not-allowed",
                     )}
                     disabled={disabled}
@@ -1983,7 +2002,7 @@ export const QuestionRenderer = ({
                       ),
                     )}
                   </div>
-                  <div className="relative flex-1">
+                  <div className="relative max-w-md flex-1">
                     <Input
                       type="text"
                       placeholder={getSubQuestionPlaceholder(
@@ -1992,7 +2011,10 @@ export const QuestionRenderer = ({
                         `Enter company name or "I don't know yet"`,
                       )}
                       disabled={disabled}
-                      className={cn(editingMode && "cursor-not-allowed")}
+                      className={cn(
+                        editingMode && "cursor-not-allowed",
+                        "w-full",
+                      )}
                       style={getInputStyle()}
                       value={loanValue.companyName || ""}
                       onChange={(e) => {
@@ -2058,7 +2080,7 @@ export const QuestionRenderer = ({
                         ),
                       )}
                     </div>
-                    <div className="relative flex-1">
+                    <div className="relative max-w-md flex-1">
                       <Input
                         type="text"
                         placeholder={getSubQuestionPlaceholder(
@@ -2068,7 +2090,7 @@ export const QuestionRenderer = ({
                         )}
                         disabled={disabled}
                         className={cn(
-                          "flex-1",
+                          "w-full",
                           editingMode && "cursor-not-allowed",
                         )}
                         style={getInputStyle()}
@@ -2112,7 +2134,7 @@ export const QuestionRenderer = ({
                         ),
                       )}
                     </div>
-                    <div className="relative flex-1">
+                    <div className="relative max-w-md flex-1">
                       <Input
                         type="tel"
                         placeholder={getSubQuestionPlaceholder(
@@ -2122,7 +2144,7 @@ export const QuestionRenderer = ({
                         )}
                         disabled={disabled}
                         className={cn(
-                          "flex-1",
+                          "w-full",
                           editingMode && "cursor-not-allowed",
                         )}
                         style={getInputStyle()}
@@ -2166,7 +2188,7 @@ export const QuestionRenderer = ({
                         ),
                       )}
                     </div>
-                    <div className="relative flex-1">
+                    <div className="relative max-w-md flex-1">
                       <Input
                         type="email"
                         placeholder={getSubQuestionPlaceholder(
@@ -2176,7 +2198,7 @@ export const QuestionRenderer = ({
                         )}
                         disabled={disabled}
                         className={cn(
-                          "flex-1",
+                          "w-full",
                           editingMode && "cursor-not-allowed",
                         )}
                         style={getInputStyle()}
@@ -2253,7 +2275,7 @@ export const QuestionRenderer = ({
                     }}
                     data-field-id={question.id}
                   />
-                  <div className="flex items-center gap-2">
+                  <div className="flex max-w-md items-center gap-2">
                     <label
                       htmlFor={`${question.id}_supporting_docs`}
                       className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center"
@@ -2321,18 +2343,24 @@ export const QuestionRenderer = ({
                     "Loan Approval Due:",
                   )}
                 </div>
-                <Input
-                  type="text"
-                  placeholder="Enter due date details"
-                  disabled={disabled}
-                  style={getInputStyle()}
-                  value={loanValue.loanDueDate || ""}
-                  onChange={(e) => {
-                    if (!editingMode) {
-                      onChange?.({ ...loanValue, loanDueDate: e.target.value })
-                    }
-                  }}
-                />
+                <div className="max-w-md">
+                  <Input
+                    type="text"
+                    placeholder="Enter due date details"
+                    disabled={disabled}
+                    className="w-full"
+                    style={getInputStyle()}
+                    value={loanValue.loanDueDate || ""}
+                    onChange={(e) => {
+                      if (!editingMode) {
+                        onChange?.({
+                          ...loanValue,
+                          loanDueDate: e.target.value,
+                        })
+                      }
+                    }}
+                  />
+                </div>
               </div>
             )}
 
@@ -2353,7 +2381,10 @@ export const QuestionRenderer = ({
                     }
                   }}
                 >
-                  <SelectTrigger className="min-w-52" style={getSelectStyle()}>
+                  <SelectTrigger
+                    className="w-full max-w-md"
+                    style={getSelectStyle()}
+                  >
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -2420,7 +2451,7 @@ export const QuestionRenderer = ({
                 ),
               )}
             </div>
-            <div className="relative">
+            <div className="relative w-full">
               <Textarea
                 placeholder={getSubQuestionPlaceholder(
                   uiConfig,
@@ -2429,7 +2460,7 @@ export const QuestionRenderer = ({
                 )}
                 disabled={disabled}
                 className={cn(
-                  "max-h-[300px] min-h-[100px]",
+                  "max-h-[300px] min-h-[100px] w-full",
                   editingMode && "cursor-not-allowed",
                 )}
                 style={getInputStyle()}
@@ -2458,7 +2489,7 @@ export const QuestionRenderer = ({
       <div className="space-y-3">
         <div>
           {dateType === "calendar" && (
-            <div className="relative">
+            <div className="relative max-w-md">
               <DatePicker
                 style={getInputStyle()}
                 value={formValues.settlementDate}
@@ -2472,8 +2503,8 @@ export const QuestionRenderer = ({
             </div>
           )}
           {dateType === "datetime" && (
-            <div className="flex gap-2">
-              <div className="relative">
+            <div className="flex max-w-md gap-2">
+              <div className="relative flex-1">
                 <DatePicker
                   style={getInputStyle()}
                   value={formValues.settlementDate}
@@ -2485,7 +2516,7 @@ export const QuestionRenderer = ({
                   brandingConfig={brandingConfig}
                 />
               </div>
-              <div className="relative">
+              <div className="relative flex-1">
                 <TimePicker
                   style={getInputStyle()}
                   value={formValues.settlementTime}
@@ -2500,12 +2531,12 @@ export const QuestionRenderer = ({
             </div>
           )}
           {dateType === "buyer_text" && (
-            <div className="relative">
+            <div className="relative max-w-md">
               <Input
                 type="text"
                 placeholder={uiConfig.placeholder || "Enter settlement date"}
                 disabled={disabled}
-                className={cn(editingMode && "cursor-not-allowed")}
+                className={cn(editingMode && "cursor-not-allowed", "w-full")}
                 style={getInputStyle()}
                 value={editingMode ? "" : formValues.settlementDateText || ""}
                 onChange={(e) => {
@@ -2533,8 +2564,8 @@ export const QuestionRenderer = ({
             </p>
           )}
           {dateType === "within_days" && (
-            <div className="flex gap-2">
-              <div className="relative">
+            <div className="flex max-w-md gap-2">
+              <div className="relative flex-1">
                 <Input
                   type="number"
                   min="0"
@@ -2544,7 +2575,7 @@ export const QuestionRenderer = ({
                     "Number of days",
                   )}
                   disabled={disabled}
-                  className={cn(editingMode && "cursor-not-allowed")}
+                  className={cn(editingMode && "cursor-not-allowed", "w-full")}
                   style={getInputStyle()}
                   value={editingMode ? "" : formValues.settlementDays || ""}
                   onChange={(e) => {
@@ -2577,12 +2608,12 @@ export const QuestionRenderer = ({
             </div>
           )}
           {dateType === "CYO" && (
-            <div className="relative">
+            <div className="relative max-w-md">
               <Input
                 type="text"
                 placeholder={uiConfig.placeholder || "Enter settlement date"}
                 disabled={disabled}
-                className={cn(editingMode && "cursor-not-allowed")}
+                className={cn(editingMode && "cursor-not-allowed", "w-full")}
                 style={getInputStyle()}
                 value={editingMode ? "" : formValues.settlementDateCYO || ""}
                 onChange={(e) => {
@@ -2626,7 +2657,7 @@ export const QuestionRenderer = ({
               )}
             </div>
             {location === "buyer_text" && (
-              <div className="relative">
+              <div className="relative max-w-md">
                 <Input
                   type="text"
                   placeholder={getSubQuestionPlaceholder(
@@ -2635,7 +2666,7 @@ export const QuestionRenderer = ({
                     "Enter settlement location",
                   )}
                   disabled={disabled}
-                  className={cn(editingMode && "cursor-not-allowed")}
+                  className={cn(editingMode && "cursor-not-allowed", "w-full")}
                   style={getInputStyle()}
                 />
                 {renderEditOverlay(
@@ -2679,12 +2710,12 @@ export const QuestionRenderer = ({
     return (
       <div className="space-y-3">
         <div>
-          <div className="relative">
+          <div className="relative w-full">
             <Textarea
               placeholder={uiConfig.placeholder || "Type your message here..."}
               disabled={disabled}
               className={cn(
-                "max-h-[300px] min-h-[150px]",
+                "max-h-[300px] min-h-[150px] w-full",
                 editingMode && "cursor-not-allowed",
               )}
               style={getInputStyle()}
@@ -2752,7 +2783,7 @@ export const QuestionRenderer = ({
                 }
               }}
             />
-            <div className="flex items-center gap-2">
+            <div className="flex max-w-md items-center gap-2">
               <label
                 htmlFor={`${question.id}_message_attachments`}
                 className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center transition-colors hover:bg-gray-200"
@@ -2814,14 +2845,12 @@ export const QuestionRenderer = ({
     if (answerType === "short_text") {
       return (
         <div>
-          <div className="relative">
-            <Textarea
+          <div className="relative max-w-md">
+            <Input
+              type="text"
               placeholder={uiConfig.placeholder || "Enter text..."}
               disabled={disabled}
-              className={cn(
-                "max-h-[300px] min-h-[100px]",
-                editingMode && "cursor-not-allowed",
-              )}
+              className={cn("w-full", editingMode && "cursor-not-allowed")}
               style={getInputStyle()}
               value={editingMode ? "" : (value as string) || ""}
               onChange={(e) => {
@@ -2845,13 +2874,13 @@ export const QuestionRenderer = ({
     if (answerType === "long_text") {
       return (
         <div>
-          <div className="relative">
+          <div className="relative w-full">
             <Textarea
               placeholder={uiConfig.placeholder || "Enter your answer"}
               disabled={disabled}
               rows={4}
               className={cn(
-                "max-h-[300px] min-h-[100px]",
+                "max-h-[300px] min-h-[100px] w-full",
                 editingMode && "cursor-not-allowed",
               )}
               style={getInputStyle()}
@@ -2876,7 +2905,7 @@ export const QuestionRenderer = ({
 
     if (answerType === "date") {
       return (
-        <div className="relative">
+        <div className="relative max-w-md">
           <DatePicker
             style={getInputStyle()}
             value={formValues[`${question.id}_date`]}
@@ -2894,7 +2923,7 @@ export const QuestionRenderer = ({
 
     if (answerType === "time") {
       return (
-        <div className="relative">
+        <div className="relative max-w-md">
           <TimePicker
             style={getInputStyle()}
             value={formValues[`${question.id}_time`]}
@@ -2922,12 +2951,13 @@ export const QuestionRenderer = ({
                 {setupConfig.currency_fixed}
               </span>
             )}
-            <div className="relative flex-1">
+            <div className="relative max-w-md flex-1">
               <Input
                 type="number"
                 min="0"
                 placeholder={uiConfig.amountPlaceholder || "Enter amount"}
                 disabled={disabled}
+                className="w-full"
                 style={getInputStyle()}
               />
               {renderEditOverlay(
@@ -2938,7 +2968,7 @@ export const QuestionRenderer = ({
             {currencyStip === "options" && (
               <Select disabled={disabled}>
                 <SelectTrigger
-                  className="min-w-52 flex-1"
+                  className="w-full max-w-xs"
                   style={getSelectStyle()}
                 >
                   <SelectValue placeholder="Select currency" />
@@ -2955,11 +2985,12 @@ export const QuestionRenderer = ({
               </Select>
             )}
             {currencyStip === "any" && (
-              <div className="relative flex-1">
+              <div className="relative max-w-xs flex-1">
                 <Input
                   type="text"
                   placeholder={uiConfig.currencyPlaceholder || "Currency"}
                   disabled={disabled}
+                  className="w-full"
                   style={getInputStyle()}
                 />
                 {renderEditOverlay(
@@ -2972,11 +3003,12 @@ export const QuestionRenderer = ({
         )
       } else if (numberType === "phone") {
         return (
-          <div className="relative">
+          <div className="relative max-w-md">
             <Input
               type="tel"
               placeholder={uiConfig.phonePlaceholder || "Enter phone number"}
               disabled={disabled}
+              className="w-full"
               style={getInputStyle()}
             />
             {renderEditOverlay(
@@ -2987,7 +3019,7 @@ export const QuestionRenderer = ({
         )
       } else if (numberType === "percentage") {
         return (
-          <div className="flex gap-2">
+          <div className="flex max-w-md gap-2">
             <div className="relative flex-1">
               <Input
                 type="number"
@@ -2996,6 +3028,7 @@ export const QuestionRenderer = ({
                   uiConfig.percentagePlaceholder || "Enter percentage"
                 }
                 disabled={disabled}
+                className="w-full"
                 style={getInputStyle()}
               />
               {renderEditOverlay(
@@ -3008,11 +3041,13 @@ export const QuestionRenderer = ({
         )
       } else {
         return (
-          <div className="relative">
+          <div className="relative max-w-md">
             <Input
               type="number"
               placeholder={uiConfig.numberPlaceholder || "Enter amount"}
               disabled={disabled}
+              className="w-full"
+              style={getInputStyle()}
             />
             {renderEditOverlay(
               "numberPlaceholder",
@@ -3053,7 +3088,7 @@ export const QuestionRenderer = ({
             }}
             data-field-id={question.id}
           />
-          <div className="flex items-center gap-2">
+          <div className="flex max-w-md items-center gap-2">
             <label
               htmlFor={`${question.id}_file_input`}
               className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center transition-colors hover:bg-gray-200"
@@ -3099,23 +3134,7 @@ export const QuestionRenderer = ({
       const timeType = setupConfig.time_date_type
       if (timeType === "date") {
         return (
-          <DatePicker
-            style={getInputStyle()}
-            value={formValues[`${question.id}_date`]}
-            onChange={(date) =>
-              setFormValues((prev) => ({
-                ...prev,
-                [`${question.id}_date`]: date,
-              }))
-            }
-            brandingConfig={brandingConfig}
-          />
-        )
-      } else if (timeType === "time") {
-        return <Input type="time" disabled={disabled} style={getInputStyle()} />
-      } else if (timeType === "datetime") {
-        return (
-          <div className="flex gap-2">
+          <div className="max-w-md">
             <DatePicker
               style={getInputStyle()}
               value={formValues[`${question.id}_date`]}
@@ -3127,17 +3146,48 @@ export const QuestionRenderer = ({
               }
               brandingConfig={brandingConfig}
             />
-            <TimePicker
+          </div>
+        )
+      } else if (timeType === "time") {
+        return (
+          <div className="max-w-md">
+            <Input
+              type="time"
+              disabled={disabled}
+              className="w-full"
               style={getInputStyle()}
-              value={formValues[`${question.id}_time`]}
-              onChange={(time) =>
-                setFormValues((prev) => ({
-                  ...prev,
-                  [`${question.id}_time`]: time,
-                }))
-              }
-              brandingConfig={brandingConfig}
             />
+          </div>
+        )
+      } else if (timeType === "datetime") {
+        return (
+          <div className="flex max-w-md gap-2">
+            <div className="flex-1">
+              <DatePicker
+                style={getInputStyle()}
+                value={formValues[`${question.id}_date`]}
+                onChange={(date) =>
+                  setFormValues((prev) => ({
+                    ...prev,
+                    [`${question.id}_date`]: date,
+                  }))
+                }
+                brandingConfig={brandingConfig}
+              />
+            </div>
+            <div className="flex-1">
+              <TimePicker
+                style={getInputStyle()}
+                value={formValues[`${question.id}_time`]}
+                onChange={(time) =>
+                  setFormValues((prev) => ({
+                    ...prev,
+                    [`${question.id}_time`]: time,
+                  }))
+                }
+                brandingConfig={brandingConfig}
+              />
+            </div>
           </div>
         )
       }
@@ -3257,7 +3307,7 @@ export const QuestionRenderer = ({
 
       return (
         <div>
-          <div className="relative">
+          <div className="relative max-w-md">
             <PhoneInput
               value={phoneValue}
               onChange={(newValue) => {
@@ -3270,7 +3320,7 @@ export const QuestionRenderer = ({
               disabled={disabled || editingMode}
               editingMode={editingMode}
               placeholder={uiConfig.placeholder || "555-123-4567"}
-              className={cn(editingMode && "cursor-not-allowed")}
+              className={cn(editingMode && "cursor-not-allowed", "w-full")}
               style={getInputStyle()}
               data-field-id={question.id}
             />
@@ -3287,20 +3337,18 @@ export const QuestionRenderer = ({
 
   // Default fallback
   return (
-    <>
-      <div className="relative">
-        <Input
-          type="text"
-          placeholder={uiConfig.placeholder || "Enter value..."}
-          disabled={disabled}
-          className={cn(editingMode && "cursor-not-allowed")}
-          style={getInputStyle()}
-        />
-        {renderEditOverlay(
-          "placeholder",
-          uiConfig.placeholder || "Enter value...",
-        )}
-      </div>
-    </>
+    <div className="relative max-w-md">
+      <Input
+        type="text"
+        placeholder={uiConfig.placeholder || "Enter value..."}
+        disabled={disabled}
+        className={cn(editingMode && "cursor-not-allowed", "w-full")}
+        style={getInputStyle()}
+      />
+      {renderEditOverlay(
+        "placeholder",
+        uiConfig.placeholder || "Enter value...",
+      )}
+    </div>
   )
 }

@@ -644,7 +644,7 @@ const DepositForm = ({
         // Multiple selections - show as dropdown
         return (
           <Select>
-            <SelectTrigger className="w-auto min-w-52" style={getSelectStyle()}>
+            <SelectTrigger className="w-full max-w-xs" style={getSelectStyle()}>
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
@@ -783,7 +783,7 @@ const DepositForm = ({
                 {/* Check if this question has a currency field */}
                 {depositQuestion.currency_field ? (
                   <div className="flex items-center gap-3">
-                    <div className="relative">
+                    <div className="relative max-w-md flex-1">
                       <Input
                         type="number"
                         min="0"
@@ -793,7 +793,7 @@ const DepositForm = ({
                         disabled={editingMode}
                         className={cn(
                           editingMode ? "cursor-not-allowed" : "",
-                          "min-w-52",
+                          "w-full",
                         )}
                         style={getInputStyle()}
                       />
@@ -814,7 +814,7 @@ const DepositForm = ({
                     {/* Render currency field based on type */}
                     {depositQuestion.currency_field.type === "display" ? (
                       // Fixed currency - display as text
-                      <div className="flex min-w-52 items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                      <div className="flex max-w-xs items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
                         <span className="text-sm font-medium text-gray-700">
                           {depositQuestion.currency_field.value || "N/A"}
                         </span>
@@ -829,7 +829,7 @@ const DepositForm = ({
                         disabled={false}
                       >
                         <SelectTrigger
-                          className="min-w-52"
+                          className="w-full max-w-xs"
                           style={getSelectStyle()}
                         >
                           <SelectValue
@@ -855,13 +855,16 @@ const DepositForm = ({
                     )}
                   </div>
                 ) : (
-                  <div className="relative">
+                  <div className="relative max-w-md">
                     <Input
                       placeholder={currentPlaceholder || "Enter value"}
                       value={localFormData[id] || ""}
                       onChange={(e) => handleFieldChange(id, e.target.value)}
                       disabled={editingMode}
-                      className={editingMode ? "cursor-not-allowed" : ""}
+                      className={cn(
+                        editingMode ? "cursor-not-allowed" : "",
+                        "w-full",
+                      )}
                       style={getInputStyle()}
                     />
                     {editingMode && (
@@ -890,7 +893,10 @@ const DepositForm = ({
                   onValueChange={(value) => handleFieldChange(id, value)}
                   disabled={false}
                 >
-                  <SelectTrigger className="min-w-52" style={getSelectStyle()}>
+                  <SelectTrigger
+                    className="w-full max-w-md"
+                    style={getSelectStyle()}
+                  >
                     <SelectValue
                       placeholder={currentPlaceholder || "Select option"}
                     />
@@ -962,7 +968,7 @@ const DepositForm = ({
                   localFormData[id] === "amount" &&
                   depositQuestion.conditional_currency && (
                     <div className="flex items-center gap-3">
-                      <div className="relative w-1/4">
+                      <div className="relative max-w-xs flex-1">
                         <Input
                           placeholder="Enter amount"
                           value={
@@ -987,7 +993,10 @@ const DepositForm = ({
                             )
                           }
                           disabled={editingMode}
-                          className={editingMode ? "cursor-not-allowed" : ""}
+                          className={cn(
+                            editingMode ? "cursor-not-allowed" : "",
+                            "w-full",
+                          )}
                           style={getInputStyle()}
                         />
                       </div>
@@ -1016,7 +1025,7 @@ const DepositForm = ({
                         disabled={false}
                       >
                         <SelectTrigger
-                          className="min-w-52"
+                          className="w-full max-w-xs"
                           style={getSelectStyle()}
                         >
                           <SelectValue
@@ -1050,7 +1059,7 @@ const DepositForm = ({
                   localFormData[id] === "percentage" &&
                   depositQuestion.conditional_suffix && (
                     <div className="flex items-center gap-3">
-                      <div className="relative w-1/4">
+                      <div className="relative max-w-xs flex-1">
                         <Input
                           placeholder="Enter percentage"
                           value={
@@ -1075,12 +1084,15 @@ const DepositForm = ({
                             )
                           }
                           disabled={editingMode}
-                          className={editingMode ? "cursor-not-allowed" : ""}
+                          className={cn(
+                            editingMode ? "cursor-not-allowed" : "",
+                            "w-full",
+                          )}
                           style={getInputStyle()}
                         />
                       </div>
-                      <div className="flex w-1/4 items-center">
-                        <span className="text-sm font-medium text-gray-700">
+                      <div className="flex items-center">
+                        <span className="text-sm font-medium whitespace-nowrap text-gray-700">
                           {depositQuestion.conditional_suffix}
                         </span>
                       </div>
@@ -1090,20 +1102,22 @@ const DepositForm = ({
             )}
 
             {question_type === "calendar" && (
-              <DatePicker
-                brandingConfig={brandingConfig}
-                value={
-                  localFormData[id] ? new Date(localFormData[id]) : undefined
-                }
-                onChange={(date) => {
-                  handleFieldChange(id, date ? date.toISOString() : null)
-                }}
-              />
+              <div className="max-w-md">
+                <DatePicker
+                  brandingConfig={brandingConfig}
+                  value={
+                    localFormData[id] ? new Date(localFormData[id]) : undefined
+                  }
+                  onChange={(date) => {
+                    handleFieldChange(id, date ? date.toISOString() : null)
+                  }}
+                />
+              </div>
             )}
 
             {question_type === "date" && (
               <div className="space-y-1 pt-1.5">
-                <div className="relative">
+                <div className="relative max-w-md">
                   <DatePicker
                     brandingConfig={brandingConfig}
                     value={
@@ -1121,13 +1135,16 @@ const DepositForm = ({
 
             {question_type === "datetime" && (
               <div className="space-y-1">
-                <div className="relative">
+                <div className="relative max-w-md">
                   <Input
                     type="datetime-local"
                     value={localFormData[id] || ""}
                     onChange={(e) => handleFieldChange(id, e.target.value)}
                     disabled={editingMode}
-                    className={editingMode ? "cursor-not-allowed" : ""}
+                    className={cn(
+                      editingMode ? "cursor-not-allowed" : "",
+                      "w-full",
+                    )}
                     style={getInputStyle()}
                   />
                 </div>

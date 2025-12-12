@@ -131,14 +131,72 @@ const QuestionSetupForm = ({
     setConditions(updated)
   }
 
+  // Validation function to check if setup is complete
+  const validateSetup = useCallback(() => {
+    const definition = QUESTION_DEFINITIONS[questionType]
+    if (!definition?.setupQuestions) return true // No setup required
+
+    // Check all visible setup questions
+    for (const question of definition.setupQuestions) {
+      // Check dependencies
+      if (question.dependsOn) {
+        const dependentValue = setupConfig[question.dependsOn.questionId]
+        const requiredValue = question.dependsOn.value
+        const isMet = Array.isArray(requiredValue)
+          ? requiredValue.includes(dependentValue)
+          : dependentValue === requiredValue
+        if (!isMet) continue // Skip this question if dependency not met
+      }
+
+      // Check if required field is filled
+      if (question.required !== false) {
+        const value = setupConfig[question.id]
+        if (value === undefined || value === "" || value === null) {
+          toast.error(`Please complete all required fields: ${question.label}`)
+          return false
+        }
+      }
+    }
+
+    // Special validation for Special Conditions
+    if (questionType === "specialConditions") {
+      for (const condition of conditions) {
+        if (!condition.name || condition.name.trim() === "") {
+          toast.error("Please provide a name for all conditions.")
+          return false
+        }
+      }
+    }
+
+    // Special validation for Offer Amount
+    if (questionType === "offerAmount") {
+      if (setupConfig.currency_mode === "options") {
+        const validCurrencies = Array.isArray(setupConfig.currency_options)
+          ? setupConfig.currency_options.filter((opt: string) => opt && opt !== "")
+          : []
+        if (validCurrencies.length < 2) {
+          toast.error("Please select at least 2 currencies for the currency options mode.")
+          return false
+        }
+      }
+    }
+
+    return true
+  }, [setupConfig, conditions, questionType])
+
   const handleComplete = useCallback(() => {
+    // Validate setup before completing
+    if (!validateSetup()) {
+      return // Prevent saving if validation fails
+    }
+
     // For Special Conditions, include the conditions array in setupConfig
     let finalConfig =
       questionType === "specialConditions"
         ? { ...setupConfig, conditions }
         : { ...setupConfig }
 
-    // For Offer Amount with currency_options mode, filter out empty values and validate
+    // For Offer Amount with currency_options mode, filter out empty values
     if (
       questionType === "offerAmount" &&
       finalConfig.currency_mode === "options"
@@ -147,16 +205,6 @@ const QuestionSetupForm = ({
         finalConfig.currency_options = finalConfig.currency_options.filter(
           (opt: string) => opt && opt !== "",
         )
-      }
-      
-      // Validate: must have at least 2 currencies selected
-      const validCurrencies = Array.isArray(finalConfig.currency_options)
-        ? finalConfig.currency_options.filter((opt: string) => opt && opt !== "")
-        : []
-      
-      if (validCurrencies.length < 2) {
-        toast.error("Please select at least 2 currencies for the currency options mode.")
-        return // Prevent saving
       }
     }
 
@@ -181,7 +229,7 @@ const QuestionSetupForm = ({
     )
 
     onComplete(finalConfig, finalUIConfig, requiredFromSetup ?? undefined)
-  }, [setupConfig, conditions, questionType, initialUIConfig, onComplete])
+  }, [setupConfig, conditions, questionType, initialUIConfig, onComplete, validateSetup])
 
   // Add event listener for external save trigger
   // Skip for deposit questions as they use SmartQuestionSetup which has its own handler
@@ -191,7 +239,10 @@ const QuestionSetupForm = ({
     }
 
     const handleExternalSave = () => {
-      handleComplete()
+      // Validate before saving
+      if (validateSetup()) {
+        handleComplete()
+      }
     }
 
     window.addEventListener("smartQuestionSave", handleExternalSave)
