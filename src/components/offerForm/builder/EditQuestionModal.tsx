@@ -35,15 +35,20 @@ const EditQuestionModal = ({
   if (!question) return null
 
   const definition = QUESTION_DEFINITIONS[question.type]
-  const hasSetup = definition?.setupQuestions && definition.setupQuestions.length > 0
+  const hasSetup =
+    definition?.setupQuestions && definition.setupQuestions.length > 0
 
-  const handleComplete = async (setupConfig: QuestionSetupConfig, uiConfig?: QuestionUIConfig, requiredOverride?: boolean) => {
+  const handleComplete = async (
+    setupConfig: QuestionSetupConfig,
+    uiConfig?: QuestionUIConfig,
+    requiredOverride?: boolean,
+  ) => {
     setIsUpdating(true)
     try {
       const updates: any = {
         setupConfig: setupConfig,
       }
-      
+
       // Update uiConfig if provided
       // For custom questions, this will include the updated label from question_text
       if (uiConfig) {
@@ -82,7 +87,8 @@ const EditQuestionModal = ({
             This question type does not have configurable setup options.
           </p>
           <p className="mt-2 text-xs text-gray-400">
-            You can edit the question label and other text by clicking on them in the question card.
+            You can edit the question label and other text by clicking on them
+            in the question card.
           </p>
         </div>
       )
@@ -96,10 +102,11 @@ const EditQuestionModal = ({
             const config = (question.setupConfig as QuestionSetupConfig) || {}
             // Ensure offerAmount has default currency_mode and fixed_currency
             if (question.type === "offerAmount") {
+              const offerAmountConfig = config as Record<string, any>
               return {
-                currency_mode: config.currency_mode || "any",
-                fixed_currency: config.fixed_currency || "USD",
-                ...config,
+                currency_mode: offerAmountConfig.currency_mode || "any",
+                fixed_currency: offerAmountConfig.fixed_currency || "USD",
+                ...offerAmountConfig,
               }
             }
             return config
@@ -117,11 +124,11 @@ const EditQuestionModal = ({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="flex max-h-[80vh] min-h-[400px] w-full max-w-4xl! flex-col gap-0 p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+        <DialogHeader className="border-b px-6 pt-6 pb-4">
           <DialogTitle className="text-xl font-semibold">
             Edit Question: {definition?.label || question.type}
           </DialogTitle>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="mt-1 text-sm text-gray-500">
             Update the configuration for this question.
           </p>
         </DialogHeader>
@@ -130,14 +137,14 @@ const EditQuestionModal = ({
 
         {hasSetup && (
           <DialogFooter className="border-t px-6 py-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleClose}
               disabled={isUpdating}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={() => {
                 // Trigger the save
                 const event = new CustomEvent("smartQuestionSave")
@@ -152,9 +159,7 @@ const EditQuestionModal = ({
 
         {!hasSetup && (
           <DialogFooter className="border-t px-6 py-4">
-            <Button onClick={handleClose}>
-              Close
-            </Button>
+            <Button onClick={handleClose}>Close</Button>
           </DialogFooter>
         )}
       </DialogContent>
@@ -163,4 +168,3 @@ const EditQuestionModal = ({
 }
 
 export default EditQuestionModal
-

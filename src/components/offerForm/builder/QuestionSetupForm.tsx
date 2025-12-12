@@ -46,7 +46,7 @@ const QuestionSetupForm = ({
 }: QuestionSetupFormProps) => {
   // Initialize setupConfig with defaults for offerAmount
   const initialConfig = useMemo(() => {
-    const config = { ...initialSetupConfig }
+    const config = { ...initialSetupConfig } as Record<string, any>
     
     // Set default currency_mode to "any" for offerAmount if not set
     if (
@@ -81,7 +81,7 @@ const QuestionSetupForm = ({
 
     // Only update if config actually changed or question type changed
     if (currentConfigString !== prevConfigRef.current || questionTypeChanged) {
-      const configToSet = { ...initialSetupConfig }
+      const configToSet = { ...initialSetupConfig } as Record<string, any>
       
       // Set default currency_mode to "any" for offerAmount if not set
       if (
@@ -96,8 +96,8 @@ const QuestionSetupForm = ({
       }
       
       setSetupConfig(configToSet)
-      if ((configToSet as any)?.conditions) {
-        setConditions((configToSet as any).conditions)
+      if (configToSet?.conditions) {
+        setConditions(configToSet.conditions)
       }
       prevConfigRef.current = JSON.stringify(configToSet)
       questionTypeRef.current = questionType
@@ -148,8 +148,9 @@ const QuestionSetupForm = ({
         if (!isMet) continue // Skip this question if dependency not met
       }
 
-      // Check if required field is filled
-      if (question.required !== false) {
+      // Check if required field is filled (most setup questions are required by default)
+      const isRequired = (question as any).required !== false
+      if (isRequired) {
         const value = setupConfig[question.id]
         if (value === undefined || value === "" || value === null) {
           toast.error(`Please complete all required fields: ${question.label}`)
@@ -197,28 +198,28 @@ const QuestionSetupForm = ({
         : { ...setupConfig }
 
     // For Offer Amount with currency_options mode, filter out empty values
-    if (
-      questionType === "offerAmount" &&
-      finalConfig.currency_mode === "options"
-    ) {
-      if (Array.isArray(finalConfig.currency_options)) {
-        finalConfig.currency_options = finalConfig.currency_options.filter(
-          (opt: string) => opt && opt !== "",
-        )
+    if (questionType === "offerAmount") {
+      const offerAmountConfig = finalConfig as Record<string, any>
+      if (offerAmountConfig.currency_mode === "options") {
+        if (Array.isArray(offerAmountConfig.currency_options)) {
+          offerAmountConfig.currency_options = offerAmountConfig.currency_options.filter(
+            (opt: string) => opt && opt !== "",
+          )
+        }
       }
+      finalConfig = offerAmountConfig
     }
 
     // For custom questions (except statement type), build uiConfig with label from question_text
     // Statement type has separate fields: uiConfig.label (main label) and setupConfig.question_text (statement text)
     let finalUIConfig = initialUIConfig
-    if (
-      questionType === "custom" &&
-      finalConfig.question_text &&
-      finalConfig.answer_type !== "statement"
-    ) {
-      finalUIConfig = {
-        ...initialUIConfig,
-        label: finalConfig.question_text,
+    if (questionType === "custom") {
+      const customConfig = finalConfig as Record<string, any>
+      if (customConfig.question_text && customConfig.answer_type !== "statement") {
+        finalUIConfig = {
+          ...initialUIConfig,
+          label: customConfig.question_text,
+        }
       }
     }
 
