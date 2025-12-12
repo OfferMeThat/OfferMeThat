@@ -19,8 +19,10 @@ import { toast } from "sonner"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
 import { Spinner } from "../ui/spinner"
+import { QUESTION_TYPE_TO_LABEL } from "@/constants/offerFormQuestions"
+import { buildFormValidationSchema } from "@/lib/offerFormValidation"
 import BrandingModal from "./BrandingModal"
-import { OfferFormInteractiveView } from "./OfferFormInteractiveView"
+import { FormPreview } from "../shared/FormPreview"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 type Page = Database["public"]["Tables"]["offerFormPages"]["Row"]
@@ -292,7 +294,7 @@ const OfferFormPageContent = () => {
         >
           {/* White form card - fixed width, centered */}
           <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
-            <OfferFormInteractiveView
+            <FormPreview
               questions={questions}
               pages={pages}
               isLoading={formLoading}
@@ -300,8 +302,9 @@ const OfferFormPageContent = () => {
               description="Please provide details about your offer"
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}
-              formId={formId || undefined}
-              isPreviewMode={true}
+              questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
+              buildValidationSchema={buildFormValidationSchema as any}
+              formType="offer"
             />
           </div>
         </div>

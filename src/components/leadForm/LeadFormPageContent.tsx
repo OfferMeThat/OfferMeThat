@@ -19,8 +19,10 @@ import { toast } from "sonner"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
 import { Spinner } from "../ui/spinner"
+import { QUESTION_TYPE_TO_LABEL } from "@/constants/leadFormQuestions"
+import { buildFormValidationSchema } from "@/lib/leadFormValidation"
 import BrandingModal from "../offerForm/BrandingModal"
-import { LeadFormPreview } from "./LeadFormPreview"
+import { FormPreview } from "../shared/FormPreview"
 
 type Question = Database["public"]["Tables"]["leadFormQuestions"]["Row"]
 type Page = Database["public"]["Tables"]["leadFormPages"]["Row"]
@@ -280,7 +282,7 @@ const LeadFormPageContent = () => {
         >
           {/* White form card - fixed width, centered */}
           <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
-            <LeadFormPreview
+            <FormPreview
               questions={questions}
               pages={pages}
               isLoading={formLoading}
@@ -288,6 +290,9 @@ const LeadFormPageContent = () => {
               description="Please provide your details to receive updates"
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}
+              questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
+              buildValidationSchema={buildFormValidationSchema as any}
+              formType="lead"
             />
           </div>
         </div>
