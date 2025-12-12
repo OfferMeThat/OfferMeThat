@@ -64,6 +64,42 @@ const MyOffersPageContent = ({
 
   return (
     <main className="px-6 py-8 pb-24">
+      {!isTestMode && unassignedOffers && unassignedOffers.length > 0 && (
+        <div className="mb-12">
+          <div className="mb-4">
+            <Heading
+              as="h2"
+              size="medium"
+              weight="bold"
+              className="text-gray-700"
+            >
+              Unassigned Offers
+            </Heading>
+            <span className="text-sm font-medium text-gray-500">
+              Offers that need to be assigned to a listing
+            </span>
+          </div>
+          <OffersList
+            offers={unassignedOffers}
+            onOffersUpdate={(updatedOffers) => {
+              setUnassignedOffers(updatedOffers)
+            }}
+            onAssignSuccess={() => {
+              // Refresh main offers list after successful assignment
+              startTransition(async () => {
+                const filteredData = await getFilteredOffers(
+                  filters,
+                  isTestMode,
+                )
+                setOffers(filteredData)
+              })
+            }}
+            onViewModeChange={setViewMode}
+            listings={initialListings}
+            isUnassigned={true}
+          />
+        </div>
+      )}
       <div className="mb-4 flex flex-col gap-1">
         <Heading
           as="h1"
@@ -94,54 +130,6 @@ const MyOffersPageContent = ({
         )
       ) : (
         <>
-          {!isTestMode && unassignedOffers && unassignedOffers.length > 0 && (
-            <div className="my-12">
-              <div className="mb-4">
-                <Heading
-                  as="h2"
-                  size="medium"
-                  weight="bold"
-                  className="text-gray-700"
-                >
-                  Unassigned Offers
-                </Heading>
-                <span className="text-sm font-medium text-gray-500">
-                  Offers that need to be assigned to a listing
-                </span>
-              </div>
-              <OffersList
-                offers={unassignedOffers}
-                onOffersUpdate={(updatedOffers) => {
-                  setUnassignedOffers(updatedOffers)
-                }}
-                onAssignSuccess={() => {
-                  // Refresh main offers list after successful assignment
-                  startTransition(async () => {
-                    const filteredData = await getFilteredOffers(
-                      filters,
-                      isTestMode,
-                    )
-                    setOffers(filteredData)
-                  })
-                }}
-                onViewModeChange={setViewMode}
-                listings={initialListings}
-                isUnassigned={true}
-              />
-            </div>
-          )}
-
-          {unassignedOffers && unassignedOffers.length > 0 && (
-            <Heading
-              as="h2"
-              size="medium"
-              weight="bold"
-              className="text-gray-700"
-            >
-              Offers
-            </Heading>
-          )}
-
           <OffersList
             offers={offers}
             onOffersUpdate={(updatedOffers) => setOffers(updatedOffers)}

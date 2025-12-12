@@ -290,18 +290,20 @@ const QuestionCard = ({
 
   // Determine if this is an essential question (cannot be modified)
   const isEssential = REQUIRED_QUESTION_TYPES.includes(question.type)
-  
+
   // Determine if this question is locked in position
-  const isLockedInPosition = 
+  const isLockedInPosition =
     (question.type === "specifyListing" && question.order === 1) ||
     (question.type === "submitterRole" && question.order === 2)
-  
+
   // Determine if move up is disabled
   // "Specify Listing" at position 1 can't move up
   // "Submitter Role" at position 2 can't move up (would go to position 1 which is locked)
-  const canMoveUp = !isFirst && !isLockedInPosition && 
+  const canMoveUp =
+    !isFirst &&
+    !isLockedInPosition &&
     !(question.type === "submitterRole" && question.order === 2)
-  
+
   // Determine if move down is disabled
   // Both locked questions can't move down from their positions
   const canMoveDown = !isLast && !isLockedInPosition
@@ -325,7 +327,8 @@ const QuestionCard = ({
   }
 
   const handleEditQuestion = () => {
-    if (isEssential) {
+    // Allow editing for offerAmount even if it's essential
+    if (isEssential && question.type !== "offerAmount") {
       setEssentialQuestionModal({ isOpen: true, action: "edit" })
       return
     }
@@ -423,7 +426,7 @@ const QuestionCard = ({
             {/* Render appropriate input based on question type and setup */}
             <QuestionRenderer
               question={question}
-              disabled
+              disabled={false}
               editingMode={true}
               onUpdateQuestion={onUpdateQuestion}
               onEditPlaceholder={handlePlaceholderEdit}
@@ -441,11 +444,7 @@ const QuestionCard = ({
               />
               <span className="text-sm text-gray-700">Required field</span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleEditQuestion}
-            >
+            <Button variant="outline" size="sm" onClick={handleEditQuestion}>
               Edit Question
             </Button>
           </div>

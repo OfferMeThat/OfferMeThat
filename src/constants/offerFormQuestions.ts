@@ -119,6 +119,27 @@ export const QUESTION_DEFINITIONS: Partial<
     ],
   },
 
+  offerAmount: {
+    label: "Offer Amount",
+    description: "Collect the offer amount from the buyer.",
+    setupQuestions: [
+      {
+        id: "currency_mode",
+        label: "Would you like to allow Buyers to select a Currency?",
+        type: "radio",
+        options: [
+          { value: "any", label: "Yes, let Buyer choose any" },
+          { value: "options", label: "Yes, give Buyer 2+ options" },
+          { value: "fixed", label: "No, stipulate a Currency" },
+        ],
+      },
+      // Note: Dynamic currency fields for 'options' and 'fixed' modes
+      // will be handled in QuestionSetupForm.tsx as they require
+      // dynamic list building or specific currency selection logic
+      // that isn't fully supported by the standard declarative schema yet.
+    ],
+  },
+
   attachPurchaseAgreement: {
     label: "Attach Purchase Agreement",
     description: "Collect signed purchase agreements with your Offer Form.",

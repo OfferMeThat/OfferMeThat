@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { getSmartQuestion } from "@/data/smartQuestions"
 import { cn } from "@/lib/utils"
 import { BrandingConfig } from "@/types/branding"
 import {
@@ -28,12 +29,16 @@ interface DepositQuestion {
   placeholder?: string
   required?: boolean
   currency_field?: {
-    placeholder: string
-    options: Array<{ value: string; label: string }>
+    type?: "select" | "display"
+    placeholder?: string
+    options?: Array<{ value: string; label: string }>
+    value?: string
   }
   conditional_currency?: {
-    placeholder: string
-    options: Array<{ value: string; label: string }>
+    type?: "select" | "display"
+    placeholder?: string
+    options?: Array<{ value: string; label: string }>
+    value?: string
   }
   conditional_suffix?: string
   custom_config?: any
@@ -138,10 +143,75 @@ const DepositForm = ({
     onChange(newFormData)
   }
 
+  // Helper to generate currency field from setupAnswers
+  const generateCurrencyField = (
+    instalmentNumber?: number,
+  ): {
+    type?: "select" | "display"
+    placeholder?: string
+    options?: Array<{ value: string; label: string }>
+    value?: string
+  } | null => {
+    const suffix = instalmentNumber ? `_instalment_${instalmentNumber}` : ""
+    const currencyStipulation =
+      setupAnswers[`currency_stipulation${suffix}`] ||
+      setupAnswers.currency_stipulation ||
+      "any"
+
+    if (currencyStipulation === "any") {
+      return {
+        type: "select",
+        placeholder: "Select currency",
+        options: [
+          { value: "USD", label: "USD - US Dollar" },
+          { value: "EUR", label: "EUR - Euro" },
+          { value: "GBP", label: "GBP - British Pound" },
+          { value: "CAD", label: "CAD - Canadian Dollar" },
+          { value: "AUD", label: "AUD - Australian Dollar" },
+        ],
+      }
+    } else if (currencyStipulation === "options") {
+      const currencyOptions = []
+      for (let i = 1; i <= 2; i++) {
+        const currencyValue =
+          setupAnswers[`currency_options_${i}${suffix}`] ||
+          setupAnswers[`currency_options_${i}`]
+        if (currencyValue) {
+          currencyOptions.push({ value: currencyValue, label: currencyValue })
+        }
+      }
+      return {
+        type: "select",
+        placeholder: "Select currency",
+        options: currencyOptions,
+      }
+    } else if (currencyStipulation === "fixed") {
+      const fixedCurrency =
+        setupAnswers[`stipulated_currency${suffix}`] ||
+        setupAnswers.stipulated_currency
+      return {
+        type: "display",
+        value: fixedCurrency || "",
+      }
+    }
+
+    return null
+  }
+
   // Generate additional questions based on instalments selection
+  // This is only used for one_or_two and three_plus when user selects number of instalments
   const generateAdditionalQuestions = () => {
     const instalmentsValue = localFormData["deposit_instalments"]
     if (!instalmentsValue) return []
+
+    // Don't generate if we already have instalment questions (e.g., for two_always)
+    const hasInstalmentQuestions = question.deposit_questions?.some(
+      (q: DepositQuestion) =>
+        q.id?.includes("deposit_amount_1") ||
+        q.id?.includes("deposit_amount_2") ||
+        q.id?.includes("deposit_amount_3"),
+    )
+    if (hasInstalmentQuestions) return []
 
     const additionalQuestions = []
 
@@ -149,6 +219,7 @@ const DepositForm = ({
     if (instalmentsValue === "1") {
       // Add deposit type question if needed
       if (setupAnswers.deposit_management === "buyer_choice") {
+        const currencyField = generateCurrencyField()
         additionalQuestions.push({
           id: "deposit_type",
           question_text: "What will your Deposit be?",
@@ -159,17 +230,30 @@ const DepositForm = ({
           ],
           required: true,
           placeholder: "Select deposit type",
+          conditional_currency: currencyField || undefined,
+          conditional_suffix: "% of purchase price",
         })
       }
 
-      // Add deposit amount question
-      additionalQuestions.push({
+      // Add deposit amount question with currency field if needed
+      const depositManagement =
+        setupAnswers.deposit_management || setupAnswers.amount_management
+      const currencyField = generateCurrencyField()
+      const depositAmountQuestion: DepositQuestion = {
         id: "deposit_amount",
         question_text: "What is your Deposit Amount?",
         question_type: "text",
         required: true,
         placeholder: "Enter deposit amount",
-      })
+      }
+      // Add currency field if deposit management requires it
+      if (["buyer_enters", "buyer_percentage"].includes(depositManagement)) {
+        depositAmountQuestion.currency_field = currencyField || undefined
+      } else if (depositManagement === "buyer_choice") {
+        depositAmountQuestion.conditional_currency = currencyField || undefined
+        depositAmountQuestion.conditional_suffix = "% of purchase price"
+      }
+      additionalQuestions.push(depositAmountQuestion)
 
       // Add deposit due question
       additionalQuestions.push({
@@ -184,13 +268,45 @@ const DepositForm = ({
     // If user selected 2 instalments, show instalment-specific questions
     if (instalmentsValue === "2") {
       // First instalment
-      additionalQuestions.push({
+      // Add deposit type question if buyer_choice is enabled for instalment 1
+      const depositManagement1 =
+        setupAnswers.deposit_management_instalment_1 ||
+        setupAnswers.deposit_management
+      if (depositManagement1 === "buyer_choice") {
+        const currencyField = generateCurrencyField(1)
+        additionalQuestions.push({
+          id: "deposit_type_instalment_1",
+          question_text: "What will your Deposit be for Instalment 1?",
+          question_type: "select",
+          options: [
+            { value: "amount", label: "A fixed amount" },
+            { value: "percentage", label: "A percentage of purchase price" },
+          ],
+          required: true,
+          placeholder: "Select deposit type",
+          conditional_currency: currencyField || undefined,
+          conditional_suffix: "% of purchase price",
+        })
+      }
+
+      // Add deposit amount question for instalment 1 with currency field if needed
+      const currencyField1 = generateCurrencyField(1)
+      const depositAmountQuestion1: DepositQuestion = {
         id: "deposit_amount_1",
         question_text: "What is your First Deposit Amount?",
         question_type: "text",
         required: true,
         placeholder: "Enter first deposit amount",
-      })
+      }
+      // Add currency field if deposit management requires it
+      if (["buyer_enters", "buyer_percentage"].includes(depositManagement1)) {
+        depositAmountQuestion1.currency_field = currencyField1 || undefined
+      } else if (depositManagement1 === "buyer_choice") {
+        depositAmountQuestion1.conditional_currency =
+          currencyField1 || undefined
+        depositAmountQuestion1.conditional_suffix = "% of purchase price"
+      }
+      additionalQuestions.push(depositAmountQuestion1)
 
       additionalQuestions.push({
         id: "deposit_due_1",
@@ -201,13 +317,45 @@ const DepositForm = ({
       })
 
       // Second instalment
-      additionalQuestions.push({
+      // Add deposit type question if buyer_choice is enabled for instalment 2
+      const depositManagement2 =
+        setupAnswers.deposit_management_instalment_2 ||
+        setupAnswers.deposit_management
+      if (depositManagement2 === "buyer_choice") {
+        const currencyField = generateCurrencyField(2)
+        additionalQuestions.push({
+          id: "deposit_type_instalment_2",
+          question_text: "What will your Deposit be for Instalment 2?",
+          question_type: "select",
+          options: [
+            { value: "amount", label: "A fixed amount" },
+            { value: "percentage", label: "A percentage of purchase price" },
+          ],
+          required: true,
+          placeholder: "Select deposit type",
+          conditional_currency: currencyField || undefined,
+          conditional_suffix: "% of purchase price",
+        })
+      }
+
+      // Add deposit amount question for instalment 2 with currency field if needed
+      const currencyField2 = generateCurrencyField(2)
+      const depositAmountQuestion2: DepositQuestion = {
         id: "deposit_amount_2",
         question_text: "What is your Second Deposit Amount?",
         question_type: "text",
         required: true,
         placeholder: "Enter second deposit amount",
-      })
+      }
+      // Add currency field if deposit management requires it
+      if (["buyer_enters", "buyer_percentage"].includes(depositManagement2)) {
+        depositAmountQuestion2.currency_field = currencyField2 || undefined
+      } else if (depositManagement2 === "buyer_choice") {
+        depositAmountQuestion2.conditional_currency =
+          currencyField2 || undefined
+        depositAmountQuestion2.conditional_suffix = "% of purchase price"
+      }
+      additionalQuestions.push(depositAmountQuestion2)
 
       additionalQuestions.push({
         id: "deposit_due_2",
@@ -221,13 +369,48 @@ const DepositForm = ({
     // If user selected 3 instalments, show instalment-specific questions
     if (instalmentsValue === "3") {
       // First instalment
-      additionalQuestions.push({
+      // Add deposit type question if buyer_choice is enabled for instalment 1
+      const depositManagement1For3 =
+        setupAnswers.deposit_management_instalment_1 ||
+        setupAnswers.deposit_management
+      if (depositManagement1For3 === "buyer_choice") {
+        const currencyField = generateCurrencyField(1)
+        additionalQuestions.push({
+          id: "deposit_type_instalment_1",
+          question_text: "What will your Deposit be for Instalment 1?",
+          question_type: "select",
+          options: [
+            { value: "amount", label: "A fixed amount" },
+            { value: "percentage", label: "A percentage of purchase price" },
+          ],
+          required: true,
+          placeholder: "Select deposit type",
+          conditional_currency: currencyField || undefined,
+          conditional_suffix: "% of purchase price",
+        })
+      }
+
+      // Add deposit amount question for instalment 1 with currency field if needed
+      const currencyField1For3 = generateCurrencyField(1)
+      const depositAmountQuestion1For3: DepositQuestion = {
         id: "deposit_amount_1",
         question_text: "What is your First Deposit Amount?",
         question_type: "text",
         required: true,
         placeholder: "Enter first deposit amount",
-      })
+      }
+      // Add currency field if deposit management requires it
+      if (
+        ["buyer_enters", "buyer_percentage"].includes(depositManagement1For3)
+      ) {
+        depositAmountQuestion1For3.currency_field =
+          currencyField1For3 || undefined
+      } else if (depositManagement1For3 === "buyer_choice") {
+        depositAmountQuestion1For3.conditional_currency =
+          currencyField1For3 || undefined
+        depositAmountQuestion1For3.conditional_suffix = "% of purchase price"
+      }
+      additionalQuestions.push(depositAmountQuestion1For3)
 
       additionalQuestions.push({
         id: "deposit_due_1",
@@ -238,13 +421,48 @@ const DepositForm = ({
       })
 
       // Second instalment
-      additionalQuestions.push({
+      // Add deposit type question if buyer_choice is enabled for instalment 2
+      const depositManagement2For3 =
+        setupAnswers.deposit_management_instalment_2 ||
+        setupAnswers.deposit_management
+      if (depositManagement2For3 === "buyer_choice") {
+        const currencyField = generateCurrencyField(2)
+        additionalQuestions.push({
+          id: "deposit_type_instalment_2",
+          question_text: "What will your Deposit be for Instalment 2?",
+          question_type: "select",
+          options: [
+            { value: "amount", label: "A fixed amount" },
+            { value: "percentage", label: "A percentage of purchase price" },
+          ],
+          required: true,
+          placeholder: "Select deposit type",
+          conditional_currency: currencyField || undefined,
+          conditional_suffix: "% of purchase price",
+        })
+      }
+
+      // Add deposit amount question for instalment 2 with currency field if needed
+      const currencyField2For3 = generateCurrencyField(2)
+      const depositAmountQuestion2For3: DepositQuestion = {
         id: "deposit_amount_2",
         question_text: "What is your Second Deposit Amount?",
         question_type: "text",
         required: true,
         placeholder: "Enter second deposit amount",
-      })
+      }
+      // Add currency field if deposit management requires it
+      if (
+        ["buyer_enters", "buyer_percentage"].includes(depositManagement2For3)
+      ) {
+        depositAmountQuestion2For3.currency_field =
+          currencyField2For3 || undefined
+      } else if (depositManagement2For3 === "buyer_choice") {
+        depositAmountQuestion2For3.conditional_currency =
+          currencyField2For3 || undefined
+        depositAmountQuestion2For3.conditional_suffix = "% of purchase price"
+      }
+      additionalQuestions.push(depositAmountQuestion2For3)
 
       additionalQuestions.push({
         id: "deposit_due_2",
@@ -255,13 +473,46 @@ const DepositForm = ({
       })
 
       // Third instalment
-      additionalQuestions.push({
+      // Add deposit type question if buyer_choice is enabled for instalment 3
+      // Note: instalment 3 uses the same deposit_management as instalment 1 or 2, or falls back to main
+      const depositManagement3 =
+        setupAnswers.deposit_management_instalment_3 ||
+        setupAnswers.deposit_management
+      if (depositManagement3 === "buyer_choice") {
+        const currencyField = generateCurrencyField(3)
+        additionalQuestions.push({
+          id: "deposit_type_instalment_3",
+          question_text: "What will your Deposit be for Instalment 3?",
+          question_type: "select",
+          options: [
+            { value: "amount", label: "A fixed amount" },
+            { value: "percentage", label: "A percentage of purchase price" },
+          ],
+          required: true,
+          placeholder: "Select deposit type",
+          conditional_currency: currencyField || undefined,
+          conditional_suffix: "% of purchase price",
+        })
+      }
+
+      // Add deposit amount question for instalment 3 with currency field if needed
+      const currencyField3 = generateCurrencyField(3)
+      const depositAmountQuestion3: DepositQuestion = {
         id: "deposit_amount_3",
         question_text: "What is your Third Deposit Amount?",
         question_type: "text",
         required: true,
         placeholder: "Enter third deposit amount",
-      })
+      }
+      // Add currency field if deposit management requires it
+      if (["buyer_enters", "buyer_percentage"].includes(depositManagement3)) {
+        depositAmountQuestion3.currency_field = currencyField3 || undefined
+      } else if (depositManagement3 === "buyer_choice") {
+        depositAmountQuestion3.conditional_currency =
+          currencyField3 || undefined
+        depositAmountQuestion3.conditional_suffix = "% of purchase price"
+      }
+      additionalQuestions.push(depositAmountQuestion3)
 
       additionalQuestions.push({
         id: "deposit_due_3",
@@ -393,7 +644,7 @@ const DepositForm = ({
         // Multiple selections - show as dropdown
         return (
           <Select>
-            <SelectTrigger className="w-auto min-w-52" style={getSelectStyle()}>
+            <SelectTrigger className="w-full max-w-xs" style={getSelectStyle()}>
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
@@ -431,14 +682,68 @@ const DepositForm = ({
       return null
     }
 
-    // Start with all original questions (don't filter them)
+    // Start with all original questions from smartQuestions.generateProperties
     const originalQuestions = question.deposit_questions
 
-    // Generate additional questions based on instalments selection
-    const additionalQuestions = generateAdditionalQuestions()
+    // Determine if we need to generate additional questions dynamically
+    // For two_always: questions are already generated in generateProperties, use them directly
+    // For one_or_two/three_plus: need to generate questions based on user's instalment selection
+    const instalmentsValue = localFormData["deposit_instalments"]
+    const isTwoAlways = setupAnswers.instalments === "two_always"
+    const isOneOrTwoOrThreePlus =
+      setupAnswers.instalments === "one_or_two" ||
+      setupAnswers.instalments === "three_plus"
 
-    // Combine original questions with additional questions
-    const allQuestions = [...originalQuestions, ...additionalQuestions]
+    // Check if we already have instalment questions (for two_always or if already generated)
+    const hasInstalmentQuestions = originalQuestions.some(
+      (q: DepositQuestion) =>
+        q.id?.includes("deposit_amount_1") ||
+        q.id?.includes("deposit_amount_2") ||
+        q.id?.includes("deposit_amount_3"),
+    )
+
+    let allQuestions = originalQuestions
+
+    // Only generate additional questions if:
+    // 1. It's one_or_two or three_plus (not two_always)
+    // 2. User has selected number of instalments
+    // 3. Questions haven't been generated yet
+    if (isOneOrTwoOrThreePlus && instalmentsValue && !hasInstalmentQuestions) {
+      // Use smartQuestions to generate instalment questions dynamically
+      const depositSmartQuestion = getSmartQuestion("deposit")
+      if (
+        depositSmartQuestion &&
+        depositSmartQuestion.generateInstalmentQuestions
+      ) {
+        // Create a modified setupAnswers with the selected instalments
+        const modifiedSetupAnswers = {
+          ...setupAnswers,
+          instalments: setupAnswers.instalments, // Keep original
+        }
+        const generatedQuestions =
+          depositSmartQuestion.generateInstalmentQuestions(
+            modifiedSetupAnswers,
+            instalmentsValue,
+          )
+        // Filter out the instalments selector since we're generating the actual questions
+        allQuestions = [
+          ...originalQuestions.filter(
+            (q: DepositQuestion) => q.id !== "deposit_instalments",
+          ),
+          ...generatedQuestions,
+        ]
+      } else {
+        // Fallback to generateAdditionalQuestions if smartQuestions method not available
+        const additionalQuestions = generateAdditionalQuestions()
+        allQuestions = [
+          ...originalQuestions.filter(
+            (q: DepositQuestion) => q.id !== "deposit_instalments",
+          ),
+          ...additionalQuestions,
+        ]
+      }
+    }
+    // For two_always, use the questions directly from originalQuestions (already generated)
 
     return allQuestions.map(
       (depositQuestion: DepositQuestion, index: number) => {
@@ -478,7 +783,7 @@ const DepositForm = ({
                 {/* Check if this question has a currency field */}
                 {depositQuestion.currency_field ? (
                   <div className="flex items-center gap-3">
-                    <div className="relative">
+                    <div className="relative max-w-md flex-1">
                       <Input
                         type="number"
                         min="0"
@@ -488,7 +793,7 @@ const DepositForm = ({
                         disabled={editingMode}
                         className={cn(
                           editingMode ? "cursor-not-allowed" : "",
-                          "min-w-52",
+                          "w-full",
                         )}
                         style={getInputStyle()}
                       />
@@ -506,43 +811,60 @@ const DepositForm = ({
                         />
                       )}
                     </div>
-                    <Select
-                      value={localFormData[`${id}_currency`] || ""}
-                      onValueChange={(value) =>
-                        handleFieldChange(`${id}_currency`, value)
-                      }
-                      disabled={false}
-                    >
-                      <SelectTrigger
-                        className="min-w-52"
-                        style={getSelectStyle()}
+                    {/* Render currency field based on type */}
+                    {depositQuestion.currency_field.type === "display" ? (
+                      // Fixed currency - display as text
+                      <div className="flex max-w-xs items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          {depositQuestion.currency_field.value || "N/A"}
+                        </span>
+                      </div>
+                    ) : (
+                      // Selectable currency - render as Select
+                      <Select
+                        value={localFormData[`${id}_currency`] || ""}
+                        onValueChange={(value) =>
+                          handleFieldChange(`${id}_currency`, value)
+                        }
+                        disabled={false}
                       >
-                        <SelectValue
-                          placeholder={
-                            depositQuestion.currency_field.placeholder ||
-                            "Currency"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {depositQuestion.currency_field.options?.map(
-                          (option: { value: string; label: string }) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ),
-                        )}
-                      </SelectContent>
-                    </Select>
+                        <SelectTrigger
+                          className="w-full max-w-xs"
+                          style={getSelectStyle()}
+                        >
+                          <SelectValue
+                            placeholder={
+                              depositQuestion.currency_field.placeholder ||
+                              "Currency"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {depositQuestion.currency_field.options?.map(
+                            (option: { value: string; label: string }) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 ) : (
-                  <div className="relative">
+                  <div className="relative max-w-md">
                     <Input
                       placeholder={currentPlaceholder || "Enter value"}
                       value={localFormData[id] || ""}
                       onChange={(e) => handleFieldChange(id, e.target.value)}
                       disabled={editingMode}
-                      className={editingMode ? "cursor-not-allowed" : ""}
+                      className={cn(
+                        editingMode ? "cursor-not-allowed" : "",
+                        "w-full",
+                      )}
                       style={getInputStyle()}
                     />
                     {editingMode && (
@@ -571,7 +893,10 @@ const DepositForm = ({
                   onValueChange={(value) => handleFieldChange(id, value)}
                   disabled={false}
                 >
-                  <SelectTrigger className="min-w-52" style={getSelectStyle()}>
+                  <SelectTrigger
+                    className="w-full max-w-md"
+                    style={getSelectStyle()}
+                  >
                     <SelectValue
                       placeholder={currentPlaceholder || "Select option"}
                     />
@@ -636,31 +961,71 @@ const DepositForm = ({
                 </Select>
 
                 {/* Show conditional currency field if this is deposit_type and user selected 'amount' */}
-                {id === "deposit_type" &&
+                {(id === "deposit_type" ||
+                  id === "deposit_type_instalment_1" ||
+                  id === "deposit_type_instalment_2" ||
+                  id === "deposit_type_instalment_3") &&
                   localFormData[id] === "amount" &&
                   depositQuestion.conditional_currency && (
                     <div className="flex items-center gap-3">
-                      <div className="relative w-1/4">
+                      <div className="relative max-w-xs flex-1">
                         <Input
                           placeholder="Enter amount"
-                          value={localFormData["deposit_amount"] || ""}
+                          value={
+                            localFormData[
+                              id === "deposit_type"
+                                ? "deposit_amount"
+                                : `deposit_amount_${id.replace(
+                                    "deposit_type_instalment_",
+                                    "",
+                                  )}`
+                            ] || ""
+                          }
                           onChange={(e) =>
-                            handleFieldChange("deposit_amount", e.target.value)
+                            handleFieldChange(
+                              id === "deposit_type"
+                                ? "deposit_amount"
+                                : `deposit_amount_${id.replace(
+                                    "deposit_type_instalment_",
+                                    "",
+                                  )}`,
+                              e.target.value,
+                            )
                           }
                           disabled={editingMode}
-                          className={editingMode ? "cursor-not-allowed" : ""}
+                          className={cn(
+                            editingMode ? "cursor-not-allowed" : "",
+                            "w-full",
+                          )}
                           style={getInputStyle()}
                         />
                       </div>
                       <Select
-                        value={localFormData["deposit_amount_currency"] || ""}
+                        value={
+                          localFormData[
+                            id === "deposit_type"
+                              ? "deposit_amount_currency"
+                              : `deposit_amount_${id.replace(
+                                  "deposit_type_instalment_",
+                                  "",
+                                )}_currency`
+                          ] || ""
+                        }
                         onValueChange={(value) =>
-                          handleFieldChange("deposit_amount_currency", value)
+                          handleFieldChange(
+                            id === "deposit_type"
+                              ? "deposit_amount_currency"
+                              : `deposit_amount_${id.replace(
+                                  "deposit_type_instalment_",
+                                  "",
+                                )}_currency`,
+                            value,
+                          )
                         }
                         disabled={false}
                       >
                         <SelectTrigger
-                          className="min-w-52"
+                          className="w-full max-w-xs"
                           style={getSelectStyle()}
                         >
                           <SelectValue
@@ -687,27 +1052,47 @@ const DepositForm = ({
                   )}
 
                 {/* Show conditional suffix if this is deposit_type and user selected 'percentage' */}
-                {id === "deposit_type" &&
+                {(id === "deposit_type" ||
+                  id === "deposit_type_instalment_1" ||
+                  id === "deposit_type_instalment_2" ||
+                  id === "deposit_type_instalment_3") &&
                   localFormData[id] === "percentage" &&
                   depositQuestion.conditional_suffix && (
                     <div className="flex items-center gap-3">
-                      <div className="relative w-1/4">
+                      <div className="relative max-w-xs flex-1">
                         <Input
                           placeholder="Enter percentage"
-                          value={localFormData["deposit_percentage"] || ""}
+                          value={
+                            localFormData[
+                              id === "deposit_type"
+                                ? "deposit_percentage"
+                                : `deposit_percentage_${id.replace(
+                                    "deposit_type_instalment_",
+                                    "",
+                                  )}`
+                            ] || ""
+                          }
                           onChange={(e) =>
                             handleFieldChange(
-                              "deposit_percentage",
+                              id === "deposit_type"
+                                ? "deposit_percentage"
+                                : `deposit_percentage_${id.replace(
+                                    "deposit_type_instalment_",
+                                    "",
+                                  )}`,
                               e.target.value,
                             )
                           }
                           disabled={editingMode}
-                          className={editingMode ? "cursor-not-allowed" : ""}
+                          className={cn(
+                            editingMode ? "cursor-not-allowed" : "",
+                            "w-full",
+                          )}
                           style={getInputStyle()}
                         />
                       </div>
-                      <div className="flex w-1/4 items-center">
-                        <span className="text-sm font-medium text-gray-700">
+                      <div className="flex items-center">
+                        <span className="text-sm font-medium whitespace-nowrap text-gray-700">
                           {depositQuestion.conditional_suffix}
                         </span>
                       </div>
@@ -717,20 +1102,22 @@ const DepositForm = ({
             )}
 
             {question_type === "calendar" && (
-              <DatePicker
-                brandingConfig={brandingConfig}
-                value={
-                  localFormData[id] ? new Date(localFormData[id]) : undefined
-                }
-                onChange={(date) => {
-                  handleFieldChange(id, date ? date.toISOString() : null)
-                }}
-              />
+              <div className="max-w-md">
+                <DatePicker
+                  brandingConfig={brandingConfig}
+                  value={
+                    localFormData[id] ? new Date(localFormData[id]) : undefined
+                  }
+                  onChange={(date) => {
+                    handleFieldChange(id, date ? date.toISOString() : null)
+                  }}
+                />
+              </div>
             )}
 
             {question_type === "date" && (
               <div className="space-y-1 pt-1.5">
-                <div className="relative">
+                <div className="relative max-w-md">
                   <DatePicker
                     brandingConfig={brandingConfig}
                     value={
@@ -748,13 +1135,16 @@ const DepositForm = ({
 
             {question_type === "datetime" && (
               <div className="space-y-1">
-                <div className="relative">
+                <div className="relative max-w-md">
                   <Input
                     type="datetime-local"
                     value={localFormData[id] || ""}
                     onChange={(e) => handleFieldChange(id, e.target.value)}
                     disabled={editingMode}
-                    className={editingMode ? "cursor-not-allowed" : ""}
+                    className={cn(
+                      editingMode ? "cursor-not-allowed" : "",
+                      "w-full",
+                    )}
                     style={getInputStyle()}
                   />
                 </div>

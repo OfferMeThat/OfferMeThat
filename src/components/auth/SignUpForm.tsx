@@ -117,6 +117,7 @@ const SignUpForm = () => {
           }
         })
         setErrors(validationErrors)
+        console.log(validationErrors)
       } else {
         setErrors({
           submit: error instanceof Error ? error.message : "An error occurred",

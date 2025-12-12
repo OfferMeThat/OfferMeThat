@@ -37,10 +37,10 @@ const OffersListTableView = ({
     offers.length > 0 &&
     offers.every((offer) => selectedOffers.has(offer.id))
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency: string = "USD") => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
@@ -156,19 +156,26 @@ const OffersListTableView = ({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Link
-                    href={`/listing/${offer.listingId}`}
-                    className="text-teal-600 hover:text-teal-700 hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {getListingAddress(offer)}
-                  </Link>
+                  {offer.listingId ? (
+                    <Link
+                      href={`/listing/${offer.listingId}`}
+                      className="text-teal-600 hover:text-teal-700 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {getListingAddress(offer)}
+                    </Link>
+                  ) : (
+                    <span>{getListingAddress(offer)}</span>
+                  )}
                 </TableCell>
                 <TableCell>{getSubmitterName(offer)}</TableCell>
                 <TableCell>{offer.submitterEmail || "N/A"}</TableCell>
                 <TableCell>{offer.submitterPhone || "N/A"}</TableCell>
                 <TableCell className="font-bold">
-                  {formatCurrency(offer.amount)}
+                  {formatCurrency(
+                    offer.amount,
+                    (offer.customQuestionsData as any)?.currency || "USD",
+                  )}
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <Popover>

@@ -22,13 +22,23 @@ const OffersListTileView = ({
 }) => {
   const router = useRouter()
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  const formatCurrency = (amount: number, currency: string = "USD") => {
+    try {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount)
+    } catch (e) {
+      // Fallback for invalid currency codes
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount)
+    }
   }
 
   const getSubmitterName = (offer: OfferWithListing) => {
@@ -105,15 +115,24 @@ const OffersListTileView = ({
 
             <div className="flex flex-col gap-1">
               <span className="text-lg font-bold text-gray-900">
-                {formatCurrency(offer.amount)}
+                {formatCurrency(
+                  offer.amount,
+                  (offer.customQuestionsData as any)?.currency || "USD",
+                )}
               </span>
-              <Link
-                href={`/offer/${offer.id}`}
-                className="text-sm text-teal-600 hover:text-teal-700 hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {getListingAddress(offer)}
-              </Link>
+              {offer.listingId ? (
+                <Link
+                  href={`/listing/${offer.listingId}`}
+                  className="text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {getListingAddress(offer)}
+                </Link>
+              ) : (
+                <span className="text-sm text-gray-900">
+                  {getListingAddress(offer)}
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col gap-2 text-sm">

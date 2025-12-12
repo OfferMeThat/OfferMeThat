@@ -69,10 +69,10 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
     return offer.listing?.address || "Unassigned"
   }
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency: string = "USD") => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
@@ -139,7 +139,10 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                   Offer Amount
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(offer.amount)}
+                  {formatCurrency(
+                    offer.amount,
+                    (offer.customQuestionsData as any)?.currency || "USD",
+                  )}
                 </p>
               </div>
             </div>

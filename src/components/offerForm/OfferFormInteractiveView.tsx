@@ -30,6 +30,7 @@ interface OfferFormInteractiveViewProps {
   brandingConfig?: BrandingConfig
   profilePictureUrl?: string | null
   formId?: string // Add formId to identify which form is being submitted
+  ownerId?: string // Add ownerId for public forms
   isPreviewMode?: boolean
   isTestMode?: boolean
 }
@@ -47,6 +48,7 @@ export const OfferFormInteractiveView = ({
   brandingConfig,
   profilePictureUrl,
   formId,
+  ownerId,
   isPreviewMode = false,
   isTestMode = false,
 }: OfferFormInteractiveViewProps) => {
@@ -59,8 +61,8 @@ export const OfferFormInteractiveView = ({
 
   // Build validation schema
   const validationSchema = useCallback(() => {
-    return buildFormValidationSchema(questions)
-  }, [questions])
+    return buildFormValidationSchema(questions, isTestMode)
+  }, [questions, isTestMode])
 
   if (isLoading) {
     return (
@@ -135,13 +137,32 @@ export const OfferFormInteractiveView = ({
       const currentPageQuestions = currentPage.questions.filter(
         (q) => q.type !== "submitButton",
       )
-      const pageSchema = buildFormValidationSchema(currentPageQuestions)
+      const pageSchema = buildFormValidationSchema(
+        currentPageQuestions,
+        isTestMode,
+      )
 
       const currentPageData: Record<string, any> = {}
 
       // Collect data for current page questions
       currentPageQuestions.forEach((question) => {
-        const value = formData[question.id]
+        let value = formData[question.id]
+
+        // For offerAmount questions, ensure currency is set if amount is present
+        if (
+          question.type === "offerAmount" &&
+          value &&
+          typeof value === "object"
+        ) {
+          if (
+            value.amount !== undefined &&
+            value.amount !== "" &&
+            !value.currency
+          ) {
+            value = { ...value, currency: "USD" }
+          }
+        }
+
         // Preserve the actual value - don't convert to null/undefined
         // Empty strings should be preserved so validation can work correctly
         currentPageData[question.id] = value
@@ -223,8 +244,25 @@ export const OfferFormInteractiveView = ({
 
   const handleSubmit = async () => {
     try {
+      // Ensure offerAmount questions have currency set before validation
+      const validationData = { ...formData }
+      questions.forEach((question) => {
+        if (question.type === "offerAmount" && validationData[question.id]) {
+          const value = validationData[question.id]
+          if (typeof value === "object" && value !== null) {
+            if (
+              value.amount !== undefined &&
+              value.amount !== "" &&
+              !value.currency
+            ) {
+              validationData[question.id] = { ...value, currency: "USD" }
+            }
+          }
+        }
+      })
+
       const schema = validationSchema()
-      await schema.validate(formData, { abortEarly: false })
+      await schema.validate(validationData, { abortEarly: false })
 
       // If in preview mode, show confirmation and reset form
       if (isPreviewMode) {
@@ -496,6 +534,7 @@ export const OfferFormInteractiveView = ({
         )
       }
     } catch (error) {
+      console.error("Error submitting offer:", error)
       if (error instanceof yup.ValidationError) {
         const newErrors: Record<string, string> = {}
         error.inner.forEach((err) => {
@@ -504,6 +543,7 @@ export const OfferFormInteractiveView = ({
           }
         })
         setValidationErrors(newErrors)
+        console.error("Validation error:", newErrors)
 
         // Mark all fields as touched
         const allFieldIds = questions
@@ -534,25 +574,56 @@ export const OfferFormInteractiveView = ({
   const handleFieldChange = (fieldId: string, value: any) => {
     setFormData((prev) => ({ ...prev, [fieldId]: value }))
 
-    // Clear error for this field when user starts typing
+    // Clear error for this field when value changes
     if (validationErrors[fieldId]) {
-      setValidationErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors[fieldId]
-        return newErrors
-      })
+      // For phone numbers (object with countryCode and number), check if both are valid
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "countryCode" in value &&
+        "number" in value
+      ) {
+        const phoneValue = value as { countryCode: string; number: string }
+        // Clear error if both country code and number are present
+        if (
+          phoneValue.countryCode &&
+          phoneValue.number &&
+          phoneValue.number.trim() !== ""
+        ) {
+          // Count digits in number to ensure it meets minimum
+          const digits = phoneValue.number.replace(/\D/g, "")
+          if (digits.length >= 4) {
+            setValidationErrors((prev) => {
+              const newErrors = { ...prev }
+              delete newErrors[fieldId]
+              return newErrors
+            })
+          }
+        }
+      } else if (value !== undefined && value !== null && value !== "") {
+        // For other field types, clear error if value is set
+        setValidationErrors((prev) => {
+          const newErrors = { ...prev }
+          delete newErrors[fieldId]
+          return newErrors
+        })
+      }
     }
   }
 
   const handleFieldBlur = async (fieldId: string) => {
     setTouchedFields((prev) => new Set(prev).add(fieldId))
 
-    // Validate single field
+    // Validate single field - wait a tick to ensure state updates from onChange have completed
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
     try {
       const schema = validationSchema() as yup.ObjectSchema<any>
       const fieldSchema = schema.fields[fieldId]
       if (fieldSchema && "validate" in fieldSchema) {
-        await (fieldSchema as yup.AnySchema).validate(formData[fieldId])
+        // Get the latest formData value
+        const currentValue = formData[fieldId]
+        await (fieldSchema as yup.AnySchema).validate(currentValue)
         // Clear error if validation passes
         setValidationErrors((prev) => {
           const newErrors = { ...prev }
@@ -608,14 +679,6 @@ export const OfferFormInteractiveView = ({
               />
             </div>
           )}
-        </div>
-      )}
-
-      {/* Test Mode Banner */}
-      {isTestMode && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-center text-red-800">
-          <strong>Test Mode:</strong> Offers submitted here will be marked as
-          test offers and will expire in 72 hours.
         </div>
       )}
 
@@ -723,16 +786,20 @@ export const OfferFormInteractiveView = ({
                   }}
                 >
                   {displayLabel}
-                  {question.required && (
-                    <span className="ml-1 text-red-500">*</span>
-                  )}
+                  {/* In test mode, specifyListing is optional */}
+                  {question.required &&
+                    !(isTestMode && question.type === "specifyListing") && (
+                      <span className="ml-1 text-red-500">*</span>
+                    )}
                 </label>
                 <QuestionRenderer
                   question={question}
                   disabled={false}
                   editingMode={false}
                   formId={question.formId}
+                  ownerId={ownerId}
                   brandingConfig={brandingConfig}
+                  isTestMode={isTestMode}
                   value={formData[question.id]}
                   onChange={(value) => handleFieldChange(question.id, value)}
                   onBlur={() => handleFieldBlur(question.id)}
