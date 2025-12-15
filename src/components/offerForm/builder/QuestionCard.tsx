@@ -514,6 +514,7 @@ const QuestionCard = ({
           onOpenChange={setEditQuestionModalOpen}
           question={question}
           onUpdateQuestion={onUpdateQuestion}
+          questionDefinitions={questionDefinitions}
         />
 
         {/* Essential Question Modal */}

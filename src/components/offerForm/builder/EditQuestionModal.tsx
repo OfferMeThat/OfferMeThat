@@ -9,8 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
+import { QUESTION_DEFINITIONS as OFFER_QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
 import { QuestionSetupConfig, QuestionUIConfig } from "@/types/questionConfig"
+import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
 import { useState } from "react"
 import QuestionSetupForm from "./QuestionSetupForm"
@@ -22,6 +23,7 @@ interface EditQuestionModalProps {
   onOpenChange: (open: boolean) => void
   question: Question | null
   onUpdateQuestion: (questionId: string, updates: any) => void
+  questionDefinitions?: Partial<Record<QuestionType, any>>
 }
 
 const EditQuestionModal = ({
@@ -29,12 +31,13 @@ const EditQuestionModal = ({
   onOpenChange,
   question,
   onUpdateQuestion,
+  questionDefinitions = OFFER_QUESTION_DEFINITIONS,
 }: EditQuestionModalProps) => {
   const [isUpdating, setIsUpdating] = useState(false)
 
   if (!question) return null
 
-  const definition = QUESTION_DEFINITIONS[question.type]
+  const definition = questionDefinitions[question.type]
   const hasSetup =
     definition?.setupQuestions && definition.setupQuestions.length > 0
 
@@ -98,6 +101,7 @@ const EditQuestionModal = ({
       <div className="flex-1 overflow-y-auto px-6 py-4">
         <QuestionSetupForm
           questionType={question.type}
+          questionDefinitions={questionDefinitions}
           initialSetupConfig={(() => {
             const config = (question.setupConfig as QuestionSetupConfig) || {}
             // Ensure offerAmount has default currency_mode and fixed_currency

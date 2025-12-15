@@ -57,15 +57,20 @@ const AddQuestionModal = ({
     }
   }
 
-  const handleAddWithConfig = (config: Record<string, any>, uiConfig?: Record<string, any>, requiredOverride?: boolean) => {
+  const handleAddWithConfig = (
+    config: Record<string, any>,
+    uiConfig?: Record<string, any>,
+    requiredOverride?: boolean,
+  ) => {
     if (selectedType) {
       // If requiredOverride is provided, we need to pass it somehow
       // Since onAddQuestion doesn't have a required parameter, we'll need to update it
       // For now, let's add it to the config object
-      const finalConfig = requiredOverride !== undefined 
-        ? { ...config, __requiredOverride: requiredOverride }
-        : config
-      
+      const finalConfig =
+        requiredOverride !== undefined
+          ? { ...config, __requiredOverride: requiredOverride }
+          : config
+
       onAddQuestion(selectedType, finalConfig, uiConfig)
       handleClose()
     }
@@ -145,7 +150,7 @@ const AddQuestionModal = ({
         <Button variant="outline" onClick={handleClose}>
           Cancel
         </Button>
-        <Button onClick={handleNext} disabled={!selectedType}>
+        <Button variant="default" onClick={handleNext} disabled={!selectedType}>
           Add Question
         </Button>
       </DialogFooter>
@@ -164,6 +169,11 @@ const AddQuestionModal = ({
           <DialogTitle className="text-xl font-semibold">
             Question Setup: {definition.label}
           </DialogTitle>
+          {definition.setupDescription && (
+            <p className="mt-2 text-sm font-medium">
+              {definition.setupDescription}
+            </p>
+          )}
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -173,6 +183,7 @@ const AddQuestionModal = ({
             onCancel={handleBack}
             hideButtons={true}
             mode="add"
+            questionDefinitions={questionDefinitions}
           />
         </div>
 
@@ -182,6 +193,7 @@ const AddQuestionModal = ({
             Back
           </Button>
           <Button
+            variant="default"
             onClick={() => {
               // Trigger the save from QuestionSetupForm
               const event = new CustomEvent("smartQuestionSave")

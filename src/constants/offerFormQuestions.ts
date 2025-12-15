@@ -46,8 +46,8 @@ export type SetupQuestionOption = {
 export type SetupQuestion = {
   id: string // key in setupConfig JSON
   label: string
-  type: "radio" | "select" | "text" | "number"
-  options?: SetupQuestionOption[] // Required for radio/select, not for text/number
+  type: "radio" | "select" | "text" | "number" | "multiChoiceSelect"
+  options?: SetupQuestionOption[] // Required for radio/select/multiChoiceSelect, not for text/number
   placeholder?: string // For text/number inputs
   dependsOn?: {
     questionId: string
@@ -58,6 +58,7 @@ export type SetupQuestion = {
 export type QuestionDefinition = {
   label: string
   description: string
+  setupDescription?: string // Separate description for the setup modal
   setupQuestions?: SetupQuestion[]
 }
 

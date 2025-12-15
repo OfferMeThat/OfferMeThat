@@ -39,6 +39,7 @@ import {
   QUESTION_TYPE_TO_LABEL,
   QUESTION_DEFINITIONS,
   REQUIRED_QUESTION_TYPES,
+  LEAD_FORM_ADD_QUESTION_DEFINITIONS,
 } from "@/constants/leadFormQuestions"
 import { buildFormValidationSchema } from "@/lib/leadFormValidation"
 import AddQuestionModal from "../../offerForm/builder/AddQuestionModal"
@@ -788,7 +789,7 @@ const LeadFormBuilderPageContent = () => {
         onOpenChange={setShowAddQuestionModal}
         onAddQuestion={handleAddQuestion}
         existingQuestionTypes={questions.map((q) => q.type as QuestionType)}
-        questionDefinitions={QUESTION_DEFINITIONS}
+        questionDefinitions={LEAD_FORM_ADD_QUESTION_DEFINITIONS}
       />
     </>
   )

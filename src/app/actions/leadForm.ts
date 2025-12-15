@@ -90,6 +90,26 @@ export const getFormQuestions = async (formId: string) => {
     throw new Error("Failed to fetch questions")
   }
 
+  // Normalize setupConfig for questions that need it
+  if (data) {
+    return data.map((question) => {
+      const setupConfig = (question.setupConfig as Record<string, any>) || {}
+      
+      // Ensure multiChoiceSelect arrays are properly formatted
+      if (question.type === "areYouInterested" && setupConfig.options) {
+        // Ensure options is an array
+        if (!Array.isArray(setupConfig.options)) {
+          setupConfig.options = []
+        }
+      }
+      
+      return {
+        ...question,
+        setupConfig,
+      }
+    })
+  }
+
   return data
 }
 
@@ -326,6 +346,30 @@ export const addQuestion = async (
 ) => {
   const supabase = await createClient()
 
+  // Verify user is authenticated
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("User not authenticated")
+  }
+
+  // Verify form ownership
+  const { data: form, error: formError } = await supabase
+    .from("leadForms")
+    .select("ownerId")
+    .eq("id", formId)
+    .single()
+
+  if (formError || !form) {
+    throw new Error("Form not found")
+  }
+
+  if (form.ownerId !== user.id) {
+    throw new Error("Unauthorized access to form")
+  }
+
   // Get all questions to determine new order
   const { data: allQuestions } = await supabase
     .from("leadFormQuestions")
@@ -347,14 +391,27 @@ export const addQuestion = async (
   // Get the page for the new question
   const newPageId = afterQuestion.pageId
 
-  // Increment order of all questions after the insertion point
-  const questionsToUpdate = allQuestions.filter((q) => q.order > afterOrder)
+  if (!newPageId) {
+    throw new Error("Question page ID is null")
+  }
 
+  // Increment order of all questions after the insertion point
+  // We need to update in reverse order to avoid conflicts
+  const questionsToUpdate = allQuestions
+    .filter((q) => q.order > afterOrder)
+    .sort((a, b) => b.order - a.order) // Sort descending to update from highest to lowest
+
+  // Update all orders first, starting from the highest to avoid conflicts
   for (const question of questionsToUpdate) {
-    await supabase
+    const { error: updateError } = await supabase
       .from("leadFormQuestions")
       .update({ order: question.order + 1 })
       .eq("id", question.id)
+
+    if (updateError) {
+      console.error("Error updating question order:", updateError)
+      throw new Error(`Failed to update question order: ${updateError.message}`)
+    }
   }
 
   // Get default UI config from constants
@@ -365,22 +422,32 @@ export const addQuestion = async (
   }
 
   // Insert new question
+  const insertData = {
+    formId,
+    pageId: newPageId,
+    type: questionType,
+    order: afterOrder + 1,
+    required: REQUIRED_QUESTION_TYPES.includes(questionType),
+    uiConfig: defaultUIConfig as any,
+    setupConfig: (setupConfig || {}) as any,
+  }
+
   const { data: newQuestion, error: insertError } = await supabase
     .from("leadFormQuestions")
-    .insert({
-      formId,
-      pageId: newPageId,
-      type: questionType,
-      order: afterOrder + 1,
-      required: REQUIRED_QUESTION_TYPES.includes(questionType),
-      uiConfig: defaultUIConfig,
-      setupConfig: setupConfig || {},
-    })
+    .insert(insertData)
     .select()
     .single()
 
-  if (insertError || !newQuestion) {
-    throw new Error("Failed to add question")
+  if (insertError) {
+    console.error("Error inserting lead form question:", insertError)
+    console.error("Insert data:", JSON.stringify(insertData, null, 2))
+    throw new Error(`Failed to add question: ${insertError.message}`)
+  }
+
+  if (!newQuestion) {
+    console.error("No question returned from insert")
+    console.error("Insert data:", JSON.stringify(insertData, null, 2))
+    throw new Error("Failed to add question: No data returned")
   }
 
   return newQuestion
@@ -434,6 +501,30 @@ export const updateQuestion = async (
 export const resetFormToDefault = async (formId: string) => {
   const supabase = await createClient()
 
+  // Verify user is authenticated
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("User not authenticated")
+  }
+
+  // Verify form ownership
+  const { data: form, error: formError } = await supabase
+    .from("leadForms")
+    .select("ownerId")
+    .eq("id", formId)
+    .single()
+
+  if (formError || !form) {
+    throw new Error("Form not found")
+  }
+
+  if (form.ownerId !== user.id) {
+    throw new Error("Unauthorized access to form")
+  }
+
   // Get all pages for this form
   const { data: allPages } = await supabase
     .from("leadFormPages")
@@ -452,7 +543,21 @@ export const resetFormToDefault = async (formId: string) => {
     throw new Error("Failed to find first page")
   }
 
-  // Delete all page breaks (pages with breakIndex)
+  // Delete all existing questions FIRST (this is important to avoid order conflicts)
+  const { error: deleteQuestionsError } = await supabase
+    .from("leadFormQuestions")
+    .delete()
+    .eq("formId", formId)
+
+  if (deleteQuestionsError) {
+    console.error("Error deleting questions:", deleteQuestionsError)
+    throw new Error(
+      `Failed to delete existing questions: ${deleteQuestionsError.message}`,
+    )
+  }
+
+  // Delete all page breaks (pages with breakIndex) AFTER deleting questions
+  // This ensures foreign key constraints are satisfied
   const pageBreaksToDelete = allPages.filter((p) => p.breakIndex !== null)
 
   if (pageBreaksToDelete.length > 0) {
@@ -465,6 +570,7 @@ export const resetFormToDefault = async (formId: string) => {
       .select()
 
     if (deletePageError) {
+      console.error("Error deleting page breaks:", deletePageError)
       throw new Error(
         `Failed to delete page breaks: ${deletePageError.message}`,
       )
@@ -475,22 +581,24 @@ export const resetFormToDefault = async (formId: string) => {
     }
   }
 
-  // Delete all existing questions
-  const { error: deleteQuestionsError } = await supabase
-    .from("leadFormQuestions")
-    .delete()
-    .eq("formId", formId)
+  // Reset the first page's order to 1 (in case it was changed)
+  const { error: resetPageError } = await supabase
+    .from("leadFormPages")
+    .update({ order: 1 })
+    .eq("id", firstPage.id)
 
-  if (deleteQuestionsError) {
-    throw new Error("Failed to delete existing questions")
+  if (resetPageError) {
+    console.error("Error resetting page order:", resetPageError)
+    throw new Error(`Failed to reset page order: ${resetPageError.message}`)
   }
 
   // Insert default questions (all assigned to first page)
+  // Ensure orders are sequential starting from 1
   const questions = DEFAULT_LEAD_QUESTIONS.map((q) => ({
     formId: formId,
     pageId: firstPage.id,
     type: q.type,
-    order: q.order,
+    order: q.order, // These should be 1, 2, 3, 4, 5, 6
     required: q.required,
     uiConfig: q.uiConfig,
     setupConfig: q.setupConfig || {},
@@ -501,7 +609,11 @@ export const resetFormToDefault = async (formId: string) => {
     .insert(questions)
 
   if (insertError) {
-    throw new Error("Failed to create default questions")
+    console.error("Error inserting default questions:", insertError)
+    console.error("Questions data:", JSON.stringify(questions, null, 2))
+    throw new Error(
+      `Failed to create default questions: ${insertError.message}`,
+    )
   }
 
   return true

@@ -54,8 +54,8 @@ export type SetupQuestionOption = {
 export type SetupQuestion = {
   id: string // key in setupConfig JSON
   label: string
-  type: "radio" | "select" | "text" | "number"
-  options?: SetupQuestionOption[] // Required for radio/select, not for text/number
+  type: "radio" | "select" | "text" | "number" | "multiChoiceSelect"
+  options?: SetupQuestionOption[] // Required for radio/select/multiChoiceSelect, not for text/number
   placeholder?: string // For text/number inputs
   dependsOn?: {
     questionId: string
@@ -66,6 +66,7 @@ export type SetupQuestion = {
 export type QuestionDefinition = {
   label: string
   description: string
+  setupDescription?: string // Separate description for the setup modal
   setupQuestions?: SetupQuestion[]
 }
 
@@ -102,12 +103,11 @@ export const QUESTION_DEFINITIONS: Partial<
 
   areYouInterested: {
     label: "Are You Interested?",
-    description:
-      "Ask if the user is potentially interested in making an offer for the listing.",
+    description: "Capture interest level from potential leads.",
     setupQuestions: [
       {
         id: "options",
-        label: "Which options would you like to include?",
+        label: "Which of the following would you like to include as options:",
         type: "multiChoiceSelect",
         options: [
           {
@@ -133,27 +133,40 @@ export const QUESTION_DEFINITIONS: Partial<
 
   followAllListings: {
     label: "Follow All Listings?",
-    description:
-      "Ask if the user wants to register to receive updates about future listings or this listing only.",
-    // No setup questions - options are fixed
+    description: "Allow leads to opt-in to follow all your listings.",
+    setupDescription:
+      "This question invites people to automatically register as a Lead for ALL of your future listings (making them a 'Follower'). It is a great way to assist people who are researching to buy or sell, and a great way to showcase your results to potential future clients.",
+    setupQuestions: [
+      {
+        id: "receiveInformation",
+        label:
+          "We can send you information about how to make the most of this tool to grow your business. Would you like to receive this information?",
+        type: "radio",
+        options: [
+          { value: "yes", label: "Yes" },
+          { value: "no", label: "No" },
+        ],
+      },
+    ],
   },
 
   opinionOfSalePrice: {
     label: "Opinion of Sale Price",
-    description: "Collect the user's opinion about what the listing is worth.",
+    description: "Collect leads' opinions on sale price.",
     setupQuestions: [
       {
         id: "answerType",
-        label: "What type of answer would you like to collect?",
+        label:
+          "This question invites people to give their opinion about what the Listing is worth. You can allow them to provide their opinion by writing text, or insist that they give a specific number. Which would you prefer?",
         type: "radio",
         options: [
           {
             value: "text",
-            label: "Text - Free-form text input",
+            label: "Text",
           },
           {
             value: "number",
-            label: "A number - Numeric input only",
+            label: "A number",
           },
         ],
       },
@@ -162,21 +175,23 @@ export const QUESTION_DEFINITIONS: Partial<
 
   captureFinanceLeads: {
     label: "Capture Finance Leads",
-    description:
-      "Ask if the user would like to receive communication from a Finance Specialist.",
+    description: "Capture finance-related information from leads.",
+    setupDescription:
+      "Some Leads may be interested in borrowing money to fund a purchase. Do you want to invite them to receive communications from a Finance Specialist? Note: All Leads authorize this when agreeing to the Terms & Conditions.",
     setupQuestions: [
       {
         id: "financeSetup",
         label: "How would you like to manage finance leads?",
-        type: "radio",
+        type: "select",
         options: [
           {
             value: "referralPartner",
-            label: "Send leads to my Finance Referral Partner",
+            label:
+              "Yes, and send leads directly to my Finance Referral Partner",
           },
           {
             value: "selfManage",
-            label: "Send me the leads and I'll manage them",
+            label: "Yes, send me leads and I'll manage them myself",
           },
         ],
       },
@@ -205,8 +220,7 @@ export const QUESTION_DEFINITIONS: Partial<
 
   messageToAgent: {
     label: "Message to Listing Agent",
-    description:
-      "Allow buyers to send a message to the listing agent with optional attachments.",
+    description: "Let the Lead to include a Personal Message.",
     setupQuestions: [
       {
         id: "allowAttachments",
@@ -219,6 +233,187 @@ export const QUESTION_DEFINITIONS: Partial<
       },
     ],
   },
+
+  // Custom question type (shared with offer forms)
+  custom: {
+    label: "Create Your Own",
+    description:
+      "Create a custom question with your preferred input type and options.",
+    setupQuestions: [
+      {
+        id: "answer_type",
+        label:
+          "What type of answer/information do you want the Buyer/Agent to provide?",
+        type: "select",
+        options: [
+          { value: "short_text", label: "Short Text Answer" },
+          { value: "long_text", label: "Long Text Answer" },
+          { value: "number_amount", label: "Provide a Number or Amount" },
+          { value: "file_upload", label: "Upload Files" },
+          { value: "time_date", label: "Provide a Time and/or Date" },
+          { value: "yes_no", label: "Answer Yes or No" },
+          { value: "single_select", label: "Select 1 Option from a List" },
+          {
+            value: "multi_select",
+            label: "Select 1 or more Options from a List",
+          },
+          {
+            value: "statement",
+            label: "Statement (Tickbox to Agree is optional)",
+          },
+        ],
+      },
+      {
+        id: "number_type",
+        label: "What type of number?",
+        type: "select",
+        dependsOn: {
+          questionId: "answer_type",
+          value: "number_amount",
+        },
+        options: [
+          { value: "money", label: "An amount of money" },
+          { value: "phone", label: "A phone number" },
+          { value: "percentage", label: "A percentage" },
+        ],
+      },
+      {
+        id: "currency_stipulation",
+        label: "Stipulate currency?",
+        type: "select",
+        dependsOn: {
+          questionId: "number_type",
+          value: "money",
+        },
+        options: [
+          { value: "any", label: "Let Buyer choose any" },
+          { value: "options", label: "Give Buyer 2+ options" },
+          { value: "fixed", label: "Stipulate a currency" },
+        ],
+      },
+      {
+        id: "currency_options",
+        label: "Select currencies to offer (comma-separated)",
+        type: "text",
+        placeholder: "USD, EUR, GBP",
+        dependsOn: {
+          questionId: "currency_stipulation",
+          value: "options",
+        },
+      },
+      {
+        id: "currency_fixed",
+        label: "Select currency",
+        type: "select",
+        dependsOn: {
+          questionId: "currency_stipulation",
+          value: "fixed",
+        },
+        options: [
+          { value: "USD", label: "USD ($)" },
+          { value: "EUR", label: "EUR (€)" },
+          { value: "GBP", label: "GBP (£)" },
+          { value: "CAD", label: "CAD ($)" },
+          { value: "AUD", label: "AUD ($)" },
+        ],
+      },
+      {
+        id: "time_date_type",
+        label: "What would you like to collect?",
+        type: "select",
+        dependsOn: {
+          questionId: "answer_type",
+          value: "time_date",
+        },
+        options: [
+          { value: "time", label: "Time" },
+          { value: "date", label: "Date" },
+          { value: "datetime", label: "Time and Date" },
+        ],
+      },
+      {
+        id: "allow_unsure",
+        label: "Allow 'Unsure' as an option?",
+        type: "select",
+        dependsOn: {
+          questionId: "answer_type",
+          value: "yes_no",
+        },
+        options: [
+          { value: "yes", label: "Yes" },
+          { value: "no", label: "No" },
+        ],
+      },
+      {
+        id: "select_options",
+        label: "Create your list (comma-separated options)",
+        type: "text",
+        placeholder: "Option 1, Option 2, Option 3",
+        dependsOn: {
+          questionId: "answer_type",
+          value: ["single_select", "multi_select"],
+        },
+      },
+      {
+        id: "add_tickbox",
+        label: "Do you wish to add a tickbox for the Buyer/Agent to agree?",
+        type: "select",
+        dependsOn: {
+          questionId: "answer_type",
+          value: "statement",
+        },
+        options: [
+          { value: "yes", label: "Yes" },
+          { value: "no", label: "No" },
+        ],
+      },
+      {
+        id: "tickbox_requirement",
+        label:
+          "Is it optional or essential that the Buyer/Agent ticks to agree?",
+        type: "select",
+        dependsOn: {
+          questionId: "add_tickbox",
+          value: "yes",
+        },
+        options: [
+          { value: "optional", label: "Optional" },
+          { value: "essential", label: "Essential" },
+        ],
+      },
+      {
+        id: "tickbox_text",
+        label:
+          "What text would you like to display next to your tickbox (eg 'I agree')?",
+        type: "text",
+        placeholder: "I agree",
+        dependsOn: {
+          questionId: "add_tickbox",
+          value: "yes",
+        },
+      },
+      {
+        id: "question_text",
+        label: "What is your question/statement?",
+        type: "text",
+        placeholder: "Enter your question here",
+      },
+    ],
+  },
+}
+
+// Filtered question definitions for the Add Question modal in lead form builder
+// Only these questions should be available when adding questions to a lead form
+export const LEAD_FORM_ADD_QUESTION_DEFINITIONS: Partial<
+  Record<QuestionType, QuestionDefinition>
+> = {
+  submitterRole: QUESTION_DEFINITIONS.submitterRole,
+  areYouInterested: QUESTION_DEFINITIONS.areYouInterested,
+  followAllListings: QUESTION_DEFINITIONS.followAllListings,
+  opinionOfSalePrice: QUESTION_DEFINITIONS.opinionOfSalePrice,
+  captureFinanceLeads: QUESTION_DEFINITIONS.captureFinanceLeads,
+  messageToAgent: QUESTION_DEFINITIONS.messageToAgent,
+  custom: QUESTION_DEFINITIONS.custom,
 }
 
 // Default questions for lead forms
@@ -295,4 +490,3 @@ export const DEFAULT_LEAD_QUESTIONS: DefaultLeadQuestion[] = [
     },
   },
 ]
-
