@@ -974,3 +974,69 @@ export const movePageBreak = async (
   return true
 }
 
+type Question = Database["public"]["Tables"]["leadFormQuestions"]["Row"]
+
+interface SaveLeadParams {
+  formData: Record<string, any>
+  questions: Question[]
+  formId: string
+}
+
+// Helper to get a random uuid (works in most recent Node/Browser)
+const getTempId = () => {
+  return typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36)
+}
+
+/**
+ * Saves a lead to the database with all form data
+ * Handles file uploads to Supabase Storage
+ */
+export const saveLead = async ({
+  formData,
+  questions,
+  formId,
+}: SaveLeadParams): Promise<{
+  success: boolean
+  leadId?: string
+  error?: string
+}> => {
+  try {
+    const supabase = await createClient()
+    const { transformFormDataToLead } = await import("@/lib/transformLeadData")
+    const { uploadFileToStorage, uploadMultipleFilesToStorage } = await import(
+      "@/lib/supabase/storage"
+    )
+    
+    // Generate temp leadId for storage file path before DB insert
+    const tempLeadId = getTempId()
+
+    // Transform form data to database schema
+    // Note: Files should already be uploaded client-side and replaced with URLs
+    const leadData = transformFormDataToLead(formData, questions, formId)
+
+    // Insert lead into database
+    const { data: lead, error } = await supabase
+      .from("leads")
+      .insert(leadData)
+      .select("id")
+      .single()
+
+    if (error) {
+      console.error("Error saving lead:", error)
+      return { success: false, error: error.message }
+    }
+
+    if (!lead) {
+      return { success: false, error: "Failed to create lead" }
+    }
+
+    return { success: true, leadId: lead.id }
+  } catch (error: any) {
+    console.error("Error in saveLead:", error)
+    return { success: false, error: error.message || "Failed to save lead" }
+  }
+}
+

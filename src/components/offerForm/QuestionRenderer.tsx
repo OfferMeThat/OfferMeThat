@@ -3004,7 +3004,11 @@ export const QuestionRenderer = ({
       return (
         <div>
           <div className="relative max-w-md">
-            <Select disabled={disabled} value={(value as string) || ""} onValueChange={(val) => onChange?.(val)}>
+            <Select
+              disabled={disabled}
+              value={(value as string) || ""}
+              onValueChange={(val) => onChange?.(val)}
+            >
               <SelectTrigger className="w-full" style={getSelectStyle()}>
                 <SelectValue placeholder="Select an option..." />
               </SelectTrigger>

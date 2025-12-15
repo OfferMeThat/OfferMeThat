@@ -96,9 +96,32 @@ export const buildQuestionValidation = (
       break
 
     case "messageToAgent":
+      // messageToAgent can be a string (message only) or an object with { message: string, attachments: File[] }
       schema = yup
-        .string()
-        .max(5000, "Maximum 5000 characters allowed")
+        .mixed()
+        .test("messageToAgent", function (value) {
+          // Extract message string from value
+          let message = ""
+          if (typeof value === "string") {
+            message = value
+          } else if (typeof value === "object" && value !== null) {
+            message = (value as any).message || ""
+          }
+
+          // Check required
+          if (required && !message.trim()) {
+            return this.createError({ message: "Message is required" })
+          }
+
+          // Check max length
+          if (message.length > 5000) {
+            return this.createError({
+              message: "Message must be at most 5000 characters",
+            })
+          }
+
+          return true
+        })
         .nullable()
       break
 
