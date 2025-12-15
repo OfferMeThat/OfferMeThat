@@ -1,10 +1,6 @@
 "use client"
 
-import {
-  getFilteredLeads,
-  getUnassignedLeads,
-  LeadFilters,
-} from "@/app/actions/leadForm"
+import { getFilteredLeads, LeadFilters } from "@/app/actions/leadForm"
 import { Listing } from "@/types/listing"
 import { LeadWithListing } from "@/types/lead"
 import { useEffect, useState, useTransition } from "react"
@@ -29,19 +25,15 @@ const DEFAULT_FILTERS: Filters = {
 
 const MyLeadsPageContent = ({
   initialData,
-  initialUnassignedData,
   initialListings,
 }: {
   initialData: Array<LeadWithListing> | null
-  initialUnassignedData: Array<LeadWithListing> | null
   initialListings: Array<Listing> | null
 }) => {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [leads, setLeads] = useState<Array<LeadWithListing> | null>(
     initialData,
   )
-  const [unassignedLeads, setUnassignedLeads] =
-    useState<Array<LeadWithListing> | null>(initialUnassignedData)
   const [isPending, startTransition] = useTransition()
   const [viewMode, setViewMode] = useState<"table" | "tile">("table")
 
@@ -55,52 +47,11 @@ const MyLeadsPageContent = ({
       }
       const filteredData = await getFilteredLeads(filterParams)
       setLeads(filteredData)
-      // Also refresh unassigned leads
-      const unassignedData = await getUnassignedLeads()
-      setUnassignedLeads(unassignedData)
     })
   }, [filters])
 
   return (
     <main className="px-6 py-8 pb-24">
-      {unassignedLeads && unassignedLeads.length > 0 && (
-        <div className="mb-12">
-          <div className="mb-4">
-            <Heading
-              as="h2"
-              size="medium"
-              weight="bold"
-              className="text-gray-700"
-            >
-              Unassigned Leads
-            </Heading>
-            <span className="text-sm font-medium text-gray-500">
-              Leads that need to be assigned to a listing
-            </span>
-          </div>
-          <LeadsList
-            leads={unassignedLeads}
-            onLeadsUpdate={(updatedLeads) => {
-              setUnassignedLeads(updatedLeads)
-            }}
-            onAssignSuccess={() => {
-              // Refresh main leads list after successful assignment
-              startTransition(async () => {
-                const filterParams: LeadFilters = {
-                  nameSearch: filters.nameSearch,
-                  listingId: filters.listingId,
-                  dateRange: filters.dateRange,
-                }
-                const filteredData = await getFilteredLeads(filterParams)
-                setLeads(filteredData)
-              })
-            }}
-            onViewModeChange={setViewMode}
-            listings={initialListings}
-            isUnassigned={true}
-          />
-        </div>
-      )}
       <div className="mb-4 flex flex-col gap-1">
         <Heading
           as="h1"

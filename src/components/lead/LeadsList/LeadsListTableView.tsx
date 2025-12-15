@@ -1,5 +1,10 @@
 "use client"
 
+import {
+  formatAreYouInterested,
+  formatSubmitterRole,
+  getRoleBadgeVariant,
+} from "@/lib/formatLeadData"
 import { LeadWithListing } from "@/types/lead"
 import { Ellipsis } from "lucide-react"
 import Link from "next/link"
@@ -49,21 +54,7 @@ const LeadsListTableView = ({
     return lead.listing?.address || "N/A"
   }
 
-  const getRoleLabel = (role: string | null) => {
-    if (!role) return "N/A"
-    return role
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
-  }
 
-  const getInterestedLabel = (interested: string | null) => {
-    if (!interested) return "N/A"
-    return interested
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
-  }
 
   // Show empty state if no leads
   if (!leads || leads.length === 0) {
@@ -162,16 +153,20 @@ const LeadsListTableView = ({
                 </TableCell>
                 <TableCell>{getSubmitterName(lead)}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">
-                    {getRoleLabel(lead.submitterRole)}
-                  </Badge>
+                  {lead.submitterRole ? (
+                    <Badge variant={getRoleBadgeVariant(lead.submitterRole)}>
+                      {formatSubmitterRole(lead.submitterRole)}
+                    </Badge>
+                  ) : (
+                    <span className="text-gray-400">N/A</span>
+                  )}
                 </TableCell>
                 <TableCell>{lead.submitterEmail || "N/A"}</TableCell>
                 <TableCell>{lead.submitterPhone || "N/A"}</TableCell>
                 <TableCell>
                   {lead.areYouInterested ? (
                     <Badge variant="secondary">
-                      {getInterestedLabel(lead.areYouInterested)}
+                      {formatAreYouInterested(lead.areYouInterested)}
                     </Badge>
                   ) : (
                     "N/A"

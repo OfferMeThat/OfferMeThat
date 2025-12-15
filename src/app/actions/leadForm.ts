@@ -1098,9 +1098,6 @@ export async function getFilteredLeads(
   // Filter by user's formIds
   query = query.in("formId", userFormIds)
 
-  // Exclude unassigned leads from main query (they're shown separately)
-  query = query.not("listingId", "is", null)
-
   // Apply listing filter
   if (filters.listingId) {
     query = query.eq("listingId", filters.listingId)
@@ -1258,7 +1255,6 @@ export async function assignLeadsToListing(
         customListingAddress: null,
       })
       .in("id", leadIds)
-      .is("listingId", null)
 
     if (error) {
       console.error("Error assigning leads to listing:", error)

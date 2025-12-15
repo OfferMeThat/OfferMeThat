@@ -19,15 +19,11 @@ const LeadsList = ({
   onLeadsUpdate,
   onViewModeChange,
   listings,
-  isUnassigned = false,
-  onAssignSuccess,
 }: {
   leads: Array<LeadWithListing> | null
   onLeadsUpdate?: (leads: Array<LeadWithListing> | null) => void
   onViewModeChange?: (mode: "table" | "tile") => void
   listings?: Array<{ id: string; address: string }> | null
-  isUnassigned?: boolean
-  onAssignSuccess?: () => void
 }) => {
   const router = useRouter()
   const [viewStyle, setViewStyle] = useState<"table" | "tile">("table")
@@ -89,14 +85,6 @@ const LeadsList = ({
   const handleAssignToListing = async (listingId: string) => {
     const leadIds = Array.from(selectedLeads)
 
-    // Optimistic update: remove leads from unassigned list immediately
-    if (leads && onLeadsUpdate && isUnassigned) {
-      const updatedLeads = leads.filter(
-        (lead) => !leadIds.includes(lead.id),
-      )
-      onLeadsUpdate(updatedLeads.length > 0 ? updatedLeads : null)
-    }
-
     const result = await assignLeadsToListing(leadIds, listingId)
 
     if (result.success) {
@@ -105,12 +93,12 @@ const LeadsList = ({
       )
       setSelectedLeads(new Set())
       router.refresh()
-      onAssignSuccess?.()
-    } else {
-      // Revert optimistic update on error
-      if (onLeadsUpdate && isUnassigned) {
-        onLeadsUpdate(leads)
+      // Refresh the leads list
+      if (onLeadsUpdate) {
+        // The parent component will refresh the data
+        window.location.reload()
       }
+    } else {
       toast.error(result.error || "Failed to assign leads to listing")
     }
   }
@@ -157,7 +145,7 @@ const LeadsList = ({
         onClearSelection={() => setSelectedLeads(new Set())}
         itemType="leads"
         showMessageButton={false}
-        onAssignToListing={isUnassigned ? handleAssignToListing : undefined}
+        onAssignToListing={handleAssignToListing}
         listings={listings || []}
       />
     </>

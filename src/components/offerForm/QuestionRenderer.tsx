@@ -786,12 +786,26 @@ export const QuestionRenderer = ({
 
   // Submitter Role - Use Select with proper options
   if (question.type === "submitterRole") {
+    // Convert camelCase (from database) to snake_case (for Select component)
+    const normalizeValueForSelect = (
+      val: string | null | undefined,
+    ): string => {
+      if (!val) return ""
+      if (val === "buyerSelf") return "buyer_self"
+      if (val === "buyerWithAgent") return "buyer_with_agent"
+      if (val === "buyersAgent") return "buyers_agent"
+      // If already in snake_case, return as is
+      return val
+    }
+
+    const selectValue = normalizeValueForSelect(value as string)
+
     return (
       <div>
         <div className="relative max-w-md">
           <Select
             disabled={disabled}
-            value={(value as string) || ""}
+            value={selectValue}
             onValueChange={(val) => {
               onChange?.(val)
             }}
