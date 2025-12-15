@@ -8,6 +8,8 @@ import {
 import { createClient } from "@/lib/supabase/server"
 import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { QuestionType } from "@/types/form"
+import { Listing } from "@/types/listing"
+import { LeadWithListing } from "@/types/lead"
 import { Database } from "@/types/supabase"
 
 export const getOrCreateLeadForm = async () => {
@@ -1038,5 +1040,268 @@ export const saveLead = async ({
     console.error("Error in saveLead:", error)
     return { success: false, error: error.message || "Failed to save lead" }
   }
+}
+
+export type LeadFilters = {
+  nameSearch: string
+  listingId: string | null
+  dateRange: { from: string | null; to: string | null }
+}
+
+export async function getAllListingsForLeads(): Promise<Listing[] | null> {
+  const supabase = await createClient()
+
+  const { data: listings, error } = await supabase
+    .from("listings")
+    .select("*")
+    .order("address", { ascending: true })
+
+  if (!listings || error) {
+    console.error("Error fetching listings:", error)
+    return null
+  }
+
+  return listings
+}
+
+export async function getFilteredLeads(
+  filters: LeadFilters,
+): Promise<LeadWithListing[] | null> {
+  const supabase = await createClient()
+
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    console.error("User not authenticated")
+    return null
+  }
+
+  // Get user's lead form(s)
+  const { data: userForms, error: formsError } = await supabase
+    .from("leadForms")
+    .select("id")
+    .eq("ownerId", user.id)
+
+  if (formsError || !userForms || userForms.length === 0) {
+    // User has no forms, return empty array
+    return []
+  }
+
+  const userFormIds = userForms.map((form) => form.id)
+
+  // Start building the query with listing join
+  let query = supabase.from("leads").select("*, listings(*)")
+
+  // Filter by user's formIds
+  query = query.in("formId", userFormIds)
+
+  // Exclude unassigned leads from main query (they're shown separately)
+  query = query.not("listingId", "is", null)
+
+  // Apply listing filter
+  if (filters.listingId) {
+    query = query.eq("listingId", filters.listingId)
+  }
+
+  // Apply date range filter (on createdAt)
+  if (filters.dateRange.from) {
+    query = query.gte("createdAt", filters.dateRange.from)
+  }
+  if (filters.dateRange.to) {
+    query = query.lte("createdAt", filters.dateRange.to)
+  }
+
+  // Execute the query
+  const { data: leads, error } = await query.order("createdAt", {
+    ascending: false,
+  })
+
+  if (!leads || error) {
+    console.error("Error fetching filtered leads:", error)
+    return null
+  }
+
+  // Transform the data to match LeadWithListing type
+  let transformedLeads = leads.map((lead: any) => ({
+    ...lead,
+    listing: Array.isArray(lead.listings)
+      ? lead.listings[0] || null
+      : lead.listings || null,
+  })) as LeadWithListing[]
+
+  // Apply name search client-side (searches in listing address, custom listing address, submitter name, and email)
+  if (filters.nameSearch) {
+    const searchLower = filters.nameSearch.toLowerCase()
+    transformedLeads = transformedLeads.filter((lead) => {
+      const listingAddress = (lead.listing?.address || "").toLowerCase()
+      const customAddress = (lead.customListingAddress || "").toLowerCase()
+      const submitterName = `${lead.submitterFirstName || ""} ${lead.submitterLastName || ""}`.toLowerCase()
+      const submitterEmail = (lead.submitterEmail || "").toLowerCase()
+      return (
+        listingAddress.includes(searchLower) ||
+        customAddress.includes(searchLower) ||
+        submitterName.includes(searchLower) ||
+        submitterEmail.includes(searchLower)
+      )
+    })
+  }
+
+  return transformedLeads
+}
+
+export async function getUnassignedLeads(): Promise<
+  LeadWithListing[] | null
+> {
+  const supabase = await createClient()
+
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    console.error("User not authenticated")
+    return null
+  }
+
+  // Get user's lead form(s)
+  const { data: userForms, error: formsError } = await supabase
+    .from("leadForms")
+    .select("id")
+    .eq("ownerId", user.id)
+
+  if (formsError || !userForms || userForms.length === 0) {
+    // User has no forms, return empty array
+    return []
+  }
+
+  const userFormIds = userForms.map((form) => form.id)
+
+  const { data: leads, error } = await supabase
+    .from("leads")
+    .select("*, listings(*)")
+    .is("listingId", null)
+    .in("formId", userFormIds)
+    .order("createdAt", { ascending: false })
+
+  if (!leads || error) {
+    console.error("Error fetching unassigned leads:", error)
+    return null
+  }
+
+  // Transform the data to match LeadWithListing type
+  const transformedLeads = leads.map((lead: any) => ({
+    ...lead,
+    listing: Array.isArray(lead.listings)
+      ? lead.listings[0] || null
+      : lead.listings || null,
+  })) as LeadWithListing[]
+
+  return transformedLeads
+}
+
+export async function deleteLeads(
+  leadIds: string[],
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  try {
+    const { error } = await supabase.from("leads").delete().in("id", leadIds)
+
+    if (error) {
+      console.error("Error deleting leads:", error)
+      return {
+        success: false,
+        error: error.message || "Failed to delete leads",
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in deleteLeads:", error)
+    return {
+      success: false,
+      error: error?.message || "An unexpected error occurred",
+    }
+  }
+}
+
+export async function assignLeadsToListing(
+  leadIds: string[],
+  listingId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  try {
+    // First, verify the listing exists
+    const { data: listing, error: listingError } = await supabase
+      .from("listings")
+      .select("id")
+      .eq("id", listingId)
+      .single()
+
+    if (listingError || !listing) {
+      return {
+        success: false,
+        error: "Listing not found",
+      }
+    }
+
+    // Update leads: set listingId, clear customListingAddress
+    const { error } = await supabase
+      .from("leads")
+      .update({
+        listingId: listingId,
+        customListingAddress: null,
+      })
+      .in("id", leadIds)
+      .is("listingId", null)
+
+    if (error) {
+      console.error("Error assigning leads to listing:", error)
+      return {
+        success: false,
+        error: error.message || "Failed to assign leads to listing",
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in assignLeadsToListing:", error)
+    return {
+      success: false,
+      error: error?.message || "An unexpected error occurred",
+    }
+  }
+}
+
+export async function getLeadById(
+  leadId: string,
+): Promise<LeadWithListing | null> {
+  const supabase = await createClient()
+
+  const { data: lead, error } = await supabase
+    .from("leads")
+    .select("*, listings(*)")
+    .eq("id", leadId)
+    .single()
+
+  if (!lead || error) {
+    console.error("Error fetching lead:", error)
+    return null
+  }
+
+  // Transform the data to match LeadWithListing type
+  const transformedLead = {
+    ...lead,
+    listing: Array.isArray(lead.listings)
+      ? lead.listings[0] || null
+      : lead.listings || null,
+  } as LeadWithListing
+
+  return transformedLead
 }
 
