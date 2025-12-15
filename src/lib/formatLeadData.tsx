@@ -23,11 +23,9 @@ function renderFileLink(url: string, label?: string): React.JSX.Element {
 
 // ==================== Enum Formatters ====================
 
-export function formatSubmitterRole(
-  role: string | null | undefined,
-): string {
+export function formatSubmitterRole(role: string | null | undefined): string {
   if (!role) return "N/A"
-  
+
   // Map enum values to labels
   if (role === "buyerSelf") {
     return "Lead"
@@ -38,7 +36,7 @@ export function formatSubmitterRole(
   if (role === "buyersAgent") {
     return "Agent"
   }
-  
+
   // Fallback for any other values
   return role
     .split("_")
@@ -53,7 +51,7 @@ export function getRoleBadgeVariant(
   role: string | null | undefined,
 ): "default" | "secondary" | "outline" | "destructive" | "success" {
   if (!role) return "outline"
-  
+
   if (role === "buyerSelf") {
     return "success" // Blue/primary color for "Lead"
   }
@@ -63,7 +61,7 @@ export function getRoleBadgeVariant(
   if (role === "buyersAgent") {
     return "secondary" // Purple/secondary color for "Agent"
   }
-  
+
   return "outline"
 }
 
@@ -71,7 +69,7 @@ export function formatAreYouInterested(
   interested: string | null | undefined,
 ): string {
   if (!interested) return "N/A"
-  
+
   // Map enum values to human-readable strings
   if (interested === "yesVeryInterested") {
     return "Yes, very interested"
@@ -85,7 +83,7 @@ export function formatAreYouInterested(
   if (interested === "maybe") {
     return "Maybe"
   }
-  
+
   // Fallback for any other values
   return interested
     .split(/(?=[A-Z])/)
@@ -159,4 +157,3 @@ export function formatMessageToAgent(data: any): React.JSX.Element | null {
     </div>
   )
 }
-

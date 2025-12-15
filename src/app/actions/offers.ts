@@ -234,9 +234,21 @@ import { OfferWithListing } from "@/types/offer"
 export async function getAllListings(): Promise<Listing[] | null> {
   const supabase = await createClient()
 
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    console.error("User not authenticated")
+    return null
+  }
+
+  // Only fetch listings created by the current user
   const { data: listings, error } = await supabase
     .from("listings")
     .select("*")
+    .eq("createdBy", user.id)
     .order("address", { ascending: true })
 
   if (!listings || error) {

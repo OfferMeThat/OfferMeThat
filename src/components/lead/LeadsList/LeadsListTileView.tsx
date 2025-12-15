@@ -39,8 +39,6 @@ const LeadsListTileView = ({
     return lead.listing?.address || "N/A"
   }
 
-
-
   if (!leads || leads.length === 0) {
     return (
       <EmptyState
@@ -175,4 +173,3 @@ const LeadsListTileView = ({
 }
 
 export default LeadsListTileView
-
