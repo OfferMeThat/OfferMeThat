@@ -123,22 +123,7 @@ export function transformFormDataToLead(
 
       default:
         // For any other question types, store in formData JSON field
-        // IMPORTANT: Never store submitterRole in formData - it has its own column
-        if (question.type === "submitterRole") {
-          // This should have been caught by the case above, but as a safeguard:
-          // Convert snake_case to camelCase to match database enum
-          let roleValue = value as string
-          if (roleValue === "buyer_self") {
-            roleValue = "buyerSelf"
-          } else if (roleValue === "buyer_with_agent") {
-            roleValue = "buyerWithAgent"
-          } else if (roleValue === "buyers_agent") {
-            roleValue = "buyersAgent"
-          }
-          lead.submitterRole = roleValue as Database["public"]["Enums"]["submitterRole"]
-          break
-        }
-        
+        // Note: submitterRole is already handled in the case above, so it won't reach here
         if (!lead.formData) {
           lead.formData = {}
         }

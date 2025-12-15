@@ -36,6 +36,15 @@ export const QUESTION_TYPE_TO_LABEL: Record<QuestionType, string> = {
   singleChoiceSelect: "Single Choice Select",
   multiChoiceSelect: "Multi Choice Select",
   statement: "Statement",
+  // Lead form question types
+  listingInterest: "Listing Interest",
+  name: "Name",
+  email: "Email Address",
+  tel: "Phone Number",
+  areYouInterested: "Are You Interested?",
+  followAllListings: "Follow All Listings?",
+  opinionOfSalePrice: "Opinion of Sale Price",
+  captureFinanceLeads: "Capture Finance Leads",
 }
 
 export type SetupQuestionOption = {
