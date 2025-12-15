@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
+import { QUESTION_DEFINITIONS as OFFER_QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
 import { currencyNames } from "@/constants/forms"
 import { getQuestionRequiredFromSetup } from "@/lib/questionHelpers"
 import { cn } from "@/lib/utils"
@@ -33,6 +33,7 @@ interface QuestionSetupFormProps {
   onCancel: () => void
   hideButtons?: boolean
   mode?: "add" | "edit"
+  questionDefinitions?: Partial<Record<QuestionType, any>>
 }
 
 const QuestionSetupForm = ({
@@ -43,6 +44,7 @@ const QuestionSetupForm = ({
   onCancel,
   hideButtons = false,
   mode = "add",
+  questionDefinitions = OFFER_QUESTION_DEFINITIONS,
 }: QuestionSetupFormProps) => {
   // Initialize setupConfig with defaults for offerAmount
   const initialConfig = useMemo(() => {
@@ -133,7 +135,7 @@ const QuestionSetupForm = ({
 
   // Validation function to check if setup is complete
   const validateSetup = useCallback(() => {
-    const definition = QUESTION_DEFINITIONS[questionType]
+    const definition = questionDefinitions[questionType]
     if (!definition?.setupQuestions) return true // No setup required
 
     // Check all visible setup questions
@@ -152,7 +154,16 @@ const QuestionSetupForm = ({
       const isRequired = (question as any).required !== false
       if (isRequired) {
         const value = setupConfig[question.id]
-        if (value === undefined || value === "" || value === null) {
+        // For multiChoiceSelect, check if array is empty
+        if (question.type === "multiChoiceSelect") {
+          if (
+            !Array.isArray(value) ||
+            value.length === 0
+          ) {
+            toast.error(`Please complete all required fields: ${question.label}`)
+            return false
+          }
+        } else if (value === undefined || value === "" || value === null) {
           toast.error(`Please complete all required fields: ${question.label}`)
           return false
         }
@@ -208,6 +219,30 @@ const QuestionSetupForm = ({
         }
       }
       finalConfig = offerAmountConfig
+    }
+
+    // For lead form questions, clean up conditional fields that aren't applicable
+    const definition = questionDefinitions[questionType]
+    if (definition?.setupQuestions) {
+      const cleanedConfig = { ...finalConfig } as Record<string, any>
+      
+      // Remove conditional fields that don't meet their dependencies
+      for (const setupQuestion of definition.setupQuestions) {
+        if (setupQuestion.dependsOn) {
+          const dependentValue = cleanedConfig[setupQuestion.dependsOn.questionId]
+          const requiredValue = setupQuestion.dependsOn.value
+          const isMet = Array.isArray(requiredValue)
+            ? requiredValue.includes(dependentValue)
+            : dependentValue === requiredValue
+          
+          if (!isMet && cleanedConfig[setupQuestion.id] !== undefined) {
+            // Remove the field if dependency is not met
+            delete cleanedConfig[setupQuestion.id]
+          }
+        }
+      }
+      
+      finalConfig = cleanedConfig
     }
 
     // For custom questions (except statement type), build uiConfig with label from question_text
@@ -269,7 +304,7 @@ const QuestionSetupForm = ({
     )
   }
 
-  const definition = QUESTION_DEFINITIONS[questionType]
+  const definition = questionDefinitions[questionType]
   if (!definition?.setupQuestions) {
     return (
       <div className="py-4 text-center text-sm text-gray-500">
@@ -391,6 +426,60 @@ const QuestionSetupForm = ({
                 }
                 placeholder={question.placeholder}
               />
+            )}
+
+            {/* Multi-choice select (checkboxes) */}
+            {question.type === "multiChoiceSelect" && question.options && (
+              <div className="space-y-2">
+                {question.options.map((option: any) => {
+                  const selectedValues =
+                    setupConfig[question.id] || ([] as string[])
+                  const isSelected = Array.isArray(selectedValues)
+                    ? selectedValues.includes(option.value)
+                    : false
+
+                  return (
+                    <div
+                      key={option.value}
+                      className="flex cursor-pointer items-start gap-3"
+                      onClick={() => {
+                        const currentValues =
+                          (setupConfig[question.id] as string[]) || []
+                        const newValues = isSelected
+                          ? currentValues.filter((v) => v !== option.value)
+                          : [...currentValues, option.value]
+                        handleConfigChange(question.id, newValues)
+                      }}
+                    >
+                      <div
+                        className={cn(
+                          "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-gray-300",
+                          isSelected && "border-blue-600 bg-blue-600",
+                        )}
+                      >
+                        {isSelected && (
+                          <svg
+                            className="h-3 w-3 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-700">
+                        {option.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
         )

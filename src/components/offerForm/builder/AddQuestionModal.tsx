@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
+import { QUESTION_DEFINITIONS as OFFER_QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
 import { cn } from "@/lib/utils"
 import { QuestionType } from "@/types/form"
 import { Check, ChevronLeft } from "lucide-react"
@@ -25,6 +25,7 @@ interface AddQuestionModalProps {
     uiConfig?: Record<string, any>,
   ) => void
   existingQuestionTypes: QuestionType[]
+  questionDefinitions?: Partial<Record<QuestionType, any>>
 }
 
 const AddQuestionModal = ({
@@ -32,6 +33,7 @@ const AddQuestionModal = ({
   onOpenChange,
   onAddQuestion,
   existingQuestionTypes,
+  questionDefinitions = OFFER_QUESTION_DEFINITIONS,
 }: AddQuestionModalProps) => {
   const [selectedType, setSelectedType] = useState<QuestionType | null>(null)
   const [wizardStep, setWizardStep] = useState<"selection" | "setup">(
@@ -45,7 +47,7 @@ const AddQuestionModal = ({
   const handleNext = () => {
     if (!selectedType) return
 
-    const definition = QUESTION_DEFINITIONS[selectedType]
+    const definition = questionDefinitions[selectedType]
     if (definition?.setupQuestions && definition.setupQuestions.length > 0) {
       setWizardStep("setup")
     } else {
@@ -55,15 +57,20 @@ const AddQuestionModal = ({
     }
   }
 
-  const handleAddWithConfig = (config: Record<string, any>, uiConfig?: Record<string, any>, requiredOverride?: boolean) => {
+  const handleAddWithConfig = (
+    config: Record<string, any>,
+    uiConfig?: Record<string, any>,
+    requiredOverride?: boolean,
+  ) => {
     if (selectedType) {
       // If requiredOverride is provided, we need to pass it somehow
       // Since onAddQuestion doesn't have a required parameter, we'll need to update it
       // For now, let's add it to the config object
-      const finalConfig = requiredOverride !== undefined 
-        ? { ...config, __requiredOverride: requiredOverride }
-        : config
-      
+      const finalConfig =
+        requiredOverride !== undefined
+          ? { ...config, __requiredOverride: requiredOverride }
+          : config
+
       onAddQuestion(selectedType, finalConfig, uiConfig)
       handleClose()
     }
@@ -94,7 +101,7 @@ const AddQuestionModal = ({
 
       <div className="flex-1 overflow-y-auto px-4">
         <div className="space-y-2 divide-y divide-gray-200 py-2">
-          {Object.entries(QUESTION_DEFINITIONS).map(([type, details]) => {
+          {Object.entries(questionDefinitions).map(([type, details]) => {
             const questionType = type as QuestionType
             // Allow unlimited custom questions, but only one of each other type
             const isOnForm =
@@ -143,7 +150,7 @@ const AddQuestionModal = ({
         <Button variant="outline" onClick={handleClose}>
           Cancel
         </Button>
-        <Button onClick={handleNext} disabled={!selectedType}>
+        <Button variant="default" onClick={handleNext} disabled={!selectedType}>
           Add Question
         </Button>
       </DialogFooter>
@@ -153,7 +160,7 @@ const AddQuestionModal = ({
   const renderSetupStep = () => {
     if (!selectedType) return null
 
-    const definition = QUESTION_DEFINITIONS[selectedType]
+    const definition = questionDefinitions[selectedType]
     if (!definition?.setupQuestions) return null
 
     return (
@@ -162,6 +169,11 @@ const AddQuestionModal = ({
           <DialogTitle className="text-xl font-semibold">
             Question Setup: {definition.label}
           </DialogTitle>
+          {definition.setupDescription && (
+            <p className="mt-2 text-sm font-medium">
+              {definition.setupDescription}
+            </p>
+          )}
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -171,6 +183,7 @@ const AddQuestionModal = ({
             onCancel={handleBack}
             hideButtons={true}
             mode="add"
+            questionDefinitions={questionDefinitions}
           />
         </div>
 
@@ -180,6 +193,7 @@ const AddQuestionModal = ({
             Back
           </Button>
           <Button
+            variant="default"
             onClick={() => {
               // Trigger the save from QuestionSetupForm
               const event = new CustomEvent("smartQuestionSave")

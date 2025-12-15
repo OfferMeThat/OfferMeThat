@@ -28,8 +28,8 @@ const navigationLinks = [
     items: [
       { name: "My Offer Form", href: "/offer-form", icon: FormInputIcon },
       { name: "My Offers", href: "/offers", icon: FileText },
-      { name: "My Lead Form", href: "/to-be-implemented", icon: Edit },
-      { name: "My Leads", href: "/to-be-implemented", icon: Target },
+      { name: "My Lead Form", href: "/lead-form", icon: Edit },
+      { name: "My Leads", href: "/leads", icon: Target },
       { name: "My Listings", href: "/", icon: Layers },
       {
         name: "Message Centre",

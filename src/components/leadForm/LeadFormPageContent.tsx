@@ -5,13 +5,13 @@ import {
   getFormOwnerProfilePicture,
   getFormPages,
   getFormQuestions,
-  getOrCreateOfferForm,
+  getOrCreateLeadForm,
   saveBrandingConfig,
-} from "@/app/actions/offerForm"
+} from "@/app/actions/leadForm"
 import { createClient } from "@/lib/supabase/client"
 import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { Database } from "@/types/supabase"
-import { Copy, Download, ExternalLink, ShieldCheck } from "lucide-react"
+import { Copy, Download, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { QRCodeSVG } from "qrcode.react"
 import { useEffect, useState } from "react"
@@ -19,18 +19,18 @@ import { toast } from "sonner"
 import Heading from "../shared/typography/Heading"
 import { Button } from "../ui/button"
 import { Spinner } from "../ui/spinner"
-import { QUESTION_TYPE_TO_LABEL } from "@/constants/offerFormQuestions"
-import { buildFormValidationSchema } from "@/lib/offerFormValidation"
-import BrandingModal from "./BrandingModal"
+import { QUESTION_TYPE_TO_LABEL } from "@/constants/leadFormQuestions"
+import { buildFormValidationSchema } from "@/lib/leadFormValidation"
+import BrandingModal from "../offerForm/BrandingModal"
 import { FormPreview } from "../shared/FormPreview"
 
-type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
-type Page = Database["public"]["Tables"]["offerFormPages"]["Row"]
+type Question = Database["public"]["Tables"]["leadFormQuestions"]["Row"]
+type Page = Database["public"]["Tables"]["leadFormPages"]["Row"]
 
-const OfferFormPageContent = () => {
+const LeadFormPageContent = () => {
   const [username, setUsername] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [offerLink, setOfferLink] = useState("")
+  const [leadLink, setLeadLink] = useState("")
   const [questions, setQuestions] = useState<Question[]>([])
   const [pages, setPages] = useState<Page[]>([])
   const [formLoading, setFormLoading] = useState(true)
@@ -61,7 +61,7 @@ const OfferFormPageContent = () => {
         if (profile?.username) {
           setUsername(profile.username)
           const domain = window.location.origin
-          setOfferLink(`${domain}/${profile.username}`)
+          setLeadLink(`${domain}/updates/${profile.username}`)
         }
         if (profile?.fullName) {
           setProfileName(profile.fullName)
@@ -76,7 +76,7 @@ const OfferFormPageContent = () => {
   useEffect(() => {
     const fetchFormData = async () => {
       try {
-        const id = await getOrCreateOfferForm()
+        const id = await getOrCreateLeadForm()
         setFormId(id)
         const [
           fetchedQuestions,
@@ -105,12 +105,12 @@ const OfferFormPageContent = () => {
   }, [])
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(offerLink)
+    navigator.clipboard.writeText(leadLink)
     toast.success("Link copied to clipboard!")
   }
 
   const handleDownloadQR = () => {
-    const svg = document.getElementById("qr-code")
+    const svg = document.getElementById("lead-qr-code")
     if (!svg) return
 
     const svgData = new XMLSerializer().serializeToString(svg)
@@ -125,7 +125,7 @@ const OfferFormPageContent = () => {
       const pngFile = canvas.toDataURL("image/png")
 
       const downloadLink = document.createElement("a")
-      downloadLink.download = `offer-qr-${username}.png`
+      downloadLink.download = `lead-qr-${username}.png`
       downloadLink.href = pngFile
       downloadLink.click()
       toast.success("QR code downloaded!")
@@ -147,7 +147,7 @@ const OfferFormPageContent = () => {
       <main className="px-6 py-8">
         <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
           <p className="text-gray-600">
-            Please set up your username in account settings to create your offer
+            Please set up your username in account settings to create your lead
             link.
           </p>
           <Link href="/settings">
@@ -162,16 +162,16 @@ const OfferFormPageContent = () => {
     <main className="px-6 py-8">
       <div className="mb-6">
         <Heading as="h1" size="large" weight="bold" className="text-teal-500">
-          My Offers
+          My Lead Form
         </Heading>
         <p className="text-md font-medium opacity-75">
-          Share your offer link with buyers
+          Share your lead form link with potential buyers
         </p>
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
         <h2 className="mb-6 text-xl font-bold text-gray-900">
-          Share your Offer Link or QR code with buyers to get offers:
+          Share your Lead Form Link or QR code with buyers to get leads:
         </h2>
 
         <div className="flex flex-wrap justify-between gap-12">
@@ -179,7 +179,7 @@ const OfferFormPageContent = () => {
             <div>
               <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-4 py-3">
                 <span className="flex-1 truncate font-medium text-gray-900">
-                  {offerLink}
+                  {leadLink}
                 </span>
                 <Button
                   size="sm"
@@ -207,22 +207,10 @@ const OfferFormPageContent = () => {
                 <span className="text-sm text-gray-700">
                   Want to see it in action?
                 </span>
-                <Link href={`/${username}?test=true`} target="_blank">
+                <Link href={`/updates/${username}?test=true`} target="_blank">
                   <Button className="w-38 gap-2">
                     <ExternalLink className="h-4 w-4" />
                     Test it out!
-                  </Button>
-                </Link>
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm text-gray-700">
-                  Have an existing Offer you want to verify?
-                </span>
-                <Link href="/verify-offer">
-                  <Button className="w-38 gap-2">
-                    <ShieldCheck className="h-4 w-4" />
-                    Verify an Offer
                   </Button>
                 </Link>
               </div>
@@ -232,8 +220,8 @@ const OfferFormPageContent = () => {
           <div className="mx-auto flex flex-col items-center justify-center space-y-4">
             <div className="rounded-lg border-4 border-gray-200 bg-white p-4">
               <QRCodeSVG
-                id="qr-code"
-                value={offerLink}
+                id="lead-qr-code"
+                value={leadLink}
                 size={200}
                 level="H"
                 includeMargin={true}
@@ -252,12 +240,12 @@ const OfferFormPageContent = () => {
 
       <div className="mt-8">
         <h2 className="mb-2 text-xl font-bold text-gray-900">
-          Here is a preview of your Offer Form.
+          Here is a preview of your Lead Form.
         </h2>
         <p className="text-sm text-gray-600">
           Customize the questions by clicking{" "}
           <Link
-            href="/offer-form/builder"
+            href="/lead-form/builder"
             className="font-medium text-teal-500 hover:text-teal-700"
           >
             here
@@ -298,13 +286,13 @@ const OfferFormPageContent = () => {
               questions={questions}
               pages={pages}
               isLoading={formLoading}
-              title={`Submit an Offer to ${profileName}`}
-              description="Please provide details about your offer"
+              title={`Register for Updates from ${profileName}`}
+              description="Please provide your details to receive updates"
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}
               questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
               buildValidationSchema={buildFormValidationSchema as any}
-              formType="offer"
+              formType="lead"
             />
           </div>
         </div>
@@ -333,4 +321,5 @@ const OfferFormPageContent = () => {
   )
 }
 
-export default OfferFormPageContent
+export default LeadFormPageContent
+

@@ -31,7 +31,7 @@ export type SelectionActionBarProps = {
   onClearSelection?: () => void
   statusOptions?: Array<{ value: string; label: string }>
   statusLabel?: string
-  itemType?: "offers" | "listings"
+  itemType?: "offers" | "listings" | "leads"
   showMessageButton?: boolean
   onAssignToListing?: (listingId: string) => Promise<void>
   listings?: Array<{ id: string; address: string }>
@@ -231,7 +231,7 @@ const SelectionActionBar = ({
             <AlertDialogTitle>Assign to Listing</AlertDialogTitle>
             <AlertDialogDescription>
               Select a listing to assign {selectedCount}{" "}
-              {selectedCount === 1 ? "offer" : "offers"} to.
+              {selectedCount === 1 ? itemType.slice(0, -1) : itemType} to.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">

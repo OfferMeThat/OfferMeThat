@@ -14,6 +14,233 @@ export type Database = {
   }
   public: {
     Tables: {
+      leadFormPages: {
+        Row: {
+          breakIndex: number | null
+          createdAt: string
+          description: string | null
+          formId: string
+          id: string
+          order: number
+          title: string
+        }
+        Insert: {
+          breakIndex?: number | null
+          createdAt?: string
+          description?: string | null
+          formId: string
+          id?: string
+          order: number
+          title: string
+        }
+        Update: {
+          breakIndex?: number | null
+          createdAt?: string
+          description?: string | null
+          formId?: string
+          id?: string
+          order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leadFormPages_formId_fkey"
+            columns: ["formId"]
+            isOneToOne: false
+            referencedRelation: "leadForms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leadFormQuestions: {
+        Row: {
+          createdAt: string
+          formId: string
+          id: string
+          order: number
+          pageId: string | null
+          required: boolean
+          setupConfig: Json | null
+          type: Database["public"]["Enums"]["questionType"]
+          uiConfig: Json | null
+        }
+        Insert: {
+          createdAt?: string
+          formId: string
+          id?: string
+          order: number
+          pageId?: string | null
+          required?: boolean
+          setupConfig?: Json | null
+          type: Database["public"]["Enums"]["questionType"]
+          uiConfig?: Json | null
+        }
+        Update: {
+          createdAt?: string
+          formId?: string
+          id?: string
+          order?: number
+          pageId?: string | null
+          required?: boolean
+          setupConfig?: Json | null
+          type?: Database["public"]["Enums"]["questionType"]
+          uiConfig?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leadFormQuestions_formId_fkey"
+            columns: ["formId"]
+            isOneToOne: false
+            referencedRelation: "leadForms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leadFormQuestions_pageId_fkey"
+            columns: ["pageId"]
+            isOneToOne: false
+            referencedRelation: "leadFormPages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leadForms: {
+        Row: {
+          brandingConfig: Json | null
+          createdAt: string
+          id: string
+          ownerId: string
+        }
+        Insert: {
+          brandingConfig?: Json | null
+          createdAt?: string
+          id?: string
+          ownerId: string
+        }
+        Update: {
+          brandingConfig?: Json | null
+          createdAt?: string
+          id?: string
+          ownerId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leadForms_ownerId_fkey"
+            columns: ["ownerId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          agentCompany: string | null
+          areYouInterested:
+            | Database["public"]["Enums"]["areYouInterested"]
+            | null
+          buyerAgentCompany: string | null
+          buyerAgentEmail: string | null
+          buyerAgentName: string | null
+          createdAt: string
+          customListingAddress: string | null
+          customQuestionsData: Json | null
+          financeInterest: Database["public"]["Enums"]["financeInterest"] | null
+          followAllListings:
+            | Database["public"]["Enums"]["followAllListings"]
+            | null
+          formData: Json | null
+          formId: string | null
+          id: string
+          listingId: string | null
+          messageToAgent: Json | null
+          opinionOfSalePrice: string | null
+          submitterEmail: string | null
+          submitterFirstName: string | null
+          submitterLastName: string | null
+          submitterPhone: string | null
+          submitterRole: Database["public"]["Enums"]["submitterRole"] | null
+          termsAccepted: boolean | null
+          updatedAt: string | null
+        }
+        Insert: {
+          agentCompany?: string | null
+          areYouInterested?:
+            | Database["public"]["Enums"]["areYouInterested"]
+            | null
+          buyerAgentCompany?: string | null
+          buyerAgentEmail?: string | null
+          buyerAgentName?: string | null
+          createdAt?: string
+          customListingAddress?: string | null
+          customQuestionsData?: Json | null
+          financeInterest?:
+            | Database["public"]["Enums"]["financeInterest"]
+            | null
+          followAllListings?:
+            | Database["public"]["Enums"]["followAllListings"]
+            | null
+          formData?: Json | null
+          formId?: string | null
+          id?: string
+          listingId?: string | null
+          messageToAgent?: Json | null
+          opinionOfSalePrice?: string | null
+          submitterEmail?: string | null
+          submitterFirstName?: string | null
+          submitterLastName?: string | null
+          submitterPhone?: string | null
+          submitterRole?: Database["public"]["Enums"]["submitterRole"] | null
+          termsAccepted?: boolean | null
+          updatedAt?: string | null
+        }
+        Update: {
+          agentCompany?: string | null
+          areYouInterested?:
+            | Database["public"]["Enums"]["areYouInterested"]
+            | null
+          buyerAgentCompany?: string | null
+          buyerAgentEmail?: string | null
+          buyerAgentName?: string | null
+          createdAt?: string
+          customListingAddress?: string | null
+          customQuestionsData?: Json | null
+          financeInterest?:
+            | Database["public"]["Enums"]["financeInterest"]
+            | null
+          followAllListings?:
+            | Database["public"]["Enums"]["followAllListings"]
+            | null
+          formData?: Json | null
+          formId?: string | null
+          id?: string
+          listingId?: string | null
+          messageToAgent?: Json | null
+          opinionOfSalePrice?: string | null
+          submitterEmail?: string | null
+          submitterFirstName?: string | null
+          submitterLastName?: string | null
+          submitterPhone?: string | null
+          submitterRole?: Database["public"]["Enums"]["submitterRole"] | null
+          termsAccepted?: boolean | null
+          updatedAt?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_formId_fkey"
+            columns: ["formId"]
+            isOneToOne: false
+            referencedRelation: "leadForms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_listingId_fkey"
+            columns: ["listingId"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       listings: {
         Row: {
           address: string
@@ -334,7 +561,11 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      areYouInterested: "yesVeryInterested" | "yes" | "no" | "maybe"
       buyerType: "buyer" | "agent" | "affiliate"
+      financeInterest: "yes" | "no"
+      financeSetup: "referralPartner" | "selfManage"
+      followAllListings: "thisAndFuture" | "thisOnly"
       listingStatus:
         | "forSale"
         | "underContract"
@@ -379,6 +610,15 @@ export type Database = {
         | "singleChoiceSelect"
         | "multiChoiceSelect"
         | "statement"
+        | "listingInterest"
+        | "areYouInterested"
+        | "followAllListings"
+        | "opinionOfSalePrice"
+        | "captureFinanceLeads"
+        | "name"
+        | "email"
+        | "tel"
+      submitterRole: "buyerSelf" | "buyerWithAgent" | "buyersAgent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -506,7 +746,11 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      areYouInterested: ["yesVeryInterested", "yes", "no", "maybe"],
       buyerType: ["buyer", "agent", "affiliate"],
+      financeInterest: ["yes", "no"],
+      financeSetup: ["referralPartner", "selfManage"],
+      followAllListings: ["thisAndFuture", "thisOnly"],
       listingStatus: [
         "forSale",
         "underContract",
@@ -553,7 +797,16 @@ export const Constants = {
         "singleChoiceSelect",
         "multiChoiceSelect",
         "statement",
+        "listingInterest",
+        "areYouInterested",
+        "followAllListings",
+        "opinionOfSalePrice",
+        "captureFinanceLeads",
+        "name",
+        "email",
+        "tel",
       ],
+      submitterRole: ["buyerSelf", "buyerWithAgent", "buyersAgent"],
     },
   },
 } as const

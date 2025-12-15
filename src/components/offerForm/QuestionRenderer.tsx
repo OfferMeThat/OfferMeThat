@@ -786,18 +786,30 @@ export const QuestionRenderer = ({
 
   // Submitter Role - Use Select with proper options
   if (question.type === "submitterRole") {
+    // Convert camelCase (from database) to snake_case (for Select component)
+    const normalizeValueForSelect = (
+      val: string | null | undefined,
+    ): string => {
+      if (!val) return ""
+      if (val === "buyerSelf") return "buyer_self"
+      if (val === "buyerWithAgent") return "buyer_with_agent"
+      if (val === "buyersAgent") return "buyers_agent"
+      // If already in snake_case, return as is
+      return val
+    }
+
+    const selectValue = normalizeValueForSelect(value as string)
+
     return (
       <div>
-        <Select
-          disabled={disabled}
-          value={editingMode ? "" : (value as string) || ""}
-          onValueChange={(val) => {
-            if (!editingMode) {
+        <div className="relative max-w-md">
+          <Select
+            disabled={disabled}
+            value={selectValue}
+            onValueChange={(val) => {
               onChange?.(val)
-            }
-          }}
-        >
-          <div className="relative max-w-md">
+            }}
+          >
             <SelectTrigger
               className={cn("w-full")}
               style={getSelectStyle()}
@@ -807,23 +819,19 @@ export const QuestionRenderer = ({
                 placeholder={uiConfig.placeholder || "Select your role..."}
               />
             </SelectTrigger>
-            {renderEditOverlay(
-              "placeholder",
-              uiConfig.placeholder || "Select your role...",
-            )}
-          </div>
-          <SelectContent>
-            <SelectItem value="buyer_self">
-              I am a Buyer representing myself
-            </SelectItem>
-            <SelectItem value="buyer_with_agent">
-              I am a Buyer and I have an Agent
-            </SelectItem>
-            <SelectItem value="buyers_agent">
-              I&apos;m a Buyers&apos; Agent representing a Buyer
-            </SelectItem>
-          </SelectContent>
-        </Select>
+            <SelectContent>
+              <SelectItem value="buyer_self">
+                I am a Buyer representing myself
+              </SelectItem>
+              <SelectItem value="buyer_with_agent">
+                I am a Buyer and I have an Agent
+              </SelectItem>
+              <SelectItem value="buyers_agent">
+                I&apos;m a Buyers&apos; Agent representing a Buyer
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         {renderError(error)}
       </div>
     )
@@ -2693,7 +2701,10 @@ export const QuestionRenderer = ({
 
   // Message to Agent
   if (question.type === "messageToAgent") {
-    const allowAttachments = setupConfig.allow_attachments === "yes"
+    // Check both allow_attachments (offer form) and allowAttachments (lead form)
+    const allowAttachments =
+      setupConfig.allow_attachments === "yes" ||
+      setupConfig.allowAttachments === "yes"
     const attachmentData = fileUploads[
       `${question.id}_message_attachments`
     ] || {
@@ -2834,6 +2845,354 @@ export const QuestionRenderer = ({
             )}
           </div>
         )}
+      </div>
+    )
+  }
+
+  // Lead Form Questions
+
+  // Listing Interest
+  if (question.type === "listingInterest") {
+    return (
+      <div>
+        <div className="relative max-w-md">
+          <Input
+            type="text"
+            placeholder={uiConfig.placeholder || "Specify the listing here..."}
+            disabled={disabled}
+            className="w-full"
+            style={getInputStyle()}
+            value={(value as string) || ""}
+            onChange={(e) => {
+              onChange?.(e.target.value)
+            }}
+            onBlur={onBlur}
+            data-field-id={question.id}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Specify the listing here...",
+          )}
+        </div>
+        {renderError(error)}
+      </div>
+    )
+  }
+
+  // Name (Lead Form)
+  if (question.type === "name") {
+    const nameValue = (value as { firstName?: string; lastName?: string }) || {}
+    return (
+      <div>
+        <div className="flex max-w-md gap-2">
+          <div className="relative flex-1">
+            <Input
+              type="text"
+              placeholder={uiConfig.placeholder || "Enter your first name"}
+              disabled={disabled}
+              className="w-full"
+              style={getInputStyle()}
+              value={nameValue.firstName || ""}
+              onChange={(e) => {
+                onChange?.({
+                  ...nameValue,
+                  firstName: e.target.value,
+                })
+              }}
+              onBlur={onBlur}
+              data-field-id={question.id}
+            />
+            {renderEditOverlay(
+              "placeholder",
+              uiConfig.placeholder || "Enter your first name",
+            )}
+          </div>
+          <div className="relative flex-1">
+            <Input
+              type="text"
+              placeholder="Enter your last name"
+              disabled={disabled}
+              className="w-full"
+              style={getInputStyle()}
+              value={nameValue.lastName || ""}
+              onChange={(e) => {
+                onChange?.({
+                  ...nameValue,
+                  lastName: e.target.value,
+                })
+              }}
+              onBlur={onBlur}
+              data-field-id={`${question.id}_lastName`}
+            />
+          </div>
+        </div>
+        {renderError(error)}
+      </div>
+    )
+  }
+
+  // Email (Lead Form)
+  if (question.type === "email") {
+    return (
+      <div>
+        <div className="relative max-w-md">
+          <Input
+            type="email"
+            placeholder={uiConfig.placeholder || "example@email.com"}
+            disabled={disabled}
+            className="w-full"
+            style={getInputStyle()}
+            value={(value as string) || ""}
+            onChange={(e) => {
+              onChange?.(e.target.value)
+            }}
+            onBlur={onBlur}
+            data-field-id={question.id}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "example@email.com",
+          )}
+        </div>
+        {renderError(error)}
+      </div>
+    )
+  }
+
+  // Tel (Lead Form)
+  if (question.type === "tel") {
+    // Handle both string (legacy) and object (new format) values
+    const phoneValue =
+      typeof value === "object" && value !== null && "countryCode" in value
+        ? value
+        : (value as string) || { countryCode: "+1", number: "" }
+
+    return (
+      <div>
+        <div className="relative max-w-md">
+          <PhoneInput
+            value={phoneValue}
+            onChange={(newValue) => {
+              onChange?.(newValue)
+            }}
+            onBlur={onBlur}
+            disabled={disabled}
+            editingMode={false}
+            placeholder={uiConfig.placeholder || "555-123-4567"}
+            className="w-full"
+            style={getInputStyle()}
+            data-field-id={question.id}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Enter your phone number",
+          )}
+        </div>
+        {renderError(error)}
+      </div>
+    )
+  }
+
+  // Are You Interested?
+  if (question.type === "areYouInterested") {
+    // Get selected options from setupConfig
+    const selectedOptions = (setupConfig.options as string[]) || []
+    // Map to option labels
+    const optionLabels: Record<string, string> = {
+      yesVeryInterested: "Yes, very interested",
+      yes: "Yes",
+      no: "No",
+      maybe: "Maybe",
+    }
+
+    // Filter to only show selected options
+    const availableOptions = selectedOptions
+      .map((opt) => ({
+        value: opt,
+        label: optionLabels[opt] || opt,
+      }))
+      .filter((opt) => opt.label)
+
+    if (availableOptions.length === 0) {
+      // Fallback if no options configured
+      return (
+        <div>
+          <div className="relative max-w-md">
+            <Select
+              disabled={disabled}
+              value={(value as string) || ""}
+              onValueChange={(val) => onChange?.(val)}
+            >
+              <SelectTrigger className="w-full" style={getSelectStyle()}>
+                <SelectValue placeholder="Select an option..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">Yes</SelectItem>
+                <SelectItem value="no">No</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {renderError(error)}
+        </div>
+      )
+    }
+
+    return (
+      <div>
+        <div className="relative max-w-md">
+          <Select
+            disabled={disabled}
+            value={(value as string) || ""}
+            onValueChange={(val) => {
+              onChange?.(val)
+            }}
+          >
+            <SelectTrigger
+              className="w-full"
+              style={getSelectStyle()}
+              data-field-id={question.id}
+            >
+              <SelectValue
+                placeholder={uiConfig.placeholder || "Select an option..."}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {availableOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {renderError(error)}
+      </div>
+    )
+  }
+
+  // Follow All Listings?
+  if (question.type === "followAllListings") {
+    return (
+      <div>
+        <div className="relative max-w-md">
+          <Select
+            disabled={disabled}
+            value={(value as string) || ""}
+            onValueChange={(val) => {
+              onChange?.(val)
+            }}
+          >
+            <SelectTrigger
+              className="w-full"
+              style={getSelectStyle()}
+              data-field-id={question.id}
+            >
+              <SelectValue
+                placeholder={uiConfig.placeholder || "Select an option..."}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="thisAndFuture">
+                Yes, follow this listing and all future listings
+              </SelectItem>
+              <SelectItem value="thisOnly">
+                Yes, follow this listing only
+              </SelectItem>
+              <SelectItem value="no">No</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {renderError(error)}
+      </div>
+    )
+  }
+
+  // Opinion of Sale Price
+  if (question.type === "opinionOfSalePrice") {
+    const answerType = setupConfig.answerType || "text"
+
+    if (answerType === "number") {
+      return (
+        <div>
+          <div className="relative max-w-md">
+            <Input
+              type="number"
+              placeholder={uiConfig.placeholder || "Enter a number"}
+              disabled={disabled}
+              className="w-full"
+              style={getInputStyle()}
+              value={(value as string) || ""}
+              onChange={(e) => {
+                onChange?.(e.target.value)
+              }}
+              onBlur={onBlur}
+              data-field-id={question.id}
+            />
+            {renderEditOverlay(
+              "placeholder",
+              uiConfig.placeholder || "Enter a number",
+            )}
+          </div>
+          {renderError(error)}
+        </div>
+      )
+    }
+
+    // Default to text
+    return (
+      <div>
+        <div className="relative max-w-md">
+          <Input
+            type="text"
+            placeholder={uiConfig.placeholder || "Enter your opinion"}
+            disabled={disabled}
+            className="w-full"
+            style={getInputStyle()}
+            value={(value as string) || ""}
+            onChange={(e) => {
+              onChange?.(e.target.value)
+            }}
+            onBlur={onBlur}
+            data-field-id={question.id}
+          />
+          {renderEditOverlay(
+            "placeholder",
+            uiConfig.placeholder || "Enter your opinion",
+          )}
+        </div>
+        {renderError(error)}
+      </div>
+    )
+  }
+
+  // Capture Finance Leads
+  if (question.type === "captureFinanceLeads") {
+    return (
+      <div>
+        <div className="relative max-w-md">
+          <Select
+            disabled={disabled}
+            value={(value as string) || ""}
+            onValueChange={(val) => {
+              onChange?.(val)
+            }}
+          >
+            <SelectTrigger
+              className="w-full"
+              style={getSelectStyle()}
+              data-field-id={question.id}
+            >
+              <SelectValue
+                placeholder={uiConfig.placeholder || "Select an option..."}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="yes">Yes</SelectItem>
+              <SelectItem value="no">No</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {renderError(error)}
       </div>
     )
   }

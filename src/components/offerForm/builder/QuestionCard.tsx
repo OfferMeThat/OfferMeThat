@@ -4,9 +4,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
-  QUESTION_DEFINITIONS,
-  QUESTION_TYPE_TO_LABEL,
-  REQUIRED_QUESTION_TYPES,
+  QUESTION_DEFINITIONS as OFFER_QUESTION_DEFINITIONS,
+  QUESTION_TYPE_TO_LABEL as OFFER_QUESTION_TYPE_TO_LABEL,
+  REQUIRED_QUESTION_TYPES as OFFER_REQUIRED_QUESTION_TYPES,
 } from "@/constants/offerFormQuestions"
 import {
   parseUIConfig,
@@ -32,6 +32,9 @@ interface QuestionCardProps {
   onMoveDown: () => void
   onDelete: () => void
   onUpdateQuestion: (questionId: string, updates: any) => void
+  questionDefinitions?: Partial<Record<string, any>>
+  questionTypeToLabel?: Record<string, string>
+  requiredQuestionTypes?: string[]
 }
 
 const QuestionCard = ({
@@ -43,6 +46,9 @@ const QuestionCard = ({
   onMoveDown,
   onDelete,
   onUpdateQuestion,
+  questionDefinitions = OFFER_QUESTION_DEFINITIONS,
+  questionTypeToLabel = OFFER_QUESTION_TYPE_TO_LABEL,
+  requiredQuestionTypes = OFFER_REQUIRED_QUESTION_TYPES,
 }: QuestionCardProps) => {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editQuestionModalOpen, setEditQuestionModalOpen] = useState(false)
@@ -55,11 +61,13 @@ const QuestionCard = ({
     text: string
     type: "label" | "placeholder"
   } | null>(null)
+  // Local state to track form field values for interactive preview
+  const [formValues, setFormValues] = useState<Record<string, any>>({})
   // Get UI configuration from uiConfig JSONB field - use standardized type
   const uiConfig = parseUIConfig(question.uiConfig)
 
   // Get question definition for description
-  const questionDefinition = QUESTION_DEFINITIONS[question.type]
+  const questionDefinition = questionDefinitions[question.type]
 
   const questionNumber = question.order
   const totalQuestions = questionsAmount
@@ -289,7 +297,7 @@ const QuestionCard = ({
   }
 
   // Determine if this is an essential question (cannot be modified)
-  const isEssential = REQUIRED_QUESTION_TYPES.includes(question.type)
+  const isEssential = requiredQuestionTypes.includes(question.type)
 
   // Determine if this question is locked in position
   const isLockedInPosition =
@@ -405,7 +413,7 @@ const QuestionCard = ({
         <div className="flex flex-1 flex-col gap-3">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold tracking-wide text-gray-500 uppercase">
-              {QUESTION_TYPE_TO_LABEL[question.type]}
+              {questionTypeToLabel[question.type]}
             </h3>
             {isEssential && (
               <Badge size="xs" variant="destructiveLight" className="text-xs">
@@ -428,6 +436,13 @@ const QuestionCard = ({
               question={question}
               disabled={false}
               editingMode={true}
+              value={formValues[question.id]}
+              onChange={(value) => {
+                setFormValues((prev) => ({
+                  ...prev,
+                  [question.id]: value,
+                }))
+              }}
               onUpdateQuestion={onUpdateQuestion}
               onEditPlaceholder={handlePlaceholderEdit}
               onEditLabel={handleLabelEdit}
@@ -508,6 +523,7 @@ const QuestionCard = ({
           onOpenChange={setEditQuestionModalOpen}
           question={question}
           onUpdateQuestion={onUpdateQuestion}
+          questionDefinitions={questionDefinitions}
         />
 
         {/* Essential Question Modal */}
@@ -517,7 +533,7 @@ const QuestionCard = ({
             setEssentialQuestionModal({ isOpen: false, action: "delete" })
           }
           action={essentialQuestionModal.action}
-          questionType={QUESTION_TYPE_TO_LABEL[question.type] || question.type}
+          questionType={questionTypeToLabel[question.type] || question.type}
         />
       </div>
     </>
