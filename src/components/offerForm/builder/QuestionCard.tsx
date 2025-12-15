@@ -61,6 +61,8 @@ const QuestionCard = ({
     text: string
     type: "label" | "placeholder"
   } | null>(null)
+  // Local state to track form field values for interactive preview
+  const [formValues, setFormValues] = useState<Record<string, any>>({})
   // Get UI configuration from uiConfig JSONB field - use standardized type
   const uiConfig = parseUIConfig(question.uiConfig)
 
@@ -434,6 +436,13 @@ const QuestionCard = ({
               question={question}
               disabled={false}
               editingMode={true}
+              value={formValues[question.id]}
+              onChange={(value) => {
+                setFormValues((prev) => ({
+                  ...prev,
+                  [question.id]: value,
+                }))
+              }}
               onUpdateQuestion={onUpdateQuestion}
               onEditPlaceholder={handlePlaceholderEdit}
               onEditLabel={handleLabelEdit}
