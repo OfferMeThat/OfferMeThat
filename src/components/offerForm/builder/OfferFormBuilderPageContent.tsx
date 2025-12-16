@@ -28,17 +28,17 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import {
+  QUESTION_DEFINITIONS,
+  QUESTION_TYPE_TO_LABEL,
+  REQUIRED_QUESTION_TYPES,
+} from "@/constants/offerFormQuestions"
 import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
 import Link from "next/link"
 import { useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
-import {
-  QUESTION_DEFINITIONS,
-  QUESTION_TYPE_TO_LABEL,
-  REQUIRED_QUESTION_TYPES,
-} from "@/constants/offerFormQuestions"
 import { OfferFormInteractiveView } from "../OfferFormInteractiveView"
 import AddQuestionModal from "./AddQuestionModal"
 import PageBreak from "./PageBreak"
@@ -483,7 +483,7 @@ const OfferFormBuilderPageContent = () => {
 
   return (
     <>
-      <div className="flex items-center justify-between border-b bg-white px-6 py-6">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-6 border-b bg-white px-6 pt-14 pb-6 lg:py-6">
         <div>
           <Heading as="h1" size="large" weight="bold">
             {viewMode === "builder" ? "Customize Offer Form" : "Form Preview"}

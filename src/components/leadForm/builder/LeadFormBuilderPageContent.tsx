@@ -28,23 +28,23 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import {
+  LEAD_FORM_ADD_QUESTION_DEFINITIONS,
+  QUESTION_DEFINITIONS,
+  QUESTION_TYPE_TO_LABEL,
+  REQUIRED_QUESTION_TYPES,
+} from "@/constants/leadFormQuestions"
+import { buildFormValidationSchema } from "@/lib/leadFormValidation"
 import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
 import Link from "next/link"
 import { useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
-import { FormPreview } from "../../shared/FormPreview"
-import {
-  QUESTION_TYPE_TO_LABEL,
-  QUESTION_DEFINITIONS,
-  REQUIRED_QUESTION_TYPES,
-  LEAD_FORM_ADD_QUESTION_DEFINITIONS,
-} from "@/constants/leadFormQuestions"
-import { buildFormValidationSchema } from "@/lib/leadFormValidation"
 import AddQuestionModal from "../../offerForm/builder/AddQuestionModal"
 import PageBreak from "../../offerForm/builder/PageBreak"
 import QuestionCard from "../../offerForm/builder/QuestionCard"
+import { FormPreview } from "../../shared/FormPreview"
 
 type Question = Database["public"]["Tables"]["leadFormQuestions"]["Row"]
 type Page = Database["public"]["Tables"]["leadFormPages"]["Row"]
@@ -481,7 +481,7 @@ const LeadFormBuilderPageContent = () => {
 
   return (
     <>
-      <div className="flex items-center justify-between border-b bg-white px-6 py-6">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-6 border-b bg-white px-6 pt-14 pb-6 lg:py-6">
         <div>
           <Heading as="h1" size="large" weight="bold">
             {viewMode === "builder" ? "Customize Lead Form" : "Form Preview"}
@@ -796,4 +796,3 @@ const LeadFormBuilderPageContent = () => {
 }
 
 export default LeadFormBuilderPageContent
-
