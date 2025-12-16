@@ -33,6 +33,7 @@ import {
   QUESTION_TYPE_TO_LABEL,
   REQUIRED_QUESTION_TYPES,
 } from "@/constants/offerFormQuestions"
+import { createClient } from "@/lib/supabase/client"
 import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
@@ -66,6 +67,7 @@ const OfferFormBuilderPageContent = () => {
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
     null,
   )
+  const [profileName, setProfileName] = useState<string | null>(null)
   const [showRestrictionModal, setShowRestrictionModal] = useState(false)
 
   useEffect(() => {
@@ -98,7 +100,27 @@ const OfferFormBuilderPageContent = () => {
       }
     }
 
+    const fetchUserProfile = async () => {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("fullName")
+          .eq("id", user.id)
+          .single()
+
+        if (profile?.fullName) {
+          setProfileName(profile.fullName)
+        }
+      }
+    }
+
     initializeForm()
+    fetchUserProfile()
   }, [])
 
   const handleMoveUp = (
@@ -569,8 +591,12 @@ const OfferFormBuilderPageContent = () => {
               questions={questions}
               pages={pages}
               isLoading={false}
-              title="Your Offer Form"
-              description="This is how your form will appear to buyers who access your offer link."
+              title={
+                profileName
+                  ? `Submit an Offer to ${profileName}`
+                  : "Submit an Offer"
+              }
+              description="Please provide details about your offer"
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}
               formId={formId || undefined}

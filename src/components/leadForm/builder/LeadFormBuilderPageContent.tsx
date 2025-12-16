@@ -35,6 +35,7 @@ import {
   REQUIRED_QUESTION_TYPES,
 } from "@/constants/leadFormQuestions"
 import { buildFormValidationSchema } from "@/lib/leadFormValidation"
+import { createClient } from "@/lib/supabase/client"
 import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
@@ -68,6 +69,7 @@ const LeadFormBuilderPageContent = () => {
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
     null,
   )
+  const [profileName, setProfileName] = useState<string | null>(null)
   const [showRestrictionModal, setShowRestrictionModal] = useState(false)
 
   useEffect(() => {
@@ -100,7 +102,27 @@ const LeadFormBuilderPageContent = () => {
       }
     }
 
+    const fetchUserProfile = async () => {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("fullName")
+          .eq("id", user.id)
+          .single()
+
+        if (profile?.fullName) {
+          setProfileName(profile.fullName)
+        }
+      }
+    }
+
     initializeForm()
+    fetchUserProfile()
   }, [])
 
   const handleMoveUp = (
@@ -575,8 +597,12 @@ const LeadFormBuilderPageContent = () => {
               questions={questions}
               pages={pages}
               isLoading={false}
-              title="Your Lead Form"
-              description="This is how your form will appear to visitors who access your lead link."
+              title={
+                profileName
+                  ? `Submit a Lead to ${profileName}`
+                  : "Submit a Lead"
+              }
+              description="Please provide your information"
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}
               questionTypeToLabel={QUESTION_TYPE_TO_LABEL}

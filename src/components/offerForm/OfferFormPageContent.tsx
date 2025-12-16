@@ -298,7 +298,9 @@ const OfferFormPageContent = () => {
               questions={questions}
               pages={pages}
               isLoading={formLoading}
-              title={`Submit an Offer to ${profileName}`}
+              title={
+                profileName ? `Submit an Offer to ${profileName}` : "Submit an Offer"
+              }
               description="Please provide details about your offer"
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}

@@ -478,24 +478,18 @@ export const LeadFormInteractiveView = ({
             {description}
           </p>
         )}
-        {totalPages > 1 && (
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">
-              Page {currentPageIndex + 1} of {totalPages}
-            </span>
-            <div className="flex-1">
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                <div
-                  className="h-full bg-teal-500 transition-all duration-300"
-                  style={{
-                    width: `${((currentPageIndex + 1) / totalPages) * 100}%`,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      {!isFirstPage && (
+        <Button
+          variant="outline"
+          onClick={handlePrevious}
+          className="gap-2 w-1/2 mx-auto"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Previous
+        </Button>
+      )}
 
       {/* Questions */}
       <div className="space-y-0">
@@ -574,20 +568,10 @@ export const LeadFormInteractiveView = ({
 
       {/* Navigation / Submit */}
       <div className="mt-8 flex items-center justify-between gap-4">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          disabled={isFirstPage}
-          className={cn("gap-2", isFirstPage && "opacity-0!")}
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Previous
-        </Button>
-
         {!isLastPage ? (
           <Button
             onClick={handleNext}
-            className="gap-2"
+            className="gap-2 w-1/2 mx-auto"
             style={{
               backgroundColor: brandingConfig?.buttonColor || undefined,
               color: brandingConfig?.buttonTextColor || undefined,
@@ -600,7 +584,7 @@ export const LeadFormInteractiveView = ({
           <Button
             size="lg"
             onClick={handleSubmit}
-            className="gap-2"
+            className="gap-2 w-1/2 mx-auto"
             style={{
               backgroundColor: brandingConfig?.buttonColor || undefined,
               color: brandingConfig?.buttonTextColor || undefined,
