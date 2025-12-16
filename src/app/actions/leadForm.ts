@@ -471,6 +471,54 @@ export const updateQuestionOrder = async (
   }
 }
 
+export const swapQuestionOrders = async (
+  questionId1: string,
+  order1: number,
+  questionId2: string,
+  order2: number,
+) => {
+  const supabase = await createClient()
+
+  // Use a temporary order value to avoid conflicts
+  // Use a very large number that's unlikely to conflict
+  const tempOrder = 999999
+
+  // First, move question1 to temporary order
+  const { error: error1 } = await supabase
+    .from("leadFormQuestions")
+    .update({ order: tempOrder })
+    .eq("id", questionId1)
+
+  if (error1) {
+    throw new Error("Failed to update question order")
+  }
+
+  // Then, move question2 to its final order
+  const { error: error2 } = await supabase
+    .from("leadFormQuestions")
+    .update({ order: order2 })
+    .eq("id", questionId2)
+
+  if (error2) {
+    // Try to restore question1 if question2 update fails
+    await supabase
+      .from("leadFormQuestions")
+      .update({ order: order1 })
+      .eq("id", questionId1)
+    throw new Error("Failed to update question order")
+  }
+
+  // Finally, move question1 to its final order
+  const { error: error3 } = await supabase
+    .from("leadFormQuestions")
+    .update({ order: order1 })
+    .eq("id", questionId1)
+
+  if (error3) {
+    throw new Error("Failed to update question order")
+  }
+}
+
 export const deleteQuestion = async (questionId: string) => {
   const supabase = await createClient()
 

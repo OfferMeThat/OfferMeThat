@@ -304,17 +304,8 @@ const QuestionCard = ({
     (question.type === "specifyListing" && question.order === 1) ||
     (question.type === "submitterRole" && question.order === 2)
 
-  // Determine if move up is disabled
-  // "Specify Listing" at position 1 can't move up
-  // "Submitter Role" at position 2 can't move up (would go to position 1 which is locked)
-  const canMoveUp =
-    !isFirst &&
-    !isLockedInPosition &&
-    !(question.type === "submitterRole" && question.order === 2)
-
-  // Determine if move down is disabled
-  // Both locked questions can't move down from their positions
-  const canMoveDown = !isLast && !isLockedInPosition
+  // Buttons are no longer disabled - they will show a modal if the action is restricted
+  // The parent component handles showing the restriction modal
 
   const handleRequiredToggle = () => {
     if (isEssential) {
@@ -364,7 +355,6 @@ const QuestionCard = ({
               size="icon"
               variant="ghost"
               onClick={onMoveUp}
-              disabled={!canMoveUp}
             >
               <ChevronUp size={16} />
             </Button>
@@ -372,7 +362,6 @@ const QuestionCard = ({
               size="icon"
               variant="ghost"
               onClick={onMoveDown}
-              disabled={!canMoveDown}
             >
               <ChevronDown size={16} />
             </Button>
@@ -471,7 +460,6 @@ const QuestionCard = ({
             size="xs"
             variant="ghost"
             onClick={onMoveUp}
-            disabled={!canMoveUp}
             className="justify-baseline"
           >
             <ChevronUp size={16} />
@@ -481,7 +469,6 @@ const QuestionCard = ({
             size="xs"
             variant="ghost"
             onClick={onMoveDown}
-            disabled={!canMoveDown}
             className="justify-baseline"
           >
             <ChevronDown size={16} />

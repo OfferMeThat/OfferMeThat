@@ -43,6 +43,7 @@ import { OfferFormInteractiveView } from "../OfferFormInteractiveView"
 import AddQuestionModal from "./AddQuestionModal"
 import PageBreak from "./PageBreak"
 import QuestionCard from "./QuestionCard"
+import RestrictionModal from "./RestrictionModal"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 type Page = Database["public"]["Tables"]["offerFormPages"]["Row"]
@@ -65,6 +66,7 @@ const OfferFormBuilderPageContent = () => {
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
     null,
   )
+  const [showRestrictionModal, setShowRestrictionModal] = useState(false)
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -104,7 +106,17 @@ const OfferFormBuilderPageContent = () => {
     currentOrder: number,
     questionType: QuestionType,
   ) => {
-    if (currentOrder === 1) return
+    // Show modal for first 2 questions trying to move up
+    if (currentOrder === 1 || currentOrder === 2) {
+      setShowRestrictionModal(true)
+      return
+    }
+
+    // Show modal for 3rd question trying to move up
+    if (currentOrder === 3) {
+      setShowRestrictionModal(true)
+      return
+    }
 
     // Check if "Specify Listing" exists and is at position 1
     const specifyListingQuestion = questions.find(
@@ -118,26 +130,21 @@ const OfferFormBuilderPageContent = () => {
     )
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
-    // Lock "Specify Listing" in position 1 (if it exists)
-    if (questionType === "specifyListing" && currentOrder === 1) return
-
-    // Lock "Submitter Role" in position 2 - can't move up to position 1 (if it exists)
-    if (
-      questionType === "submitterRole" &&
-      currentOrder === 2 &&
-      isSpecifyListingAtPosition1
-    )
-      return
-
     // Prevent other questions from moving into locked positions
     const targetPosition = currentOrder - 1
     if (targetPosition === 1 && isSpecifyListingAtPosition1) {
       // Position 1 is locked by "Specify Listing"
-      if (questionType !== "specifyListing") return
+      if (questionType !== "specifyListing") {
+        setShowRestrictionModal(true)
+        return
+      }
     }
     if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
       // Position 2 is locked by "Submitter Role"
-      if (questionType !== "submitterRole") return
+      if (questionType !== "submitterRole") {
+        setShowRestrictionModal(true)
+        return
+      }
     }
 
     startTransition(async () => {
@@ -152,10 +159,17 @@ const OfferFormBuilderPageContent = () => {
         if (
           questionAbove.type === "specifyListing" &&
           questionAbove.order === 1
-        )
+        ) {
+          setShowRestrictionModal(true)
           return
-        if (questionAbove.type === "submitterRole" && questionAbove.order === 2)
+        }
+        if (
+          questionAbove.type === "submitterRole" &&
+          questionAbove.order === 2
+        ) {
+          setShowRestrictionModal(true)
           return
+        }
 
         // Swap orders
         await updateQuestionOrder(questionId, currentOrder - 1)
@@ -188,23 +202,26 @@ const OfferFormBuilderPageContent = () => {
   ) => {
     if (currentOrder === questions.length) return
 
+    // Show modal for first 2 questions trying to move down
+    if (currentOrder === 1 || currentOrder === 2) {
+      setShowRestrictionModal(true)
+      return
+    }
+
     // Check if "Submitter Role" exists and is at position 2
     const submitterRoleQuestion = questions.find(
       (q) => q.type === "submitterRole",
     )
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
-    // Lock "Specify Listing" in position 1 - can't move down
-    if (questionType === "specifyListing" && currentOrder === 1) return
-
-    // Lock "Submitter Role" in position 2 - can't move down (if it exists)
-    if (questionType === "submitterRole" && currentOrder === 2) return
-
     // Prevent moving into position 2 if it's locked
     const targetPosition = currentOrder + 1
     if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
       // Position 2 is locked by "Submitter Role"
-      if (questionType !== "submitterRole") return
+      if (questionType !== "submitterRole") {
+        setShowRestrictionModal(true)
+        return
+      }
     }
 
     startTransition(async () => {
@@ -217,8 +234,14 @@ const OfferFormBuilderPageContent = () => {
 
         // Check if moving would put this question into a locked position
         const targetPosition = currentOrder + 1
-        if (targetPosition === 1 && questionType !== "specifyListing") return
-        if (targetPosition === 2 && questionType !== "submitterRole") return
+        if (targetPosition === 1 && questionType !== "specifyListing") {
+          setShowRestrictionModal(true)
+          return
+        }
+        if (targetPosition === 2 && questionType !== "submitterRole") {
+          setShowRestrictionModal(true)
+          return
+        }
 
         // Swap orders
         await updateQuestionOrder(questionId, currentOrder + 1)
@@ -601,7 +624,7 @@ const OfferFormBuilderPageContent = () => {
                       const isSubmitterRoleAtPosition2 =
                         submitterRoleQuestion?.order === 2
 
-                      // Hide button if adding after position 1 would place question at position 2
+                      // Show modal if adding after position 1 would place question at position 2
                       const wouldAddAtPosition2 =
                         question.order === 1 &&
                         isSpecifyListingAtPosition1 &&
@@ -609,12 +632,15 @@ const OfferFormBuilderPageContent = () => {
 
                       return (
                         <Button
-                          disabled={wouldAddAtPosition2}
                           size="sm"
                           variant="dashed"
-                          onClick={() =>
-                            handleOpenAddQuestionModal(question.order)
-                          }
+                          onClick={() => {
+                            if (wouldAddAtPosition2) {
+                              setShowRestrictionModal(true)
+                            } else {
+                              handleOpenAddQuestionModal(question.order)
+                            }
+                          }}
                         >
                           + Add New Question Here
                         </Button>
@@ -791,6 +817,11 @@ const OfferFormBuilderPageContent = () => {
         onAddQuestion={handleAddQuestion}
         existingQuestionTypes={questions.map((q) => q.type as QuestionType)}
         questionDefinitions={QUESTION_DEFINITIONS}
+      />
+
+      <RestrictionModal
+        isOpen={showRestrictionModal}
+        onClose={() => setShowRestrictionModal(false)}
       />
     </>
   )

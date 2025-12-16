@@ -12,8 +12,8 @@ import {
   getOrCreateLeadForm,
   movePageBreak,
   resetFormToDefault,
+  swapQuestionOrders,
   updateQuestion,
-  updateQuestionOrder,
 } from "@/app/actions/leadForm"
 import Heading from "@/components/shared/typography/Heading"
 import {
@@ -44,6 +44,7 @@ import { toast } from "sonner"
 import AddQuestionModal from "../../offerForm/builder/AddQuestionModal"
 import PageBreak from "../../offerForm/builder/PageBreak"
 import QuestionCard from "../../offerForm/builder/QuestionCard"
+import RestrictionModal from "../../offerForm/builder/RestrictionModal"
 import { FormPreview } from "../../shared/FormPreview"
 
 type Question = Database["public"]["Tables"]["leadFormQuestions"]["Row"]
@@ -67,6 +68,7 @@ const LeadFormBuilderPageContent = () => {
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
     null,
   )
+  const [showRestrictionModal, setShowRestrictionModal] = useState(false)
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -106,7 +108,17 @@ const LeadFormBuilderPageContent = () => {
     currentOrder: number,
     questionType: QuestionType,
   ) => {
-    if (currentOrder === 1) return
+    // Show modal for first 2 questions trying to move up
+    if (currentOrder === 1 || currentOrder === 2) {
+      setShowRestrictionModal(true)
+      return
+    }
+
+    // Show modal for 3rd question trying to move up
+    if (currentOrder === 3) {
+      setShowRestrictionModal(true)
+      return
+    }
 
     // Check if "Listing Interest" exists at position 1
     const listingInterestQuestion = questions.find(
@@ -120,24 +132,19 @@ const LeadFormBuilderPageContent = () => {
     )
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
-    // Lock "Listing Interest" in position 1 (if it exists)
-    if (questionType === "listingInterest" && currentOrder === 1) return
-
-    // Lock "Submitter Role" in position 2 - can't move up to position 1 (if it exists)
-    if (
-      questionType === "submitterRole" &&
-      currentOrder === 2 &&
-      isListingInterestAtPosition1
-    )
-      return
-
     // Prevent other questions from moving into locked positions
     const targetPosition = currentOrder - 1
     if (targetPosition === 1 && isListingInterestAtPosition1) {
-      if (questionType !== "listingInterest") return
+      if (questionType !== "listingInterest") {
+        setShowRestrictionModal(true)
+        return
+      }
     }
     if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
-      if (questionType !== "submitterRole") return
+      if (questionType !== "submitterRole") {
+        setShowRestrictionModal(true)
+        return
+      }
     }
 
     startTransition(async () => {
@@ -152,14 +159,25 @@ const LeadFormBuilderPageContent = () => {
         if (
           questionAbove.type === "listingInterest" &&
           questionAbove.order === 1
-        )
+        ) {
+          setShowRestrictionModal(true)
           return
-        if (questionAbove.type === "submitterRole" && questionAbove.order === 2)
+        }
+        if (
+          questionAbove.type === "submitterRole" &&
+          questionAbove.order === 2
+        ) {
+          setShowRestrictionModal(true)
           return
+        }
 
-        // Swap orders
-        await updateQuestionOrder(questionId, currentOrder - 1)
-        await updateQuestionOrder(questionAbove.id, currentOrder)
+        // Swap orders using safe swap function
+        await swapQuestionOrders(
+          questionId,
+          currentOrder - 1,
+          questionAbove.id,
+          currentOrder,
+        )
 
         // Update local state
         setQuestions((prev) =>
@@ -188,22 +206,25 @@ const LeadFormBuilderPageContent = () => {
   ) => {
     if (currentOrder === questions.length) return
 
+    // Show modal for first 2 questions trying to move down
+    if (currentOrder === 1 || currentOrder === 2) {
+      setShowRestrictionModal(true)
+      return
+    }
+
     // Check if "Submitter Role" exists and is at position 2
     const submitterRoleQuestion = questions.find(
       (q) => q.type === "submitterRole",
     )
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
-    // Lock "Listing Interest" in position 1 - can't move down
-    if (questionType === "listingInterest" && currentOrder === 1) return
-
-    // Lock "Submitter Role" in position 2 - can't move down (if it exists)
-    if (questionType === "submitterRole" && currentOrder === 2) return
-
     // Prevent moving into position 2 if it's locked
     const targetPosition = currentOrder + 1
     if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
-      if (questionType !== "submitterRole") return
+      if (questionType !== "submitterRole") {
+        setShowRestrictionModal(true)
+        return
+      }
     }
 
     startTransition(async () => {
@@ -216,12 +237,22 @@ const LeadFormBuilderPageContent = () => {
 
         // Check if moving would put this question into a locked position
         const targetPosition = currentOrder + 1
-        if (targetPosition === 1 && questionType !== "listingInterest") return
-        if (targetPosition === 2 && questionType !== "submitterRole") return
+        if (targetPosition === 1 && questionType !== "listingInterest") {
+          setShowRestrictionModal(true)
+          return
+        }
+        if (targetPosition === 2 && questionType !== "submitterRole") {
+          setShowRestrictionModal(true)
+          return
+        }
 
-        // Swap orders
-        await updateQuestionOrder(questionId, currentOrder + 1)
-        await updateQuestionOrder(questionBelow.id, currentOrder)
+        // Swap orders using safe swap function
+        await swapQuestionOrders(
+          questionId,
+          currentOrder + 1,
+          questionBelow.id,
+          currentOrder,
+        )
 
         // Update local state
         setQuestions((prev) =>
@@ -600,7 +631,7 @@ const LeadFormBuilderPageContent = () => {
                       const isSubmitterRoleAtPosition2 =
                         submitterRoleQuestion?.order === 2
 
-                      // Hide button if adding after position 1 would place question at position 2
+                      // Show modal if adding after position 1 would place question at position 2
                       const wouldAddAtPosition2 =
                         question.order === 1 &&
                         isListingInterestAtPosition1 &&
@@ -608,12 +639,15 @@ const LeadFormBuilderPageContent = () => {
 
                       return (
                         <Button
-                          disabled={wouldAddAtPosition2}
                           size="sm"
                           variant="dashed"
-                          onClick={() =>
-                            handleOpenAddQuestionModal(question.order)
-                          }
+                          onClick={() => {
+                            if (wouldAddAtPosition2) {
+                              setShowRestrictionModal(true)
+                            } else {
+                              handleOpenAddQuestionModal(question.order)
+                            }
+                          }}
                         >
                           + Add New Question Here
                         </Button>
@@ -790,6 +824,11 @@ const LeadFormBuilderPageContent = () => {
         onAddQuestion={handleAddQuestion}
         existingQuestionTypes={questions.map((q) => q.type as QuestionType)}
         questionDefinitions={LEAD_FORM_ADD_QUESTION_DEFINITIONS}
+      />
+
+      <RestrictionModal
+        isOpen={showRestrictionModal}
+        onClose={() => setShowRestrictionModal(false)}
       />
     </>
   )
