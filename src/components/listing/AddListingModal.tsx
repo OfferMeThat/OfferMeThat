@@ -36,7 +36,8 @@ interface AddListingModalProps {
 }
 
 interface SellerData {
-  fullName: string
+  firstName: string
+  lastName: string
   email: string
   mobile: string | { countryCode: string; number: string }
 }
@@ -51,7 +52,8 @@ interface FormData {
 }
 
 const initialSellerData: SellerData = {
-  fullName: "",
+  firstName: "",
+  lastName: "",
   email: "",
   mobile: { countryCode: "+1", number: "" },
 }
@@ -66,10 +68,14 @@ const initialFormData: FormData = {
 }
 
 const sellerSchema = yup.object().shape({
-  fullName: yup
+  firstName: yup
     .string()
-    .required("Full name is required")
-    .min(2, "Full name must be at least 2 characters"),
+    .required("First name is required")
+    .min(1, "First name is required"),
+  lastName: yup
+    .string()
+    .required("Last name is required")
+    .min(1, "Last name is required"),
   email: yup
     .string()
     .required("Email is required")
@@ -85,15 +91,31 @@ const sellerSchema = yup.object().shape({
         number: yup
           .string()
           .required("Mobile number is required")
-          .matches(/^[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
-          .min(6, "Phone number must be at least 6 digits"),
+          .test(
+            "phone-format",
+            "Mobile number must be at least 6 digits",
+            (val) => {
+              if (!val || typeof val !== "string") return false
+              // Remove spaces, dashes, and parentheses for validation
+              const cleaned = val.replace(/[\s\-\(\)]/g, "")
+              return /^[0-9]+$/.test(cleaned) && cleaned.length >= 6
+            },
+          ),
       })
     }
     return yup
       .string()
       .required("Mobile number is required")
-      .matches(/^[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
-      .min(6, "Phone number must be at least 6 digits")
+      .test(
+        "phone-format",
+        "Mobile number must be at least 6 digits",
+        (val) => {
+          if (!val || typeof val !== "string") return false
+          // Remove spaces, dashes, and parentheses for validation
+          const cleaned = val.replace(/[\s\-\(\)]/g, "")
+          return /^[0-9]+$/.test(cleaned) && cleaned.length >= 6
+        },
+      )
   }) as unknown as yup.StringSchema,
 })
 
@@ -111,9 +133,10 @@ const validationSchema = yup.object().shape({
     then: (schema) => sellerSchema,
     otherwise: (schema) =>
       yup.object().shape({
-        fullName: yup.string(),
-        email: yup.string(),
-        mobile: yup.string(),
+        firstName: yup.string().nullable(),
+        lastName: yup.string().nullable(),
+        email: yup.string().nullable(),
+        mobile: yup.mixed().nullable(),
       }),
   }),
 })
@@ -125,9 +148,18 @@ export const AddListingModal = ({
   const [open, setOpen] = useState(false)
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set())
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const router = useRouter()
+
+  const markFieldAsTouched = (fieldPath: string) => {
+    setTouchedFields((prev) => new Set(prev).add(fieldPath))
+  }
+
+  const shouldShowError = (fieldPath: string) => {
+    return touchedFields.has(fieldPath) && errors[fieldPath]
+  }
 
   const handleSubmit = async () => {
     try {
@@ -145,6 +177,7 @@ export const AddListingModal = ({
 
       if (authError || !user) {
         setErrors({ submit: "You must be logged in to create a listing" })
+        setIsSubmitting(false)
         return
       }
 
@@ -164,6 +197,13 @@ export const AddListingModal = ({
       if (listingError) {
         console.error("Error creating listing:", listingError)
         setErrors({ submit: "Failed to create listing. Please try again." })
+        setIsSubmitting(false)
+        return
+      }
+
+      if (!newListing) {
+        setErrors({ submit: "Failed to create listing. Please try again." })
+        setIsSubmitting(false)
         return
       }
 
@@ -172,24 +212,39 @@ export const AddListingModal = ({
         typeof formData.seller1.mobile === "object" &&
         formData.seller1.mobile !== null &&
         "countryCode" in formData.seller1.mobile
-          ? (formData.seller1.mobile.countryCode || "") +
-            (formData.seller1.mobile.number || "")
-          : formData.seller1.mobile
+          ? `${formData.seller1.mobile.countryCode || ""}${formData.seller1.mobile.number || ""}`.trim()
+          : String(formData.seller1.mobile || "").trim()
 
-      const { error: seller1Error } = await supabase
+      // Combine firstName and lastName into fullName for database
+      const seller1FullName =
+        `${formData.seller1.firstName} ${formData.seller1.lastName}`.trim()
+
+      const { data: seller1Data, error: seller1Error } = await supabase
         .from("listingSellers")
         .insert({
-          fullName: formData.seller1.fullName,
+          fullName: seller1FullName,
           email: formData.seller1.email,
           phone: seller1Phone,
           sendUpdateByEmail: formData.sendEmailUpdates,
         })
+        .select()
+        .single()
 
       if (seller1Error) {
         console.error("Error creating seller 1:", seller1Error)
         setErrors({
           submit: "Failed to create seller information. Please try again.",
         })
+        setIsSubmitting(false)
+        return
+      }
+
+      if (!seller1Data) {
+        console.error("No seller 1 data returned")
+        setErrors({
+          submit: "Failed to create seller information. Please try again.",
+        })
+        setIsSubmitting(false)
         return
       }
 
@@ -199,18 +254,23 @@ export const AddListingModal = ({
           typeof formData.seller2.mobile === "object" &&
           formData.seller2.mobile !== null &&
           "countryCode" in formData.seller2.mobile
-            ? (formData.seller2.mobile.countryCode || "") +
-              (formData.seller2.mobile.number || "")
-            : formData.seller2.mobile
+            ? `${formData.seller2.mobile.countryCode || ""}${formData.seller2.mobile.number || ""}`.trim()
+            : String(formData.seller2.mobile || "").trim()
 
-        const { error: seller2Error } = await supabase
+        // Combine firstName and lastName into fullName for database
+        const seller2FullName =
+          `${formData.seller2.firstName} ${formData.seller2.lastName}`.trim()
+
+        const { data: seller2Data, error: seller2Error } = await supabase
           .from("listingSellers")
           .insert({
-            fullName: formData.seller2.fullName,
+            fullName: seller2FullName,
             email: formData.seller2.email,
             phone: seller2Phone,
             sendUpdateByEmail: false,
           })
+          .select()
+          .single()
 
         if (seller2Error) {
           console.error("Error creating seller 2:", seller2Error)
@@ -218,28 +278,59 @@ export const AddListingModal = ({
             submit:
               "Failed to create second seller information. Please try again.",
           })
+          setIsSubmitting(false)
+          return
+        }
+
+        if (!seller2Data) {
+          console.error("No seller 2 data returned")
+          setErrors({
+            submit:
+              "Failed to create second seller information. Please try again.",
+          })
+          setIsSubmitting(false)
           return
         }
       }
 
-      setOpen(false)
-      setFormData(initialFormData)
-
       toast.success("Listing has been created")
+
+      // Reset form
+      setFormData(initialFormData)
+      setErrors({})
+      setTouchedFields(new Set())
+      setOpen(false)
 
       // Call the callback to update the parent component's state
       if (onListingCreated && newListing) {
         onListingCreated(newListing)
       }
+
+      // Refresh the page to show the new listing
+      router.refresh()
     } catch (err) {
       if (err instanceof yup.ValidationError) {
         const validationErrors: Record<string, string> = {}
         err.inner.forEach((error) => {
           if (error.path) {
             validationErrors[error.path] = error.message
+            // Only mark fields as touched if they're not seller2 fields
+            // Seller2 fields should only show errors after user interaction
+            if (!error.path.startsWith("seller2.")) {
+              markFieldAsTouched(error.path)
+            }
           }
         })
         setErrors(validationErrors)
+
+        // Scroll to first error
+        const firstErrorField = err.inner[0]?.path
+        if (firstErrorField) {
+          const errorElement = document.querySelector(
+            `[id="${firstErrorField.replace(/\./g, "-")}"]`,
+          )
+          errorElement?.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
       } else {
         console.error("Unexpected error:", err)
         setErrors({ submit: "An unexpected error occurred. Please try again." })
@@ -250,7 +341,29 @@ export const AddListingModal = ({
   }
 
   const updateFormData = (field: keyof FormData, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value }
+      // When unchecking "Add another Seller", clear seller2 errors and touched fields
+      if (field === "addSecondSeller" && !value) {
+        const newErrors = { ...errors }
+        Object.keys(newErrors).forEach((key) => {
+          if (key.startsWith("seller2.")) {
+            delete newErrors[key]
+          }
+        })
+        setErrors(newErrors)
+        setTouchedFields((prevTouched) => {
+          const newTouched = new Set(prevTouched)
+          Array.from(newTouched).forEach((fieldPath) => {
+            if (fieldPath.startsWith("seller2.")) {
+              newTouched.delete(fieldPath)
+            }
+          })
+          return newTouched
+        })
+      }
+      return newData
+    })
   }
 
   const updateSeller1 = (
@@ -273,8 +386,19 @@ export const AddListingModal = ({
     }))
   }
 
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen)
+    if (!newOpen) {
+      // Reset form when modal closes
+      setFormData(initialFormData)
+      setErrors({})
+      setTouchedFields(new Set())
+      setIsSubmitting(false)
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
@@ -291,10 +415,14 @@ export const AddListingModal = ({
               id="address"
               placeholder="Enter property address"
               value={formData.address}
-              onChange={(e) => updateFormData("address", e.target.value)}
-              className={errors.address ? "border-red-500" : ""}
+              onChange={(e) => {
+                updateFormData("address", e.target.value)
+                markFieldAsTouched("address")
+              }}
+              onBlur={() => markFieldAsTouched("address")}
+              className={shouldShowError("address") ? "border-red-500" : ""}
             />
-            {errors.address && (
+            {shouldShowError("address") && (
               <p className="text-sm text-red-500">{errors.address}</p>
             )}
           </div>
@@ -303,11 +431,15 @@ export const AddListingModal = ({
             <Label htmlFor="status">Status</Label>
             <Select
               value={formData.status}
-              onValueChange={(value) => updateFormData("status", value)}
+              onValueChange={(value) => {
+                updateFormData("status", value)
+                markFieldAsTouched("status")
+              }}
             >
               <SelectTrigger
                 id="status"
-                className={`min-w-52 ${errors.status ? "border-red-500" : ""}`}
+                className={`min-w-52 ${shouldShowError("status") ? "border-red-500" : ""}`}
+                onBlur={() => markFieldAsTouched("status")}
               >
                 <SelectValue placeholder="Select status..." />
               </SelectTrigger>
@@ -321,7 +453,7 @@ export const AddListingModal = ({
                 </SelectGroup>
               </SelectContent>
             </Select>
-            {errors.status && (
+            {shouldShowError("status") && (
               <p className="text-sm text-red-500">{errors.status}</p>
             )}
           </div>
@@ -329,20 +461,50 @@ export const AddListingModal = ({
           <div className="space-y-4 rounded-lg border p-4">
             <h3 className="font-semibold">Seller 1</h3>
 
-            <div className="space-y-2">
-              <Label htmlFor="seller1-name">Full Name</Label>
-              <Input
-                id="seller1-name"
-                placeholder="Enter full name"
-                value={formData.seller1.fullName}
-                onChange={(e) => updateSeller1("fullName", e.target.value)}
-                className={errors["seller1.fullName"] ? "border-red-500" : ""}
-              />
-              {errors["seller1.fullName"] && (
-                <p className="text-sm text-red-500">
-                  {errors["seller1.fullName"]}
-                </p>
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="seller1-firstName">First Name</Label>
+                <Input
+                  id="seller1-firstName"
+                  placeholder="Enter first name"
+                  value={formData.seller1.firstName}
+                  onChange={(e) => {
+                    updateSeller1("firstName", e.target.value)
+                    markFieldAsTouched("seller1.firstName")
+                  }}
+                  onBlur={() => markFieldAsTouched("seller1.firstName")}
+                  className={
+                    shouldShowError("seller1.firstName") ? "border-red-500" : ""
+                  }
+                />
+                {shouldShowError("seller1.firstName") && (
+                  <p className="text-sm text-red-500">
+                    {errors["seller1.firstName"]}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="seller1-lastName">Last Name</Label>
+                <Input
+                  id="seller1-lastName"
+                  placeholder="Enter last name"
+                  value={formData.seller1.lastName}
+                  onChange={(e) => {
+                    updateSeller1("lastName", e.target.value)
+                    markFieldAsTouched("seller1.lastName")
+                  }}
+                  onBlur={() => markFieldAsTouched("seller1.lastName")}
+                  className={
+                    shouldShowError("seller1.lastName") ? "border-red-500" : ""
+                  }
+                />
+                {shouldShowError("seller1.lastName") && (
+                  <p className="text-sm text-red-500">
+                    {errors["seller1.lastName"]}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -352,10 +514,16 @@ export const AddListingModal = ({
                 type="email"
                 placeholder="Enter email"
                 value={formData.seller1.email}
-                onChange={(e) => updateSeller1("email", e.target.value)}
-                className={errors["seller1.email"] ? "border-red-500" : ""}
+                onChange={(e) => {
+                  updateSeller1("email", e.target.value)
+                  markFieldAsTouched("seller1.email")
+                }}
+                onBlur={() => markFieldAsTouched("seller1.email")}
+                className={
+                  shouldShowError("seller1.email") ? "border-red-500" : ""
+                }
               />
-              {errors["seller1.email"] && (
+              {shouldShowError("seller1.email") && (
                 <p className="text-sm text-red-500">
                   {errors["seller1.email"]}
                 </p>
@@ -368,9 +536,20 @@ export const AddListingModal = ({
                 id="seller1-mobile"
                 placeholder="123-456-7890"
                 value={formData.seller1.mobile}
-                onChange={(value) => updateSeller1("mobile", value)}
+                onChange={(value) => {
+                  updateSeller1("mobile", value)
+                  // Clear error when user starts typing
+                  if (errors["seller1.mobile"]) {
+                    setErrors((prev) => {
+                      const newErrors = { ...prev }
+                      delete newErrors["seller1.mobile"]
+                      return newErrors
+                    })
+                  }
+                }}
+                onBlur={() => markFieldAsTouched("seller1.mobile")}
               />
-              {errors["seller1.mobile"] && (
+              {shouldShowError("seller1.mobile") && (
                 <p className="text-sm text-red-500">
                   {errors["seller1.mobile"]}
                 </p>
@@ -398,9 +577,21 @@ export const AddListingModal = ({
             <Checkbox
               id="add-seller"
               checked={formData.addSecondSeller}
-              onCheckedChange={(checked) =>
+              onCheckedChange={(checked) => {
                 updateFormData("addSecondSeller", checked as boolean)
-              }
+                // Clear seller2 errors when unchecking
+                if (!checked) {
+                  setErrors((prev) => {
+                    const newErrors = { ...prev }
+                    Object.keys(newErrors).forEach((key) => {
+                      if (key.startsWith("seller2.")) {
+                        delete newErrors[key]
+                      }
+                    })
+                    return newErrors
+                  })
+                }
+              }}
             />
             <Label
               htmlFor="add-seller"
@@ -414,20 +605,68 @@ export const AddListingModal = ({
             <div className="space-y-4 rounded-lg border p-4">
               <h3 className="font-semibold">Seller 2</h3>
 
-              <div className="space-y-2">
-                <Label htmlFor="seller2-name">Full Name</Label>
-                <Input
-                  id="seller2-name"
-                  placeholder="Enter full name"
-                  value={formData.seller2.fullName}
-                  onChange={(e) => updateSeller2("fullName", e.target.value)}
-                  className={errors["seller2.fullName"] ? "border-red-500" : ""}
-                />
-                {errors["seller2.fullName"] && (
-                  <p className="text-sm text-red-500">
-                    {errors["seller2.fullName"]}
-                  </p>
-                )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="seller2-firstName">First Name</Label>
+                  <Input
+                    id="seller2-firstName"
+                    placeholder="Enter first name"
+                    value={formData.seller2.firstName}
+                    onChange={(e) => {
+                      updateSeller2("firstName", e.target.value)
+                      // Clear error when user starts typing
+                      if (errors["seller2.firstName"]) {
+                        setErrors((prev) => {
+                          const newErrors = { ...prev }
+                          delete newErrors["seller2.firstName"]
+                          return newErrors
+                        })
+                      }
+                    }}
+                    onBlur={() => markFieldAsTouched("seller2.firstName")}
+                    className={
+                      shouldShowError("seller2.firstName")
+                        ? "border-red-500"
+                        : ""
+                    }
+                  />
+                  {shouldShowError("seller2.firstName") && (
+                    <p className="text-sm text-red-500">
+                      {errors["seller2.firstName"]}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="seller2-lastName">Last Name</Label>
+                  <Input
+                    id="seller2-lastName"
+                    placeholder="Enter last name"
+                    value={formData.seller2.lastName}
+                    onChange={(e) => {
+                      updateSeller2("lastName", e.target.value)
+                      // Clear error when user starts typing
+                      if (errors["seller2.lastName"]) {
+                        setErrors((prev) => {
+                          const newErrors = { ...prev }
+                          delete newErrors["seller2.lastName"]
+                          return newErrors
+                        })
+                      }
+                    }}
+                    onBlur={() => markFieldAsTouched("seller2.lastName")}
+                    className={
+                      shouldShowError("seller2.lastName")
+                        ? "border-red-500"
+                        : ""
+                    }
+                  />
+                  {shouldShowError("seller2.lastName") && (
+                    <p className="text-sm text-red-500">
+                      {errors["seller2.lastName"]}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -437,10 +676,23 @@ export const AddListingModal = ({
                   type="email"
                   placeholder="Enter email"
                   value={formData.seller2.email}
-                  onChange={(e) => updateSeller2("email", e.target.value)}
-                  className={errors["seller2.email"] ? "border-red-500" : ""}
+                  onChange={(e) => {
+                    updateSeller2("email", e.target.value)
+                    // Clear error when user starts typing
+                    if (errors["seller2.email"]) {
+                      setErrors((prev) => {
+                        const newErrors = { ...prev }
+                        delete newErrors["seller2.email"]
+                        return newErrors
+                      })
+                    }
+                  }}
+                  onBlur={() => markFieldAsTouched("seller2.email")}
+                  className={
+                    shouldShowError("seller2.email") ? "border-red-500" : ""
+                  }
                 />
-                {errors["seller2.email"] && (
+                {shouldShowError("seller2.email") && (
                   <p className="text-sm text-red-500">
                     {errors["seller2.email"]}
                   </p>
@@ -453,9 +705,20 @@ export const AddListingModal = ({
                   id="seller2-mobile"
                   placeholder="123-456-7890"
                   value={formData.seller2.mobile}
-                  onChange={(value) => updateSeller2("mobile", value)}
+                  onChange={(value) => {
+                    updateSeller2("mobile", value)
+                    // Clear error when user starts typing
+                    if (errors["seller2.mobile"]) {
+                      setErrors((prev) => {
+                        const newErrors = { ...prev }
+                        delete newErrors["seller2.mobile"]
+                        return newErrors
+                      })
+                    }
+                  }}
+                  onBlur={() => markFieldAsTouched("seller2.mobile")}
                 />
-                {errors["seller2.mobile"] && (
+                {shouldShowError("seller2.mobile") && (
                   <p className="text-sm text-red-500">
                     {errors["seller2.mobile"]}
                   </p>
@@ -473,12 +736,12 @@ export const AddListingModal = ({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setOpen(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={isSubmitting}
           >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting ? "Creating..." : "Create Property"}
           </Button>
         </DialogFooter>
