@@ -9,7 +9,6 @@ import {
   uploadFileToStorageClient,
   uploadMultipleFilesToStorageClient,
 } from "@/lib/supabase/clientStorage"
-import { cn } from "@/lib/utils"
 import { BrandingConfig } from "@/types/branding"
 import { Database } from "@/types/supabase"
 import { ChevronLeft, ChevronRight } from "lucide-react"
@@ -33,6 +32,7 @@ interface LeadFormInteractiveViewProps {
   formId?: string
   ownerId?: string
   isPreviewMode?: boolean
+  isTestMode?: boolean
 }
 
 /**
@@ -50,6 +50,7 @@ export const LeadFormInteractiveView = ({
   formId,
   ownerId,
   isPreviewMode = false,
+  isTestMode = false,
 }: LeadFormInteractiveViewProps) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
   const [formData, setFormData] = useState<Record<string, any>>({})
@@ -60,8 +61,8 @@ export const LeadFormInteractiveView = ({
 
   // Build validation schema
   const validationSchema = useCallback(() => {
-    return buildFormValidationSchema(questions, false)
-  }, [questions])
+    return buildFormValidationSchema(questions, isTestMode)
+  }, [questions, isTestMode])
 
   if (isLoading) {
     return (
@@ -131,7 +132,10 @@ export const LeadFormInteractiveView = ({
       const currentPageQuestions = currentPage.questions.filter(
         (q) => q.type !== "submitButton",
       )
-      const pageSchema = buildFormValidationSchema(currentPageQuestions, false)
+      const pageSchema = buildFormValidationSchema(
+        currentPageQuestions,
+        isTestMode,
+      )
 
       const currentPageData: Record<string, any> = {}
 
@@ -343,9 +347,8 @@ export const LeadFormInteractiveView = ({
         })
         setValidationErrors(newErrors)
 
-        const allFieldIds = questions
-          .filter((q) => q.type !== "submitButton")
-          .map((q) => q.id)
+        // Mark all fields as touched, including submit button for T&C checkbox
+        const allFieldIds = questions.map((q) => q.id)
         setTouchedFields(new Set(allFieldIds))
 
         const firstErrorField = error.inner[0]?.path
@@ -496,7 +499,7 @@ export const LeadFormInteractiveView = ({
         <Button
           variant="outline"
           onClick={handlePrevious}
-          className="gap-2 w-1/2 mx-auto"
+          className="mx-auto w-1/2 gap-2"
         >
           <ChevronLeft className="h-4 w-4" />
           Previous
@@ -506,7 +509,32 @@ export const LeadFormInteractiveView = ({
       {/* Questions */}
       <div className="space-y-0">
         {currentPage.questions.map((question, index) => {
+          // Render submit button question with T&C checkbox on last page
           if (question.type === "submitButton") {
+            if (isLastPage) {
+              return (
+                <div key={question.id} className="mt-6">
+                  <QuestionRenderer
+                    question={question}
+                    disabled={false}
+                    editingMode={false}
+                    formId={question.formId}
+                    ownerId={ownerId}
+                    brandingConfig={brandingConfig}
+                    isTestMode={isTestMode}
+                    value={formData[question.id]}
+                    onChange={(value) => handleFieldChange(question.id, value)}
+                    onBlur={() => handleFieldBlur(question.id)}
+                    error={
+                      touchedFields.has(question.id)
+                        ? validationErrors[question.id]
+                        : undefined
+                    }
+                    onSubmit={handleSubmit}
+                  />
+                </div>
+              )
+            }
             return null
           }
 
@@ -563,6 +591,7 @@ export const LeadFormInteractiveView = ({
                   formId={question.formId}
                   ownerId={ownerId}
                   brandingConfig={brandingConfig}
+                  isTestMode={isTestMode}
                   value={formData[question.id]}
                   onChange={(value) => handleFieldChange(question.id, value)}
                   onBlur={() => handleFieldBlur(question.id)}
@@ -583,7 +612,7 @@ export const LeadFormInteractiveView = ({
         {!isLastPage ? (
           <Button
             onClick={handleNext}
-            className="gap-2 w-1/2 mx-auto"
+            className="mx-auto w-1/2 gap-2"
             style={{
               backgroundColor: brandingConfig?.buttonColor || undefined,
               color: brandingConfig?.buttonTextColor || undefined,
@@ -592,27 +621,18 @@ export const LeadFormInteractiveView = ({
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>
-        ) : (
+        ) : hasSubmitButton ? // Submit button is rendered via QuestionRenderer above, so we don't need a separate button here
+        null : (
           <Button
             size="lg"
             onClick={handleSubmit}
-            className="gap-2 w-1/2 mx-auto"
+            className="mx-auto w-1/2 gap-2"
             style={{
               backgroundColor: brandingConfig?.buttonColor || undefined,
               color: brandingConfig?.buttonTextColor || undefined,
             }}
           >
-            {hasSubmitButton
-              ? (() => {
-                  const submitButtonQuestion = currentPage.questions.find(
-                    (q) => q.type === "submitButton",
-                  )
-                  const submitUiConfig =
-                    (submitButtonQuestion?.uiConfig as Record<string, any>) ||
-                    {}
-                  return submitUiConfig.label || "Submit Lead"
-                })()
-              : "Submit Lead"}
+            Submit Lead
           </Button>
         )}
       </div>

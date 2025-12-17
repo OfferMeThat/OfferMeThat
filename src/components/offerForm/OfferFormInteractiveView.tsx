@@ -557,10 +557,8 @@ export const OfferFormInteractiveView = ({
         setValidationErrors(newErrors)
         console.error("Validation error:", newErrors)
 
-        // Mark all fields as touched
-        const allFieldIds = questions
-          .filter((q) => q.type !== "submitButton")
-          .map((q) => q.id)
+        // Mark all fields as touched, including submit button for T&C checkbox
+        const allFieldIds = questions.map((q) => q.id)
         setTouchedFields(new Set(allFieldIds))
 
         // Scroll to first error
@@ -720,11 +718,7 @@ export const OfferFormInteractiveView = ({
       </div>
 
       {!isFirstPage && (
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          className="mx-auto w-1/2 gap-2"
-        >
+        <Button variant="outline" onClick={handlePrevious} className="gap-2">
           <ChevronLeft className="h-4 w-4" />
           Previous
         </Button>
@@ -733,8 +727,32 @@ export const OfferFormInteractiveView = ({
       {/* Questions */}
       <div className="space-y-0">
         {currentPage.questions.map((question, index) => {
-          // Skip rendering the submit button in the questions list
+          // Render submit button question with T&C checkbox on last page
           if (question.type === "submitButton") {
+            if (isLastPage) {
+              return (
+                <div key={question.id} className="mt-6">
+                  <QuestionRenderer
+                    question={question}
+                    disabled={false}
+                    editingMode={false}
+                    formId={question.formId}
+                    ownerId={ownerId}
+                    brandingConfig={brandingConfig}
+                    isTestMode={isTestMode}
+                    value={formData[question.id]}
+                    onChange={(value) => handleFieldChange(question.id, value)}
+                    onBlur={() => handleFieldBlur(question.id)}
+                    error={
+                      touchedFields.has(question.id)
+                        ? validationErrors[question.id]
+                        : undefined
+                    }
+                    onSubmit={handleSubmit}
+                  />
+                </div>
+              )
+            }
             return null
           }
 
@@ -835,7 +853,8 @@ export const OfferFormInteractiveView = ({
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>
-        ) : (
+        ) : hasSubmitButton ? // Submit button is rendered via QuestionRenderer above, so we don't need a separate button here
+        null : (
           <Button
             size="lg"
             onClick={handleSubmit}
@@ -845,17 +864,7 @@ export const OfferFormInteractiveView = ({
               color: brandingConfig?.buttonTextColor || undefined,
             }}
           >
-            {hasSubmitButton
-              ? (() => {
-                  const submitButtonQuestion = currentPage.questions.find(
-                    (q) => q.type === "submitButton",
-                  )
-                  const submitUiConfig =
-                    (submitButtonQuestion?.uiConfig as Record<string, any>) ||
-                    {}
-                  return submitUiConfig.label || "Submit Offer"
-                })()
-              : "Submit Offer"}
+            Submit Offer
           </Button>
         )}
       </div>

@@ -338,6 +338,9 @@ const QuestionCard = ({
     setEditQuestionModalOpen(true)
   }
 
+  // Check if this is a submit button
+  const isSubmitButton = question.type === "submitButton"
+
   return (
     <>
       {/* Decorative divider (not shown for first question) */}
@@ -347,74 +350,96 @@ const QuestionCard = ({
         {/* Mobile: Top row with question number and actions */}
         <div className="flex items-center justify-between gap-4 md:hidden">
           {/* Question Number (Mobile) */}
-          <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-2">
-            <p className="text-sm font-bold text-gray-900">
-              QUESTION {questionNumber} of {totalQuestions}
-            </p>
+          <div className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 bg-white px-4 py-2">
+            {isSubmitButton ? (
+              <>
+                <p className="text-sm font-bold text-gray-900">BUTTON</p>
+                <p className="text-xs font-bold text-gray-900">(SUBMIT)</p>
+              </>
+            ) : (
+              <p className="text-sm font-bold text-gray-900">
+                QUESTION {questionNumber} of {totalQuestions}
+              </p>
+            )}
           </div>
 
-          {/* Actions (Mobile) */}
-          <div className="flex items-center gap-1">
-            <Button size="icon" variant="ghost" onClick={onMoveUp}>
-              <ChevronUp size={16} />
-            </Button>
-            <Button size="icon" variant="ghost" onClick={onMoveDown}>
-              <ChevronDown size={16} />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghostDesctructive"
-              onClick={handleDelete}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+          {/* Actions (Mobile) - Disabled for submit button */}
+          {!isSubmitButton && (
+            <div className="flex items-center gap-1">
+              <Button size="icon" variant="ghost" onClick={onMoveUp}>
+                <ChevronUp size={16} />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={onMoveDown}>
+                <ChevronDown size={16} />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghostDesctructive"
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Desktop: Left - Question Info */}
         <div className="hidden w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4 md:flex">
-          <p className="text-xl font-bold text-gray-900">QUESTION</p>
-          <p className="text-sm font-bold text-gray-900">
-            {questionNumber} of {totalQuestions}
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            <Checkbox
-              checked={question.required}
-              onCheckedChange={handleRequiredToggle}
-            />
-            <span className="text-sm text-gray-700">Required field</span>
-          </div>
-          <Button
-            variant="outline"
-            className="mt-3 w-full"
-            size="sm"
-            onClick={handleEditQuestion}
-          >
-            Edit Question
-          </Button>
+          {isSubmitButton ? (
+            <>
+              <p className="text-xl font-bold text-gray-900">BUTTON</p>
+              <p className="text-xs font-bold text-gray-900">(SUBMIT)</p>
+            </>
+          ) : (
+            <>
+              <p className="text-xl font-bold text-gray-900">QUESTION</p>
+              <p className="text-sm font-bold text-gray-900">
+                {questionNumber} of {totalQuestions}
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <Checkbox
+                  checked={question.required}
+                  onCheckedChange={handleRequiredToggle}
+                />
+                <span className="text-sm text-gray-700">Required field</span>
+              </div>
+              <Button
+                variant="outline"
+                className="mt-3 w-full"
+                size="sm"
+                onClick={handleEditQuestion}
+              >
+                Edit Question
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Middle: Question Preview (Both Mobile and Desktop) */}
         <div className="flex flex-1 flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold tracking-wide text-gray-500 uppercase">
-              {questionTypeToLabel[question.type]}
-            </h3>
-            {isEssential && (
-              <Badge size="xs" variant="destructiveLight" className="text-xs">
-                Essential
-              </Badge>
-            )}
-          </div>
+          {!isSubmitButton && (
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold tracking-wide text-gray-500 uppercase">
+                {questionTypeToLabel[question.type]}
+              </h3>
+              {isEssential && (
+                <Badge size="xs" variant="destructiveLight" className="text-xs">
+                  Essential
+                </Badge>
+              )}
+            </div>
+          )}
           <div className="flex flex-1 flex-col gap-2 py-4">
-            <p
-              className="cursor-pointer text-base font-medium text-gray-900 transition-colors hover:text-cyan-600"
-              onClick={() => handleLabelEdit()}
-              title="Click to edit question text"
-            >
-              {labelText}
-              {question.required && <span className="text-red-500"> *</span>}
-            </p>
+            {!isSubmitButton && (
+              <p
+                className="cursor-pointer text-base font-medium text-gray-900 transition-colors hover:text-cyan-600"
+                onClick={() => handleLabelEdit()}
+                title="Click to edit question text"
+              >
+                {labelText}
+                {question.required && <span className="text-red-500"> *</span>}
+              </p>
+            )}
 
             {/* Render appropriate input based on question type and setup */}
             <QuestionRenderer
@@ -435,51 +460,55 @@ const QuestionCard = ({
             />
           </div>
 
-          {/* Mobile: Required field checkbox and Edit button */}
-          <div className="flex items-center justify-between gap-4 md:hidden">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={question.required}
-                onCheckedChange={handleRequiredToggle}
-              />
-              <span className="text-sm text-gray-700">Required field</span>
+          {/* Mobile: Required field checkbox and Edit button - Hidden for submit button */}
+          {!isSubmitButton && (
+            <div className="flex items-center justify-between gap-4 md:hidden">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={question.required}
+                  onCheckedChange={handleRequiredToggle}
+                />
+                <span className="text-sm text-gray-700">Required field</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleEditQuestion}>
+                Edit Question
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={handleEditQuestion}>
-              Edit Question
-            </Button>
-          </div>
+          )}
         </div>
 
-        {/* Desktop: Right - Actions */}
-        <div className="hidden w-auto flex-col justify-center gap-1 md:flex">
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={onMoveUp}
-            className="justify-baseline"
-          >
-            <ChevronUp size={16} />
-            Move Up
-          </Button>
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={onMoveDown}
-            className="justify-baseline"
-          >
-            <ChevronDown size={16} />
-            Move Down
-          </Button>
-          <Button
-            size="xs"
-            variant="ghostDesctructive"
-            onClick={handleDelete}
-            className="justify-baseline"
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </Button>
-        </div>
+        {/* Desktop: Right - Actions - Hidden for submit button */}
+        {!isSubmitButton && (
+          <div className="hidden w-auto flex-col justify-center gap-1 md:flex">
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={onMoveUp}
+              className="justify-baseline"
+            >
+              <ChevronUp size={16} />
+              Move Up
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={onMoveDown}
+              className="justify-baseline"
+            >
+              <ChevronDown size={16} />
+              Move Down
+            </Button>
+            <Button
+              size="xs"
+              variant="ghostDesctructive"
+              onClick={handleDelete}
+              className="justify-baseline"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          </div>
+        )}
 
         {/* Edit Text Modal */}
         {editingField && (

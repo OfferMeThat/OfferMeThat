@@ -130,6 +130,10 @@ const LeadFormBuilderPageContent = () => {
     currentOrder: number,
     questionType: QuestionType,
   ) => {
+    // Prevent moving submit button
+    if (questionType === "submitButton") {
+      return
+    }
     // Show modal for first 2 questions trying to move up
     if (currentOrder === 1 || currentOrder === 2) {
       setShowRestrictionModal(true)
@@ -226,6 +230,10 @@ const LeadFormBuilderPageContent = () => {
     currentOrder: number,
     questionType: QuestionType,
   ) => {
+    // Prevent moving submit button
+    if (questionType === "submitButton") {
+      return
+    }
     if (currentOrder === questions.length) return
 
     // Show modal for first 2 questions trying to move down
@@ -614,9 +622,18 @@ const LeadFormBuilderPageContent = () => {
       ) : (
         <div className="p-4">
           <div className="space-y-6 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-xl">
-            {questions
-              .sort((a, b) => a.order - b.order)
-              .map((question, index) => {
+            {(() => {
+              // Separate submit button from regular questions
+              const regularQuestions = questions
+                .sort((a, b) => a.order - b.order)
+                .filter((q) => q.type !== "submitButton")
+              const submitButtonQuestion = questions.find(
+                (q) => q.type === "submitButton",
+              )
+
+              return (
+                <>
+                  {regularQuestions.map((question, index) => {
               // Find if there's a page break after this question
               const pageBreakAfter = pages.find(
                 (page) => page.breakIndex === question.order,
@@ -625,11 +642,11 @@ const LeadFormBuilderPageContent = () => {
               return (
                 <div key={question.id}>
                   <QuestionCard
-                    questionsAmount={questions.length}
+                    questionsAmount={regularQuestions.length}
                     question={question as any}
                     questionNumber={index + 1}
                     isFirst={index === 0}
-                    isLast={index === questions.length - 1}
+                    isLast={index === regularQuestions.length - 1}
                     onMoveUp={() =>
                       handleMoveUp(question.id, question.order, question.type)
                     }
@@ -811,7 +828,30 @@ const LeadFormBuilderPageContent = () => {
                   )}
                 </div>
               )
-            })}
+                  })}
+
+                  {/* Submit Button - Always at the bottom, cannot be moved */}
+                  {submitButtonQuestion && (
+                    <div className="my-8">
+                      <QuestionCard
+                        questionsAmount={regularQuestions.length}
+                        question={submitButtonQuestion as any}
+                        questionNumber={0} // Not counted as a question
+                        isFirst={false}
+                        isLast={true}
+                        onMoveUp={() => {}} // Disabled - cannot move
+                        onMoveDown={() => {}} // Disabled - cannot move
+                        onDelete={() => {}} // Disabled - cannot delete
+                        onUpdateQuestion={handleUpdateQuestion}
+                        questionDefinitions={QUESTION_DEFINITIONS}
+                        questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
+                        requiredQuestionTypes={REQUIRED_QUESTION_TYPES}
+                      />
+                    </div>
+                  )}
+                </>
+              )
+            })()}
           </div>
         </div>
       )}

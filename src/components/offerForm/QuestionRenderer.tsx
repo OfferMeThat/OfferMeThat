@@ -47,6 +47,7 @@ interface QuestionRendererProps {
   onBlur?: () => void
   error?: string
   isTestMode?: boolean
+  onSubmit?: () => void // For submit button clicks
 }
 
 // PersonNameFields component extracted to prevent re-creation on every render
@@ -458,6 +459,7 @@ export const QuestionRenderer = ({
   onBlur,
   error,
   isTestMode,
+  onSubmit,
 }: QuestionRendererProps) => {
   // State for interactive fields (used for complex fields like dates, times, etc.)
   // Initialize from value prop if available
@@ -923,7 +925,7 @@ export const QuestionRenderer = ({
 
     return (
       <div>
-        <div className="relative max-w-md flex items-center gap-2">
+        <div className="relative flex max-w-md items-center gap-2">
           <PhoneInput
             value={phoneValue}
             onChange={(newValue) => {
@@ -942,10 +944,13 @@ export const QuestionRenderer = ({
           {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
           {editingMode && onEditPlaceholder && (
             <div
-              className="absolute left-[108px] right-0 top-0 bottom-0 z-20 cursor-pointer"
+              className="absolute top-0 right-0 bottom-0 left-[108px] z-20 cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation()
-                onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter your phone number")
+                onEditPlaceholder(
+                  "placeholder",
+                  uiConfig.placeholder || "Enter your phone number",
+                )
               }}
               title="Click to edit placeholder"
             />
@@ -1125,7 +1130,12 @@ export const QuestionRenderer = ({
               }}
               onKeyDown={(e) => {
                 // Prevent "e", "E", "+", "-" keys
-                if (e.key === "e" || e.key === "E" || e.key === "+" || e.key === "-") {
+                if (
+                  e.key === "e" ||
+                  e.key === "E" ||
+                  e.key === "+" ||
+                  e.key === "-"
+                ) {
                   e.preventDefault()
                 }
               }}
@@ -1134,7 +1144,7 @@ export const QuestionRenderer = ({
             />
             {/* Currency decorator for fixed mode */}
             {currencyMode === "fixed" && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-sm font-medium text-gray-500 z-10">
+              <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
                 {fixedCurrency}
               </div>
             )}
@@ -1144,7 +1154,10 @@ export const QuestionRenderer = ({
                 className="absolute inset-0 right-12 z-20 cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter offer amount")
+                  onEditPlaceholder(
+                    "placeholder",
+                    uiConfig.placeholder || "Enter offer amount",
+                  )
                 }}
                 title="Click to edit placeholder"
               />
@@ -1164,9 +1177,43 @@ export const QuestionRenderer = ({
   // Submit Button
   if (question.type === "submitButton") {
     return (
-      <Button size="lg" disabled={disabled} style={getButtonStyle()}>
-        {uiConfig.label || "Submit Offer"}
-      </Button>
+      <div className="space-y-3">
+        {/* Terms and Conditions Checkbox */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              disabled={disabled || editingMode}
+              checked={editingMode ? false : (value as boolean) || false}
+              onCheckedChange={(checked) => {
+                if (!editingMode) {
+                  onChange?.(checked)
+                }
+              }}
+              onBlur={onBlur}
+              data-field-id={`${question.id}_terms`}
+            />
+            <label className="text-sm text-gray-700">
+              I agree to the terms and conditions.
+              <span className="text-red-500"> *</span>
+            </label>
+          </div>
+          {/* Show validation error for T&C checkbox */}
+          {error && <p className="ml-7 text-sm text-red-500">{error}</p>}
+        </div>
+        {/* Submit Button - Not editable */}
+        <div className={editingMode ? "" : "flex justify-center"}>
+          <Button
+            size="lg"
+            disabled={disabled}
+            style={getButtonStyle()}
+            className={editingMode ? "w-full" : "w-1/2"}
+            onClick={editingMode ? undefined : onSubmit}
+            type={editingMode ? "button" : "button"}
+          >
+            {uiConfig.label || "Submit Offer"}
+          </Button>
+        </div>
+      </div>
     )
   }
 
@@ -2980,7 +3027,7 @@ export const QuestionRenderer = ({
 
     return (
       <div>
-        <div className="relative max-w-md flex items-center gap-2">
+        <div className="relative flex max-w-md items-center gap-2">
           <PhoneInput
             value={phoneValue}
             onChange={(newValue) => {
@@ -2999,10 +3046,13 @@ export const QuestionRenderer = ({
           {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
           {editingMode && onEditPlaceholder && (
             <div
-              className="absolute left-[108px] right-0 top-0 bottom-0 z-20 cursor-pointer"
+              className="absolute top-0 right-0 bottom-0 left-[108px] z-20 cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation()
-                onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter your phone number")
+                onEditPlaceholder(
+                  "placeholder",
+                  uiConfig.placeholder || "Enter your phone number",
+                )
               }}
               title="Click to edit placeholder"
             />
@@ -3686,7 +3736,7 @@ export const QuestionRenderer = ({
 
       return (
         <div>
-          <div className="relative max-w-md flex items-center gap-2">
+          <div className="relative flex max-w-md items-center gap-2">
             <PhoneInput
               value={phoneValue}
               onChange={(newValue) => {
@@ -3705,10 +3755,13 @@ export const QuestionRenderer = ({
             {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
             {editingMode && onEditPlaceholder && (
               <div
-                className="absolute left-[108px] right-0 top-0 bottom-0 z-20 cursor-pointer"
+                className="absolute top-0 right-0 bottom-0 left-[108px] z-20 cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter your phone number")
+                  onEditPlaceholder(
+                    "placeholder",
+                    uiConfig.placeholder || "Enter your phone number",
+                  )
                 }}
                 title="Click to edit placeholder"
               />
