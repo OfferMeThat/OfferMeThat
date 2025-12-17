@@ -318,7 +318,8 @@ const QuestionCard = ({
   }
 
   const handleDelete = () => {
-    if (isEssential) {
+    // Allow submitterRole to be deleted even though it's essential
+    if (isEssential && question.type !== "submitterRole") {
       setEssentialQuestionModal({ isOpen: true, action: "delete" })
       return
     }
@@ -351,18 +352,10 @@ const QuestionCard = ({
 
           {/* Actions (Mobile) */}
           <div className="flex items-center gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={onMoveUp}
-            >
+            <Button size="icon" variant="ghost" onClick={onMoveUp}>
               <ChevronUp size={16} />
             </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={onMoveDown}
-            >
+            <Button size="icon" variant="ghost" onClick={onMoveDown}>
               <ChevronDown size={16} />
             </Button>
             <Button

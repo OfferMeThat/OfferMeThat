@@ -128,18 +128,6 @@ const OfferFormBuilderPageContent = () => {
     currentOrder: number,
     questionType: QuestionType,
   ) => {
-    // Show modal for first 2 questions trying to move up
-    if (currentOrder === 1 || currentOrder === 2) {
-      setShowRestrictionModal(true)
-      return
-    }
-
-    // Show modal for 3rd question trying to move up
-    if (currentOrder === 3) {
-      setShowRestrictionModal(true)
-      return
-    }
-
     // Check if "Specify Listing" exists and is at position 1
     const specifyListingQuestion = questions.find(
       (q) => q.type === "specifyListing",
@@ -152,22 +140,36 @@ const OfferFormBuilderPageContent = () => {
     )
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
-    // Prevent other questions from moving into locked positions
+    // First question can never move up
+    if (currentOrder === 1) {
+      setShowRestrictionModal(true)
+      return
+    }
+
+    // If submitterRole is at position 2:
+    if (isSubmitterRoleAtPosition2) {
+      // The 2nd question (submitterRole) cannot be moved
+      if (currentOrder === 2 && questionType === "submitterRole") {
+        setShowRestrictionModal(true)
+        return
+      }
+      // The 3rd question cannot move upward
+      if (currentOrder === 3) {
+        setShowRestrictionModal(true)
+        return
+      }
+    }
+
+    // Prevent other questions from moving into position 1 (locked by specifyListing)
+    // If submitterRole is deleted, position 1 is still locked, but position 2 is free
     const targetPosition = currentOrder - 1
     if (targetPosition === 1 && isSpecifyListingAtPosition1) {
-      // Position 1 is locked by "Specify Listing"
       if (questionType !== "specifyListing") {
         setShowRestrictionModal(true)
         return
       }
     }
-    if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
-      // Position 2 is locked by "Submitter Role"
-      if (questionType !== "submitterRole") {
-        setShowRestrictionModal(true)
-        return
-      }
-    }
+    // If submitterRole is NOT at position 2 (deleted), position 2 is free to move into
 
     startTransition(async () => {
       try {
@@ -185,9 +187,11 @@ const OfferFormBuilderPageContent = () => {
           setShowRestrictionModal(true)
           return
         }
+        // If submitterRole is at position 2, it's locked
         if (
           questionAbove.type === "submitterRole" &&
-          questionAbove.order === 2
+          questionAbove.order === 2 &&
+          isSubmitterRoleAtPosition2
         ) {
           setShowRestrictionModal(true)
           return
@@ -224,23 +228,28 @@ const OfferFormBuilderPageContent = () => {
   ) => {
     if (currentOrder === questions.length) return
 
-    // Show modal for first 2 questions trying to move down
-    if (currentOrder === 1 || currentOrder === 2) {
-      setShowRestrictionModal(true)
-      return
-    }
-
     // Check if "Submitter Role" exists and is at position 2
     const submitterRoleQuestion = questions.find(
       (q) => q.type === "submitterRole",
     )
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
-    // Prevent moving into position 2 if it's locked
-    const targetPosition = currentOrder + 1
-    if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
-      // Position 2 is locked by "Submitter Role"
-      if (questionType !== "submitterRole") {
+    // First question can never move down
+    if (currentOrder === 1) {
+      setShowRestrictionModal(true)
+      return
+    }
+
+    // If submitterRole is at position 2:
+    if (isSubmitterRoleAtPosition2) {
+      // The 2nd question (submitterRole) cannot be moved
+      if (currentOrder === 2 && questionType === "submitterRole") {
+        setShowRestrictionModal(true)
+        return
+      }
+      // Prevent moving into position 2 if it's locked by submitterRole
+      const targetPosition = currentOrder + 1
+      if (targetPosition === 2 && questionType !== "submitterRole") {
         setShowRestrictionModal(true)
         return
       }
@@ -256,11 +265,17 @@ const OfferFormBuilderPageContent = () => {
 
         // Check if moving would put this question into a locked position
         const targetPosition = currentOrder + 1
+        // Position 1 is always locked (unless it's specifyListing)
         if (targetPosition === 1 && questionType !== "specifyListing") {
           setShowRestrictionModal(true)
           return
         }
-        if (targetPosition === 2 && questionType !== "submitterRole") {
+        // Position 2 is locked only if submitterRole is there
+        if (
+          targetPosition === 2 &&
+          isSubmitterRoleAtPosition2 &&
+          questionType !== "submitterRole"
+        ) {
           setShowRestrictionModal(true)
           return
         }

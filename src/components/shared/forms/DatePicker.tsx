@@ -44,21 +44,21 @@ const DatePicker = ({
   }, [])
 
   const getFieldStyle = () => {
-    const baseStyle = {
-      borderWidth: "1px",
-      borderStyle: "solid",
-      borderColor: "#e5e7eb", // gray-200
+    if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
+      return {
+        backgroundColor: brandingConfig.fieldColor,
+        borderColor: brandingConfig.fieldColor,
+        borderWidth: "1px",
+        borderStyle: "solid",
+        ...style,
+      }
+    }
+    // Don't override border color - let border-input class handle it
+    // Only set background to ensure consistency
+    return {
       backgroundColor: "#ffffff",
       ...style,
     }
-    if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
-      return {
-        ...baseStyle,
-        backgroundColor: brandingConfig.fieldColor,
-        borderColor: brandingConfig.fieldColor,
-      }
-    }
-    return baseStyle
   }
 
   return (

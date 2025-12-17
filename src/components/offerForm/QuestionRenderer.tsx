@@ -129,7 +129,6 @@ const PersonNameFields = ({
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
-    if (editingMode) return {}
     if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
       return {
         backgroundColor: brandingConfig.fieldColor,
@@ -138,11 +137,9 @@ const PersonNameFields = ({
         borderStyle: "solid",
       }
     }
-    // Use gray border when branding is null or white
+    // Don't override border color - let border-input class handle it
+    // Only set background to ensure consistency (even in editing mode)
     return {
-      borderWidth: "1px",
-      borderStyle: "solid",
-      borderColor: "#e5e7eb", // gray-200
       backgroundColor: "#ffffff",
     }
   }
@@ -496,9 +493,9 @@ export const QuestionRenderer = ({
   const [selectedListingId, setSelectedListingId] = useState<string>("")
   const [customAddress, setCustomAddress] = useState<string>("")
 
-  // Fetch listings for specifyListing question
+  // Fetch listings for specifyListing question (even in editing mode for form builder)
   useEffect(() => {
-    if (question.type === "specifyListing" && !editingMode) {
+    if (question.type === "specifyListing") {
       if (listings === null) {
         // Use ownerId if available (for public forms), otherwise use formId
         const idToUse = ownerId || formId
@@ -513,11 +510,11 @@ export const QuestionRenderer = ({
               console.error("Error fetching listings:", error)
               setListings([])
             })
+        } else {
+          // No formId or ownerId, set empty array
+          setListings([])
         }
       }
-    } else if (editingMode && question.type === "specifyListing") {
-      // In editing mode, don't fetch listings
-      setListings([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId, ownerId, editingMode, question.type, question.id, isTestMode])
@@ -528,7 +525,6 @@ export const QuestionRenderer = ({
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
-    if (editingMode) return {}
     if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
       return {
         backgroundColor: brandingConfig.fieldColor,
@@ -537,18 +533,15 @@ export const QuestionRenderer = ({
         borderStyle: "solid",
       }
     }
-    // Use gray border when branding is null or white
+    // Don't override border color - let border-input class handle it
+    // Only set background to ensure consistency (even in editing mode)
     return {
-      borderWidth: "1px",
-      borderStyle: "solid",
-      borderColor: "#e5e7eb", // gray-200
       backgroundColor: "#ffffff",
     }
   }
 
-  // Helper: Get select style with branding
+  // Helper: Get select style with branding (matching input border styling)
   const getSelectStyle = () => {
-    if (editingMode) return {}
     if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
       return {
         backgroundColor: brandingConfig.fieldColor,
@@ -557,11 +550,9 @@ export const QuestionRenderer = ({
         borderStyle: "solid",
       }
     }
-    // Use gray border when branding is null or white
+    // Don't override border color - let border-input class handle it to match input exactly
+    // Only set background to ensure consistency (even in editing mode)
     return {
-      borderWidth: "1px",
-      borderStyle: "solid",
-      borderColor: "#e5e7eb", // gray-200
       backgroundColor: "#ffffff",
     }
   }
@@ -680,8 +671,8 @@ export const QuestionRenderer = ({
       }
     }, [value, listings])
 
-    // If no listings or editing mode, show simple input
-    if (!listings || listings.length === 0 || editingMode) {
+    // If no listings, show simple input (even in editing mode, show dropdown if listings exist)
+    if (!listings || listings.length === 0) {
       const inputValue = editingMode ? "" : (value as string) || customAddress
       return (
         <div>
@@ -942,7 +933,7 @@ export const QuestionRenderer = ({
               }
             }}
             onBlur={onBlur}
-            disabled={disabled || editingMode}
+            disabled={disabled}
             editingMode={editingMode}
             placeholder={uiConfig.placeholder || "555-123-4567"}
             className={cn(editingMode && "cursor-not-allowed", "w-full")}
@@ -1107,16 +1098,8 @@ export const QuestionRenderer = ({
           {/* Fixed Currency Display */}
           {currencyMode === "fixed" && (
             <div
-              className="flex items-center justify-center rounded-md border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-500"
-              style={
-                brandingConfig?.fieldColor &&
-                brandingConfig.fieldColor !== "#ffffff"
-                  ? {
-                      backgroundColor: brandingConfig.fieldColor,
-                      borderColor: brandingConfig.fieldColor,
-                    }
-                  : {}
-              }
+              className="flex items-center justify-center rounded-md border px-3 text-sm font-medium text-gray-500"
+              style={getInputStyle()}
             >
               {fixedCurrency}
             </div>

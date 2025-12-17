@@ -144,6 +144,9 @@ const PhoneInput = ({
 
   const isCountryCodeDisabled = disabled || editingMode
 
+  // Ensure both inputs get the same style for consistency
+  const inputStyle = style || {}
+
   return (
     <div className="flex items-center gap-2">
       <Input
@@ -154,7 +157,7 @@ const PhoneInput = ({
         disabled={isCountryCodeDisabled}
         placeholder="+1"
         className="w-[80px]"
-        style={style}
+        style={inputStyle}
         maxLength={4}
         autoComplete="tel-country-code"
       />
@@ -169,7 +172,7 @@ const PhoneInput = ({
         onBlur={handlePhoneNumberBlur}
         disabled={disabled}
         className={className}
-        style={style}
+        style={inputStyle}
         autoComplete="tel"
         {...props}
       />

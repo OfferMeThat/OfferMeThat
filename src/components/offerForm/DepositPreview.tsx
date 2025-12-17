@@ -90,7 +90,6 @@ const DepositForm = ({
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
-    if (editingMode) return {}
     if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
       return {
         backgroundColor: brandingConfig.fieldColor,
@@ -99,18 +98,15 @@ const DepositForm = ({
         borderStyle: "solid",
       }
     }
-    // Use gray border when branding is null or white
+    // Don't override border color - let border-input class handle it
+    // Only set background to ensure consistency (even in editing mode)
     return {
-      borderWidth: "1px",
-      borderStyle: "solid",
-      borderColor: "#e5e7eb", // gray-200
       backgroundColor: "#ffffff",
     }
   }
 
-  // Helper: Get select style with branding
+  // Helper: Get select style with branding (matching input border styling)
   const getSelectStyle = () => {
-    if (editingMode) return {}
     if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
       return {
         backgroundColor: brandingConfig.fieldColor,
@@ -119,11 +115,9 @@ const DepositForm = ({
         borderStyle: "solid",
       }
     }
-    // Use gray border when branding is null or white
+    // Don't override border color - let border-input class handle it to match input exactly
+    // Only set background to ensure consistency (even in editing mode)
     return {
-      borderWidth: "1px",
-      borderStyle: "solid",
-      borderColor: "#e5e7eb", // gray-200
       backgroundColor: "#ffffff",
     }
   }
@@ -790,7 +784,7 @@ const DepositForm = ({
                         placeholder={currentPlaceholder || "Enter value"}
                         value={localFormData[id] || ""}
                         onChange={(e) => handleFieldChange(id, e.target.value)}
-                        disabled={editingMode}
+                        disabled={false}
                         className={cn(
                           editingMode ? "cursor-not-allowed" : "",
                           "w-full",
@@ -813,8 +807,11 @@ const DepositForm = ({
                     </div>
                     {/* Render currency field based on type */}
                     {depositQuestion.currency_field.type === "display" ? (
-                      // Fixed currency - display as text
-                      <div className="flex max-w-xs items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                      // Fixed currency - display as text (using consistent styling)
+                      <div
+                        className="flex max-w-xs items-center rounded-md border px-3 py-2"
+                        style={getInputStyle()}
+                      >
                         <span className="text-sm font-medium text-gray-700">
                           {depositQuestion.currency_field.value || "N/A"}
                         </span>
@@ -860,7 +857,7 @@ const DepositForm = ({
                       placeholder={currentPlaceholder || "Enter value"}
                       value={localFormData[id] || ""}
                       onChange={(e) => handleFieldChange(id, e.target.value)}
-                      disabled={editingMode}
+                      disabled={false}
                       className={cn(
                         editingMode ? "cursor-not-allowed" : "",
                         "w-full",
@@ -992,7 +989,7 @@ const DepositForm = ({
                               e.target.value,
                             )
                           }
-                          disabled={editingMode}
+                          disabled={false}
                           className={cn(
                             editingMode ? "cursor-not-allowed" : "",
                             "w-full",
@@ -1083,7 +1080,7 @@ const DepositForm = ({
                               e.target.value,
                             )
                           }
-                          disabled={editingMode}
+                          disabled={false}
                           className={cn(
                             editingMode ? "cursor-not-allowed" : "",
                             "w-full",
@@ -1140,7 +1137,7 @@ const DepositForm = ({
                     type="datetime-local"
                     value={localFormData[id] || ""}
                     onChange={(e) => handleFieldChange(id, e.target.value)}
-                    disabled={editingMode}
+                    disabled={false}
                     className={cn(
                       editingMode ? "cursor-not-allowed" : "",
                       "w-full",
