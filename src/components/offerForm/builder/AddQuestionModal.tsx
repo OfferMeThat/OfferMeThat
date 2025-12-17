@@ -101,7 +101,9 @@ const AddQuestionModal = ({
 
       <div className="flex-1 overflow-y-auto px-4">
         <div className="space-y-2 divide-y divide-gray-200 py-2">
-          {Object.entries(questionDefinitions).map(([type, details]) => {
+          {Object.entries(questionDefinitions)
+            .filter(([type]) => type !== "offerAmount") // Remove offerAmount from the list
+            .map(([type, details]) => {
             const questionType = type as QuestionType
             // Allow unlimited custom questions, but only one of each other type
             const isOnForm =

@@ -304,17 +304,8 @@ const QuestionCard = ({
     (question.type === "specifyListing" && question.order === 1) ||
     (question.type === "submitterRole" && question.order === 2)
 
-  // Determine if move up is disabled
-  // "Specify Listing" at position 1 can't move up
-  // "Submitter Role" at position 2 can't move up (would go to position 1 which is locked)
-  const canMoveUp =
-    !isFirst &&
-    !isLockedInPosition &&
-    !(question.type === "submitterRole" && question.order === 2)
-
-  // Determine if move down is disabled
-  // Both locked questions can't move down from their positions
-  const canMoveDown = !isLast && !isLockedInPosition
+  // Buttons are no longer disabled - they will show a modal if the action is restricted
+  // The parent component handles showing the restriction modal
 
   const handleRequiredToggle = () => {
     if (isEssential) {
@@ -327,7 +318,8 @@ const QuestionCard = ({
   }
 
   const handleDelete = () => {
-    if (isEssential) {
+    // Allow submitterRole to be deleted even though it's essential
+    if (isEssential && question.type !== "submitterRole") {
       setEssentialQuestionModal({ isOpen: true, action: "delete" })
       return
     }
@@ -360,20 +352,10 @@ const QuestionCard = ({
 
           {/* Actions (Mobile) */}
           <div className="flex items-center gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={onMoveUp}
-              disabled={!canMoveUp}
-            >
+            <Button size="icon" variant="ghost" onClick={onMoveUp}>
               <ChevronUp size={16} />
             </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={onMoveDown}
-              disabled={!canMoveDown}
-            >
+            <Button size="icon" variant="ghost" onClick={onMoveDown}>
               <ChevronDown size={16} />
             </Button>
             <Button
@@ -471,7 +453,6 @@ const QuestionCard = ({
             size="xs"
             variant="ghost"
             onClick={onMoveUp}
-            disabled={!canMoveUp}
             className="justify-baseline"
           >
             <ChevronUp size={16} />
@@ -481,7 +462,6 @@ const QuestionCard = ({
             size="xs"
             variant="ghost"
             onClick={onMoveDown}
-            disabled={!canMoveDown}
             className="justify-baseline"
           >
             <ChevronDown size={16} />

@@ -12,8 +12,8 @@ import {
   getOrCreateLeadForm,
   movePageBreak,
   resetFormToDefault,
+  swapQuestionOrders,
   updateQuestion,
-  updateQuestionOrder,
 } from "@/app/actions/leadForm"
 import Heading from "@/components/shared/typography/Heading"
 import {
@@ -28,23 +28,25 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import {
+  LEAD_FORM_ADD_QUESTION_DEFINITIONS,
+  QUESTION_DEFINITIONS,
+  QUESTION_TYPE_TO_LABEL,
+  REQUIRED_QUESTION_TYPES,
+} from "@/constants/leadFormQuestions"
+import { buildFormValidationSchema } from "@/lib/leadFormValidation"
+import { createClient } from "@/lib/supabase/client"
 import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
 import Link from "next/link"
 import { useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
-import { FormPreview } from "../../shared/FormPreview"
-import {
-  QUESTION_TYPE_TO_LABEL,
-  QUESTION_DEFINITIONS,
-  REQUIRED_QUESTION_TYPES,
-  LEAD_FORM_ADD_QUESTION_DEFINITIONS,
-} from "@/constants/leadFormQuestions"
-import { buildFormValidationSchema } from "@/lib/leadFormValidation"
 import AddQuestionModal from "../../offerForm/builder/AddQuestionModal"
 import PageBreak from "../../offerForm/builder/PageBreak"
 import QuestionCard from "../../offerForm/builder/QuestionCard"
+import RestrictionModal from "../../offerForm/builder/RestrictionModal"
+import { FormPreview } from "../../shared/FormPreview"
 
 type Question = Database["public"]["Tables"]["leadFormQuestions"]["Row"]
 type Page = Database["public"]["Tables"]["leadFormPages"]["Row"]
@@ -67,6 +69,8 @@ const LeadFormBuilderPageContent = () => {
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
     null,
   )
+  const [profileName, setProfileName] = useState<string | null>(null)
+  const [showRestrictionModal, setShowRestrictionModal] = useState(false)
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -98,7 +102,27 @@ const LeadFormBuilderPageContent = () => {
       }
     }
 
+    const fetchUserProfile = async () => {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("fullName")
+          .eq("id", user.id)
+          .single()
+
+        if (profile?.fullName) {
+          setProfileName(profile.fullName)
+        }
+      }
+    }
+
     initializeForm()
+    fetchUserProfile()
   }, [])
 
   const handleMoveUp = (
@@ -106,7 +130,17 @@ const LeadFormBuilderPageContent = () => {
     currentOrder: number,
     questionType: QuestionType,
   ) => {
-    if (currentOrder === 1) return
+    // Show modal for first 2 questions trying to move up
+    if (currentOrder === 1 || currentOrder === 2) {
+      setShowRestrictionModal(true)
+      return
+    }
+
+    // Show modal for 3rd question trying to move up
+    if (currentOrder === 3) {
+      setShowRestrictionModal(true)
+      return
+    }
 
     // Check if "Listing Interest" exists at position 1
     const listingInterestQuestion = questions.find(
@@ -120,24 +154,19 @@ const LeadFormBuilderPageContent = () => {
     )
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
-    // Lock "Listing Interest" in position 1 (if it exists)
-    if (questionType === "listingInterest" && currentOrder === 1) return
-
-    // Lock "Submitter Role" in position 2 - can't move up to position 1 (if it exists)
-    if (
-      questionType === "submitterRole" &&
-      currentOrder === 2 &&
-      isListingInterestAtPosition1
-    )
-      return
-
     // Prevent other questions from moving into locked positions
     const targetPosition = currentOrder - 1
     if (targetPosition === 1 && isListingInterestAtPosition1) {
-      if (questionType !== "listingInterest") return
+      if (questionType !== "listingInterest") {
+        setShowRestrictionModal(true)
+        return
+      }
     }
     if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
-      if (questionType !== "submitterRole") return
+      if (questionType !== "submitterRole") {
+        setShowRestrictionModal(true)
+        return
+      }
     }
 
     startTransition(async () => {
@@ -152,14 +181,25 @@ const LeadFormBuilderPageContent = () => {
         if (
           questionAbove.type === "listingInterest" &&
           questionAbove.order === 1
-        )
+        ) {
+          setShowRestrictionModal(true)
           return
-        if (questionAbove.type === "submitterRole" && questionAbove.order === 2)
+        }
+        if (
+          questionAbove.type === "submitterRole" &&
+          questionAbove.order === 2
+        ) {
+          setShowRestrictionModal(true)
           return
+        }
 
-        // Swap orders
-        await updateQuestionOrder(questionId, currentOrder - 1)
-        await updateQuestionOrder(questionAbove.id, currentOrder)
+        // Swap orders using safe swap function
+        await swapQuestionOrders(
+          questionId,
+          currentOrder - 1,
+          questionAbove.id,
+          currentOrder,
+        )
 
         // Update local state
         setQuestions((prev) =>
@@ -188,22 +228,25 @@ const LeadFormBuilderPageContent = () => {
   ) => {
     if (currentOrder === questions.length) return
 
+    // Show modal for first 2 questions trying to move down
+    if (currentOrder === 1 || currentOrder === 2) {
+      setShowRestrictionModal(true)
+      return
+    }
+
     // Check if "Submitter Role" exists and is at position 2
     const submitterRoleQuestion = questions.find(
       (q) => q.type === "submitterRole",
     )
     const isSubmitterRoleAtPosition2 = submitterRoleQuestion?.order === 2
 
-    // Lock "Listing Interest" in position 1 - can't move down
-    if (questionType === "listingInterest" && currentOrder === 1) return
-
-    // Lock "Submitter Role" in position 2 - can't move down (if it exists)
-    if (questionType === "submitterRole" && currentOrder === 2) return
-
     // Prevent moving into position 2 if it's locked
     const targetPosition = currentOrder + 1
     if (targetPosition === 2 && isSubmitterRoleAtPosition2) {
-      if (questionType !== "submitterRole") return
+      if (questionType !== "submitterRole") {
+        setShowRestrictionModal(true)
+        return
+      }
     }
 
     startTransition(async () => {
@@ -216,12 +259,22 @@ const LeadFormBuilderPageContent = () => {
 
         // Check if moving would put this question into a locked position
         const targetPosition = currentOrder + 1
-        if (targetPosition === 1 && questionType !== "listingInterest") return
-        if (targetPosition === 2 && questionType !== "submitterRole") return
+        if (targetPosition === 1 && questionType !== "listingInterest") {
+          setShowRestrictionModal(true)
+          return
+        }
+        if (targetPosition === 2 && questionType !== "submitterRole") {
+          setShowRestrictionModal(true)
+          return
+        }
 
-        // Swap orders
-        await updateQuestionOrder(questionId, currentOrder + 1)
-        await updateQuestionOrder(questionBelow.id, currentOrder)
+        // Swap orders using safe swap function
+        await swapQuestionOrders(
+          questionId,
+          currentOrder + 1,
+          questionBelow.id,
+          currentOrder,
+        )
 
         // Update local state
         setQuestions((prev) =>
@@ -481,7 +534,7 @@ const LeadFormBuilderPageContent = () => {
 
   return (
     <>
-      <div className="flex items-center justify-between border-b bg-white px-6 py-6">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-6 border-b bg-white px-6 pt-14 pb-6 lg:py-6">
         <div>
           <Heading as="h1" size="large" weight="bold">
             {viewMode === "builder" ? "Customize Lead Form" : "Form Preview"}
@@ -544,8 +597,12 @@ const LeadFormBuilderPageContent = () => {
               questions={questions}
               pages={pages}
               isLoading={false}
-              title="Your Lead Form"
-              description="This is how your form will appear to visitors who access your lead link."
+              title={
+                profileName
+                  ? `Submit a Lead to ${profileName}`
+                  : "Submit a Lead"
+              }
+              description="Please provide your information"
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}
               questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
@@ -600,7 +657,7 @@ const LeadFormBuilderPageContent = () => {
                       const isSubmitterRoleAtPosition2 =
                         submitterRoleQuestion?.order === 2
 
-                      // Hide button if adding after position 1 would place question at position 2
+                      // Show modal if adding after position 1 would place question at position 2
                       const wouldAddAtPosition2 =
                         question.order === 1 &&
                         isListingInterestAtPosition1 &&
@@ -608,12 +665,15 @@ const LeadFormBuilderPageContent = () => {
 
                       return (
                         <Button
-                          disabled={wouldAddAtPosition2}
                           size="sm"
                           variant="dashed"
-                          onClick={() =>
-                            handleOpenAddQuestionModal(question.order)
-                          }
+                          onClick={() => {
+                            if (wouldAddAtPosition2) {
+                              setShowRestrictionModal(true)
+                            } else {
+                              handleOpenAddQuestionModal(question.order)
+                            }
+                          }}
                         >
                           + Add New Question Here
                         </Button>
@@ -791,9 +851,13 @@ const LeadFormBuilderPageContent = () => {
         existingQuestionTypes={questions.map((q) => q.type as QuestionType)}
         questionDefinitions={LEAD_FORM_ADD_QUESTION_DEFINITIONS}
       />
+
+      <RestrictionModal
+        isOpen={showRestrictionModal}
+        onClose={() => setShowRestrictionModal(false)}
+      />
     </>
   )
 }
 
 export default LeadFormBuilderPageContent
-

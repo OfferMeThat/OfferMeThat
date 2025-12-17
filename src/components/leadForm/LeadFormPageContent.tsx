@@ -286,8 +286,10 @@ const LeadFormPageContent = () => {
               questions={questions}
               pages={pages}
               isLoading={formLoading}
-              title={`Register for Updates from ${profileName}`}
-              description="Please provide your details to receive updates"
+              title={
+                profileName ? `Submit a Lead to ${profileName}` : "Submit a Lead"
+              }
+              description="Please provide your information"
               brandingConfig={brandingConfig}
               profilePictureUrl={profilePictureUrl}
               questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
