@@ -1101,37 +1101,58 @@ export const QuestionRenderer = ({
             </Select>
           )}
 
-          {/* Fixed Currency Display */}
-          {currencyMode === "fixed" && (
-            <div
-              className="flex items-center justify-center rounded-md border px-3 text-sm font-medium text-gray-500"
-              style={getInputStyle()}
-            >
-              {fixedCurrency}
-            </div>
-          )}
-
           {/* Amount Input */}
           <div className="relative max-w-md flex-1">
             <Input
               type="number"
               min="0"
+              step="any"
               placeholder={uiConfig.placeholder || "Enter offer amount"}
               disabled={disabled}
-              className={cn(editingMode && "cursor-not-allowed", "w-full")}
+              className={cn(
+                editingMode && "cursor-not-allowed",
+                "w-full",
+                currencyMode === "fixed" && "pr-12", // Add padding for currency decorator
+              )}
               style={getInputStyle()}
               value={editingMode ? "" : currentAmount}
               onChange={(e) => {
                 if (!editingMode) {
-                  handleAmountChange(e.target.value)
+                  // Prevent "e", "E", "+", "-" characters (scientific notation and signs)
+                  const value = e.target.value.replace(/[eE\+\-]/g, "")
+                  handleAmountChange(value)
+                }
+              }}
+              onKeyDown={(e) => {
+                // Prevent "e", "E", "+", "-" keys
+                if (e.key === "e" || e.key === "E" || e.key === "+" || e.key === "-") {
+                  e.preventDefault()
                 }
               }}
               onBlur={onBlur}
               data-field-id={question.id}
             />
-            {renderEditOverlay(
-              "placeholder",
-              uiConfig.placeholder || "Enter offer amount",
+            {/* Currency decorator for fixed mode */}
+            {currencyMode === "fixed" && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-sm font-medium text-gray-500 z-10">
+                {fixedCurrency}
+              </div>
+            )}
+            {/* Edit overlay - adjust right padding for fixed currency mode */}
+            {currencyMode === "fixed" && editingMode && onEditPlaceholder ? (
+              <div
+                className="absolute inset-0 right-12 z-20 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter offer amount")
+                }}
+                title="Click to edit placeholder"
+              />
+            ) : (
+              renderEditOverlay(
+                "placeholder",
+                uiConfig.placeholder || "Enter offer amount",
+              )
             )}
           </div>
         </div>
