@@ -276,7 +276,19 @@ export const FormPreview = ({
         const newErrors: Record<string, string> = { ...validationErrors }
         error.inner.forEach((err) => {
           if (err.path) {
-            newErrors[err.path] = err.message
+            // For nested phone errors (e.g., submitterPhone.countryCode, submitterPhone.number),
+            // show error at the parent field level
+            const pathParts = err.path.split(".")
+            if (pathParts.length > 1) {
+              const parentPath = pathParts[0]
+              // Only set error if parent path doesn't already have an error
+              // This ensures we show "This number is invalid" for phone fields
+              if (!newErrors[parentPath]) {
+                newErrors[parentPath] = err.message
+              }
+            } else {
+              newErrors[err.path] = err.message
+            }
           }
         })
         setValidationErrors(newErrors)

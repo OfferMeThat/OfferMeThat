@@ -923,14 +923,12 @@ export const QuestionRenderer = ({
 
     return (
       <div>
-        <div className="relative max-w-md">
+        <div className="relative max-w-md flex items-center gap-2">
           <PhoneInput
             value={phoneValue}
             onChange={(newValue) => {
-              if (!editingMode) {
-                // Save as object with separate countryCode and number
-                onChange?.(newValue)
-              }
+              // Allow changes in editing mode for preview (similar to offerAmount)
+              onChange?.(newValue)
             }}
             onBlur={onBlur}
             disabled={disabled}
@@ -940,9 +938,17 @@ export const QuestionRenderer = ({
             style={getInputStyle()}
             data-field-id={question.id}
           />
-          {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Enter your phone number",
+          {/* Edit overlay only covers the phone number input part, not the country code dropdown */}
+          {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
+          {editingMode && onEditPlaceholder && (
+            <div
+              className="absolute left-[108px] right-0 top-0 bottom-0 z-20 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter your phone number")
+              }}
+              title="Click to edit placeholder"
+            />
           )}
         </div>
         {renderError(error)}
@@ -2945,30 +2951,40 @@ export const QuestionRenderer = ({
   // Tel (Lead Form)
   if (question.type === "tel") {
     // Handle both string (legacy) and object (new format) values
-    const phoneValue =
-      typeof value === "object" && value !== null && "countryCode" in value
+    const phoneValue = editingMode
+      ? ""
+      : typeof value === "object" && value !== null && "countryCode" in value
         ? value
         : (value as string) || { countryCode: "+1", number: "" }
 
     return (
       <div>
-        <div className="relative max-w-md">
+        <div className="relative max-w-md flex items-center gap-2">
           <PhoneInput
             value={phoneValue}
             onChange={(newValue) => {
+              // Allow changes in editing mode for preview (similar to offerAmount)
               onChange?.(newValue)
             }}
             onBlur={onBlur}
             disabled={disabled}
-            editingMode={false}
+            editingMode={editingMode}
             placeholder={uiConfig.placeholder || "555-123-4567"}
-            className="w-full"
+            className={cn(editingMode && "cursor-not-allowed", "w-full")}
             style={getInputStyle()}
             data-field-id={question.id}
           />
-          {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Enter your phone number",
+          {/* Edit overlay only covers the phone number input part, not the country code dropdown */}
+          {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
+          {editingMode && onEditPlaceholder && (
+            <div
+              className="absolute left-[108px] right-0 top-0 bottom-0 z-20 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter your phone number")
+              }}
+              title="Click to edit placeholder"
+            />
           )}
         </div>
         {renderError(error)}
@@ -3649,26 +3665,32 @@ export const QuestionRenderer = ({
 
       return (
         <div>
-          <div className="relative max-w-md">
+          <div className="relative max-w-md flex items-center gap-2">
             <PhoneInput
               value={phoneValue}
               onChange={(newValue) => {
-                if (!editingMode) {
-                  // Save as object with separate countryCode and number
-                  onChange?.(newValue)
-                }
+                // Allow changes in editing mode for preview (similar to offerAmount)
+                onChange?.(newValue)
               }}
               onBlur={onBlur}
-              disabled={disabled || editingMode}
+              disabled={disabled}
               editingMode={editingMode}
               placeholder={uiConfig.placeholder || "555-123-4567"}
               className={cn(editingMode && "cursor-not-allowed", "w-full")}
               style={getInputStyle()}
               data-field-id={question.id}
             />
-            {renderEditOverlay(
-              "placeholder",
-              uiConfig.placeholder || "Enter your phone number",
+            {/* Edit overlay only covers the phone number input part, not the country code dropdown */}
+            {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
+            {editingMode && onEditPlaceholder && (
+              <div
+                className="absolute left-[108px] right-0 top-0 bottom-0 z-20 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter your phone number")
+                }}
+                title="Click to edit placeholder"
+              />
             )}
           </div>
           {renderError(error)}

@@ -87,35 +87,42 @@ const sellerSchema = yup.object().shape({
   mobile: yup.lazy((value) => {
     if (typeof value === "object" && value !== null && "countryCode" in value) {
       return yup.object().shape({
-        countryCode: yup.string().required("Country code is required"),
+        countryCode: yup
+          .string()
+          .matches(/^\+[0-9]{1,3}$/, "This number is invalid")
+          .required("This number is invalid"),
         number: yup
           .string()
-          .required("Mobile number is required")
+          .matches(/^[0-9\s\-\(\)]+$/, "This number is invalid")
           .test(
             "phone-format",
-            "Mobile number must be at least 6 digits",
+            "This number is invalid",
             (val) => {
               if (!val || typeof val !== "string") return false
               // Remove spaces, dashes, and parentheses for validation
               const cleaned = val.replace(/[\s\-\(\)]/g, "")
-              return /^[0-9]+$/.test(cleaned) && cleaned.length >= 6
+              // Minimum 4 digits (shortest valid phone numbers globally)
+              return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
             },
-          ),
+          )
+          .required("This number is invalid"),
       })
     }
     return yup
       .string()
-      .required("Mobile number is required")
+      .matches(/^\+?[0-9\s\-\(\)]+$/, "This number is invalid")
       .test(
         "phone-format",
-        "Mobile number must be at least 6 digits",
+        "This number is invalid",
         (val) => {
           if (!val || typeof val !== "string") return false
           // Remove spaces, dashes, and parentheses for validation
           const cleaned = val.replace(/[\s\-\(\)]/g, "")
-          return /^[0-9]+$/.test(cleaned) && cleaned.length >= 6
+          // Minimum 4 digits (shortest valid phone numbers globally)
+          return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
         },
       )
+      .required("This number is invalid")
   }) as unknown as yup.StringSchema,
 })
 
@@ -313,11 +320,25 @@ export const AddListingModal = ({
         const validationErrors: Record<string, string> = {}
         err.inner.forEach((error) => {
           if (error.path) {
-            validationErrors[error.path] = error.message
-            // Only mark fields as touched if they're not seller2 fields
-            // Seller2 fields should only show errors after user interaction
-            if (!error.path.startsWith("seller2.")) {
-              markFieldAsTouched(error.path)
+            // For nested phone errors (e.g., seller1.mobile.countryCode, seller1.mobile.number),
+            // show error at the parent field level (seller1.mobile)
+            const pathParts = error.path.split(".")
+            if (pathParts.length > 2 && (pathParts[pathParts.length - 1] === "countryCode" || pathParts[pathParts.length - 1] === "number")) {
+              // This is a nested phone error, use the parent path (e.g., seller1.mobile)
+              const parentPath = pathParts.slice(0, -1).join(".")
+              if (!validationErrors[parentPath]) {
+                validationErrors[parentPath] = error.message
+              }
+              // Only mark fields as touched if they're not seller2 fields
+              if (!parentPath.startsWith("seller2.")) {
+                markFieldAsTouched(parentPath)
+              }
+            } else {
+              validationErrors[error.path] = error.message
+              // Only mark fields as touched if they're not seller2 fields
+              if (!error.path.startsWith("seller2.")) {
+                markFieldAsTouched(error.path)
+              }
             }
           }
         })

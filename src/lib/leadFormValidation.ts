@@ -53,25 +53,25 @@ export const buildQuestionValidation = (
           return yup.object().shape({
             countryCode: yup
               .string()
-              .matches(/^\+[0-9]{1,3}$/, "Please enter a valid country code")
-              .required(required ? "Country code is required" : undefined),
+              .matches(/^\+[0-9]{1,3}$/, "This number is invalid")
+              .required(required ? "This number is invalid" : undefined),
             number: yup
               .string()
-              .matches(/^[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
-              .test("min-digits", "Phone number must be at least 4 digits", (numValue) => {
+              .matches(/^[0-9\s\-\(\)]+$/, "This number is invalid")
+              .test("min-digits", "This number is invalid", (numValue) => {
                 if (!numValue) return !required
                 const digits = numValue.replace(/\D/g, "")
                 return digits.length >= 4
               })
-              .required(required ? "Phone number is required" : undefined),
+              .required(required ? "This number is invalid" : undefined),
           })
         }
         // Legacy format: string
         return yup
           .string()
-          .max(150, "Maximum 150 characters allowed")
-          .matches(/^\+?[0-9\s\-\(\)]+$/, "Please enter a valid phone number")
-          .test("min-digits", "Phone number must be at least 4 digits", (value) => {
+          .max(150, "This number is invalid")
+          .matches(/^\+?[0-9\s\-\(\)]+$/, "This number is invalid")
+          .test("min-digits", "This number is invalid", (value) => {
             if (!value) return !required
             const digits = value.replace(/\D/g, "")
             return digits.length >= 4
