@@ -26,6 +26,7 @@ type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 interface QuestionCardProps {
   questionsAmount: number
   question: Question
+  questionNumber: number // Pass the calculated question number based on position
   isFirst: boolean
   isLast: boolean
   onMoveUp: () => void
@@ -40,6 +41,7 @@ interface QuestionCardProps {
 const QuestionCard = ({
   questionsAmount,
   question,
+  questionNumber: propQuestionNumber,
   isFirst,
   isLast,
   onMoveUp,
@@ -69,7 +71,8 @@ const QuestionCard = ({
   // Get question definition for description
   const questionDefinition = questionDefinitions[question.type]
 
-  const questionNumber = question.order
+  // Use the passed question number (based on position) instead of question.order
+  const questionNumber = propQuestionNumber
   const totalQuestions = questionsAmount
 
   // Get setup configuration

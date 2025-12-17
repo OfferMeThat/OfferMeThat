@@ -614,7 +614,9 @@ const LeadFormBuilderPageContent = () => {
       ) : (
         <div className="p-4">
           <div className="space-y-6 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-xl">
-            {questions.map((question, index) => {
+            {questions
+              .sort((a, b) => a.order - b.order)
+              .map((question, index) => {
               // Find if there's a page break after this question
               const pageBreakAfter = pages.find(
                 (page) => page.breakIndex === question.order,
@@ -625,6 +627,7 @@ const LeadFormBuilderPageContent = () => {
                   <QuestionCard
                     questionsAmount={questions.length}
                     question={question as any}
+                    questionNumber={index + 1}
                     isFirst={index === 0}
                     isLast={index === questions.length - 1}
                     onMoveUp={() =>
