@@ -25,21 +25,23 @@ const PageBreak = ({
 }: PageBreakProps) => {
   return (
     <div className="flex items-stretch gap-6">
-      {/* Left: Button Section */}
+      {/* Left: Label Section */}
       <div className="flex w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4">
         <p className="text-xl font-bold text-gray-900">BUTTON</p>
       </div>
 
       {/* Middle: Page Break Preview */}
-      <div className="flex flex-1 flex-col justify-center space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex flex-1 flex-col gap-3">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold tracking-wide text-gray-500 uppercase">
             PAGE BREAK
           </h3>
         </div>
-        <Button disabled className="w-full" size="lg">
-          Next
-        </Button>
+        <div className="flex flex-1 flex-col justify-center rounded-lg border border-gray-200 bg-white p-4">
+          <Button disabled className="w-full" size="lg">
+            Next
+          </Button>
+        </div>
       </div>
 
       {/* Right: Actions */}
