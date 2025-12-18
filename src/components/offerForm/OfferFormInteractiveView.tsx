@@ -315,19 +315,33 @@ export const OfferFormInteractiveView = ({
         const question = questions.find((q) => q.id === questionId)
         if (!question) continue
 
-        // Handle purchase agreement
-        if (question.type === "attachPurchaseAgreement" && isFile(value)) {
-          const timestamp = Date.now()
-          const fileExtension = value.name.split(".").pop() || "file"
-          const fileName = `${timestamp}-${value.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-          const path = `${tempOfferId}/purchase-agreement/${fileName}`
+        // Handle purchase agreement (single or multiple files)
+        if (question.type === "attachPurchaseAgreement") {
+          if (isFile(value)) {
+            // Single file
+            const timestamp = Date.now()
+            const fileExtension = value.name.split(".").pop() || "file"
+            const fileName = `${timestamp}-${value.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+            const path = `${tempOfferId}/purchase-agreements/${fileName}`
 
-          const fileUrl = await uploadFileToStorageClient(
-            "offer-documents",
-            path,
-            value,
-          )
-          processedFormData[questionId] = fileUrl
+            const fileUrl = await uploadFileToStorageClient(
+              "offer-documents",
+              path,
+              value,
+            )
+            // Store as single URL string
+            processedFormData[questionId] = fileUrl
+          } else if (isFileArray(value)) {
+            // Multiple files - upload and store as array of URLs
+            const urls = await uploadMultipleFilesToStorageClient(
+              "offer-documents",
+              value,
+              tempOfferId,
+              "purchase-agreements",
+            )
+            // Store as array of URLs (transformFormDataToOffer will handle JSON stringification)
+            processedFormData[questionId] = urls
+          }
         }
 
         // Handle name of purchaser ID files
@@ -853,8 +867,7 @@ export const OfferFormInteractiveView = ({
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>
-        ) : hasSubmitButton ? // Submit button is rendered via QuestionRenderer above, so we don't need a separate button here
-        null : (
+        ) : hasSubmitButton ? null : ( // Submit button is rendered via QuestionRenderer above, so we don't need a separate button here
           <Button
             size="lg"
             onClick={handleSubmit}

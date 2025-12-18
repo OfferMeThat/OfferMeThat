@@ -17,7 +17,10 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getSmartQuestion } from "@/data/smartQuestions"
-import { validateFileSize } from "@/lib/offerFormValidation"
+import {
+  validateFileSize,
+  validateMultipleFiles,
+} from "@/lib/offerFormValidation"
 import { cn } from "@/lib/utils"
 import { BrandingConfig } from "@/types/branding"
 import {
@@ -76,10 +79,18 @@ interface PersonNameFieldsProps {
       >
     >
   >
-  fileUploads: Record<string, { file: File | null; fileName: string }>
+  fileUploads: Record<
+    string,
+    | { file: File | null; fileName: string; error?: string }
+    | { files: File[]; fileNames: string[]; error?: string }
+  >
   setFileUploads: React.Dispatch<
     React.SetStateAction<
-      Record<string, { file: File | null; fileName: string }>
+      Record<
+        string,
+        | { file: File | null; fileName: string; error?: string }
+        | { files: File[]; fileNames: string[]; error?: string }
+      >
     >
   >
   collectMiddleNames: string
@@ -123,8 +134,17 @@ const PersonNameFields = ({
     skipMiddleName: false,
   }
   // Use top-level fileUploads state with question id prefix to avoid conflicts
+  const fileDataRaw = fileUploads[`${questionId}_${prefix}_id`]
   const fileData: { file: File | null; fileName: string; error?: string } =
-    fileUploads[`${questionId}_${prefix}_id`] || {
+    fileDataRaw && "file" in fileDataRaw
+      ? fileDataRaw
+      : fileDataRaw && "files" in fileDataRaw
+        ? {
+            file: fileDataRaw.files[0] || null,
+            fileName: fileDataRaw.fileNames[0] || "",
+            error: fileDataRaw.error,
+          }
+        : {
       file: null,
       fileName: "",
       error: undefined,
@@ -485,8 +505,13 @@ export const QuestionRenderer = ({
     }
   }, [value])
   // State for file uploads (keyed by question id and field name)
+  // Can store single file or array of files
   const [fileUploads, setFileUploads] = useState<
-    Record<string, { file: File | null; fileName: string; error?: string }>
+    Record<
+      string,
+      | { file: File | null; fileName: string; error?: string }
+      | { files: File[]; fileNames: string[]; error?: string }
+    >
   >({})
   // State for listings (for specifyListing question)
   const [listings, setListings] = useState<Array<{
@@ -602,13 +627,17 @@ export const QuestionRenderer = ({
       // Extract ID files from fileUploads state and sync with parent
       const idFiles: Record<string, File> = {}
       Object.entries(fileUploads).forEach(([key, fileData]) => {
-        if (
-          key.startsWith(`${question.id}_`) &&
-          key.endsWith("_id") &&
-          fileData.file
-        ) {
+        if (key.startsWith(`${question.id}_`) && key.endsWith("_id")) {
+          let file: File | null = null
+          if ("file" in fileData && fileData.file) {
+            file = fileData.file
+          } else if ("files" in fileData && fileData.files.length > 0) {
+            file = fileData.files[0]
+          }
+          if (file) {
           const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
-          idFiles[prefix] = fileData.file
+            idFiles[prefix] = file
+          }
         }
       })
 
@@ -1401,9 +1430,23 @@ export const QuestionRenderer = ({
                   </p>
                 </label>
               </div>
-              {fileUploads[`${question.id}_single_id_upload`]?.fileName && (
+              {(() => {
+                const fileDataRaw =
+                  fileUploads[`${question.id}_single_id_upload`]
+                const fileData =
+                  fileDataRaw && "file" in fileDataRaw
+                    ? fileDataRaw
+                    : fileDataRaw && "files" in fileDataRaw
+                      ? {
+                          file: fileDataRaw.files[0] || null,
+                          fileName: fileDataRaw.fileNames[0] || "",
+                          error: fileDataRaw.error,
+                        }
+                      : { file: null, fileName: "", error: undefined }
+                return (
+                  <>
+                    {fileData.fileName && (
                 <div className="flex items-center gap-2">
-                  {fileUploads[`${question.id}_single_id_upload`]?.fileName && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -1419,7 +1462,9 @@ export const QuestionRenderer = ({
                         }))
                         // Clear file but keep name
                         const currentName =
-                          typeof value === "string" ? value : value?.name || ""
+                              typeof value === "string"
+                                ? value
+                                : value?.name || ""
                         onChange?.(currentName || null)
                         const fileInput = document.getElementById(
                           `${question.id}_single_id_upload`,
@@ -1433,17 +1478,19 @@ export const QuestionRenderer = ({
                     >
                       <X className="h-4 w-4" />
                     </Button>
-                  )}
                   <p className="text-xs text-gray-600">
-                    {fileUploads[`${question.id}_single_id_upload`].fileName}
+                          {fileData.fileName}
                   </p>
                 </div>
               )}
-              {fileUploads[`${question.id}_single_id_upload`]?.error && (
+                    {fileData.error && (
                 <p className="mt-1 text-sm text-red-500" role="alert">
-                  {fileUploads[`${question.id}_single_id_upload`].error}
+                        {fileData.error}
                 </p>
               )}
+                  </>
+                )
+              })()}
             </div>
           )}
         </div>
@@ -1478,13 +1525,17 @@ export const QuestionRenderer = ({
       // Extract ID files from fileUploads state
       const idFiles: Record<string, File> = {}
       Object.entries(fileUploads).forEach(([key, fileData]) => {
-        if (
-          key.startsWith(`${question.id}_`) &&
-          key.endsWith("_id") &&
-          fileData.file
-        ) {
+        if (key.startsWith(`${question.id}_`) && key.endsWith("_id")) {
+          let file: File | null = null
+          if ("file" in fileData && fileData.file) {
+            file = fileData.file
+          } else if ("files" in fileData && fileData.files.length > 0) {
+            file = fileData.files[0]
+          }
+          if (file) {
           const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
-          idFiles[prefix] = fileData.file
+            idFiles[prefix] = file
+          }
         }
       })
 
@@ -1938,11 +1989,17 @@ export const QuestionRenderer = ({
   // Attach Purchase Agreement
   if (question.type === "attachPurchaseAgreement") {
     const isRequired = setupConfig.contract_requirement === "required"
-    const fileData = fileUploads[`${question.id}_purchase_agreement`] || {
-      file: null,
-      fileName: "",
-      error: undefined,
-    }
+    const fileDataRaw = fileUploads[`${question.id}_purchase_agreement`]
+    const fileData =
+      fileDataRaw && "files" in fileDataRaw
+        ? fileDataRaw
+        : fileDataRaw && "file" in fileDataRaw
+          ? {
+              files: fileDataRaw.file ? [fileDataRaw.file] : [],
+              fileNames: fileDataRaw.fileName ? [fileDataRaw.fileName] : [],
+              error: fileDataRaw.error,
+            }
+          : { files: [], fileNames: [], error: undefined }
 
     return (
       <div>
@@ -1953,20 +2010,27 @@ export const QuestionRenderer = ({
             className="hidden"
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             disabled={disabled}
+            multiple
             onChange={(e) => {
-              const file = e.target.files?.[0] || null
+              const files = Array.from(e.target.files || [])
               const fileKey = `${question.id}_purchase_agreement`
-              const fileError = file ? validateFileSize(file) : null
+              const fileError = validateMultipleFiles(
+                files,
+                3,
+                10 * 1024 * 1024,
+              )
               setFileUploads((prev) => ({
                 ...prev,
                 [fileKey]: {
-                  file,
-                  fileName: file ? file.name : "",
+                  files,
+                  fileNames: files.map((f) => f.name),
                   error: fileError || undefined,
                 },
               }))
-              if (!fileError && file) {
-                onChange?.(file)
+              if (!fileError && files.length > 0) {
+                onChange?.(files.length === 1 ? files[0] : files)
+              } else if (files.length === 0) {
+                onChange?.(null)
               }
             }}
             data-field-id={question.id}
@@ -1981,28 +2045,47 @@ export const QuestionRenderer = ({
               </p>
             </label>
           </div>
-          {fileData.fileName && (
-            <div className="flex items-center gap-2">
-              {fileData.fileName && (
+          {fileData.fileNames.length > 0 && (
+            <div className="space-y-2">
+              {fileData.fileNames.map((fileName, index) => (
+                <div key={index} className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => {
+                      const newFiles = [...fileData.files]
+                      const newFileNames = [...fileData.fileNames]
+                      newFiles.splice(index, 1)
+                      newFileNames.splice(index, 1)
+                      const fileKey = `${question.id}_purchase_agreement`
                     setFileUploads((prev) => ({
                       ...prev,
-                      [`${question.id}_purchase_agreement`]: {
-                        file: null,
-                        fileName: "",
+                        [fileKey]:
+                          newFiles.length > 0
+                            ? {
+                                files: newFiles,
+                                fileNames: newFileNames,
+                                error: undefined,
+                              }
+                            : {
+                                files: [],
+                                fileNames: [],
                         error: undefined,
                       },
                     }))
+                      if (newFiles.length > 0) {
+                        onChange?.(
+                          newFiles.length === 1 ? newFiles[0] : newFiles,
+                        )
+                      } else {
                     onChange?.(null)
                     const fileInput = document.getElementById(
                       `${question.id}_purchase_agreement_file`,
                     ) as HTMLInputElement
                     if (fileInput) {
                       fileInput.value = ""
+                        }
                     }
                   }}
                   className="h-8 w-8 p-0"
@@ -2010,12 +2093,14 @@ export const QuestionRenderer = ({
                 >
                   <X className="h-4 w-4" />
                 </Button>
-              )}
-              <p className="text-xs text-gray-600">{fileData.fileName}</p>
+                  <p className="text-xs text-gray-600">{fileName}</p>
+                </div>
+              ))}
             </div>
           )}
           <span className="text-xs text-gray-500">
-            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 10MB each)
+            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files, 10MB
+            total)
           </span>
         </div>
         {renderError(fileData.error || error)}
@@ -2503,27 +2588,25 @@ export const QuestionRenderer = ({
                     multiple
                     onChange={(e) => {
                       const files = Array.from(e.target.files || [])
-                      // Validate all files
-                      let fileError: string | undefined = undefined
-                      for (const file of files) {
-                        const error = validateFileSize(file)
-                        if (error) {
-                          fileError = error
-                          break
-                        }
-                      }
-                      const fileNames = files.map((f) => f.name).join(", ")
+                      const fileError = validateMultipleFiles(
+                        files,
+                        3,
+                        10 * 1024 * 1024,
+                      )
+                      const fileKey = `${question.id}_supporting_docs`
                       setFileUploads((prev) => ({
                         ...prev,
-                        [`${question.id}_supporting_docs`]: {
-                          file: files[0] || null,
-                          fileName: fileNames || "",
-                          error: fileError,
+                        [fileKey]: {
+                          files,
+                          fileNames: files.map((f) => f.name),
+                          error: fileError || undefined,
                         },
                       }))
                       if (!fileError && files.length > 0) {
                         // Store files in the loanValue object for validation
                         onChange?.({ ...loanValue, supportingDocs: files })
+                      } else if (files.length === 0) {
+                        onChange?.({ ...loanValue, supportingDocs: null })
                       }
                     }}
                     data-field-id={question.id}
@@ -2538,28 +2621,71 @@ export const QuestionRenderer = ({
                       </p>
                     </label>
                   </div>
-                  {fileUploads[`${question.id}_supporting_docs`]?.fileName && (
-                    <div className="flex items-center gap-2">
+                  {(() => {
+                    const fileDataRaw =
+                      fileUploads[`${question.id}_supporting_docs`]
+                    const fileData =
+                      fileDataRaw && "files" in fileDataRaw
+                        ? fileDataRaw
+                        : fileDataRaw && "file" in fileDataRaw
+                          ? {
+                              files: fileDataRaw.file ? [fileDataRaw.file] : [],
+                              fileNames: fileDataRaw.fileName
+                                ? [fileDataRaw.fileName]
+                                : [],
+                              error: fileDataRaw.error,
+                            }
+                          : { files: [], fileNames: [], error: undefined }
+                    return (
+                      <>
+                        {fileData.fileNames.length > 0 && (
+                          <div className="space-y-2">
+                            {fileData.fileNames.map((fileName, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2"
+                              >
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => {
+                                    const newFiles = [...fileData.files]
+                                    const newFileNames = [...fileData.fileNames]
+                                    newFiles.splice(index, 1)
+                                    newFileNames.splice(index, 1)
+                                    const fileKey = `${question.id}_supporting_docs`
                           setFileUploads((prev) => ({
                             ...prev,
-                            [`${question.id}_supporting_docs`]: {
-                              file: null,
-                              fileName: "",
+                                      [fileKey]:
+                                        newFiles.length > 0
+                                          ? {
+                                              files: newFiles,
+                                              fileNames: newFileNames,
+                                              error: undefined,
+                                            }
+                                          : {
+                                              files: [],
+                                              fileNames: [],
                               error: undefined,
                             },
                           }))
-                          onChange?.({ ...loanValue, supportingDocs: null })
-                          // Reset the file input
+                                    if (newFiles.length > 0) {
+                                      onChange?.({
+                                        ...loanValue,
+                                        supportingDocs: newFiles,
+                                      })
+                                    } else {
+                                      onChange?.({
+                                        ...loanValue,
+                                        supportingDocs: null,
+                                      })
                           const fileInput = document.getElementById(
                             `${question.id}_supporting_docs`,
                           ) as HTMLInputElement
                           if (fileInput) {
                             fileInput.value = ""
+                                      }
                           }
                         }}
                         className="h-8 w-8 p-0"
@@ -2567,17 +2693,25 @@ export const QuestionRenderer = ({
                       >
                         <X className="h-4 w-4" />
                       </Button>
-
                       <p className="text-xs text-gray-600">
-                        {fileUploads[`${question.id}_supporting_docs`].fileName}
+                                  {fileName}
                       </p>
+                              </div>
+                            ))}
                     </div>
                   )}
-                  {fileUploads[`${question.id}_supporting_docs`]?.error && (
+                        {fileData.error && (
                     <p className="mt-1 text-sm text-red-500" role="alert">
-                      {fileUploads[`${question.id}_supporting_docs`].error}
+                            {fileData.error}
                     </p>
                   )}
+                        <span className="text-xs text-gray-500">
+                          Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max
+                          3 files, 10MB total)
+                        </span>
+                      </>
+                    )
+                  })()}
                   {renderError(error)}
                 </div>
               </div>
@@ -2950,13 +3084,19 @@ export const QuestionRenderer = ({
     const allowAttachments =
       setupConfig.allow_attachments === "yes" ||
       setupConfig.allowAttachments === "yes"
-    const attachmentData = fileUploads[
-      `${question.id}_message_attachments`
-    ] || {
-      file: null,
-      fileName: "",
-      error: undefined,
-    }
+    const attachmentDataRaw = fileUploads[`${question.id}_message_attachments`]
+    const attachmentData =
+      attachmentDataRaw && "files" in attachmentDataRaw
+        ? attachmentDataRaw
+        : attachmentDataRaw && "file" in attachmentDataRaw
+          ? {
+              files: attachmentDataRaw.file ? [attachmentDataRaw.file] : [],
+              fileNames: attachmentDataRaw.fileName
+                ? [attachmentDataRaw.fileName]
+                : [],
+              error: attachmentDataRaw.error,
+            }
+          : { files: [], fileNames: [], error: undefined }
 
     // Separate textarea value from file attachments
     // Value should be a string for the textarea, files are stored separately
@@ -3012,23 +3152,17 @@ export const QuestionRenderer = ({
               multiple
               onChange={(e) => {
                 const files = Array.from(e.target.files || [])
-                // Validate all files
-                let fileError: string | undefined = undefined
-                for (const file of files) {
-                  const error = validateFileSize(file)
-                  if (error) {
-                    fileError = error
-                    break
-                  }
-                }
-
-                const fileNames = files.map((f) => f.name).join(", ")
+                const fileError = validateMultipleFiles(
+                  files,
+                  3,
+                  10 * 1024 * 1024,
+                )
                 setFileUploads((prev) => ({
                   ...prev,
                   [`${question.id}_message_attachments`]: {
-                    file: files[0] || null,
-                    fileName: fileNames || "",
-                    error: fileError,
+                    files,
+                    fileNames: files.map((f) => f.name),
+                    error: fileError || undefined,
                   },
                 }))
                 if (!fileError && files.length > 0) {
@@ -3036,6 +3170,14 @@ export const QuestionRenderer = ({
                   const currentMessage =
                     typeof value === "string" ? value : value?.message || ""
                   onChange?.({ message: currentMessage, attachments: files })
+                } else if (files.length === 0) {
+                  const currentMessage =
+                    typeof value === "string" ? value : value?.message || ""
+                  onChange?.(
+                    currentMessage
+                      ? currentMessage
+                      : { message: "", attachments: [] },
+                  )
                 }
               }}
             />
@@ -3047,30 +3189,56 @@ export const QuestionRenderer = ({
                 <p className="text-sm">📎 Attach files (Optional)</p>
               </label>
             </div>
-            {attachmentData.fileName && (
-              <div className="flex items-center gap-2">
+            {attachmentData.fileNames.length > 0 && (
+              <div className="space-y-2">
+                {attachmentData.fileNames.map((fileName, index) => (
+                  <div key={index} className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => {
+                        const newFiles = [...attachmentData.files]
+                        const newFileNames = [...attachmentData.fileNames]
+                        newFiles.splice(index, 1)
+                        newFileNames.splice(index, 1)
                     setFileUploads((prev) => ({
                       ...prev,
-                      [`${question.id}_message_attachments`]: {
-                        file: null,
-                        fileName: "",
+                          [`${question.id}_message_attachments`]:
+                            newFiles.length > 0
+                              ? {
+                                  files: newFiles,
+                                  fileNames: newFileNames,
+                                  error: undefined,
+                                }
+                              : {
+                                  files: [],
+                                  fileNames: [],
                         error: undefined,
                       },
                     }))
-                    // Clear files but keep message text
+                        // Update attachments in value
                     const currentMessage =
-                      typeof value === "string" ? value : value?.message || ""
-                    onChange?.(currentMessage || null)
+                          typeof value === "string"
+                            ? value
+                            : value?.message || ""
+                        if (newFiles.length > 0) {
+                          onChange?.({
+                            message: currentMessage,
+                            attachments: newFiles,
+                          })
+                        } else {
+                          onChange?.(
+                            currentMessage
+                              ? currentMessage
+                              : { message: "", attachments: [] },
+                          )
                     const fileInput = document.getElementById(
                       `${question.id}_message_attachments`,
                     ) as HTMLInputElement
                     if (fileInput) {
                       fileInput.value = ""
+                          }
                     }
                   }}
                   className="h-8 w-8 p-0"
@@ -3078,16 +3246,20 @@ export const QuestionRenderer = ({
                 >
                   <X className="h-4 w-4" />
                 </Button>
-                <p className="text-xs text-gray-600">
-                  {attachmentData.fileName}
-                </p>
+                    <p className="text-xs text-gray-600">{fileName}</p>
+                  </div>
+                ))}
               </div>
             )}
             {attachmentData.error && (
-              <p className="text-xs text-red-500" role="alert">
+              <p className="mt-1 text-sm text-red-500" role="alert">
                 {attachmentData.error}
               </p>
             )}
+            <span className="text-xs text-gray-500">
+              Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files,
+              10MB total)
+            </span>
           </div>
         )}
       </div>
@@ -3674,11 +3846,17 @@ export const QuestionRenderer = ({
         )
       }
     } else if (answerType === "file_upload") {
-      const fileData = fileUploads[`${question.id}_file`] || {
-        file: null,
-        fileName: "",
-        error: undefined,
-      }
+      const fileDataRaw = fileUploads[`${question.id}_file`]
+      const fileData =
+        fileDataRaw && "files" in fileDataRaw
+          ? fileDataRaw
+          : fileDataRaw && "file" in fileDataRaw
+            ? {
+                files: fileDataRaw.file ? [fileDataRaw.file] : [],
+                fileNames: fileDataRaw.fileName ? [fileDataRaw.fileName] : [],
+                error: fileDataRaw.error,
+              }
+            : { files: [], fileNames: [], error: undefined }
 
       return (
         <div className="space-y-2">
@@ -3687,20 +3865,28 @@ export const QuestionRenderer = ({
             id={`${question.id}_file_input`}
             className="hidden"
             disabled={disabled}
+            multiple
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             onChange={(e) => {
-              const file = e.target.files?.[0] || null
+              const files = Array.from(e.target.files || [])
               const fileKey = `${question.id}_file`
-              const fileError = file ? validateFileSize(file) : null
+              const fileError = validateMultipleFiles(
+                files,
+                3,
+                10 * 1024 * 1024,
+              )
               setFileUploads((prev) => ({
                 ...prev,
                 [fileKey]: {
-                  file,
-                  fileName: file ? file.name : "",
+                  files,
+                  fileNames: files.map((f) => f.name),
                   error: fileError || undefined,
                 },
               }))
-              if (!fileError && file) {
-                onChange?.(file)
+              if (!fileError && files.length > 0) {
+                onChange?.(files.length === 1 ? files[0] : files)
+              } else if (files.length === 0) {
+                onChange?.(null)
               }
             }}
             data-field-id={question.id}
@@ -3713,27 +3899,47 @@ export const QuestionRenderer = ({
               <p className="text-sm">📎 Upload files</p>
             </label>
           </div>
-          {fileData.fileName && (
-            <div className="flex items-center gap-2">
+          {fileData.fileNames.length > 0 && (
+            <div className="space-y-2">
+              {fileData.fileNames.map((fileName, index) => (
+                <div key={index} className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => {
+                      const newFiles = [...fileData.files]
+                      const newFileNames = [...fileData.fileNames]
+                      newFiles.splice(index, 1)
+                      newFileNames.splice(index, 1)
+                      const fileKey = `${question.id}_file`
                   setFileUploads((prev) => ({
                     ...prev,
-                    [`${question.id}_file`]: {
-                      file: null,
-                      fileName: "",
+                        [fileKey]:
+                          newFiles.length > 0
+                            ? {
+                                files: newFiles,
+                                fileNames: newFileNames,
+                                error: undefined,
+                              }
+                            : {
+                                files: [],
+                                fileNames: [],
                       error: undefined,
                     },
                   }))
+                      if (newFiles.length > 0) {
+                        onChange?.(
+                          newFiles.length === 1 ? newFiles[0] : newFiles,
+                        )
+                      } else {
                   onChange?.(null)
                   const fileInput = document.getElementById(
                     `${question.id}_file_input`,
                   ) as HTMLInputElement
                   if (fileInput) {
                     fileInput.value = ""
+                        }
                   }
                 }}
                 className="h-8 w-8 p-0"
@@ -3741,9 +3947,15 @@ export const QuestionRenderer = ({
               >
                 <X className="h-4 w-4" />
               </Button>
-              <p className="text-xs text-gray-600">{fileData.fileName}</p>
+                  <p className="text-xs text-gray-600">{fileName}</p>
+                </div>
+              ))}
             </div>
           )}
+          <span className="text-xs text-gray-500">
+            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files, 10MB
+            total)
+          </span>
           {renderError(fileData.error || error)}
         </div>
       )

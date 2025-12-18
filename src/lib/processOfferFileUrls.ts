@@ -61,9 +61,20 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
   if (processedOffer.subjectToLoanApproval) {
     const loanData =
       processedOffer.subjectToLoanApproval as SubjectToLoanApprovalData
-    collectUrl(loanData.supportingDocUrl)
-    if (loanData.supportingDocUrls) {
-      loanData.supportingDocUrls.forEach(collectUrl)
+    // Check all possible field names for backward compatibility
+    collectUrl((loanData as any).supportingDocUrl)
+    collectUrl((loanData as any).supportingDocsUrl)
+    if ((loanData as any).supportingDocUrls) {
+      const urls = (loanData as any).supportingDocUrls
+      if (Array.isArray(urls)) {
+        urls.forEach(collectUrl)
+      }
+    }
+    if ((loanData as any).supportingDocsUrls) {
+      const urls = (loanData as any).supportingDocsUrls
+      if (Array.isArray(urls)) {
+        urls.forEach(collectUrl)
+      }
     }
     if (loanData.preApprovalDocuments) {
       loanData.preApprovalDocuments.forEach(collectUrl)
@@ -98,10 +109,29 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
     })
   }
 
-  // Collect URL from purchaseAgreementFileUrl
-  if (processedOffer.purchaseAgreementFileUrl) {
-    collectUrl(processedOffer.purchaseAgreementFileUrl)
+  // Helper to parse purchaseAgreementFileUrl (can be single URL string or JSON array)
+  const parsePurchaseAgreementUrls = (
+    value: string | null | undefined,
+  ): string[] => {
+    if (!value) return []
+    try {
+      // Try to parse as JSON array
+      const parsed = JSON.parse(value)
+      if (Array.isArray(parsed)) {
+        return parsed.filter((url) => typeof url === "string")
+      }
+    } catch {
+      // Not JSON, treat as single URL string
+    }
+    // Single URL string (backward compatibility)
+    return [value]
   }
+
+  // Collect URLs from purchaseAgreementFileUrl
+  const purchaseAgreementUrls = parsePurchaseAgreementUrls(
+    processedOffer.purchaseAgreementFileUrl,
+  )
+  purchaseAgreementUrls.forEach(collectUrl)
 
   // If no URLs to sign, return original offer
   if (urlsToSign.length === 0) {
@@ -161,13 +191,26 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
   if (processedOffer.subjectToLoanApproval) {
     const loanData =
       processedOffer.subjectToLoanApproval as SubjectToLoanApprovalData
-    if (loanData.supportingDocUrl) {
-      loanData.supportingDocUrl = getSignedUrl(loanData.supportingDocUrl)
-    }
-    if (loanData.supportingDocUrls) {
-      loanData.supportingDocUrls = loanData.supportingDocUrls.map(
-        (url) => getSignedUrl(url) || url,
+    // Handle all possible field names for backward compatibility
+    if ((loanData as any).supportingDocUrl) {
+      ;(loanData as any).supportingDocUrl = getSignedUrl(
+        (loanData as any).supportingDocUrl,
       )
+    }
+    if ((loanData as any).supportingDocsUrl) {
+      ;(loanData as any).supportingDocsUrl = getSignedUrl(
+        (loanData as any).supportingDocsUrl,
+      )
+    }
+    if ((loanData as any).supportingDocUrls) {
+      ;(loanData as any).supportingDocUrls = (
+        loanData as any
+      ).supportingDocUrls.map((url: string) => getSignedUrl(url) || url)
+    }
+    if ((loanData as any).supportingDocsUrls) {
+      ;(loanData as any).supportingDocsUrls = (
+        loanData as any
+      ).supportingDocsUrls.map((url: string) => getSignedUrl(url) || url)
     }
     if (loanData.preApprovalDocuments) {
       loanData.preApprovalDocuments = loanData.preApprovalDocuments.map(
@@ -210,11 +253,20 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
     })
   }
 
-  // Replace URL in purchaseAgreementFileUrl
+  // Replace URLs in purchaseAgreementFileUrl
   if (processedOffer.purchaseAgreementFileUrl) {
-    processedOffer.purchaseAgreementFileUrl =
-      getSignedUrl(processedOffer.purchaseAgreementFileUrl) ||
-      processedOffer.purchaseAgreementFileUrl
+    const originalUrls = parsePurchaseAgreementUrls(
+      processedOffer.purchaseAgreementFileUrl,
+    )
+    const signedUrls = originalUrls.map(
+      (url) => getSignedUrl(url) || url,
+    )
+    // Store back in the same format (JSON array if multiple, plain string if single)
+    if (signedUrls.length === 1) {
+      processedOffer.purchaseAgreementFileUrl = signedUrls[0]
+    } else if (signedUrls.length > 1) {
+      processedOffer.purchaseAgreementFileUrl = JSON.stringify(signedUrls)
+    }
   }
 
   return processedOffer

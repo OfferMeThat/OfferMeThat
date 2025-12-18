@@ -346,9 +346,20 @@ export function formatMessageToAgent(data: any): React.JSX.Element | null {
 export function formatSubjectToLoanApproval(
   data: any,
 ): React.JSX.Element | null {
-  if (!data || typeof data !== "object") return null
+  // Handle JSON string if data is stored as string
+  let parsedData = data
+  if (typeof data === "string") {
+    try {
+      parsedData = JSON.parse(data)
+    } catch {
+      // If parsing fails, treat as invalid
+      return null
+    }
+  }
 
-  const loanData = data as SubjectToLoanApprovalData
+  if (!parsedData || typeof parsedData !== "object") return null
+
+  const loanData = parsedData as SubjectToLoanApprovalData
 
   // Check if subject to loan approval
   const isSubjectToLoan =
@@ -378,14 +389,32 @@ export function formatSubjectToLoanApproval(
 
   // Collect supporting documents
   const supportingDocs: string[] = []
+  // Check all possible field names for backward compatibility
   if (loanData.supportingDocUrl) {
     supportingDocs.push(loanData.supportingDocUrl)
   }
+  if (loanData.supportingDocsUrl) {
+    // Current field name (singular)
+    if (typeof loanData.supportingDocsUrl === "string") {
+      supportingDocs.push(loanData.supportingDocsUrl)
+    }
+  }
   if (loanData.supportingDocUrls) {
+    // Old plural field name
+    if (Array.isArray(loanData.supportingDocUrls)) {
     supportingDocs.push(...loanData.supportingDocUrls)
+    }
+  }
+  if (loanData.supportingDocsUrls) {
+    // Current field name (plural)
+    if (Array.isArray(loanData.supportingDocsUrls)) {
+      supportingDocs.push(...loanData.supportingDocsUrls)
+    }
   }
   if (loanData.preApprovalDocuments) {
+    if (Array.isArray(loanData.preApprovalDocuments)) {
     supportingDocs.push(...loanData.preApprovalDocuments)
+    }
   }
 
   // Evidence of funds (if not subject to loan)

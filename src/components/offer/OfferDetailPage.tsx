@@ -313,7 +313,27 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
         {(() => {
           // Check if there's any actual content to display
           const hasSpecialConditions = !!offer.specialConditions
-          const hasPurchaseAgreement = !!offer.purchaseAgreementFileUrl
+          // Helper to parse purchaseAgreementFileUrl (can be single URL string or JSON array)
+          const parsePurchaseAgreementUrls = (
+            value: string | null | undefined,
+          ): string[] => {
+            if (!value) return []
+            try {
+              // Try to parse as JSON array
+              const parsed = JSON.parse(value)
+              if (Array.isArray(parsed)) {
+                return parsed.filter((url) => typeof url === "string")
+              }
+            } catch {
+              // Not JSON, treat as single URL string
+            }
+            // Single URL string (backward compatibility)
+            return [value]
+          }
+          const purchaseAgreementUrls = parsePurchaseAgreementUrls(
+            offer.purchaseAgreementFileUrl,
+          )
+          const hasPurchaseAgreement = purchaseAgreementUrls.length > 0
           const hasMessageToAgent =
             offer.messageToAgent && formatMessageToAgent(offer.messageToAgent)
           const hasPurchaserData =
@@ -357,20 +377,28 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                   </div>
                 )}
 
-                {offer.purchaseAgreementFileUrl && (
+                {purchaseAgreementUrls.length > 0 && (
                   <div>
                     <p className="mb-2 text-sm font-medium text-gray-500">
                       Purchase Agreement
+                      {purchaseAgreementUrls.length > 1 && ` (${purchaseAgreementUrls.length} files)`}
                     </p>
-                    <a
-                      href={offer.purchaseAgreementFileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 hover:underline"
-                    >
-                      <FileText size={16} />
-                      View Purchase Agreement
-                    </a>
+                    <div className="flex flex-col gap-1">
+                      {purchaseAgreementUrls.map((url, index) => (
+                        <a
+                          key={index}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 hover:underline"
+                        >
+                          <FileText size={16} />
+                          {purchaseAgreementUrls.length > 1
+                            ? `View Purchase Agreement ${index + 1}`
+                            : "View Purchase Agreement"}
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 )}
 

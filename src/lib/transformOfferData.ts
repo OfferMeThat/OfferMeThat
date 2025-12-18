@@ -160,9 +160,31 @@ export function transformFormDataToOffer(
         break
 
       case "attachPurchaseAgreement":
-        // Value should be a URL string (file already uploaded client-side)
-        if (typeof value === "string") {
+        // Value can be a single File, array of Files, single URL string, or array of URL strings
+        // Files should already be uploaded client-side and replaced with URLs
+        if (Array.isArray(value)) {
+          // Array of URLs (files already uploaded)
+          const urls = value.filter((v) => typeof v === "string")
+          if (urls.length > 0) {
+            // Store as JSON string if multiple, plain string if single
+            if (urls.length === 1) {
+              offer.purchaseAgreementFileUrl = urls[0]
+            } else {
+              offer.purchaseAgreementFileUrl = JSON.stringify(urls)
+            }
+          }
+        } else if (typeof value === "string") {
+          // Single URL string (backward compatibility)
           offer.purchaseAgreementFileUrl = value
+        } else if (value instanceof File) {
+          // Single File (will be uploaded in offers.ts)
+          // Store as-is for now, will be converted to URL in offers.ts
+          ;(offer as any).purchaseAgreementFiles = [value]
+        } else if (Array.isArray(value) && value.some((v) => v instanceof File)) {
+          // Array of Files (will be uploaded in offers.ts)
+          ;(offer as any).purchaseAgreementFiles = value.filter(
+            (v) => v instanceof File,
+          )
         }
         break
 

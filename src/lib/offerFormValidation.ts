@@ -536,16 +536,48 @@ export const buildQuestionValidation = (
         )
       break
 
+    case "attachPurchaseAgreement":
+      // Can be a File, array of Files, string (URL), or array of strings (URLs)
+      schema = yup.lazy((value) => {
+        // If it's a File or array of Files, that's valid (will be uploaded)
+        if (value instanceof File) {
+          return yup.mixed()
+        }
+        if (Array.isArray(value) && value.every((v) => v instanceof File)) {
+          return yup.array().of(yup.mixed())
+        }
+        // If it's a string (URL), validate as string
+        if (typeof value === "string") {
+          return yup.string()
+        }
+        // If it's an array of strings (URLs), validate as array of strings
+        if (Array.isArray(value) && value.every((v) => typeof v === "string")) {
+          return yup.array().of(yup.string())
+        }
+        // If it's null/undefined and required, show error
+        if (value === null || value === undefined) {
+          if (required) {
+            return yup.mixed().required("This field is required")
+          }
+          return yup.mixed().nullable().optional()
+        }
+        // For any other type, allow it (might be in transition state)
+        return yup.mixed()
+      }) as unknown as yup.AnySchema
+      // Mark this as a lazy schema so we don't add .required() to it later
+      ;(schema as any)._isLazy = true
+      break
+
     case "subjectToLoanApproval":
       // Complex field with nested data including supporting documents
       const setupConfig = (question.setupConfig as Record<string, any>) || {}
       const attachments = setupConfig.attachments
       const lenderDetails = setupConfig.lender_details
       
-      // Attachments are required if attachments === "required", regardless of question required status
-      const attachmentsRequired = attachments === "required"
-      // Lender details are required if lender_details === "required", regardless of question required status
-      const lenderDetailsRequired = lenderDetails === "required"
+      // Attachments are required if attachments === "required" AND question is required
+      const attachmentsRequired = attachments === "required" && required
+      // Lender details are required if lender_details === "required" AND question is required
+      const lenderDetailsRequired = lenderDetails === "required" && required
 
       if (required) {
         // Create a schema that validates the object structure
@@ -844,6 +876,43 @@ export const validateFileSize = (file: File | null): string | null => {
   if (file.size > maxSize) {
     return "File size must be less than 10MB"
   }
+  return null
+}
+
+/**
+ * Validates multiple files for upload
+ * @param files - Array of File objects
+ * @param maxFiles - Maximum number of files allowed (default: 3)
+ * @param maxTotalSize - Maximum total size in bytes (default: 10MB)
+ * @returns Error message if validation fails, null if valid
+ */
+export const validateMultipleFiles = (
+  files: File[],
+  maxFiles: number = 3,
+  maxTotalSize: number = 10 * 1024 * 1024, // 10MB
+): string | null => {
+  if (files.length === 0) return null
+
+  // Check max number of files
+  if (files.length > maxFiles) {
+    return `Maximum ${maxFiles} files allowed`
+  }
+
+  // Check individual file sizes
+  for (const file of files) {
+    const fileError = validateFileSize(file)
+    if (fileError) {
+      return fileError
+    }
+  }
+
+  // Check total size
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+  if (totalSize > maxTotalSize) {
+    const maxSizeMB = (maxTotalSize / (1024 * 1024)).toFixed(0)
+    return `Total file size must be less than ${maxSizeMB}MB`
+  }
+
   return null
 }
 

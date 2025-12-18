@@ -413,7 +413,30 @@ const OfferReportGenerationModal = ({
                               break
                             case "hasPurchaseAgreement":
                               cellContent = formatYesNo(
-                                !!offer.purchaseAgreementFileUrl,
+                                (() => {
+                                  // Helper to parse purchaseAgreementFileUrl (can be single URL string or JSON array)
+                                  const parsePurchaseAgreementUrls = (
+                                    value: string | null | undefined,
+                                  ): string[] => {
+                                    if (!value) return []
+                                    try {
+                                      const parsed = JSON.parse(value)
+                                      if (Array.isArray(parsed)) {
+                                        return parsed.filter(
+                                          (url) => typeof url === "string",
+                                        )
+                                      }
+                                    } catch {
+                                      // Not JSON, treat as single URL string
+                                    }
+                                    return [value]
+                                  }
+                                  const purchaseAgreementUrls =
+                                    parsePurchaseAgreementUrls(
+                                      offer.purchaseAgreementFileUrl,
+                                    )
+                                  return purchaseAgreementUrls.length > 0
+                                })(),
                               )
                               break
                             case "purchaserName":

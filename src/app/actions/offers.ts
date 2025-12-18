@@ -52,6 +52,28 @@ export const saveOffer = async ({
       isTest,
     )
 
+    // Purchase Agreement files
+    if ((offerData as any).purchaseAgreementFiles) {
+      const files = (offerData as any).purchaseAgreementFiles as File[]
+      if (files.length > 0) {
+        const urls = await uploadMultipleFilesToStorage(
+          "offer-documents",
+          files,
+          tempOfferId,
+          "purchase-agreements",
+        )
+        // Store multiple URLs as JSON string in the existing column
+        // If single file, store as plain string for backward compatibility
+        if (urls.length === 1) {
+          offerData.purchaseAgreementFileUrl = urls[0]
+        } else {
+          // Store array as JSON string
+          offerData.purchaseAgreementFileUrl = JSON.stringify(urls)
+        }
+      }
+      delete (offerData as any).purchaseAgreementFiles
+    }
+
     // Purchaser ID files
     if (
       offerData.purchaserData &&
