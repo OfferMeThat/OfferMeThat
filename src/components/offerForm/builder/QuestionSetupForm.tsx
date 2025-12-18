@@ -51,6 +51,21 @@ const QuestionSetupForm = ({
   const initialConfig = useMemo(() => {
     const config = { ...initialSetupConfig } as Record<string, any>
     
+    // Convert legacy comma-separated select_options string to array format
+    if (questionType === "custom" && config.select_options) {
+      if (typeof config.select_options === "string") {
+        // Convert comma-separated string to array
+        config.select_options = config.select_options
+          .split(",")
+          .map((opt: string) => opt.trim())
+          .filter((opt: string) => opt !== "")
+        // Ensure at least 2 empty options if array is empty
+        if (config.select_options.length === 0) {
+          config.select_options = ["", ""]
+        }
+      }
+    }
+    
     // Clear currency-related fields when starting fresh (not in edit mode)
     // Only keep them if they're explicitly in initialSetupConfig
     if (Object.keys(initialSetupConfig).length === 0) {
@@ -106,6 +121,21 @@ const QuestionSetupForm = ({
     // Only update if config actually changed or question type changed
     if (currentConfigString !== prevConfigRef.current || questionTypeChanged) {
       const configToSet = { ...initialSetupConfig } as Record<string, any>
+      
+      // Convert legacy comma-separated select_options string to array format
+      if (questionType === "custom" && configToSet.select_options) {
+        if (typeof configToSet.select_options === "string") {
+          // Convert comma-separated string to array
+          configToSet.select_options = configToSet.select_options
+            .split(",")
+            .map((opt: string) => opt.trim())
+            .filter((opt: string) => opt !== "")
+          // Ensure at least 2 empty options if array is empty
+          if (configToSet.select_options.length === 0) {
+            configToSet.select_options = ["", ""]
+          }
+        }
+      }
       
       // Clear currency-related fields when switching question types or starting fresh
       // Only keep them if they're explicitly in initialSetupConfig (edit mode)
@@ -169,6 +199,11 @@ const QuestionSetupForm = ({
         delete newConfig.add_tickbox
         delete newConfig.tickbox_requirement
         delete newConfig.tickbox_text
+        
+        // Initialize select_options as array when switching to single_select or multi_select
+        if (value === "single_select" || value === "multi_select") {
+          newConfig.select_options = ["", ""]
+        }
       }
 
       // When number_type changes (and it's not money), clear currency fields
@@ -286,6 +321,32 @@ const QuestionSetupForm = ({
       }
     }
 
+    // Special validation for Custom questions with select options
+    if (questionType === "custom") {
+      if (
+        (setupConfig.answer_type === "single_select" ||
+          setupConfig.answer_type === "multi_select") &&
+        setupConfig.select_options
+      ) {
+        // Handle both array format (new) and comma-separated string (legacy)
+        let validOptions: string[] = []
+        if (Array.isArray(setupConfig.select_options)) {
+          validOptions = setupConfig.select_options.filter(
+            (opt: string) => opt && opt.trim() !== "",
+          )
+        } else if (typeof setupConfig.select_options === "string") {
+          validOptions = setupConfig.select_options
+            .split(",")
+            .map((opt: string) => opt.trim())
+            .filter((opt: string) => opt !== "")
+        }
+        if (validOptions.length < 2) {
+          toast.error("Please provide at least 2 options for the select list.")
+          return false
+        }
+      }
+    }
+
     return true
   }, [setupConfig, conditions, questionType])
 
@@ -318,6 +379,30 @@ const QuestionSetupForm = ({
         }
       }
       finalConfig = offerAmountConfig
+    }
+
+    // For Custom questions with select_options, filter out empty values and keep as array
+    if (questionType === "custom") {
+      const customConfig = finalConfig as Record<string, any>
+      if (
+        (customConfig.answer_type === "single_select" ||
+          customConfig.answer_type === "multi_select") &&
+        customConfig.select_options
+      ) {
+        if (Array.isArray(customConfig.select_options)) {
+          // Filter out empty options
+          customConfig.select_options = customConfig.select_options.filter(
+            (opt: string) => opt && opt.trim() !== "",
+          )
+        } else if (typeof customConfig.select_options === "string") {
+          // Convert legacy comma-separated string to array
+          customConfig.select_options = customConfig.select_options
+            .split(",")
+            .map((opt: string) => opt.trim())
+            .filter((opt: string) => opt !== "")
+        }
+      }
+      finalConfig = customConfig
     }
 
     // For lead form questions, clean up conditional fields that aren't applicable
@@ -611,8 +696,96 @@ const QuestionSetupForm = ({
               </div>
             )}
 
+            {/* Select Options Builder (for single_select and multi_select) */}
+            {question.id === "select_options" && question.type === "text" && (
+              <div className="space-y-3">
+                {(() => {
+                  // Handle both array format (new) and comma-separated string (legacy)
+                  let currentOptions: string[] = []
+                  if (setupConfig[question.id]) {
+                    if (Array.isArray(setupConfig[question.id])) {
+                      currentOptions = setupConfig[question.id]
+                    } else if (typeof setupConfig[question.id] === "string") {
+                      // Legacy format: comma-separated string
+                      currentOptions = setupConfig[question.id]
+                        .split(",")
+                        .map((opt: string) => opt.trim())
+                        .filter((opt: string) => opt !== "")
+                    }
+                  }
+                  
+                  // Initialize with 2 empty options if empty
+                  if (currentOptions.length === 0) {
+                    currentOptions = ["", ""]
+                  }
+
+                  const maxOptions = 25
+
+                  return (
+                    <>
+                      {currentOptions.map((option, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <span className="w-24 text-sm font-medium text-gray-700">
+                            Option {index + 1}:
+                          </span>
+                          <Input
+                            type="text"
+                            value={option}
+                            onChange={(e) => {
+                              const newOptions = [...currentOptions]
+                              newOptions[index] = e.target.value
+                              handleConfigChange(question.id, newOptions)
+                            }}
+                            placeholder={`Enter option ${index + 1}`}
+                            className="flex-1"
+                          />
+                          {currentOptions.length > 2 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newOptions = currentOptions.filter(
+                                  (_, i) => i !== index,
+                                )
+                                handleConfigChange(question.id, newOptions)
+                              }}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+
+                      {currentOptions.length < maxOptions && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            handleConfigChange(question.id, [
+                              ...currentOptions,
+                              "",
+                            ])
+                          }}
+                          className="mt-2"
+                        >
+                          + Add another Option
+                        </Button>
+                      )}
+
+                      <p className="text-xs text-gray-500">
+                        Maximum {maxOptions} options allowed
+                      </p>
+                    </>
+                  )
+                })()}
+              </div>
+            )}
+
             {/* Text input */}
-            {question.type === "text" && (
+            {question.type === "text" && question.id !== "select_options" && (
               <Input
                 type="text"
                 value={setupConfig[question.id] || ""}

@@ -4867,7 +4867,7 @@ export const QuestionRenderer = ({
         )
       } else if (timeType === "datetime") {
         return (
-            <div className="flex max-w-md items-center gap-3">
+          <div className="flex max-w-md items-center gap-3">
             <DatePicker
               style={getInputStyle()}
               value={formValues[`${question.id}_date`]}
@@ -4913,11 +4913,22 @@ export const QuestionRenderer = ({
         </RadioGroup>
       )
     } else if (answerType === "single_select") {
-      const options =
-        setupConfig.select_options
-          ?.split(",")
-          .map((opt: string) => opt.trim())
-          .filter((opt: string) => opt.length > 0) || []
+      // Handle both array format (new) and comma-separated string (legacy)
+      let options: string[] = []
+      if (setupConfig.select_options) {
+        if (Array.isArray(setupConfig.select_options)) {
+          // New format: array of strings
+          options = setupConfig.select_options.filter(
+            (opt: string) => opt && opt.trim() !== "",
+          )
+        } else if (typeof setupConfig.select_options === "string") {
+          // Legacy format: comma-separated string
+          options = setupConfig.select_options
+            .split(",")
+            .map((opt: string) => opt.trim())
+            .filter((opt: string) => opt.length > 0)
+        }
+      }
       return (
         <RadioGroup disabled={disabled}>
           {options.map((opt: string, idx: number) => (
@@ -4929,11 +4940,22 @@ export const QuestionRenderer = ({
         </RadioGroup>
       )
     } else if (answerType === "multi_select") {
-      const options =
-        setupConfig.select_options
-          ?.split(",")
-          .map((opt: string) => opt.trim())
-          .filter((opt: string) => opt.length > 0) || []
+      // Handle both array format (new) and comma-separated string (legacy)
+      let options: string[] = []
+      if (setupConfig.select_options) {
+        if (Array.isArray(setupConfig.select_options)) {
+          // New format: array of strings
+          options = setupConfig.select_options.filter(
+            (opt: string) => opt && opt.trim() !== "",
+          )
+        } else if (typeof setupConfig.select_options === "string") {
+          // Legacy format: comma-separated string
+          options = setupConfig.select_options
+            .split(",")
+            .map((opt: string) => opt.trim())
+            .filter((opt: string) => opt.length > 0)
+        }
+      }
       return (
         <div className="space-y-2">
           {options.map((opt: string, idx: number) => (
