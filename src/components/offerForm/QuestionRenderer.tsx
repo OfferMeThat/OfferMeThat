@@ -4867,33 +4867,29 @@ export const QuestionRenderer = ({
         )
       } else if (timeType === "datetime") {
         return (
-          <div className="flex max-w-md gap-2">
-            <div className="flex-1">
-              <DatePicker
-                style={getInputStyle()}
-                value={formValues[`${question.id}_date`]}
-                onChange={(date) =>
-                  setFormValues((prev) => ({
-                    ...prev,
-                    [`${question.id}_date`]: date,
-                  }))
-                }
-                brandingConfig={brandingConfig}
-              />
-            </div>
-            <div className="flex-1">
-              <TimePicker
-                style={getInputStyle()}
-                value={formValues[`${question.id}_time`]}
-                onChange={(time) =>
-                  setFormValues((prev) => ({
-                    ...prev,
-                    [`${question.id}_time`]: time,
-                  }))
-                }
-                brandingConfig={brandingConfig}
-              />
-            </div>
+            <div className="flex max-w-md items-center gap-3">
+            <DatePicker
+              style={getInputStyle()}
+              value={formValues[`${question.id}_date`]}
+              onChange={(date) =>
+                setFormValues((prev) => ({
+                  ...prev,
+                  [`${question.id}_date`]: date,
+                }))
+              }
+              brandingConfig={brandingConfig}
+            />
+            <TimePicker
+              style={getInputStyle()}
+              value={formValues[`${question.id}_time`]}
+              onChange={(time) =>
+                setFormValues((prev) => ({
+                  ...prev,
+                  [`${question.id}_time`]: time,
+                }))
+              }
+              brandingConfig={brandingConfig}
+            />
           </div>
         )
       }
