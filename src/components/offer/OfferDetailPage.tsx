@@ -6,6 +6,7 @@ import {
   formatMessageToAgent,
   formatPurchaserData,
   formatSettlementDateData,
+  formatSpecialConditions,
   formatSubjectToLoanApproval,
 } from "@/lib/formatOfferData"
 import { parseAllCustomQuestions } from "@/lib/parseCustomQuestionsData"
@@ -371,9 +372,26 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                     <p className="mb-2 text-sm font-medium text-gray-500">
                       Special Conditions
                     </p>
-                    <p className="text-base whitespace-pre-wrap text-gray-900">
-                      {offer.specialConditions}
-                    </p>
+                    {(() => {
+                      // Parse specialConditions if it's a JSON string
+                      let specialConditionsData = offer.specialConditions
+                      if (typeof specialConditionsData === "string") {
+                        try {
+                          specialConditionsData = JSON.parse(
+                            specialConditionsData,
+                          )
+                        } catch {
+                          // If parsing fails, treat as legacy string format
+                        }
+                      }
+                      const setupConfig = (offer as any)
+                        .specialConditionsSetupConfig
+
+                      return formatSpecialConditions(
+                        specialConditionsData,
+                        setupConfig,
+                      )
+                    })()}
                   </div>
                 )}
 
@@ -462,13 +480,9 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                     const formatted = formatSubjectToLoanApproval(
                       offer.subjectToLoanApproval,
                     )
+                    // formatSubjectToLoanApproval already includes the label, so just render it
                     return formatted ? (
-                      <div>
-                        <p className="mb-2 text-sm font-medium text-gray-500">
-                          Subject to Loan Approval
-                        </p>
-                        <div className="text-base">{formatted}</div>
-                      </div>
+                      <div className="text-base">{formatted}</div>
                     ) : null
                   })()}
 

@@ -30,7 +30,7 @@ import {
   QuestionUIConfig,
 } from "@/types/questionUIConfig"
 import { Database } from "@/types/supabase"
-import { X } from "lucide-react"
+import { FileText, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
@@ -2839,23 +2839,268 @@ export const QuestionRenderer = ({
       }>) || []
     const allowCustom = setupConfig.allow_custom_conditions === "yes"
 
+    // Get current form value - should be an object with selectedConditions and customCondition
+    const specialConditionsValueRaw =
+      (value as {
+        selectedConditions?: number[] | string[]
+        customCondition?: string
+        conditionAttachments?: Record<number | string, File[]>
+      }) || {}
+
+    // Normalize the value to ensure proper types
+    const specialConditionsValue = {
+      ...specialConditionsValueRaw,
+      selectedConditions: Array.isArray(
+        specialConditionsValueRaw.selectedConditions,
+      )
+        ? specialConditionsValueRaw.selectedConditions.map((idx: any) =>
+            typeof idx === "string" ? parseInt(idx, 10) : idx,
+          )
+        : [],
+      // Filter out empty objects from conditionAttachments
+      conditionAttachments: specialConditionsValueRaw.conditionAttachments
+        ? Object.fromEntries(
+            Object.entries(
+              specialConditionsValueRaw.conditionAttachments,
+            ).filter(
+              ([_, files]) =>
+                Array.isArray(files) &&
+                files.length > 0 &&
+                files.every((f) => f instanceof File),
+            ),
+          )
+        : {},
+    }
+
+    const selectedConditions = specialConditionsValue.selectedConditions || []
+    const customCondition = specialConditionsValue.customCondition || ""
+    const conditionAttachments =
+      specialConditionsValue.conditionAttachments || {}
+
+    // Get file upload state for condition attachments
+    const getConditionFileData = (conditionIndex: number) => {
+      const fileKey = `${question.id}_condition_${conditionIndex}_attachments`
+      const fileDataRaw = fileUploads[fileKey]
+      return fileDataRaw && "files" in fileDataRaw
+        ? fileDataRaw
+        : { files: [], fileNames: [], error: undefined }
+    }
+
+    const handleConditionToggle = (
+      conditionIndex: number,
+      checked: boolean,
+    ) => {
+      if (editingMode) return
+
+      // Ensure selectedConditions contains numbers, not strings
+      const currentSelected = selectedConditions.map((idx) =>
+        typeof idx === "string" ? parseInt(idx, 10) : idx,
+      )
+
+      const newSelected = checked
+        ? [...currentSelected, conditionIndex]
+        : currentSelected.filter((idx) => idx !== conditionIndex)
+
+      onChange?.({
+        ...specialConditionsValue,
+        selectedConditions: newSelected,
+      })
+    }
+
+    const handleConditionFileUpload = (
+      conditionIndex: number,
+      event: React.ChangeEvent<HTMLInputElement>,
+    ) => {
+      const files = Array.from(event.target.files || [])
+      if (files.length === 0) return
+
+      // Validate files (max 3, total 10MB)
+      const fileError = validateMultipleFiles(files, 3, 10 * 1024 * 1024)
+
+      const fileKey = `${question.id}_condition_${conditionIndex}_attachments`
+      setFileUploads((prev) => ({
+        ...prev,
+        [fileKey]: {
+          files,
+          fileNames: files.map((f) => f.name),
+          error: fileError || undefined,
+        },
+      }))
+
+      if (!fileError && files.length > 0) {
+        // Ensure we only store actual File objects
+        const validFiles = files.filter((f) => f instanceof File)
+        if (validFiles.length > 0) {
+          // Update form value with files
+          onChange?.({
+            ...specialConditionsValue,
+            conditionAttachments: {
+              ...conditionAttachments,
+              [conditionIndex]: validFiles,
+            },
+          })
+        }
+      }
+
+      // Clear the input
+      event.target.value = ""
+    }
+
+    const handleRemoveConditionFile = (
+      conditionIndex: number,
+      fileIndex: number,
+    ) => {
+      const fileKey = `${question.id}_condition_${conditionIndex}_attachments`
+      const fileData = getConditionFileData(conditionIndex)
+      const newFiles = [...fileData.files]
+      const newFileNames = [...fileData.fileNames]
+      newFiles.splice(fileIndex, 1)
+      newFileNames.splice(fileIndex, 1)
+
+      setFileUploads((prev) => ({
+        ...prev,
+        [fileKey]:
+          newFiles.length > 0
+            ? {
+                files: newFiles,
+                fileNames: newFileNames,
+                error: undefined,
+              }
+            : {
+                files: [],
+                fileNames: [],
+                error: undefined,
+              },
+      }))
+
+      // Update form value - ensure only File objects are stored
+      const updatedAttachments = { ...conditionAttachments }
+      const validFiles = newFiles.filter((f) => f instanceof File)
+      if (validFiles.length > 0) {
+        updatedAttachments[conditionIndex] = validFiles
+      } else {
+        delete updatedAttachments[conditionIndex]
+      }
+      onChange?.({
+        ...specialConditionsValue,
+        conditionAttachments: updatedAttachments,
+      })
+    }
+
     return (
       <div className="space-y-3">
         {conditions.length > 0 ? (
-          <div className="space-y-2">
-            {conditions.map((condition, idx) => (
-              <div key={idx} className="flex items-start gap-2">
-                <Checkbox disabled={disabled} className="mt-0.5" />
-                <div className="flex-1">
-                  <span className="text-sm text-gray-700">
-                    {condition.name}
-                  </span>
-                  {condition.details && (
-                    <p className="text-xs text-gray-500">{condition.details}</p>
+          <div className="space-y-3">
+            {conditions.map((condition, idx) => {
+              const isSelected = selectedConditions.includes(idx)
+              const fileData = getConditionFileData(idx)
+              const hasFiles = fileData.files.length > 0
+
+              return (
+                <div key={idx} className="space-y-3">
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={(checked) =>
+                        handleConditionToggle(idx, checked === true)
+                      }
+                      disabled={disabled}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm text-gray-700">
+                        {condition.name}
+                      </span>
+                      {condition.details && (
+                        <p className="text-xs text-gray-500">
+                          {condition.details}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* File upload for this condition - always at the bottom (show if selected or in form builder for testing) */}
+                  {(isSelected || editingMode) && (
+                    <div className="ml-7 space-y-2">
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                        Attachments (optional, max 3 files, 10MB total)
+                      </label>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                            onClick={() =>
+                              document
+                                .getElementById(
+                                  `${question.id}_condition_${idx}_file_input`,
+                                )
+                                ?.click()
+                            }
+                            disabled={disabled || editingMode}
+                          >
+                            <FileText size={14} />
+                            Choose files
+                          </Button>
+                          <input
+                            id={`${question.id}_condition_${idx}_file_input`}
+                            type="file"
+                            multiple
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                            onChange={(e) => handleConditionFileUpload(idx, e)}
+                            className="hidden"
+                            disabled={disabled || editingMode}
+                            data-field-id={question.id}
+                          />
+                        </div>
+
+                        {/* Display uploaded files */}
+                        {hasFiles && (
+                          <div className="space-y-1">
+                            {fileData.fileNames.map((fileName, fileIdx) => (
+                              <div
+                                key={fileIdx}
+                                className="flex items-center justify-between rounded-md bg-gray-50 p-2"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <FileText
+                                    size={14}
+                                    className="text-gray-500"
+                                  />
+                                  <span className="text-xs text-gray-700">
+                                    {fileName}
+                                  </span>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleRemoveConditionFile(idx, fileIdx)
+                                  }
+                                  disabled={disabled || editingMode}
+                                  className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                                >
+                                  <X size={14} />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {fileData.error && (
+                          <p className="text-xs text-red-500" role="alert">
+                            {fileData.error}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <p className="text-sm text-gray-500">No predefined conditions</p>
@@ -2882,6 +3127,16 @@ export const QuestionRenderer = ({
             </div>
             <div className="relative w-full">
               <Textarea
+                value={editingMode ? "" : customCondition}
+                onChange={(e) => {
+                  if (!editingMode) {
+                    onChange?.({
+                      ...specialConditionsValue,
+                      customCondition: e.target.value,
+                    })
+                  }
+                }}
+                onBlur={onBlur}
                 placeholder={getSubQuestionPlaceholder(
                   uiConfig,
                   "customConditionPlaceholder",
@@ -2893,6 +3148,7 @@ export const QuestionRenderer = ({
                   editingMode && "cursor-not-allowed",
                 )}
                 style={getInputStyle()}
+                data-field-id={question.id}
               />
               {renderEditOverlay(
                 "customConditionPlaceholder",

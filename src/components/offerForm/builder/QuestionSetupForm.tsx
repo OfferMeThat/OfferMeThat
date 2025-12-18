@@ -67,9 +67,15 @@ const QuestionSetupForm = ({
 
   const [setupConfig, setSetupConfig] =
     useState<Record<string, any>>(initialConfig)
+  // Initialize with one empty condition if none exist
+  const initialConditions = (initialSetupConfig as any)?.conditions || []
   const [conditions, setConditions] = useState<
     Array<{ name: string; details: string }>
-  >((initialSetupConfig as any)?.conditions || [])
+  >(
+    initialConditions.length > 0
+      ? initialConditions
+      : [{ name: "", details: "" }],
+  )
 
   // Use ref to track previous config to avoid infinite loops
   const prevConfigRef = useRef<string>("")
@@ -98,8 +104,11 @@ const QuestionSetupForm = ({
       }
       
       setSetupConfig(configToSet)
-      if (configToSet?.conditions) {
+      if (configToSet?.conditions && configToSet.conditions.length > 0) {
         setConditions(configToSet.conditions)
+      } else if (questionType === "specialConditions") {
+        // Initialize with one empty condition for special conditions
+        setConditions([{ name: "", details: "" }])
       }
       prevConfigRef.current = JSON.stringify(configToSet)
       questionTypeRef.current = questionType
@@ -132,6 +141,7 @@ const QuestionSetupForm = ({
     updated[index][field] = value
     setConditions(updated)
   }
+
 
   // Validation function to check if setup is complete
   const validateSetup = useCallback(() => {
@@ -205,7 +215,13 @@ const QuestionSetupForm = ({
     // For Special Conditions, include the conditions array in setupConfig
     let finalConfig =
       questionType === "specialConditions"
-        ? { ...setupConfig, conditions }
+        ? {
+            ...setupConfig,
+            conditions: conditions.map((condition) => ({
+              name: condition.name,
+              details: condition.details,
+            })),
+          }
         : { ...setupConfig }
 
     // For Offer Amount with currency_options mode, filter out empty values

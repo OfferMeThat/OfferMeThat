@@ -830,6 +830,61 @@ export const buildQuestionValidation = (
       schema = yup.string().max(150, "Maximum 150 characters allowed")
       break
 
+    case "specialConditions":
+      // Special conditions can be a string (legacy) or an object with selectedConditions, customCondition, and conditionAttachments
+      schema = yup
+        .mixed()
+        .test(
+          "specialConditions",
+          "Invalid special conditions format",
+          function (value) {
+            // Allow null/undefined if not required
+            if (!required && (value === null || value === undefined || value === "")) {
+              return true
+            }
+
+            // If required and empty, return error
+            if (required && (!value || value === "")) {
+              return this.createError({
+                message: "Please select at least one condition or add a custom condition",
+              })
+            }
+
+            // Handle legacy string format
+            if (typeof value === "string") {
+              return true
+            }
+
+            // Handle new object format
+            if (typeof value === "object" && value !== null) {
+              const data = value as {
+                selectedConditions?: number[] | string[]
+                customCondition?: string
+                conditionAttachments?: Record<number | string, File[]>
+              }
+
+              // Must have at least one condition selected or a custom condition
+              const hasSelectedConditions =
+                Array.isArray(data.selectedConditions) &&
+                data.selectedConditions.length > 0
+              const hasCustomCondition =
+                typeof data.customCondition === "string" &&
+                data.customCondition.trim() !== ""
+
+              if (!hasSelectedConditions && !hasCustomCondition) {
+                return this.createError({
+                  message: "Please select at least one condition or add a custom condition",
+                })
+              }
+
+              return true
+            }
+
+            return false
+          },
+        )
+      break
+
     default:
       // Default validation for unknown types
       schema = yup.string().max(150, "Maximum 150 characters allowed")

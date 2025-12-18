@@ -133,6 +133,40 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
   )
   purchaseAgreementUrls.forEach(collectUrl)
 
+  // Collect URLs from specialConditions
+  if (processedOffer.specialConditions) {
+    let specialConditionsData = processedOffer.specialConditions
+    // Parse if it's a JSON string
+    if (typeof specialConditionsData === "string") {
+      try {
+        specialConditionsData = JSON.parse(specialConditionsData)
+      } catch {
+        // If parsing fails, skip URL collection for special conditions
+        specialConditionsData = null
+      }
+    }
+    // Collect URLs from conditionAttachmentUrls
+    if (
+      specialConditionsData &&
+      typeof specialConditionsData === "object" &&
+      specialConditionsData !== null
+    ) {
+      const conditionAttachmentUrls =
+        (specialConditionsData as any).conditionAttachmentUrls
+      if (conditionAttachmentUrls && typeof conditionAttachmentUrls === "object") {
+        Object.values(conditionAttachmentUrls).forEach((urls: any) => {
+          if (Array.isArray(urls)) {
+            urls.forEach((url: any) => {
+              if (typeof url === "string") {
+                collectUrl(url)
+              }
+            })
+          }
+        })
+      }
+    }
+  }
+
   // If no URLs to sign, return original offer
   if (urlsToSign.length === 0) {
     return processedOffer
@@ -266,6 +300,53 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
       processedOffer.purchaseAgreementFileUrl = signedUrls[0]
     } else if (signedUrls.length > 1) {
       processedOffer.purchaseAgreementFileUrl = JSON.stringify(signedUrls)
+    }
+  }
+
+  // Replace URLs in specialConditions
+  if (processedOffer.specialConditions) {
+    let specialConditionsData = processedOffer.specialConditions
+    let isString = false
+    // Parse if it's a JSON string
+    if (typeof specialConditionsData === "string") {
+      try {
+        specialConditionsData = JSON.parse(specialConditionsData)
+        isString = true
+      } catch {
+        // If parsing fails, skip URL replacement
+        return processedOffer
+      }
+    }
+    // Replace URLs in conditionAttachmentUrls
+    if (
+      specialConditionsData &&
+      typeof specialConditionsData === "object" &&
+      specialConditionsData !== null
+    ) {
+      const conditionAttachmentUrls =
+        (specialConditionsData as any).conditionAttachmentUrls
+      if (conditionAttachmentUrls && typeof conditionAttachmentUrls === "object") {
+        const signedConditionAttachmentUrls: Record<number | string, string[]> = {}
+        Object.entries(conditionAttachmentUrls).forEach(([key, urls]: [string, any]) => {
+          if (Array.isArray(urls)) {
+            signedConditionAttachmentUrls[key] = urls.map((url: any) => {
+              if (typeof url === "string") {
+                return getSignedUrl(url) || url
+              }
+              return url
+            })
+          }
+        })
+        ;(specialConditionsData as any).conditionAttachmentUrls =
+          signedConditionAttachmentUrls
+
+        // Store back in the same format (JSON string if it was originally a string)
+        if (isString) {
+          processedOffer.specialConditions = JSON.stringify(specialConditionsData)
+        } else {
+          processedOffer.specialConditions = specialConditionsData
+        }
+      }
     }
   }
 

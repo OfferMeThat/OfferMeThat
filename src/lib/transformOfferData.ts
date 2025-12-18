@@ -189,7 +189,14 @@ export function transformFormDataToOffer(
         break
 
       case "specialConditions":
-        offer.specialConditions = value as string
+        // Value can be a string (legacy) or an object with selectedConditions, customCondition, and conditionAttachmentUrls
+        if (typeof value === "string") {
+          // Legacy format - just store as string
+          offer.specialConditions = value
+        } else if (typeof value === "object" && value !== null) {
+          // New format - store as JSON object
+          offer.specialConditions = value as any
+        }
         break
 
       case "settlementDate":

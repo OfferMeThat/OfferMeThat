@@ -485,6 +485,65 @@ export const OfferFormInteractiveView = ({
           }
         }
 
+        // Handle special conditions file uploads
+        if (
+          question.type === "specialConditions" &&
+          typeof value === "object" &&
+          value !== null
+        ) {
+          const specialConditionsData = value as {
+            selectedConditions?: number[] | string[]
+            customCondition?: string
+            conditionAttachments?: Record<number | string, File[]>
+          }
+
+          // Normalize selectedConditions to numbers
+          const normalizedData = {
+            ...specialConditionsData,
+            selectedConditions: Array.isArray(
+              specialConditionsData.selectedConditions,
+            )
+              ? specialConditionsData.selectedConditions.map((idx: any) =>
+                  typeof idx === "string" ? parseInt(idx, 10) : idx,
+                )
+              : [],
+          }
+
+          if (normalizedData.conditionAttachments) {
+            const uploadedAttachments: Record<number, string[]> = {}
+
+            // Upload files for each condition (only if files are actual File objects)
+            for (const [conditionIndexStr, files] of Object.entries(
+              normalizedData.conditionAttachments,
+            )) {
+              // Filter out empty objects and ensure we have actual File objects
+              const validFiles = Array.isArray(files)
+                ? files.filter((f) => f instanceof File)
+                : []
+
+              if (validFiles.length > 0 && isFileArray(validFiles)) {
+                const conditionIndex = parseInt(conditionIndexStr, 10)
+                const urls = await uploadMultipleFilesToStorageClient(
+                  "offer-documents",
+                  validFiles,
+                  tempOfferId,
+                  `condition-${conditionIndex}-attachments`,
+                )
+                uploadedAttachments[conditionIndex] = urls
+              }
+            }
+
+            processedFormData[questionId] = {
+              ...normalizedData,
+              conditionAttachmentUrls: uploadedAttachments,
+            }
+            delete processedFormData[questionId].conditionAttachments
+          } else {
+            // Even if no attachments, still normalize the data
+            processedFormData[questionId] = normalizedData
+          }
+        }
+
         // Handle custom question file uploads
         if (
           question.type === "custom" &&

@@ -506,13 +506,29 @@ export async function getOfferById(
     return null
   }
 
+  // Fetch special conditions question setupConfig if formId exists
+  let specialConditionsSetupConfig = null
+  if (offer.formId) {
+    const { data: specialConditionsQuestion } = await supabase
+      .from("offerFormQuestions")
+      .select("setupConfig")
+      .eq("formId", offer.formId)
+      .eq("type", "specialConditions")
+      .single()
+
+    if (specialConditionsQuestion?.setupConfig) {
+      specialConditionsSetupConfig = specialConditionsQuestion.setupConfig
+    }
+  }
+
   // Transform the data to match OfferWithListing type
   const transformedOffer = {
     ...offer,
     listing: Array.isArray(offer.listings)
       ? offer.listings[0] || null
       : offer.listings || null,
-  } as OfferWithListing
+    specialConditionsSetupConfig,
+  } as OfferWithListing & { specialConditionsSetupConfig?: any }
 
   return transformedOffer
 }
