@@ -229,7 +229,40 @@ const SmartQuestionSetup = ({
       const generatedProperties = smartQuestion.generateProperties(
         answersRef.current,
       )
-      onComplete(generatedProperties, answersRef.current)
+      
+      // Determine required status based on mandatory settings in answers
+      let requiredOverride: boolean | undefined = undefined
+      const answers = answersRef.current
+      
+      // Check for mandatory/optional settings that should affect question required status
+      // Name of Purchaser - collect_identification
+      if (smartQuestion.id === "name_of_purchaser") {
+        if (answers.collect_identification === "mandatory") {
+          requiredOverride = true
+        } else if (answers.collect_identification === "optional" || answers.collect_identification === "no") {
+          requiredOverride = false
+        }
+      }
+      
+      // Subject to Loan Approval - lender_details and attachments
+      if (smartQuestion.id === "loan_approval") {
+        if (answers.lender_details === "required" || answers.attachments === "required") {
+          requiredOverride = true
+        } else if (answers.lender_details === "not_required" && answers.attachments === "not_required") {
+          requiredOverride = false
+        }
+      }
+      
+      // Evidence of Funds - evidence_of_funds
+      if (smartQuestion.id === "evidence_of_funds") {
+        if (answers.evidence_of_funds === "required") {
+          requiredOverride = true
+        } else if (answers.evidence_of_funds === "optional" || answers.evidence_of_funds === "not_required") {
+          requiredOverride = false
+        }
+      }
+      
+      onComplete(generatedProperties, answersRef.current, requiredOverride)
     } catch (error) {
       console.error("Error in handleSave:", error)
       isSavingRef.current = false

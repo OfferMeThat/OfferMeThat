@@ -84,6 +84,7 @@ interface PersonNameFieldsProps {
   >
   collectMiddleNames: string
   collectId: string
+  questionRequired: boolean
   uiConfig: QuestionUIConfig
   disabled: boolean
   editingMode: boolean
@@ -107,6 +108,7 @@ const PersonNameFields = ({
   setFileUploads,
   collectMiddleNames,
   collectId,
+  questionRequired,
   uiConfig,
   disabled,
   editingMode,
@@ -267,7 +269,7 @@ const PersonNameFields = ({
               </div>
             </div>
           )}
-          {!editingMode && (
+          {shouldShowMiddleName && (
             <div className="flex items-center gap-2">
               <Checkbox
                 id={`${questionId}_${prefix}_skip_middle_name`}
@@ -300,7 +302,7 @@ const PersonNameFields = ({
                 htmlFor={`${questionId}_${prefix}_skip_middle_name`}
                 className="cursor-pointer text-sm font-normal"
               >
-                I don&apos;t have a middle name
+                No Middle Name
               </Label>
             </div>
           )}
@@ -361,7 +363,7 @@ const PersonNameFields = ({
           <div className="relative inline-block">
             <Label className="mb-1 block text-sm">
               {getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload")}{" "}
-              {collectId === "mandatory" && (
+              {collectId === "mandatory" && questionRequired && (
                 <span className="text-red-500">*</span>
               )}
             </Label>
@@ -521,6 +523,115 @@ export const QuestionRenderer = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId, ownerId, editingMode, question.type, question.id, isTestMode])
 
+  // State for nameOfPurchaser question (must be declared at top level for hooks rules)
+  const nameOfPurchaserValue: Record<string, any> =
+    question.type === "nameOfPurchaser" &&
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+      ? value
+      : {}
+  const [scenario, setScenario] = useState<string>(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.scenario || ""
+      : "",
+  )
+  const [numPurchasers, setNumPurchasers] = useState<number>(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.numPurchasers || 2
+      : 2,
+  )
+  const [numRepresentatives, setNumRepresentatives] = useState<number>(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.numRepresentatives || 1
+      : 1,
+  )
+  const [purchaserTypes, setPurchaserTypes] = useState<Record<number, string>>(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.purchaserTypes || {}
+      : {},
+  )
+  const [nameFields, setNameFields] = useState<
+    Record<
+      string,
+      {
+        firstName: string
+        middleName: string
+        lastName: string
+        skipMiddleName?: boolean
+      }
+    >
+  >(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.nameFields || {}
+      : {},
+  )
+  const [corporationName, setCorporationName] = useState<string>(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.corporationName || ""
+      : "",
+  )
+
+  // Sync specifyListing state with value prop
+  useEffect(() => {
+    if (
+      question.type === "specifyListing" &&
+      value &&
+      typeof value === "string"
+    ) {
+      // Check if it's a listing ID or custom address
+      const isListingId = listings?.some((l) => l.id === value)
+      if (isListingId) {
+        setSelectedListingId(value)
+        setShowCustomInput(false)
+        setCustomAddress("")
+      } else {
+        setShowCustomInput(true)
+        setSelectedListingId("")
+        setCustomAddress(value)
+      }
+    }
+  }, [question.type, value, listings])
+
+  // Sync nameOfPurchaser ID files when they change in fileUploads
+  // This will be handled inside the nameOfPurchaser block by calling updateNameOfPurchaserData
+  // We can't call updateNameOfPurchaserData here because it's defined inside the conditional block
+  // Instead, we'll handle it by calling onChange directly when fileUploads change
+  useEffect(() => {
+    if (question.type === "nameOfPurchaser" && !editingMode && value) {
+      // Extract ID files from fileUploads state and sync with parent
+      const idFiles: Record<string, File> = {}
+      Object.entries(fileUploads).forEach(([key, fileData]) => {
+        if (
+          key.startsWith(`${question.id}_`) &&
+          key.endsWith("_id") &&
+          fileData.file
+        ) {
+          const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
+          idFiles[prefix] = fileData.file
+        }
+      })
+
+      // Only update if there are ID files or if we need to clear them
+      if (
+        Object.keys(idFiles).length > 0 ||
+        Object.keys(fileUploads).some(
+          (k) => k.startsWith(`${question.id}_`) && k.endsWith("_id"),
+        )
+      ) {
+        const currentValue =
+          value && typeof value === "object" && !Array.isArray(value)
+            ? value
+            : {}
+        onChange?.({
+          ...currentValue,
+          ...(Object.keys(idFiles).length > 0 ? { idFiles } : {}),
+        })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.type, question.id, fileUploads, editingMode])
+
   // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
   const uiConfig = parseUIConfig(question.uiConfig)
@@ -656,23 +767,6 @@ export const QuestionRenderer = ({
 
   // Specify Listing
   if (question.type === "specifyListing") {
-    // Sync local state with parent value
-    useEffect(() => {
-      if (value && typeof value === "string") {
-        // Check if it's a listing ID or custom address
-        const isListingId = listings?.some((l) => l.id === value)
-        if (isListingId) {
-          setSelectedListingId(value)
-          setShowCustomInput(false)
-          setCustomAddress("")
-        } else {
-          setShowCustomInput(true)
-          setSelectedListingId("")
-          setCustomAddress(value)
-        }
-      }
-    }, [value, listings])
-
     // If no listings, show simple input (even in editing mode, show dropdown if listings exist)
     if (!listings || listings.length === 0) {
       const inputValue = editingMode ? "" : (value as string) || customAddress
@@ -1301,6 +1395,9 @@ export const QuestionRenderer = ({
                   <p className="text-sm text-gray-500">
                     📎 Upload Identification{" "}
                     {collectId === "optional" && "(Optional)"}
+                    {collectId === "mandatory" && question.required && (
+                      <span className="text-red-500"> *</span>
+                    )}
                   </p>
                 </label>
               </div>
@@ -1354,32 +1451,7 @@ export const QuestionRenderer = ({
     }
 
     // Individual names method - complex multi-scenario UI
-    // Initialize from value prop if available
-    const nameOfPurchaserValue =
-      value && typeof value === "object" && !Array.isArray(value) ? value : {}
-    const [scenario, setScenario] = useState<string>(
-      nameOfPurchaserValue.scenario || "",
-    )
-    const [numPurchasers, setNumPurchasers] = useState<number>(
-      nameOfPurchaserValue.numPurchasers || 2,
-    )
-    const [numRepresentatives, setNumRepresentatives] = useState<number>(
-      nameOfPurchaserValue.numRepresentatives || 1,
-    )
-    const [purchaserTypes, setPurchaserTypes] = useState<
-      Record<number, string>
-    >(nameOfPurchaserValue.purchaserTypes || {})
-    const [nameFields, setNameFields] = useState<
-      Record<
-        string,
-        {
-          firstName: string
-          middleName: string
-          lastName: string
-          skipMiddleName?: boolean
-        }
-      >
-    >(nameOfPurchaserValue.nameFields || {})
+    // State hooks are already declared at the top level
 
     // Helper to sync all state changes with parent
     // Also includes ID files from fileUploads state
@@ -1398,6 +1470,8 @@ export const QuestionRenderer = ({
             skipMiddleName?: boolean
           }
         >
+        corporationName?: string
+        [key: string]: any // Allow dynamic keys for corporation names in "other" scenario
         idFiles?: Record<string, File>
       }>,
     ) => {
@@ -1420,6 +1494,7 @@ export const QuestionRenderer = ({
         numRepresentatives,
         purchaserTypes,
         nameFields,
+        corporationName,
         ...(Object.keys(idFiles).length > 0 ? { idFiles } : {}),
         ...updates,
       }
@@ -1459,12 +1534,8 @@ export const QuestionRenderer = ({
     }
 
     // Sync ID files when they change in fileUploads
-    useEffect(() => {
-      if (!editingMode) {
-        updateNameOfPurchaserData({})
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fileUploads])
+    // This is handled by calling updateNameOfPurchaserData when fileUploads change
+    // We'll sync it in the top-level useEffect
 
     return (
       <div className="space-y-4">
@@ -1500,6 +1571,7 @@ export const QuestionRenderer = ({
               setFileUploads={setFileUploads}
               collectMiddleNames={collectMiddleNames}
               collectId={collectId}
+              questionRequired={question.required}
               uiConfig={uiConfig}
               disabled={disabled}
               editingMode={editingMode}
@@ -1554,6 +1626,7 @@ export const QuestionRenderer = ({
                     setFileUploads={setFileUploads}
                     collectMiddleNames={collectMiddleNames}
                     collectId={collectId}
+                    questionRequired={question.required}
                     uiConfig={uiConfig}
                     disabled={disabled}
                     editingMode={editingMode}
@@ -1571,22 +1644,74 @@ export const QuestionRenderer = ({
         {scenario === "corporation" && (
           <div className="space-y-4">
             <div>
-              <Label className="mb-1 block text-sm">Corporation Name:</Label>
-              <div className="max-w-md">
+              <div className="relative inline-block">
+                <Label className="mb-1 block text-sm">
+                  {getSubQuestionLabel(
+                    uiConfig,
+                    "corporationNameLabel",
+                    "Corporation Name:",
+                  )}
+                </Label>
+                {renderLabelOverlay(
+                  "corporationNameLabel",
+                  getSubQuestionLabel(
+                    uiConfig,
+                    "corporationNameLabel",
+                    "Corporation Name:",
+                  ),
+                )}
+              </div>
+              <div className="relative max-w-md">
                 <Input
                   type="text"
-                  placeholder="Enter corporation name"
+                  placeholder={getSubQuestionPlaceholder(
+                    uiConfig,
+                    "corporationNamePlaceholder",
+                    "Enter corporation name",
+                  )}
                   disabled={disabled}
-                  className="w-full"
+                  className={cn(editingMode && "cursor-not-allowed", "w-full")}
                   style={getInputStyle()}
+                  value={editingMode ? "" : corporationName}
+                  onChange={(e) => {
+                    if (!editingMode) {
+                      const newName = e.target.value
+                      setCorporationName(newName)
+                      updateNameOfPurchaserData({ corporationName: newName })
+                    }
+                  }}
+                  onBlur={onBlur}
+                  data-field-id={`${question.id}_corporationName`}
                 />
+                {renderEditOverlay(
+                  "corporationNamePlaceholder",
+                  getSubQuestionPlaceholder(
+                    uiConfig,
+                    "corporationNamePlaceholder",
+                    "Enter corporation name",
+                  ),
+                )}
               </div>
             </div>
 
             <div className="space-y-4">
-              <h4 className="text-sm font-medium">
-                Corporation Representative:
-              </h4>
+              <div className="relative inline-block">
+                <h4 className="text-sm font-medium">
+                  {getSubQuestionLabel(
+                    uiConfig,
+                    "corporationRepresentativeLabel",
+                    "Corporation Representative:",
+                  )}
+                </h4>
+                {renderLabelOverlay(
+                  "corporationRepresentativeLabel",
+                  getSubQuestionLabel(
+                    uiConfig,
+                    "corporationRepresentativeLabel",
+                    "Corporation Representative:",
+                  ),
+                )}
+              </div>
 
               {Array.from({ length: numRepresentatives }, (_, i) => i + 1).map(
                 (num) => (
@@ -1605,6 +1730,7 @@ export const QuestionRenderer = ({
                       setFileUploads={setFileUploads}
                       collectMiddleNames={collectMiddleNames}
                       collectId={collectId}
+                      questionRequired={question.required}
                       uiConfig={uiConfig}
                       disabled={disabled}
                       editingMode={editingMode}
@@ -1676,6 +1802,7 @@ export const QuestionRenderer = ({
                       setFileUploads={setFileUploads}
                       collectMiddleNames={collectMiddleNames}
                       collectId={collectId}
+                      questionRequired={question.required}
                       uiConfig={uiConfig}
                       disabled={disabled}
                       editingMode={editingMode}
@@ -1688,22 +1815,82 @@ export const QuestionRenderer = ({
                   {purchaserTypes[num] === "corporation" && (
                     <div className="space-y-3">
                       <div>
-                        <Label className="mb-1 block text-sm">
-                          Corporation Name:
-                        </Label>
-                        <div className="max-w-md">
+                        <div className="relative inline-block">
+                          <Label className="mb-1 block text-sm">
+                            {getSubQuestionLabel(
+                              uiConfig,
+                              "corporationNameLabel",
+                              "Corporation Name:",
+                            )}
+                          </Label>
+                          {renderLabelOverlay(
+                            "corporationNameLabel",
+                            getSubQuestionLabel(
+                              uiConfig,
+                              "corporationNameLabel",
+                              "Corporation Name:",
+                            ),
+                          )}
+                        </div>
+                        <div className="relative max-w-md">
                           <Input
                             type="text"
-                            placeholder="Enter corporation name"
+                            placeholder={getSubQuestionPlaceholder(
+                              uiConfig,
+                              "corporationNamePlaceholder",
+                              "Enter corporation name",
+                            )}
                             disabled={disabled}
-                            className="w-full"
+                            className={cn(
+                              editingMode && "cursor-not-allowed",
+                              "w-full",
+                            )}
                             style={getInputStyle()}
+                            value={
+                              editingMode
+                                ? ""
+                                : nameOfPurchaserValue[
+                                    `corporationName_${num}`
+                                  ] || ""
+                            }
+                            onChange={(e) => {
+                              if (!editingMode) {
+                                const newName = e.target.value
+                                updateNameOfPurchaserData({
+                                  [`corporationName_${num}`]: newName,
+                                })
+                              }
+                            }}
+                            onBlur={onBlur}
+                            data-field-id={`${question.id}_corporationName_${num}`}
                           />
+                          {renderEditOverlay(
+                            "corporationNamePlaceholder",
+                            getSubQuestionPlaceholder(
+                              uiConfig,
+                              "corporationNamePlaceholder",
+                              "Enter corporation name",
+                            ),
+                          )}
                         </div>
                       </div>
-                      <h5 className="text-sm font-medium">
-                        Corporation Representative:
-                      </h5>
+                      <div className="relative inline-block">
+                        <h5 className="text-sm font-medium">
+                          {getSubQuestionLabel(
+                            uiConfig,
+                            "corporationRepresentativeLabel",
+                            "Corporation Representative:",
+                          )}
+                        </h5>
+                        {renderLabelOverlay(
+                          "corporationRepresentativeLabel",
+                          getSubQuestionLabel(
+                            uiConfig,
+                            "corporationRepresentativeLabel",
+                            "Corporation Representative:",
+                          ),
+                        )}
+                      </div>
                       <PersonNameFields
                         prefix={`other-corp-${num}-rep`}
                         questionId={question.id}
@@ -1713,6 +1900,7 @@ export const QuestionRenderer = ({
                         setFileUploads={setFileUploads}
                         collectMiddleNames={collectMiddleNames}
                         collectId={collectId}
+                        questionRequired={question.required}
                         uiConfig={uiConfig}
                         disabled={disabled}
                         editingMode={editingMode}

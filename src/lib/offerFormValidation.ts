@@ -141,10 +141,16 @@ export const buildQuestionValidation = (
       // Name of purchaser can be:
       // 1. A string (for single_field method)
       // 2. An object with { name: string, idFile?: File } (for single_field with file)
-      // 3. An object with { scenario, numPurchasers, nameFields, etc. } (for individual_names method)
+      // 3. An object with { scenario, numPurchasers, nameFields, idFiles, etc. } (for individual_names method)
       const nameOfPurchaserSetup =
         (question.setupConfig as Record<string, any>) || {}
       const collectionMethod = nameOfPurchaserSetup.collection_method
+      const collectIdentification = nameOfPurchaserSetup.collect_identification
+      // ID is required ONLY if BOTH:
+      // 1. collect_identification is exactly "mandatory" AND
+      // 2. The question itself is required
+      // If the question is not required (even if collect_identification is "mandatory"), ID is NOT required
+      const idRequired = collectIdentification === "mandatory" && required
 
       if (collectionMethod === "single_field") {
         // For single field, can be string or object with name/idFile
@@ -168,7 +174,7 @@ export const buildQuestionValidation = (
               return true
             }
 
-            // If it's an object, validate the name property
+            // If it's an object, validate the name property and idFile if required
             if (typeof value === "object" && value !== null) {
               const name = (value as any).name || ""
               if (!name && required) {
@@ -179,6 +185,23 @@ export const buildQuestionValidation = (
                   message: "Maximum 150 characters allowed",
                 })
               }
+              
+              // Validate ID file ONLY if BOTH collect_identification is "mandatory" AND question is required
+              // If collect_identification is "optional" or "no", or if question is not required, skip this validation
+              // Only require ID file if name is provided (user has filled in the name)
+              if (
+                collectIdentification === "mandatory" &&
+                required &&
+                name &&
+                name.trim() &&
+                !(value as any).idFile
+              ) {
+                return this.createError({
+                  message: "ID upload is required",
+                  path: `${this.path}.idFile`,
+                })
+              }
+              
               return true
             }
 
@@ -245,6 +268,40 @@ export const buildQuestionValidation = (
                 })
               }
             }
+
+            // Validate ID files ONLY if BOTH collect_identification is "mandatory" AND question is required
+            // If collect_identification is "optional" or "no", or if question is not required, skip this validation entirely
+            if (collectIdentification === "mandatory" && required) {
+              const idFiles = obj.idFiles || {}
+              const nameFields = obj.nameFields || {}
+              
+              // Check that each person with a name has an ID file
+              const missingIds: string[] = []
+              Object.keys(nameFields).forEach((prefix) => {
+                const nameData = nameFields[prefix]
+                if (
+                  nameData &&
+                  typeof nameData === "object" &&
+                  nameData.firstName &&
+                  nameData.firstName.trim() &&
+                  nameData.lastName &&
+                  nameData.lastName.trim()
+                ) {
+                  // This person has a name, so they need an ID file if ID is mandatory
+                  if (!idFiles[prefix] || !(idFiles[prefix] instanceof File)) {
+                    missingIds.push(prefix)
+                  }
+                }
+              })
+              
+              if (missingIds.length > 0) {
+                return this.createError({
+                  message: "ID upload is required for all purchasers",
+                  path: `${this.path}.idFiles`,
+                })
+              }
+            }
+            // If collect_identification is "optional" or "no" or undefined, no ID validation is needed
 
             return true
           })
@@ -483,6 +540,12 @@ export const buildQuestionValidation = (
       // Complex field with nested data including supporting documents
       const setupConfig = (question.setupConfig as Record<string, any>) || {}
       const attachments = setupConfig.attachments
+      const lenderDetails = setupConfig.lender_details
+      
+      // Attachments are required if attachments === "required", regardless of question required status
+      const attachmentsRequired = attachments === "required"
+      // Lender details are required if lender_details === "required", regardless of question required status
+      const lenderDetailsRequired = lenderDetails === "required"
 
       if (required) {
         // Create a schema that validates the object structure
@@ -490,8 +553,8 @@ export const buildQuestionValidation = (
           subjectToLoan: yup.string().required("This field is required"),
         })
 
-        // If attachments are required and question is required, validate supporting docs
-        if (attachments && attachments !== "not_required") {
+        // Add validation for attachments if required
+        if (attachmentsRequired) {
           schema = baseSchema.test(
             "supporting-docs-required",
             "Supporting documents are required when 'Yes' is selected",
@@ -500,7 +563,6 @@ export const buildQuestionValidation = (
                 return true // Not required if "No" is selected
               }
               // Check if supporting documents file is provided
-              // The file should be stored in the value object or as a separate field
               const loanValue = value as any
               const hasSupportingDocs =
                 loanValue.supportingDocs &&
@@ -519,8 +581,73 @@ export const buildQuestionValidation = (
         } else {
           schema = baseSchema
         }
+        
+        // Add validation for lender details if required
+        if (lenderDetailsRequired) {
+          schema = (schema as any).test(
+            "lender-details-required",
+            "Lender details are required when 'Yes' is selected",
+            function (value: any) {
+              if (!value || value.subjectToLoan !== "yes") {
+                return true // Not required if "No" is selected
+              }
+              // Check if lender details are provided
+              const hasLenderDetails =
+                value.lenderName && value.lenderName.trim()
+              if (!hasLenderDetails) {
+                return this.createError({
+                  message: "Lender details are required",
+                  path: `${this.path}.lenderName`,
+                })
+              }
+              return true
+            },
+          )
+        }
       } else {
-        schema = yup.mixed().nullable()
+        // Question is not required, but sub-fields might still be required
+        schema = yup
+          .mixed()
+          .test("subjectToLoanApproval-optional", function (value) {
+            if (!value) {
+              return true // Question is optional, so empty is fine
+            }
+            
+            // If "Yes" is selected, validate required sub-fields
+            if (value.subjectToLoan === "yes") {
+              // Validate attachments if required
+              if (attachmentsRequired) {
+                const loanValue = value as any
+                const hasSupportingDocs =
+                  loanValue.supportingDocs &&
+                  (Array.isArray(loanValue.supportingDocs)
+                    ? loanValue.supportingDocs.length > 0
+                    : loanValue.supportingDocs !== null)
+                if (!hasSupportingDocs) {
+                  return this.createError({
+                    message: "Supporting documents are required",
+                    path: `${this.path}.supportingDocs`,
+                  })
+                }
+              }
+              
+              // Validate lender details if required
+              if (lenderDetailsRequired) {
+                const hasLenderDetails =
+                  value.lenderName && value.lenderName.trim()
+                if (!hasLenderDetails) {
+                  return this.createError({
+                    message: "Lender details are required",
+                    path: `${this.path}.lenderName`,
+                  })
+                }
+              }
+            }
+            
+            return true
+          })
+          .nullable()
+          .optional()
       }
       break
 

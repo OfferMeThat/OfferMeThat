@@ -187,6 +187,8 @@ const QuestionCard = ({
           subQuestionId === "middleNameLabel" ||
           subQuestionId === "lastNameLabel" ||
           subQuestionId === "idUploadLabel" ||
+          subQuestionId === "corporationNameLabel" ||
+          subQuestionId === "corporationRepresentativeLabel" ||
           subQuestionId === "loanAmountPlaceholder" ||
           subQuestionId === "companyNamePlaceholder" ||
           subQuestionId === "contactNamePlaceholder" ||
@@ -198,6 +200,7 @@ const QuestionCard = ({
           subQuestionId === "firstNamePlaceholder" ||
           subQuestionId === "middleNamePlaceholder" ||
           subQuestionId === "lastNamePlaceholder" ||
+          subQuestionId === "corporationNamePlaceholder" ||
           (isComplexQuestion && subQuestionId.includes("_")) ||
           // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
           (question.type === "custom" &&
@@ -257,6 +260,8 @@ const QuestionCard = ({
         subQuestionId === "middleNameLabel" ||
         subQuestionId === "lastNameLabel" ||
         subQuestionId === "idUploadLabel" ||
+        subQuestionId === "corporationNameLabel" ||
+        subQuestionId === "corporationRepresentativeLabel" ||
         subQuestionId === "loanAmountPlaceholder" ||
         subQuestionId === "companyNamePlaceholder" ||
         subQuestionId === "contactNamePlaceholder" ||
@@ -268,6 +273,7 @@ const QuestionCard = ({
         subQuestionId === "firstNamePlaceholder" ||
         subQuestionId === "middleNamePlaceholder" ||
         subQuestionId === "lastNamePlaceholder" ||
+        subQuestionId === "corporationNamePlaceholder" ||
         (isComplexQuestion && subQuestionId.includes("_")) ||
         // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
         (question.type === "custom" &&
