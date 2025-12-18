@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { QUESTION_DEFINITIONS as OFFER_QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
+import { syncSetupConfigFromRequired } from "@/lib/questionHelpers"
 import { QuestionSetupConfig, QuestionUIConfig } from "@/types/questionConfig"
 import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
@@ -103,16 +104,24 @@ const EditQuestionModal = ({
           questionType={question.type}
           questionDefinitions={questionDefinitions}
           initialSetupConfig={(() => {
-            const config = (question.setupConfig as QuestionSetupConfig) || {}
+            let config = (question.setupConfig as QuestionSetupConfig) || {}
             // Ensure offerAmount has default currency_mode and fixed_currency
             if (question.type === "offerAmount") {
               const offerAmountConfig = config as Record<string, any>
-              return {
+              config = {
                 currency_mode: offerAmountConfig.currency_mode || "any",
                 fixed_currency: offerAmountConfig.fixed_currency || "USD",
                 ...offerAmountConfig,
               }
             }
+            // Sync setup config based on current required status
+            // This ensures the edit modal reflects the current state
+            // (e.g., if user unchecked "Required field", setup should show "optional")
+            config = syncSetupConfigFromRequired(
+              question.type,
+              config,
+              question.required,
+            )
             return config
           })()}
           initialUIConfig={(question.uiConfig as QuestionUIConfig) || {}}

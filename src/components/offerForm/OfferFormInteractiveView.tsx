@@ -315,19 +315,33 @@ export const OfferFormInteractiveView = ({
         const question = questions.find((q) => q.id === questionId)
         if (!question) continue
 
-        // Handle purchase agreement
-        if (question.type === "attachPurchaseAgreement" && isFile(value)) {
-          const timestamp = Date.now()
-          const fileExtension = value.name.split(".").pop() || "file"
-          const fileName = `${timestamp}-${value.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-          const path = `${tempOfferId}/purchase-agreement/${fileName}`
+        // Handle purchase agreement (single or multiple files)
+        if (question.type === "attachPurchaseAgreement") {
+          if (isFile(value)) {
+            // Single file
+            const timestamp = Date.now()
+            const fileExtension = value.name.split(".").pop() || "file"
+            const fileName = `${timestamp}-${value.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+            const path = `${tempOfferId}/purchase-agreements/${fileName}`
 
-          const fileUrl = await uploadFileToStorageClient(
-            "offer-documents",
-            path,
-            value,
-          )
-          processedFormData[questionId] = fileUrl
+            const fileUrl = await uploadFileToStorageClient(
+              "offer-documents",
+              path,
+              value,
+            )
+            // Store as single URL string
+            processedFormData[questionId] = fileUrl
+          } else if (isFileArray(value)) {
+            // Multiple files - upload and store as array of URLs
+            const urls = await uploadMultipleFilesToStorageClient(
+              "offer-documents",
+              value,
+              tempOfferId,
+              "purchase-agreements",
+            )
+            // Store as array of URLs (transformFormDataToOffer will handle JSON stringification)
+            processedFormData[questionId] = urls
+          }
         }
 
         // Handle name of purchaser ID files
@@ -471,6 +485,65 @@ export const OfferFormInteractiveView = ({
           }
         }
 
+        // Handle special conditions file uploads
+        if (
+          question.type === "specialConditions" &&
+          typeof value === "object" &&
+          value !== null
+        ) {
+          const specialConditionsData = value as {
+            selectedConditions?: number[] | string[]
+            customCondition?: string
+            conditionAttachments?: Record<number | string, File[]>
+          }
+
+          // Normalize selectedConditions to numbers
+          const normalizedData = {
+            ...specialConditionsData,
+            selectedConditions: Array.isArray(
+              specialConditionsData.selectedConditions,
+            )
+              ? specialConditionsData.selectedConditions.map((idx: any) =>
+                  typeof idx === "string" ? parseInt(idx, 10) : idx,
+                )
+              : [],
+          }
+
+          if (normalizedData.conditionAttachments) {
+            const uploadedAttachments: Record<number, string[]> = {}
+
+            // Upload files for each condition (only if files are actual File objects)
+            for (const [conditionIndexStr, files] of Object.entries(
+              normalizedData.conditionAttachments,
+            )) {
+              // Filter out empty objects and ensure we have actual File objects
+              const validFiles = Array.isArray(files)
+                ? files.filter((f) => f instanceof File)
+                : []
+
+              if (validFiles.length > 0 && isFileArray(validFiles)) {
+                const conditionIndex = parseInt(conditionIndexStr, 10)
+                const urls = await uploadMultipleFilesToStorageClient(
+                  "offer-documents",
+                  validFiles,
+                  tempOfferId,
+                  `condition-${conditionIndex}-attachments`,
+                )
+                uploadedAttachments[conditionIndex] = urls
+              }
+            }
+
+            processedFormData[questionId] = {
+              ...normalizedData,
+              conditionAttachmentUrls: uploadedAttachments,
+            }
+            delete processedFormData[questionId].conditionAttachments
+          } else {
+            // Even if no attachments, still normalize the data
+            processedFormData[questionId] = normalizedData
+          }
+        }
+
         // Handle custom question file uploads
         if (
           question.type === "custom" &&
@@ -557,10 +630,8 @@ export const OfferFormInteractiveView = ({
         setValidationErrors(newErrors)
         console.error("Validation error:", newErrors)
 
-        // Mark all fields as touched
-        const allFieldIds = questions
-          .filter((q) => q.type !== "submitButton")
-          .map((q) => q.id)
+        // Mark all fields as touched, including submit button for T&C checkbox
+        const allFieldIds = questions.map((q) => q.id)
         setTouchedFields(new Set(allFieldIds))
 
         // Scroll to first error
@@ -720,11 +791,7 @@ export const OfferFormInteractiveView = ({
       </div>
 
       {!isFirstPage && (
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          className="mx-auto w-1/2 gap-2"
-        >
+        <Button variant="outline" onClick={handlePrevious} className="gap-2">
           <ChevronLeft className="h-4 w-4" />
           Previous
         </Button>
@@ -733,8 +800,32 @@ export const OfferFormInteractiveView = ({
       {/* Questions */}
       <div className="space-y-0">
         {currentPage.questions.map((question, index) => {
-          // Skip rendering the submit button in the questions list
+          // Render submit button question with T&C checkbox on last page
           if (question.type === "submitButton") {
+            if (isLastPage) {
+              return (
+                <div key={question.id} className="mt-6">
+                  <QuestionRenderer
+                    question={question}
+                    disabled={false}
+                    editingMode={false}
+                    formId={question.formId}
+                    ownerId={ownerId}
+                    brandingConfig={brandingConfig}
+                    isTestMode={isTestMode}
+                    value={formData[question.id]}
+                    onChange={(value) => handleFieldChange(question.id, value)}
+                    onBlur={() => handleFieldBlur(question.id)}
+                    error={
+                      touchedFields.has(question.id)
+                        ? validationErrors[question.id]
+                        : undefined
+                    }
+                    onSubmit={handleSubmit}
+                  />
+                </div>
+              )
+            }
             return null
           }
 
@@ -835,7 +926,7 @@ export const OfferFormInteractiveView = ({
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>
-        ) : (
+        ) : hasSubmitButton ? null : ( // Submit button is rendered via QuestionRenderer above, so we don't need a separate button here
           <Button
             size="lg"
             onClick={handleSubmit}
@@ -845,17 +936,7 @@ export const OfferFormInteractiveView = ({
               color: brandingConfig?.buttonTextColor || undefined,
             }}
           >
-            {hasSubmitButton
-              ? (() => {
-                  const submitButtonQuestion = currentPage.questions.find(
-                    (q) => q.type === "submitButton",
-                  )
-                  const submitUiConfig =
-                    (submitButtonQuestion?.uiConfig as Record<string, any>) ||
-                    {}
-                  return submitUiConfig.label || "Submit Offer"
-                })()
-              : "Submit Offer"}
+            Submit Offer
           </Button>
         )}
       </div>

@@ -52,6 +52,28 @@ export const saveOffer = async ({
       isTest,
     )
 
+    // Purchase Agreement files
+    if ((offerData as any).purchaseAgreementFiles) {
+      const files = (offerData as any).purchaseAgreementFiles as File[]
+      if (files.length > 0) {
+        const urls = await uploadMultipleFilesToStorage(
+          "offer-documents",
+          files,
+          tempOfferId,
+          "purchase-agreements",
+        )
+        // Store multiple URLs as JSON string in the existing column
+        // If single file, store as plain string for backward compatibility
+        if (urls.length === 1) {
+          offerData.purchaseAgreementFileUrl = urls[0]
+        } else {
+          // Store array as JSON string
+          offerData.purchaseAgreementFileUrl = JSON.stringify(urls)
+        }
+      }
+      delete (offerData as any).purchaseAgreementFiles
+    }
+
     // Purchaser ID files
     if (
       offerData.purchaserData &&
@@ -484,13 +506,29 @@ export async function getOfferById(
     return null
   }
 
+  // Fetch special conditions question setupConfig if formId exists
+  let specialConditionsSetupConfig = null
+  if (offer.formId) {
+    const { data: specialConditionsQuestion } = await supabase
+      .from("offerFormQuestions")
+      .select("setupConfig")
+      .eq("formId", offer.formId)
+      .eq("type", "specialConditions")
+      .single()
+
+    if (specialConditionsQuestion?.setupConfig) {
+      specialConditionsSetupConfig = specialConditionsQuestion.setupConfig
+    }
+  }
+
   // Transform the data to match OfferWithListing type
   const transformedOffer = {
     ...offer,
     listing: Array.isArray(offer.listings)
       ? offer.listings[0] || null
       : offer.listings || null,
-  } as OfferWithListing
+    specialConditionsSetupConfig,
+  } as OfferWithListing & { specialConditionsSetupConfig?: any }
 
   return transformedOffer
 }

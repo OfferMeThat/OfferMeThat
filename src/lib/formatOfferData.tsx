@@ -18,228 +18,203 @@ function formatCurrency(amount: number, currency: string = "USD"): string {
     style: "currency",
     currency: currency,
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   }).format(amount)
 }
 
-function formatDate(date: string | Date): string {
-  try {
-    const dateObj = typeof date === "string" ? new Date(date) : date
-    if (!isNaN(dateObj.getTime())) {
-      return dateObj.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    }
-  } catch (e) {
-    // Fall through to return string
-  }
-  return String(date)
-}
+// ==================== Deposit Data Formatter ====================
 
-function formatDateTime(date: string | Date): string {
-  try {
-    const dateObj = typeof date === "string" ? new Date(date) : date
-    if (!isNaN(dateObj.getTime())) {
-      return dateObj.toLocaleString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    }
-  } catch (e) {
-    // Fall through to return string
-  }
-  return String(date)
-}
+export function formatDepositData(data: DepositData): React.JSX.Element | null {
+  if (!data) return null
 
-function renderFileLink(url: string, label?: string): React.JSX.Element {
-  const fileName = label || url.split("/").pop() || "File"
+  const {
+    depositType,
+    depositAmount,
+    depositCurrency,
+    depositDue,
+    depositHolding,
+    instalments,
+    instalmentData,
+  } = data
+
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
-    >
-      <FileText size={14} />
-      {fileName}
-    </a>
+    <div className="space-y-3">
+      {depositType && (
+        <div>
+          <p className="text-sm font-medium text-gray-500">Deposit Type</p>
+          <p className="text-base text-gray-900">{depositType}</p>
+        </div>
+      )}
+
+      {depositAmount && (
+        <div>
+          <p className="text-sm font-medium text-gray-500">Deposit Amount</p>
+          <p className="text-base text-gray-900">
+            {formatCurrency(depositAmount, depositCurrency)}
+          </p>
+        </div>
+      )}
+
+      {depositDue && (
+        <div>
+          <p className="text-sm font-medium text-gray-500">Deposit Due</p>
+          <p className="text-base text-gray-900">
+            {typeof depositDue === "string"
+              ? depositDue
+              : depositDue instanceof Date
+                ? depositDue.toLocaleDateString()
+                : String(depositDue)}
+          </p>
+        </div>
+      )}
+
+      {depositHolding && (
+        <div>
+          <p className="text-sm font-medium text-gray-500">Deposit Holding</p>
+          <p className="text-base text-gray-900">{depositHolding}</p>
+        </div>
+      )}
+
+      {instalments &&
+        (typeof instalments === "number"
+          ? instalments > 1
+          : Number(instalments) > 1) &&
+        instalmentData && (
+          <div>
+            <p className="text-sm font-medium text-gray-500">
+              Instalment Details
+            </p>
+            <div className="mt-2 space-y-2">
+              {instalmentData.map((instalment: any, index: number) => (
+                <div key={index} className="rounded-md border p-3">
+                  <p className="text-sm font-medium text-gray-700">
+                    Instalment {index + 1}
+                  </p>
+                  {instalment.amount && (
+                    <p className="text-sm text-gray-600">
+                      Amount:{" "}
+                      {formatCurrency(instalment.amount, instalment.currency)}
+                    </p>
+                  )}
+                  {instalment.due && (
+                    <p className="text-sm text-gray-600">
+                      Due: {instalment.due}
+                    </p>
+                  )}
+                  {instalment.holding && (
+                    <p className="text-sm text-gray-600">
+                      Holding: {instalment.holding}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+    </div>
   )
 }
 
 // ==================== Purchaser Data Formatter ====================
 
-export function formatPurchaserData(data: any): React.JSX.Element | null {
-  if (!data || typeof data !== "object") return null
+export function formatPurchaserData(
+  data: PurchaserData,
+): React.JSX.Element | null {
+  if (!data) return null
 
-  const purchaserData = data as PurchaserData
+  const purchaserData = data as any
+  const { scenario, purchasers, representatives } = purchaserData
 
-  // Single field method
-  if (purchaserData.method === "single_field") {
-    return (
-      <div className="space-y-2">
+  return (
+    <div className="space-y-4">
+      {scenario && (
         <div>
-          <span className="font-medium text-gray-700">Name: </span>
-          <span className="text-gray-900">{purchaserData.name}</span>
+          <p className="text-sm font-medium text-gray-500">Scenario</p>
+          <p className="text-base text-gray-900">{scenario}</p>
         </div>
-        {purchaserData.idFileUrl && (
-          <div>
-            <span className="font-medium text-gray-700">Identification: </span>
-            {renderFileLink(purchaserData.idFileUrl, "ID Document")}
-          </div>
-        )}
-      </div>
-    )
-  }
+      )}
 
-  // Individual names method
-  if (purchaserData.method === "individual_names" && purchaserData.nameFields) {
-    const nameEntries = Object.entries(purchaserData.nameFields)
-
-    return (
-      <div className="space-y-3">
+      {purchasers && purchasers.length > 0 && (
         <div>
-          <span className="font-medium text-gray-700">Scenario: </span>
-          <span className="text-gray-900 capitalize">
-            {purchaserData.scenario?.replace(/_/g, " ")}
-          </span>
-        </div>
-        {nameEntries.map(([key, nameData]: [string, any]) => (
-          <div key={key} className="border-l-2 border-teal-500 pl-3">
-            <div className="mb-1 font-medium text-gray-700">
-              {key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-            </div>
-            <div className="text-gray-900">
-              {[nameData.firstName, nameData.middleName, nameData.lastName]
-                .filter(Boolean)
-                .join(" ")}
-            </div>
-            {purchaserData.idFileUrls?.[key] && (
-              <div className="mt-1">
-                {renderFileLink(purchaserData.idFileUrls[key], "ID Document")}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  return null
-}
-
-// ==================== Deposit Data Formatter ====================
-
-export function formatDepositData(data: any): React.JSX.Element | null {
-  if (!data || typeof data !== "object") return null
-
-  const depositData = data as DepositData
-
-  const formatInstalmentAmount = (instalment: any): string => {
-    if (!instalment) return "N/A"
-
-    if (instalment.depositType === "amount" || instalment.amount) {
-      return formatCurrency(instalment.amount, instalment.currency || "USD")
-    }
-
-    if (instalment.depositType === "percentage" || instalment.percentage) {
-      return `${instalment.percentage}% of purchase price`
-    }
-
-    return "N/A"
-  }
-
-  const formatInstalmentDue = (instalment: any): string => {
-    if (!instalment) return "N/A"
-
-    if (instalment.depositDueText) {
-      return instalment.depositDueText
-    }
-
-    if (instalment.depositDue) {
-      return formatDate(instalment.depositDue)
-    }
-
-    if (instalment.depositDueWithin) {
-      const { number, unit } = instalment.depositDueWithin
-      return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
-    }
-
-    return "N/A"
-  }
-
-  // Check if multiple instalments
-  const hasMultipleInstalments =
-    depositData.instalment_1 ||
-    depositData.instalment_2 ||
-    depositData.instalment_3
-
-  if (hasMultipleInstalments) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((num) => {
-          const instalment = depositData[
-            `instalment_${num}` as keyof DepositData
-          ] as any
-          if (!instalment) return null
-
-          return (
-            <div key={num} className="border-l-2 border-teal-500 pl-3">
-              <div className="mb-2 font-semibold text-gray-800">
-                Instalment {num}
-              </div>
-              <div className="space-y-1 text-sm">
-                <div>
-                  <span className="font-medium text-gray-600">Amount: </span>
-                  <span className="text-gray-900">
-                    {formatInstalmentAmount(instalment)}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Due: </span>
-                  <span className="text-gray-900">
-                    {formatInstalmentDue(instalment)}
-                  </span>
-                </div>
-                {instalment.depositHolding && (
-                  <div>
-                    <span className="font-medium text-gray-600">Held by: </span>
-                    <span className="text-gray-900">
-                      {instalment.depositHolding}
-                    </span>
+          <p className="text-sm font-medium text-gray-500">Purchasers</p>
+          <div className="mt-2 space-y-3">
+            {purchasers.map((purchaser: any, index: number) => (
+              <div key={index} className="rounded-md border p-3">
+                <p className="text-sm font-medium text-gray-700">
+                  Purchaser {index + 1}
+                </p>
+                {purchaser.firstName && (
+                  <p className="text-sm text-gray-600">
+                    First Name: {purchaser.firstName}
+                  </p>
+                )}
+                {purchaser.middleName && (
+                  <p className="text-sm text-gray-600">
+                    Middle Name: {purchaser.middleName}
+                  </p>
+                )}
+                {purchaser.lastName && (
+                  <p className="text-sm text-gray-600">
+                    Last Name: {purchaser.lastName}
+                  </p>
+                )}
+                {purchaser.idFileUrl && (
+                  <div className="mt-2">
+                    <a
+                      href={purchaser.idFileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                    >
+                      View ID Document
+                    </a>
                   </div>
                 )}
               </div>
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
+            ))}
+          </div>
+        </div>
+      )}
 
-  // Single instalment
-  return (
-    <div className="space-y-2">
-      <div>
-        <span className="font-medium text-gray-700">Amount: </span>
-        <span className="text-gray-900">
-          {formatInstalmentAmount(depositData)}
-        </span>
-      </div>
-      <div>
-        <span className="font-medium text-gray-700">Due: </span>
-        <span className="text-gray-900">
-          {formatInstalmentDue(depositData)}
-        </span>
-      </div>
-      {depositData.depositHolding && (
+      {representatives && representatives.length > 0 && (
         <div>
-          <span className="font-medium text-gray-700">Held by: </span>
-          <span className="text-gray-900">{depositData.depositHolding}</span>
+          <p className="text-sm font-medium text-gray-500">Representatives</p>
+          <div className="mt-2 space-y-3">
+            {representatives.map((rep: any, index: number) => (
+              <div key={index} className="rounded-md border p-3">
+                <p className="text-sm font-medium text-gray-700">
+                  Representative {index + 1}
+                </p>
+                {rep.firstName && (
+                  <p className="text-sm text-gray-600">
+                    First Name: {rep.firstName}
+                  </p>
+                )}
+                {rep.middleName && (
+                  <p className="text-sm text-gray-600">
+                    Middle Name: {rep.middleName}
+                  </p>
+                )}
+                {rep.lastName && (
+                  <p className="text-sm text-gray-600">
+                    Last Name: {rep.lastName}
+                  </p>
+                )}
+                {rep.idFileUrl && (
+                  <div className="mt-2">
+                    <a
+                      href={rep.idFileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                    >
+                      View ID Document
+                    </a>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -248,43 +223,46 @@ export function formatDepositData(data: any): React.JSX.Element | null {
 
 // ==================== Settlement Date Formatter ====================
 
-export function formatSettlementDateData(data: any): React.JSX.Element | null {
-  if (!data || typeof data !== "object") return null
+export function formatSettlementDateData(
+  data: SettlementDateData,
+): React.JSX.Element | null {
+  if (!data) return null
 
-  const settlementData = data as SettlementDateData
-
-  // Determine date/time display
-  let dateTimeDisplay: string | null = null
-
-  if (settlementData.settlementDateText) {
-    dateTimeDisplay = settlementData.settlementDateText
-  } else if (settlementData.settlementDateTime) {
-    dateTimeDisplay = formatDateTime(settlementData.settlementDateTime)
-  } else if (settlementData.settlementDate && settlementData.settlementTime) {
-    dateTimeDisplay = `${formatDate(settlementData.settlementDate)} at ${settlementData.settlementTime}`
-  } else if (settlementData.settlementDate) {
-    dateTimeDisplay = formatDate(settlementData.settlementDate)
-  } else if (settlementData.settlementDateWithin) {
-    const { number, unit } = settlementData.settlementDateWithin
-    dateTimeDisplay = `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
-  }
+  const { date, time, location, dateText, locationText } = data
 
   return (
-    <div className="space-y-2">
-      {dateTimeDisplay && (
+    <div className="space-y-3">
+      {date && (
         <div>
-          <span className="font-medium text-gray-700">Date: </span>
-          <span className="text-gray-900">{dateTimeDisplay}</span>
+          <p className="text-sm font-medium text-gray-500">Settlement Date</p>
+          <p className="text-base text-gray-900">
+            {date} {time ? `at ${time}` : ""}
+          </p>
         </div>
       )}
-      {(settlementData.settlementLocation ||
-        settlementData.settlementLocationText) && (
+
+      {dateText && (
         <div>
-          <span className="font-medium text-gray-700">Location: </span>
-          <span className="text-gray-900">
-            {settlementData.settlementLocation ||
-              settlementData.settlementLocationText}
-          </span>
+          <p className="text-sm font-medium text-gray-500">Settlement Date</p>
+          <p className="text-base text-gray-900">{dateText}</p>
+        </div>
+      )}
+
+      {location && (
+        <div>
+          <p className="text-sm font-medium text-gray-500">
+            Settlement Location
+          </p>
+          <p className="text-base text-gray-900">{location}</p>
+        </div>
+      )}
+
+      {locationText && (
+        <div>
+          <p className="text-sm font-medium text-gray-500">
+            Settlement Location
+          </p>
+          <p className="text-base text-gray-900">{locationText}</p>
         </div>
       )}
     </div>
@@ -293,45 +271,206 @@ export function formatSettlementDateData(data: any): React.JSX.Element | null {
 
 // ==================== Message to Agent Formatter ====================
 
-export function formatMessageToAgent(data: any): React.JSX.Element | null {
+export function formatMessageToAgent(
+  data: MessageToAgentData,
+): React.JSX.Element | null {
   if (!data) return null
 
-  // Handle string message
-  if (typeof data === "string") {
-    return <p className="whitespace-pre-wrap text-gray-900">{data}</p>
-  }
-
-  if (typeof data !== "object") return null
-
-  const messageData = data as MessageToAgentData
-  const message = messageData.message || messageData.text
-
-  // Collect all attachment URLs
-  const attachments: string[] = []
-  if (messageData.attachmentUrl) {
-    attachments.push(messageData.attachmentUrl)
-  }
-  if (messageData.attachmentUrls) {
-    attachments.push(...messageData.attachmentUrls)
-  }
-  if (messageData.attachments) {
-    attachments.push(...messageData.attachments)
-  }
+  const { message, attachmentUrls } = data
 
   return (
     <div className="space-y-3">
       {message && (
         <div>
-          <p className="whitespace-pre-wrap text-gray-900">{message}</p>
+          <p className="text-sm font-medium text-gray-500">Message</p>
+          <p className="text-base whitespace-pre-wrap text-gray-900">
+            {message}
+          </p>
         </div>
       )}
-      {attachments.length > 0 && (
+
+      {attachmentUrls && attachmentUrls.length > 0 && (
         <div>
-          <div className="mb-2 font-medium text-gray-700">Attachments:</div>
-          <div className="space-y-1">
-            {attachments.map((url, index) => (
+          <p className="text-sm font-medium text-gray-500">Attachments</p>
+          <div className="mt-2 space-y-1">
+            {attachmentUrls.map((url: string, index: number) => {
+              const fileName = url.split("/").pop() || "Attachment"
+              return (
+                <a
+                  key={index}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                >
+                  <FileText size={14} />
+                  {fileName}
+                </a>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ==================== Subject to Loan Approval Formatter ====================
+
+export function formatSubjectToLoanApproval(
+  data: SubjectToLoanApprovalData,
+): React.JSX.Element | null {
+  if (!data) return null
+
+  // Handle JSON string parsing if needed
+  let loanData = data
+  if (typeof data === "string") {
+    try {
+      loanData = JSON.parse(data)
+    } catch {
+      return null
+    }
+  }
+
+  const {
+    isSubjectToLoan,
+    loanAmount,
+    loanDueDate,
+    lenderDetails,
+    supportingDocsUrl,
+    supportingDocsUrls,
+    supportingDocUrl,
+    supportingDocUrls,
+    companyName,
+    contactName,
+    contactEmail,
+    contactPhone,
+    unknownLender,
+    evidenceOfFundsUrl,
+    evidenceOfFundsUrls,
+  } = loanData as any
+
+  // Check for both current and old field names for supporting documents
+  const supportingDocs = supportingDocsUrls || supportingDocUrls || []
+  const supportingDoc = supportingDocsUrl || supportingDocUrl
+
+  // Combine single and multiple supporting docs
+  const allSupportingDocs = supportingDoc
+    ? [supportingDoc, ...supportingDocs]
+    : supportingDocs
+
+  // Handle evidence of funds (can be single URL or array)
+  const evidenceOfFunds = evidenceOfFundsUrls || []
+  const evidenceOfFundsSingle = evidenceOfFundsUrl
+  const allEvidenceOfFunds = evidenceOfFundsSingle
+    ? [evidenceOfFundsSingle, ...evidenceOfFunds]
+    : evidenceOfFunds
+
+  // Helper function to render file links
+  const renderFileLink = (url: string, label: string) => (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+    >
+      <FileText size={14} />
+      {label}
+    </a>
+  )
+
+  return (
+    <div className="space-y-3">
+      {/* Always show subject to loan status */}
+      <div>
+        <p className="text-sm font-medium text-gray-500">
+          Subject to Loan Approval
+        </p>
+        <p className="text-base text-gray-900">
+          {isSubjectToLoan === "yes" ? "Yes" : "No"}
+        </p>
+      </div>
+
+      {/* Only show loan details if subject to loan */}
+      {isSubjectToLoan === "yes" && (
+        <>
+          {loanAmount && (
+            <div>
+              <p className="text-sm font-medium text-gray-500">Loan Amount</p>
+              <p className="text-base text-gray-900">{loanAmount}</p>
+            </div>
+          )}
+
+          {loanDueDate && (
+            <div>
+              <p className="text-sm font-medium text-gray-500">Loan Due Date</p>
+              <p className="text-base text-gray-900">{loanDueDate}</p>
+            </div>
+          )}
+
+          {/* Lender Details */}
+          {lenderDetails === "required" && (
+            <div>
+              <p className="text-sm font-medium text-gray-500">
+                Lender Details
+              </p>
+              <div className="mt-2 space-y-1">
+                {unknownLender ? (
+                  <p className="text-sm text-gray-600">Unknown Lender</p>
+                ) : (
+                  <>
+                    {companyName && (
+                      <p className="text-sm text-gray-600">
+                        Company: {companyName}
+                      </p>
+                    )}
+                    {contactName && (
+                      <p className="text-sm text-gray-600">
+                        Contact: {contactName}
+                      </p>
+                    )}
+                    {contactEmail && (
+                      <p className="text-sm text-gray-600">
+                        Email: {contactEmail}
+                      </p>
+                    )}
+                    {contactPhone && (
+                      <p className="text-sm text-gray-600">
+                        Phone: {contactPhone}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Supporting Documents */}
+          {allSupportingDocs.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-gray-500">
+                Supporting Documents
+              </p>
+              <div className="mt-2 space-y-1">
+                {allSupportingDocs.map((url: string, index: number) => (
+                  <div key={index}>
+                    {renderFileLink(url, `Supporting Document ${index + 1}`)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Evidence of Funds (shown regardless of loan status) */}
+      {allEvidenceOfFunds.length > 0 && (
+        <div>
+          <p className="text-sm font-medium text-gray-500">Evidence of Funds</p>
+          <div className="mt-2 space-y-1">
+            {allEvidenceOfFunds.map((url: string, index: number) => (
               <div key={index}>
-                {renderFileLink(url, `Attachment ${index + 1}`)}
+                {renderFileLink(url, `Evidence of Funds ${index + 1}`)}
               </div>
             ))}
           </div>
@@ -341,132 +480,178 @@ export function formatMessageToAgent(data: any): React.JSX.Element | null {
   )
 }
 
-// ==================== Loan Approval Formatter ====================
+// ==================== Special Conditions Formatter ====================
 
-export function formatSubjectToLoanApproval(
+export function formatSpecialConditions(
   data: any,
+  setupConfig?: any,
 ): React.JSX.Element | null {
-  if (!data || typeof data !== "object") return null
+  if (!data) return null
 
-  const loanData = data as SubjectToLoanApprovalData
-
-  // Check if subject to loan approval
-  const isSubjectToLoan =
-    loanData.subjectToLoanApproval === "yes" ||
-    loanData.subjectToLoanApproval === true
-
-  // Format loan amount
-  let loanAmountDisplay: string | null = null
-  if (loanData.loanAmount) {
-    loanAmountDisplay = formatCurrency(loanData.loanAmount)
-  } else if (loanData.loanPercentage) {
-    loanAmountDisplay = `${loanData.loanPercentage}% of purchase price`
+  // Handle legacy string format
+  if (typeof data === "string") {
+    return <p className="whitespace-pre-wrap text-gray-900">{data}</p>
   }
 
-  // Format due date
-  let dueDateDisplay: string | null = null
-  if (loanData.loanDueText) {
-    dueDateDisplay = loanData.loanDueText
-  } else if (loanData.loanDueDateTime) {
-    dueDateDisplay = formatDateTime(loanData.loanDueDateTime)
-  } else if (loanData.loanDueDate) {
-    dueDateDisplay = formatDate(loanData.loanDueDate)
-  } else if (loanData.loanDueWithin) {
-    const { number, unit } = loanData.loanDueWithin
-    dueDateDisplay = `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
+  // Handle new object format
+  if (typeof data !== "object") return null
+
+  const specialConditionsData = data as {
+    selectedConditions?: number[]
+    customCondition?: string
+    conditionAttachmentUrls?: Record<number, string[]>
   }
 
-  // Collect supporting documents
-  const supportingDocs: string[] = []
-  if (loanData.supportingDocUrl) {
-    supportingDocs.push(loanData.supportingDocUrl)
-  }
-  if (loanData.supportingDocUrls) {
-    supportingDocs.push(...loanData.supportingDocUrls)
-  }
-  if (loanData.preApprovalDocuments) {
-    supportingDocs.push(...loanData.preApprovalDocuments)
-  }
+  const conditions =
+    (setupConfig?.conditions as Array<{
+      name: string
+      details?: string
+    }>) || []
 
-  // Evidence of funds (if not subject to loan)
-  const evidenceOfFunds: string[] = []
-  if (loanData.evidenceOfFundsUrl) {
-    evidenceOfFunds.push(loanData.evidenceOfFundsUrl)
-  }
-  if (loanData.evidenceOfFundsUrls) {
-    evidenceOfFunds.push(...loanData.evidenceOfFundsUrls)
+  const selectedConditions = specialConditionsData.selectedConditions || []
+  const customCondition = specialConditionsData.customCondition || ""
+  const conditionAttachmentUrls =
+    specialConditionsData.conditionAttachmentUrls || {}
+
+  // Check if there are any attachments even without selected conditions
+  const hasAttachments = Object.keys(conditionAttachmentUrls).length > 0
+
+  // If no conditions selected, no custom condition, and no attachments, return null
+  if (selectedConditions.length === 0 && !customCondition && !hasAttachments) {
+    return null
   }
 
   return (
     <div className="space-y-3">
-      <div>
-        <span className="font-medium text-gray-700">
-          Subject to Loan Approval:{" "}
-        </span>
-        <span className="text-gray-900">{isSubjectToLoan ? "Yes" : "No"}</span>
-      </div>
+      {/* Selected predefined conditions */}
+      {selectedConditions.length > 0 && (
+        <div className="space-y-2">
+          {selectedConditions.map((conditionIndex) => {
+            const condition = conditions[conditionIndex]
+            if (!condition) return null
 
-      {isSubjectToLoan && (
-        <>
-          {loanAmountDisplay && (
-            <div>
-              <span className="font-medium text-gray-700">Loan Amount: </span>
-              <span className="text-gray-900">{loanAmountDisplay}</span>
-            </div>
-          )}
+            const attachments = conditionAttachmentUrls[conditionIndex] || []
 
-          {(loanData.lenderName || loanData.lenderDetails) && (
-            <div>
-              <span className="font-medium text-gray-700">Lender: </span>
-              <span className="text-gray-900">
-                {loanData.lenderName || loanData.lenderDetails}
-              </span>
-            </div>
-          )}
-
-          {loanData.lenderUnknown && (
-            <div>
-              <span className="font-medium text-gray-700">Lender: </span>
-              <span className="text-gray-600 italic">Not yet determined</span>
-            </div>
-          )}
-
-          {dueDateDisplay && (
-            <div>
-              <span className="font-medium text-gray-700">Due Date: </span>
-              <span className="text-gray-900">{dueDateDisplay}</span>
-            </div>
-          )}
-
-          {supportingDocs.length > 0 && (
-            <div>
-              <div className="mb-2 font-medium text-gray-700">
-                Supporting Documents:
-              </div>
-              <div className="space-y-1">
-                {supportingDocs.map((url, index) => (
-                  <div key={index}>
-                    {renderFileLink(url, `Pre-approval Document ${index + 1}`)}
+            return (
+              <div key={conditionIndex} className="space-y-1">
+                <div>
+                  <span className="font-medium text-gray-700">
+                    {condition.name}
+                  </span>
+                  {condition.details && (
+                    <p className="text-sm text-gray-600">{condition.details}</p>
+                  )}
+                </div>
+                {/* Display attachments for this condition */}
+                {attachments.length > 0 && (
+                  <div className="ml-4 space-y-1">
+                    <p className="text-xs font-medium text-gray-600">
+                      Attachments:
+                    </p>
+                    <div className="flex flex-col gap-1">
+                      {attachments.map((url: string, attIdx: number) => {
+                        // Extract file name from URL, handling query parameters
+                        const urlWithoutParams = url.split("?")[0]
+                        const fileName =
+                          urlWithoutParams.split("/").pop() || "Attachment"
+                        // Clean up filename (remove timestamps if present, e.g., "1766054403462-0-filename.jpg" -> "filename.jpg")
+                        const cleanFileName = fileName.replace(/^\d+-\d+-/, "")
+                        return (
+                          <a
+                            key={attIdx}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 hover:underline"
+                          >
+                            <FileText size={12} />
+                            {cleanFileName}
+                          </a>
+                        )
+                      })}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
-        </>
+            )
+          })}
+        </div>
       )}
 
-      {!isSubjectToLoan && evidenceOfFunds.length > 0 && (
-        <div>
-          <div className="mb-2 font-medium text-gray-700">
-            Evidence of Funds:
-          </div>
-          <div className="space-y-1">
-            {evidenceOfFunds.map((url, index) => (
-              <div key={index}>
-                {renderFileLink(url, `Evidence of Funds ${index + 1}`)}
-              </div>
-            ))}
-          </div>
+      {/* Show attachments for conditions that have attachments but weren't in selectedConditions */}
+      {Object.keys(conditionAttachmentUrls).length > 0 && (
+        <div className="space-y-2">
+          {Object.entries(conditionAttachmentUrls).map(
+            ([conditionIndexStr, attachments]) => {
+              const conditionIndex = parseInt(conditionIndexStr, 10)
+              // Only show if not already displayed in selectedConditions
+              if (selectedConditions.includes(conditionIndex)) return null
+
+              const condition = conditions[conditionIndex]
+              const attachmentArray = Array.isArray(attachments)
+                ? attachments
+                : []
+
+              if (attachmentArray.length === 0) return null
+
+              return (
+                <div key={conditionIndex} className="space-y-1">
+                  {condition && (
+                    <div>
+                      <span className="font-medium text-gray-700">
+                        {condition.name}
+                      </span>
+                      {condition.details && (
+                        <p className="text-sm text-gray-600">
+                          {condition.details}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {/* Display attachments */}
+                  <div className={condition ? "ml-4 space-y-1" : "space-y-1"}>
+                    <p className="text-xs font-medium text-gray-600">
+                      Attachments:
+                    </p>
+                    <div className="space-y-1">
+                      {attachmentArray.map((url: string, attIdx: number) => {
+                        // Extract file name from URL, handling query parameters
+                        const urlWithoutParams = url.split("?")[0]
+                        const fileName =
+                          urlWithoutParams.split("/").pop() || "Attachment"
+                        // Clean up filename (remove timestamps if present, e.g., "1766054403462-0-filename.jpg" -> "filename.jpg")
+                        const cleanFileName = fileName.replace(/^\d+-\d+-/, "")
+                        return (
+                          <a
+                            key={attIdx}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 hover:underline"
+                          >
+                            <FileText size={12} />
+                            {cleanFileName}
+                          </a>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )
+            },
+          )}
+        </div>
+      )}
+
+      {/* Custom condition */}
+      {customCondition && (
+        <div className="border-t pt-2">
+          <p className="mb-1 text-sm font-medium text-gray-700">
+            Custom Condition:
+          </p>
+          <p className="text-sm whitespace-pre-wrap text-gray-900">
+            {customCondition}
+          </p>
         </div>
       )}
     </div>

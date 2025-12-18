@@ -17,7 +17,10 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getSmartQuestion } from "@/data/smartQuestions"
-import { validateFileSize } from "@/lib/offerFormValidation"
+import {
+  validateFileSize,
+  validateMultipleFiles,
+} from "@/lib/offerFormValidation"
 import { cn } from "@/lib/utils"
 import { BrandingConfig } from "@/types/branding"
 import {
@@ -27,7 +30,7 @@ import {
   QuestionUIConfig,
 } from "@/types/questionUIConfig"
 import { Database } from "@/types/supabase"
-import { X } from "lucide-react"
+import { FileText, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
@@ -47,6 +50,7 @@ interface QuestionRendererProps {
   onBlur?: () => void
   error?: string
   isTestMode?: boolean
+  onSubmit?: () => void // For submit button clicks
 }
 
 // PersonNameFields component extracted to prevent re-creation on every render
@@ -75,14 +79,23 @@ interface PersonNameFieldsProps {
       >
     >
   >
-  fileUploads: Record<string, { file: File | null; fileName: string }>
+  fileUploads: Record<
+    string,
+    | { file: File | null; fileName: string; error?: string }
+    | { files: File[]; fileNames: string[]; error?: string }
+  >
   setFileUploads: React.Dispatch<
     React.SetStateAction<
-      Record<string, { file: File | null; fileName: string }>
+      Record<
+        string,
+        | { file: File | null; fileName: string; error?: string }
+        | { files: File[]; fileNames: string[]; error?: string }
+      >
     >
   >
   collectMiddleNames: string
   collectId: string
+  questionRequired: boolean
   uiConfig: QuestionUIConfig
   disabled: boolean
   editingMode: boolean
@@ -106,6 +119,7 @@ const PersonNameFields = ({
   setFileUploads,
   collectMiddleNames,
   collectId,
+  questionRequired,
   uiConfig,
   disabled,
   editingMode,
@@ -120,12 +134,21 @@ const PersonNameFields = ({
     skipMiddleName: false,
   }
   // Use top-level fileUploads state with question id prefix to avoid conflicts
+  const fileDataRaw = fileUploads[`${questionId}_${prefix}_id`]
   const fileData: { file: File | null; fileName: string; error?: string } =
-    fileUploads[`${questionId}_${prefix}_id`] || {
-      file: null,
-      fileName: "",
-      error: undefined,
-    }
+    fileDataRaw && "file" in fileDataRaw
+      ? fileDataRaw
+      : fileDataRaw && "files" in fileDataRaw
+        ? {
+            file: fileDataRaw.files[0] || null,
+            fileName: fileDataRaw.fileNames[0] || "",
+            error: fileDataRaw.error,
+          }
+        : {
+            file: null,
+            fileName: "",
+            error: undefined,
+          }
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
@@ -150,23 +173,66 @@ const PersonNameFields = ({
   // Check if this preference is stored in nameFields (for each person)
   const skipMiddleName = nameFields[prefix]?.skipMiddleName || false
 
+  // Create prefixed field IDs for repeated fields (e.g., representatives)
+  // Use prefix only if it's not a single field (prefixes like "rep-1", "rep-2", etc.)
+  const isRepeatedField = prefix && prefix.startsWith("rep-")
+  const firstNameLabelId = isRepeatedField
+    ? `${prefix}_firstNameLabel`
+    : "firstNameLabel"
+  const middleNameLabelId = isRepeatedField
+    ? `${prefix}_middleNameLabel`
+    : "middleNameLabel"
+  const lastNameLabelId = isRepeatedField
+    ? `${prefix}_lastNameLabel`
+    : "lastNameLabel"
+  const firstNamePlaceholderId = isRepeatedField
+    ? `${prefix}_firstNamePlaceholder`
+    : "firstNamePlaceholder"
+  const middleNamePlaceholderId = isRepeatedField
+    ? `${prefix}_middleNamePlaceholder`
+    : "middleNamePlaceholder"
+  const lastNamePlaceholderId = isRepeatedField
+    ? `${prefix}_lastNamePlaceholder`
+    : "lastNamePlaceholder"
+
+  // Get labels with fallback to base labels if prefixed ones don't exist
+  const getLabel = (prefixedId: string, baseId: string, fallback: string) => {
+    const prefixedLabel = getSubQuestionLabel(uiConfig, prefixedId, "")
+    if (prefixedLabel) return prefixedLabel
+    return getSubQuestionLabel(uiConfig, baseId, fallback)
+  }
+
+  const getPlaceholder = (
+    prefixedId: string,
+    baseId: string,
+    fallback: string,
+  ) => {
+    const prefixedPlaceholder = getSubQuestionPlaceholder(
+      uiConfig,
+      prefixedId,
+      "",
+    )
+    if (prefixedPlaceholder) return prefixedPlaceholder
+    return getSubQuestionPlaceholder(uiConfig, baseId, fallback)
+  }
+
   return (
     <div className="space-y-3">
       <div>
         <div className="relative inline-block">
           <Label className="mb-1 block text-sm">
-            {getSubQuestionLabel(uiConfig, "firstNameLabel", "First Name:")}
+            {getLabel(firstNameLabelId, "firstNameLabel", "First Name:")}
           </Label>
           {renderLabelOverlay(
-            "firstNameLabel",
-            getSubQuestionLabel(uiConfig, "firstNameLabel", "First Name:"),
+            firstNameLabelId,
+            getLabel(firstNameLabelId, "firstNameLabel", "First Name:"),
           )}
         </div>
         <div className="relative max-w-md">
           <Input
             type="text"
-            placeholder={getSubQuestionPlaceholder(
-              uiConfig,
+            placeholder={getPlaceholder(
+              firstNamePlaceholderId,
               "firstNamePlaceholder",
               "Enter first name",
             )}
@@ -194,9 +260,9 @@ const PersonNameFields = ({
             }}
           />
           {renderEditOverlay(
-            "firstNamePlaceholder",
-            getSubQuestionPlaceholder(
-              uiConfig,
+            firstNamePlaceholderId,
+            getPlaceholder(
+              firstNamePlaceholderId,
               "firstNamePlaceholder",
               "Enter first name",
             ),
@@ -209,16 +275,16 @@ const PersonNameFields = ({
             <div>
               <div className="relative inline-block">
                 <Label className="mb-1 block text-sm">
-                  {getSubQuestionLabel(
-                    uiConfig,
+                  {getLabel(
+                    middleNameLabelId,
                     "middleNameLabel",
                     "Middle Name:",
                   )}
                 </Label>
                 {renderLabelOverlay(
-                  "middleNameLabel",
-                  getSubQuestionLabel(
-                    uiConfig,
+                  middleNameLabelId,
+                  getLabel(
+                    middleNameLabelId,
                     "middleNameLabel",
                     "Middle Name:",
                   ),
@@ -227,8 +293,8 @@ const PersonNameFields = ({
               <div className="relative max-w-md">
                 <Input
                   type="text"
-                  placeholder={getSubQuestionPlaceholder(
-                    uiConfig,
+                  placeholder={getPlaceholder(
+                    middleNamePlaceholderId,
                     "middleNamePlaceholder",
                     "Enter middle name",
                   )}
@@ -256,9 +322,9 @@ const PersonNameFields = ({
                   }}
                 />
                 {renderEditOverlay(
-                  "middleNamePlaceholder",
-                  getSubQuestionPlaceholder(
-                    uiConfig,
+                  middleNamePlaceholderId,
+                  getPlaceholder(
+                    middleNamePlaceholderId,
                     "middleNamePlaceholder",
                     "Enter middle name",
                   ),
@@ -266,7 +332,7 @@ const PersonNameFields = ({
               </div>
             </div>
           )}
-          {!editingMode && (
+          {shouldShowMiddleName && (
             <div className="flex items-center gap-2">
               <Checkbox
                 id={`${questionId}_${prefix}_skip_middle_name`}
@@ -299,7 +365,7 @@ const PersonNameFields = ({
                 htmlFor={`${questionId}_${prefix}_skip_middle_name`}
                 className="cursor-pointer text-sm font-normal"
               >
-                I don&apos;t have a middle name
+                No Middle Name
               </Label>
             </div>
           )}
@@ -308,18 +374,18 @@ const PersonNameFields = ({
       <div>
         <div className="relative inline-block">
           <Label className="mb-1 block text-sm">
-            {getSubQuestionLabel(uiConfig, "lastNameLabel", "Last Name:")}
+            {getLabel(lastNameLabelId, "lastNameLabel", "Last Name:")}
           </Label>
           {renderLabelOverlay(
-            "lastNameLabel",
-            getSubQuestionLabel(uiConfig, "lastNameLabel", "Last Name:"),
+            lastNameLabelId,
+            getLabel(lastNameLabelId, "lastNameLabel", "Last Name:"),
           )}
         </div>
         <div className="relative max-w-md">
           <Input
             type="text"
-            placeholder={getSubQuestionPlaceholder(
-              uiConfig,
+            placeholder={getPlaceholder(
+              lastNamePlaceholderId,
               "lastNamePlaceholder",
               "Enter last name",
             )}
@@ -346,9 +412,9 @@ const PersonNameFields = ({
             }}
           />
           {renderEditOverlay(
-            "lastNamePlaceholder",
-            getSubQuestionPlaceholder(
-              uiConfig,
+            lastNamePlaceholderId,
+            getPlaceholder(
+              lastNamePlaceholderId,
               "lastNamePlaceholder",
               "Enter last name",
             ),
@@ -360,7 +426,7 @@ const PersonNameFields = ({
           <div className="relative inline-block">
             <Label className="mb-1 block text-sm">
               {getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload")}{" "}
-              {collectId === "mandatory" && (
+              {collectId === "mandatory" && questionRequired && (
                 <span className="text-red-500">*</span>
               )}
             </Label>
@@ -458,6 +524,7 @@ export const QuestionRenderer = ({
   onBlur,
   error,
   isTestMode,
+  onSubmit,
 }: QuestionRendererProps) => {
   // State for interactive fields (used for complex fields like dates, times, etc.)
   // Initialize from value prop if available
@@ -469,20 +536,70 @@ export const QuestionRenderer = ({
     if (question.type === "offerAmount") {
       return { currency: "USD" }
     }
+    // For custom questions with money amount type, initialize with USD as default currency
+    if (
+      question.type === "custom" &&
+      question.setupConfig &&
+      typeof question.setupConfig === "object" &&
+      "answer_type" in question.setupConfig &&
+      question.setupConfig.answer_type === "number_amount" &&
+      "number_type" in question.setupConfig &&
+      question.setupConfig.number_type === "money"
+    ) {
+      const currencyStip =
+        (question.setupConfig as any).currency_stipulation || "any"
+      // Handle both array format (new) and comma-separated string (legacy)
+      let currencyOptions: string[] = []
+      if ((question.setupConfig as any).currency_options) {
+        const currencyOptionsValue = (question.setupConfig as any)
+          .currency_options
+        if (Array.isArray(currencyOptionsValue)) {
+          // New format: array of strings
+          currencyOptions = currencyOptionsValue.filter(
+            (c: string) => c && c.trim() !== "",
+          )
+        } else if (typeof currencyOptionsValue === "string") {
+          // Legacy format: comma-separated string
+          currencyOptions = currencyOptionsValue
+            .split(",")
+            .map((c: string) => c.trim())
+            .filter((c: string) => c !== "")
+        }
+      }
+      // If options mode with 2+ currencies, initialize as array
+      if (
+        currencyStip === "options" &&
+        currencyOptions.length >= 2 &&
+        Array.isArray(value)
+      ) {
+        return value
+      }
+      return { currency: "USD" }
+    }
     return {}
   })
 
   // Sync formValues with value prop when it changes
   useEffect(() => {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      setFormValues(value as Record<string, any>)
+    if (value && typeof value === "object") {
+      // Handle arrays for multiple currency/amount pairs
+      if (Array.isArray(value)) {
+        setFormValues(value as any)
+      } else {
+        setFormValues(value as Record<string, any>)
+      }
     } else if (value === null || value === undefined) {
       setFormValues({})
     }
   }, [value])
   // State for file uploads (keyed by question id and field name)
+  // Can store single file or array of files
   const [fileUploads, setFileUploads] = useState<
-    Record<string, { file: File | null; fileName: string; error?: string }>
+    Record<
+      string,
+      | { file: File | null; fileName: string; error?: string }
+      | { files: File[]; fileNames: string[]; error?: string }
+    >
   >({})
   // State for listings (for specifyListing question)
   const [listings, setListings] = useState<Array<{
@@ -518,6 +635,119 @@ export const QuestionRenderer = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId, ownerId, editingMode, question.type, question.id, isTestMode])
+
+  // State for nameOfPurchaser question (must be declared at top level for hooks rules)
+  const nameOfPurchaserValue: Record<string, any> =
+    question.type === "nameOfPurchaser" &&
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+      ? value
+      : {}
+  const [scenario, setScenario] = useState<string>(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.scenario || ""
+      : "",
+  )
+  const [numPurchasers, setNumPurchasers] = useState<number>(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.numPurchasers || 2
+      : 2,
+  )
+  const [numRepresentatives, setNumRepresentatives] = useState<number>(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.numRepresentatives || 1
+      : 1,
+  )
+  const [purchaserTypes, setPurchaserTypes] = useState<Record<number, string>>(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.purchaserTypes || {}
+      : {},
+  )
+  const [nameFields, setNameFields] = useState<
+    Record<
+      string,
+      {
+        firstName: string
+        middleName: string
+        lastName: string
+        skipMiddleName?: boolean
+      }
+    >
+  >(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.nameFields || {}
+      : {},
+  )
+  const [corporationName, setCorporationName] = useState<string>(
+    question.type === "nameOfPurchaser"
+      ? nameOfPurchaserValue.corporationName || ""
+      : "",
+  )
+
+  // Sync specifyListing state with value prop
+  useEffect(() => {
+    if (
+      question.type === "specifyListing" &&
+      value &&
+      typeof value === "string"
+    ) {
+      // Check if it's a listing ID or custom address
+      const isListingId = listings?.some((l) => l.id === value)
+      if (isListingId) {
+        setSelectedListingId(value)
+        setShowCustomInput(false)
+        setCustomAddress("")
+      } else {
+        setShowCustomInput(true)
+        setSelectedListingId("")
+        setCustomAddress(value)
+      }
+    }
+  }, [question.type, value, listings])
+
+  // Sync nameOfPurchaser ID files when they change in fileUploads
+  // This will be handled inside the nameOfPurchaser block by calling updateNameOfPurchaserData
+  // We can't call updateNameOfPurchaserData here because it's defined inside the conditional block
+  // Instead, we'll handle it by calling onChange directly when fileUploads change
+  useEffect(() => {
+    if (question.type === "nameOfPurchaser" && !editingMode && value) {
+      // Extract ID files from fileUploads state and sync with parent
+      const idFiles: Record<string, File> = {}
+      Object.entries(fileUploads).forEach(([key, fileData]) => {
+        if (key.startsWith(`${question.id}_`) && key.endsWith("_id")) {
+          let file: File | null = null
+          if ("file" in fileData && fileData.file) {
+            file = fileData.file
+          } else if ("files" in fileData && fileData.files.length > 0) {
+            file = fileData.files[0]
+          }
+          if (file) {
+            const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
+            idFiles[prefix] = file
+          }
+        }
+      })
+
+      // Only update if there are ID files or if we need to clear them
+      if (
+        Object.keys(idFiles).length > 0 ||
+        Object.keys(fileUploads).some(
+          (k) => k.startsWith(`${question.id}_`) && k.endsWith("_id"),
+        )
+      ) {
+        const currentValue =
+          value && typeof value === "object" && !Array.isArray(value)
+            ? value
+            : {}
+        onChange?.({
+          ...currentValue,
+          ...(Object.keys(idFiles).length > 0 ? { idFiles } : {}),
+        })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.type, question.id, fileUploads, editingMode])
 
   // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
@@ -654,23 +884,6 @@ export const QuestionRenderer = ({
 
   // Specify Listing
   if (question.type === "specifyListing") {
-    // Sync local state with parent value
-    useEffect(() => {
-      if (value && typeof value === "string") {
-        // Check if it's a listing ID or custom address
-        const isListingId = listings?.some((l) => l.id === value)
-        if (isListingId) {
-          setSelectedListingId(value)
-          setShowCustomInput(false)
-          setCustomAddress("")
-        } else {
-          setShowCustomInput(true)
-          setSelectedListingId("")
-          setCustomAddress(value)
-        }
-      }
-    }, [value, listings])
-
     // If no listings, show simple input (even in editing mode, show dropdown if listings exist)
     if (!listings || listings.length === 0) {
       const inputValue = editingMode ? "" : (value as string) || customAddress
@@ -923,7 +1136,7 @@ export const QuestionRenderer = ({
 
     return (
       <div>
-        <div className="relative max-w-md flex items-center gap-2">
+        <div className="relative flex max-w-md items-center gap-2">
           <PhoneInput
             value={phoneValue}
             onChange={(newValue) => {
@@ -942,10 +1155,13 @@ export const QuestionRenderer = ({
           {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
           {editingMode && onEditPlaceholder && (
             <div
-              className="absolute left-[108px] right-0 top-0 bottom-0 z-20 cursor-pointer"
+              className="absolute top-0 right-0 bottom-0 left-[108px] z-20 cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation()
-                onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter your phone number")
+                onEditPlaceholder(
+                  "placeholder",
+                  uiConfig.placeholder || "Enter your phone number",
+                )
               }}
               title="Click to edit placeholder"
             />
@@ -1125,7 +1341,12 @@ export const QuestionRenderer = ({
               }}
               onKeyDown={(e) => {
                 // Prevent "e", "E", "+", "-" keys
-                if (e.key === "e" || e.key === "E" || e.key === "+" || e.key === "-") {
+                if (
+                  e.key === "e" ||
+                  e.key === "E" ||
+                  e.key === "+" ||
+                  e.key === "-"
+                ) {
                   e.preventDefault()
                 }
               }}
@@ -1134,7 +1355,7 @@ export const QuestionRenderer = ({
             />
             {/* Currency decorator for fixed mode */}
             {currencyMode === "fixed" && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-sm font-medium text-gray-500 z-10">
+              <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
                 {fixedCurrency}
               </div>
             )}
@@ -1144,7 +1365,10 @@ export const QuestionRenderer = ({
                 className="absolute inset-0 right-12 z-20 cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter offer amount")
+                  onEditPlaceholder(
+                    "placeholder",
+                    uiConfig.placeholder || "Enter offer amount",
+                  )
                 }}
                 title="Click to edit placeholder"
               />
@@ -1164,9 +1388,43 @@ export const QuestionRenderer = ({
   // Submit Button
   if (question.type === "submitButton") {
     return (
-      <Button size="lg" disabled={disabled} style={getButtonStyle()}>
-        {uiConfig.label || "Submit Offer"}
-      </Button>
+      <div className="space-y-3">
+        {/* Terms and Conditions Checkbox */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              disabled={disabled || editingMode}
+              checked={editingMode ? false : (value as boolean) || false}
+              onCheckedChange={(checked) => {
+                if (!editingMode) {
+                  onChange?.(checked)
+                }
+              }}
+              onBlur={onBlur}
+              data-field-id={`${question.id}_terms`}
+            />
+            <label className="text-sm text-gray-700">
+              I agree to the terms and conditions.
+              <span className="text-red-500"> *</span>
+            </label>
+          </div>
+          {/* Show validation error for T&C checkbox */}
+          {error && <p className="ml-7 text-sm text-red-500">{error}</p>}
+        </div>
+        {/* Submit Button - Not editable */}
+        <div className={editingMode ? "" : "flex justify-center"}>
+          <Button
+            size="lg"
+            disabled={disabled}
+            style={getButtonStyle()}
+            className={editingMode ? "w-full" : "w-1/2"}
+            onClick={editingMode ? undefined : onSubmit}
+            type={editingMode ? "button" : "button"}
+          >
+            {uiConfig.label || "Submit Offer"}
+          </Button>
+        </div>
+      </div>
     )
   }
 
@@ -1254,52 +1512,73 @@ export const QuestionRenderer = ({
                   <p className="text-sm text-gray-500">
                     📎 Upload Identification{" "}
                     {collectId === "optional" && "(Optional)"}
+                    {collectId === "mandatory" && question.required && (
+                      <span className="text-red-500"> *</span>
+                    )}
                   </p>
                 </label>
               </div>
-              {fileUploads[`${question.id}_single_id_upload`]?.fileName && (
-                <div className="flex items-center gap-2">
-                  {fileUploads[`${question.id}_single_id_upload`]?.fileName && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setFileUploads((prev) => ({
-                          ...prev,
-                          [`${question.id}_single_id_upload`]: {
-                            file: null,
-                            fileName: "",
-                            error: undefined,
-                          },
-                        }))
-                        // Clear file but keep name
-                        const currentName =
-                          typeof value === "string" ? value : value?.name || ""
-                        onChange?.(currentName || null)
-                        const fileInput = document.getElementById(
-                          `${question.id}_single_id_upload`,
-                        ) as HTMLInputElement
-                        if (fileInput) {
-                          fileInput.value = ""
+              {(() => {
+                const fileDataRaw =
+                  fileUploads[`${question.id}_single_id_upload`]
+                const fileData =
+                  fileDataRaw && "file" in fileDataRaw
+                    ? fileDataRaw
+                    : fileDataRaw && "files" in fileDataRaw
+                      ? {
+                          file: fileDataRaw.files[0] || null,
+                          fileName: fileDataRaw.fileNames[0] || "",
+                          error: fileDataRaw.error,
                         }
-                      }}
-                      className="h-8 w-8 p-0"
-                      disabled={disabled}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <p className="text-xs text-gray-600">
-                    {fileUploads[`${question.id}_single_id_upload`].fileName}
-                  </p>
-                </div>
-              )}
-              {fileUploads[`${question.id}_single_id_upload`]?.error && (
-                <p className="mt-1 text-sm text-red-500" role="alert">
-                  {fileUploads[`${question.id}_single_id_upload`].error}
-                </p>
-              )}
+                      : { file: null, fileName: "", error: undefined }
+                return (
+                  <>
+                    {fileData.fileName && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setFileUploads((prev) => ({
+                              ...prev,
+                              [`${question.id}_single_id_upload`]: {
+                                file: null,
+                                fileName: "",
+                                error: undefined,
+                              },
+                            }))
+                            // Clear file but keep name
+                            const currentName =
+                              typeof value === "string"
+                                ? value
+                                : value?.name || ""
+                            onChange?.(currentName || null)
+                            const fileInput = document.getElementById(
+                              `${question.id}_single_id_upload`,
+                            ) as HTMLInputElement
+                            if (fileInput) {
+                              fileInput.value = ""
+                            }
+                          }}
+                          className="h-8 w-8 p-0"
+                          disabled={disabled}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <p className="text-xs text-gray-600">
+                          {fileData.fileName}
+                        </p>
+                      </div>
+                    )}
+                    {fileData.error && (
+                      <p className="mt-1 text-sm text-red-500" role="alert">
+                        {fileData.error}
+                      </p>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )}
         </div>
@@ -1307,32 +1586,7 @@ export const QuestionRenderer = ({
     }
 
     // Individual names method - complex multi-scenario UI
-    // Initialize from value prop if available
-    const nameOfPurchaserValue =
-      value && typeof value === "object" && !Array.isArray(value) ? value : {}
-    const [scenario, setScenario] = useState<string>(
-      nameOfPurchaserValue.scenario || "",
-    )
-    const [numPurchasers, setNumPurchasers] = useState<number>(
-      nameOfPurchaserValue.numPurchasers || 2,
-    )
-    const [numRepresentatives, setNumRepresentatives] = useState<number>(
-      nameOfPurchaserValue.numRepresentatives || 1,
-    )
-    const [purchaserTypes, setPurchaserTypes] = useState<
-      Record<number, string>
-    >(nameOfPurchaserValue.purchaserTypes || {})
-    const [nameFields, setNameFields] = useState<
-      Record<
-        string,
-        {
-          firstName: string
-          middleName: string
-          lastName: string
-          skipMiddleName?: boolean
-        }
-      >
-    >(nameOfPurchaserValue.nameFields || {})
+    // State hooks are already declared at the top level
 
     // Helper to sync all state changes with parent
     // Also includes ID files from fileUploads state
@@ -1351,19 +1605,25 @@ export const QuestionRenderer = ({
             skipMiddleName?: boolean
           }
         >
+        corporationName?: string
+        [key: string]: any // Allow dynamic keys for corporation names in "other" scenario
         idFiles?: Record<string, File>
       }>,
     ) => {
       // Extract ID files from fileUploads state
       const idFiles: Record<string, File> = {}
       Object.entries(fileUploads).forEach(([key, fileData]) => {
-        if (
-          key.startsWith(`${question.id}_`) &&
-          key.endsWith("_id") &&
-          fileData.file
-        ) {
-          const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
-          idFiles[prefix] = fileData.file
+        if (key.startsWith(`${question.id}_`) && key.endsWith("_id")) {
+          let file: File | null = null
+          if ("file" in fileData && fileData.file) {
+            file = fileData.file
+          } else if ("files" in fileData && fileData.files.length > 0) {
+            file = fileData.files[0]
+          }
+          if (file) {
+            const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
+            idFiles[prefix] = file
+          }
         }
       })
 
@@ -1373,6 +1633,7 @@ export const QuestionRenderer = ({
         numRepresentatives,
         purchaserTypes,
         nameFields,
+        corporationName,
         ...(Object.keys(idFiles).length > 0 ? { idFiles } : {}),
         ...updates,
       }
@@ -1412,12 +1673,8 @@ export const QuestionRenderer = ({
     }
 
     // Sync ID files when they change in fileUploads
-    useEffect(() => {
-      if (!editingMode) {
-        updateNameOfPurchaserData({})
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fileUploads])
+    // This is handled by calling updateNameOfPurchaserData when fileUploads change
+    // We'll sync it in the top-level useEffect
 
     return (
       <div className="space-y-4">
@@ -1453,6 +1710,7 @@ export const QuestionRenderer = ({
               setFileUploads={setFileUploads}
               collectMiddleNames={collectMiddleNames}
               collectId={collectId}
+              questionRequired={question.required}
               uiConfig={uiConfig}
               disabled={disabled}
               editingMode={editingMode}
@@ -1507,6 +1765,7 @@ export const QuestionRenderer = ({
                     setFileUploads={setFileUploads}
                     collectMiddleNames={collectMiddleNames}
                     collectId={collectId}
+                    questionRequired={question.required}
                     uiConfig={uiConfig}
                     disabled={disabled}
                     editingMode={editingMode}
@@ -1524,22 +1783,74 @@ export const QuestionRenderer = ({
         {scenario === "corporation" && (
           <div className="space-y-4">
             <div>
-              <Label className="mb-1 block text-sm">Corporation Name:</Label>
-              <div className="max-w-md">
+              <div className="relative inline-block">
+                <Label className="mb-1 block text-sm">
+                  {getSubQuestionLabel(
+                    uiConfig,
+                    "corporationNameLabel",
+                    "Corporation Name:",
+                  )}
+                </Label>
+                {renderLabelOverlay(
+                  "corporationNameLabel",
+                  getSubQuestionLabel(
+                    uiConfig,
+                    "corporationNameLabel",
+                    "Corporation Name:",
+                  ),
+                )}
+              </div>
+              <div className="relative max-w-md">
                 <Input
                   type="text"
-                  placeholder="Enter corporation name"
+                  placeholder={getSubQuestionPlaceholder(
+                    uiConfig,
+                    "corporationNamePlaceholder",
+                    "Enter corporation name",
+                  )}
                   disabled={disabled}
-                  className="w-full"
+                  className={cn(editingMode && "cursor-not-allowed", "w-full")}
                   style={getInputStyle()}
+                  value={editingMode ? "" : corporationName}
+                  onChange={(e) => {
+                    if (!editingMode) {
+                      const newName = e.target.value
+                      setCorporationName(newName)
+                      updateNameOfPurchaserData({ corporationName: newName })
+                    }
+                  }}
+                  onBlur={onBlur}
+                  data-field-id={`${question.id}_corporationName`}
                 />
+                {renderEditOverlay(
+                  "corporationNamePlaceholder",
+                  getSubQuestionPlaceholder(
+                    uiConfig,
+                    "corporationNamePlaceholder",
+                    "Enter corporation name",
+                  ),
+                )}
               </div>
             </div>
 
             <div className="space-y-4">
-              <h4 className="text-sm font-medium">
-                Corporation Representative:
-              </h4>
+              <div className="relative inline-block">
+                <h4 className="text-sm font-medium">
+                  {getSubQuestionLabel(
+                    uiConfig,
+                    "corporationRepresentativeLabel",
+                    "Corporation Representative:",
+                  )}
+                </h4>
+                {renderLabelOverlay(
+                  "corporationRepresentativeLabel",
+                  getSubQuestionLabel(
+                    uiConfig,
+                    "corporationRepresentativeLabel",
+                    "Corporation Representative:",
+                  ),
+                )}
+              </div>
 
               {Array.from({ length: numRepresentatives }, (_, i) => i + 1).map(
                 (num) => (
@@ -1558,6 +1869,7 @@ export const QuestionRenderer = ({
                       setFileUploads={setFileUploads}
                       collectMiddleNames={collectMiddleNames}
                       collectId={collectId}
+                      questionRequired={question.required}
                       uiConfig={uiConfig}
                       disabled={disabled}
                       editingMode={editingMode}
@@ -1629,6 +1941,7 @@ export const QuestionRenderer = ({
                       setFileUploads={setFileUploads}
                       collectMiddleNames={collectMiddleNames}
                       collectId={collectId}
+                      questionRequired={question.required}
                       uiConfig={uiConfig}
                       disabled={disabled}
                       editingMode={editingMode}
@@ -1641,22 +1954,82 @@ export const QuestionRenderer = ({
                   {purchaserTypes[num] === "corporation" && (
                     <div className="space-y-3">
                       <div>
-                        <Label className="mb-1 block text-sm">
-                          Corporation Name:
-                        </Label>
-                        <div className="max-w-md">
+                        <div className="relative inline-block">
+                          <Label className="mb-1 block text-sm">
+                            {getSubQuestionLabel(
+                              uiConfig,
+                              "corporationNameLabel",
+                              "Corporation Name:",
+                            )}
+                          </Label>
+                          {renderLabelOverlay(
+                            "corporationNameLabel",
+                            getSubQuestionLabel(
+                              uiConfig,
+                              "corporationNameLabel",
+                              "Corporation Name:",
+                            ),
+                          )}
+                        </div>
+                        <div className="relative max-w-md">
                           <Input
                             type="text"
-                            placeholder="Enter corporation name"
+                            placeholder={getSubQuestionPlaceholder(
+                              uiConfig,
+                              "corporationNamePlaceholder",
+                              "Enter corporation name",
+                            )}
                             disabled={disabled}
-                            className="w-full"
+                            className={cn(
+                              editingMode && "cursor-not-allowed",
+                              "w-full",
+                            )}
                             style={getInputStyle()}
+                            value={
+                              editingMode
+                                ? ""
+                                : nameOfPurchaserValue[
+                                    `corporationName_${num}`
+                                  ] || ""
+                            }
+                            onChange={(e) => {
+                              if (!editingMode) {
+                                const newName = e.target.value
+                                updateNameOfPurchaserData({
+                                  [`corporationName_${num}`]: newName,
+                                })
+                              }
+                            }}
+                            onBlur={onBlur}
+                            data-field-id={`${question.id}_corporationName_${num}`}
                           />
+                          {renderEditOverlay(
+                            "corporationNamePlaceholder",
+                            getSubQuestionPlaceholder(
+                              uiConfig,
+                              "corporationNamePlaceholder",
+                              "Enter corporation name",
+                            ),
+                          )}
                         </div>
                       </div>
-                      <h5 className="text-sm font-medium">
-                        Corporation Representative:
-                      </h5>
+                      <div className="relative inline-block">
+                        <h5 className="text-sm font-medium">
+                          {getSubQuestionLabel(
+                            uiConfig,
+                            "corporationRepresentativeLabel",
+                            "Corporation Representative:",
+                          )}
+                        </h5>
+                        {renderLabelOverlay(
+                          "corporationRepresentativeLabel",
+                          getSubQuestionLabel(
+                            uiConfig,
+                            "corporationRepresentativeLabel",
+                            "Corporation Representative:",
+                          ),
+                        )}
+                      </div>
                       <PersonNameFields
                         prefix={`other-corp-${num}-rep`}
                         questionId={question.id}
@@ -1666,6 +2039,7 @@ export const QuestionRenderer = ({
                         setFileUploads={setFileUploads}
                         collectMiddleNames={collectMiddleNames}
                         collectId={collectId}
+                        questionRequired={question.required}
                         uiConfig={uiConfig}
                         disabled={disabled}
                         editingMode={editingMode}
@@ -1703,11 +2077,17 @@ export const QuestionRenderer = ({
   // Attach Purchase Agreement
   if (question.type === "attachPurchaseAgreement") {
     const isRequired = setupConfig.contract_requirement === "required"
-    const fileData = fileUploads[`${question.id}_purchase_agreement`] || {
-      file: null,
-      fileName: "",
-      error: undefined,
-    }
+    const fileDataRaw = fileUploads[`${question.id}_purchase_agreement`]
+    const fileData =
+      fileDataRaw && "files" in fileDataRaw
+        ? fileDataRaw
+        : fileDataRaw && "file" in fileDataRaw
+          ? {
+              files: fileDataRaw.file ? [fileDataRaw.file] : [],
+              fileNames: fileDataRaw.fileName ? [fileDataRaw.fileName] : [],
+              error: fileDataRaw.error,
+            }
+          : { files: [], fileNames: [], error: undefined }
 
     return (
       <div>
@@ -1718,20 +2098,27 @@ export const QuestionRenderer = ({
             className="hidden"
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             disabled={disabled}
+            multiple
             onChange={(e) => {
-              const file = e.target.files?.[0] || null
+              const files = Array.from(e.target.files || [])
               const fileKey = `${question.id}_purchase_agreement`
-              const fileError = file ? validateFileSize(file) : null
+              const fileError = validateMultipleFiles(
+                files,
+                3,
+                10 * 1024 * 1024,
+              )
               setFileUploads((prev) => ({
                 ...prev,
                 [fileKey]: {
-                  file,
-                  fileName: file ? file.name : "",
+                  files,
+                  fileNames: files.map((f) => f.name),
                   error: fileError || undefined,
                 },
               }))
-              if (!fileError && file) {
-                onChange?.(file)
+              if (!fileError && files.length > 0) {
+                onChange?.(files.length === 1 ? files[0] : files)
+              } else if (files.length === 0) {
+                onChange?.(null)
               }
             }}
             data-field-id={question.id}
@@ -1746,41 +2133,62 @@ export const QuestionRenderer = ({
               </p>
             </label>
           </div>
-          {fileData.fileName && (
-            <div className="flex items-center gap-2">
-              {fileData.fileName && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFileUploads((prev) => ({
-                      ...prev,
-                      [`${question.id}_purchase_agreement`]: {
-                        file: null,
-                        fileName: "",
-                        error: undefined,
-                      },
-                    }))
-                    onChange?.(null)
-                    const fileInput = document.getElementById(
-                      `${question.id}_purchase_agreement_file`,
-                    ) as HTMLInputElement
-                    if (fileInput) {
-                      fileInput.value = ""
-                    }
-                  }}
-                  className="h-8 w-8 p-0"
-                  disabled={disabled}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-              <p className="text-xs text-gray-600">{fileData.fileName}</p>
+          {fileData.fileNames.length > 0 && (
+            <div className="space-y-2">
+              {fileData.fileNames.map((fileName, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const newFiles = [...fileData.files]
+                      const newFileNames = [...fileData.fileNames]
+                      newFiles.splice(index, 1)
+                      newFileNames.splice(index, 1)
+                      const fileKey = `${question.id}_purchase_agreement`
+                      setFileUploads((prev) => ({
+                        ...prev,
+                        [fileKey]:
+                          newFiles.length > 0
+                            ? {
+                                files: newFiles,
+                                fileNames: newFileNames,
+                                error: undefined,
+                              }
+                            : {
+                                files: [],
+                                fileNames: [],
+                                error: undefined,
+                              },
+                      }))
+                      if (newFiles.length > 0) {
+                        onChange?.(
+                          newFiles.length === 1 ? newFiles[0] : newFiles,
+                        )
+                      } else {
+                        onChange?.(null)
+                        const fileInput = document.getElementById(
+                          `${question.id}_purchase_agreement_file`,
+                        ) as HTMLInputElement
+                        if (fileInput) {
+                          fileInput.value = ""
+                        }
+                      }
+                    }}
+                    className="h-8 w-8 p-0"
+                    disabled={disabled}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <p className="text-xs text-gray-600">{fileName}</p>
+                </div>
+              ))}
             </div>
           )}
           <span className="text-xs text-gray-500">
-            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 10MB each)
+            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files, 10MB
+            total)
           </span>
         </div>
         {renderError(fileData.error || error)}
@@ -1790,7 +2198,6 @@ export const QuestionRenderer = ({
 
   // Offer Expiry - Use DatePicker and TimePicker
   if (question.type === "offerExpiry") {
-    const isOptional = setupConfig.expiry_requirement === "optional"
     const expiryValue =
       (value as {
         hasExpiry?: string
@@ -1801,37 +2208,37 @@ export const QuestionRenderer = ({
 
     return (
       <div className="space-y-3">
-        {isOptional && (
-          <RadioGroup
-            value={expiryValue.hasExpiry || ""}
-            onValueChange={(val) => {
-              if (!editingMode) {
-                onChange?.({ ...expiryValue, hasExpiry: val })
-              }
-            }}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="yes" id="expiry-yes" />
-              <Label htmlFor="expiry-yes">Yes</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="no" id="expiry-no" />
-              <Label htmlFor="expiry-no">No</Label>
-            </div>
-          </RadioGroup>
-        )}
+        {/* Always show radio buttons */}
+        <RadioGroup
+          value={expiryValue.hasExpiry || ""}
+          onValueChange={(val) => {
+            // Allow selection in form builder too
+            onChange?.({ ...expiryValue, hasExpiry: val })
+          }}
+          disabled={disabled}
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="yes" id="expiry-yes" />
+            <Label htmlFor="expiry-yes">Yes</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="no" id="expiry-no" />
+            <Label htmlFor="expiry-no">No</Label>
+          </div>
+        </RadioGroup>
 
-        {(!isOptional || hasExpiry) && (
+        {/* Show date/time pickers only when "Yes" is selected */}
+        {hasExpiry && (
           <div className="flex max-w-md gap-2">
             <div className="min-w-0 flex-1">
               <DatePicker
                 label={uiConfig.dateLabel || "Select date"}
                 value={expiryValue.expiryDate}
                 onChange={(date) => {
-                  if (!editingMode) {
-                    onChange?.({ ...expiryValue, expiryDate: date })
-                  }
+                  // Allow selection in form builder too
+                  onChange?.({ ...expiryValue, expiryDate: date })
                 }}
+                disabled={disabled}
                 brandingConfig={brandingConfig}
                 data-field-id={question.id}
                 btnClassName="w-full"
@@ -1842,10 +2249,10 @@ export const QuestionRenderer = ({
                 label={uiConfig.timeLabel || "Select time"}
                 value={expiryValue.expiryTime}
                 onChange={(time) => {
-                  if (!editingMode) {
-                    onChange?.({ ...expiryValue, expiryTime: time })
-                  }
+                  // Allow selection in form builder too
+                  onChange?.({ ...expiryValue, expiryTime: time })
                 }}
+                disabled={disabled}
                 brandingConfig={brandingConfig}
                 data-field-id={question.id}
                 btnClassName="w-full"
@@ -2268,27 +2675,25 @@ export const QuestionRenderer = ({
                     multiple
                     onChange={(e) => {
                       const files = Array.from(e.target.files || [])
-                      // Validate all files
-                      let fileError: string | undefined = undefined
-                      for (const file of files) {
-                        const error = validateFileSize(file)
-                        if (error) {
-                          fileError = error
-                          break
-                        }
-                      }
-                      const fileNames = files.map((f) => f.name).join(", ")
+                      const fileError = validateMultipleFiles(
+                        files,
+                        3,
+                        10 * 1024 * 1024,
+                      )
+                      const fileKey = `${question.id}_supporting_docs`
                       setFileUploads((prev) => ({
                         ...prev,
-                        [`${question.id}_supporting_docs`]: {
-                          file: files[0] || null,
-                          fileName: fileNames || "",
-                          error: fileError,
+                        [fileKey]: {
+                          files,
+                          fileNames: files.map((f) => f.name),
+                          error: fileError || undefined,
                         },
                       }))
                       if (!fileError && files.length > 0) {
                         // Store files in the loanValue object for validation
                         onChange?.({ ...loanValue, supportingDocs: files })
+                      } else if (files.length === 0) {
+                        onChange?.({ ...loanValue, supportingDocs: null })
                       }
                     }}
                     data-field-id={question.id}
@@ -2303,46 +2708,97 @@ export const QuestionRenderer = ({
                       </p>
                     </label>
                   </div>
-                  {fileUploads[`${question.id}_supporting_docs`]?.fileName && (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setFileUploads((prev) => ({
-                            ...prev,
-                            [`${question.id}_supporting_docs`]: {
-                              file: null,
-                              fileName: "",
-                              error: undefined,
-                            },
-                          }))
-                          onChange?.({ ...loanValue, supportingDocs: null })
-                          // Reset the file input
-                          const fileInput = document.getElementById(
-                            `${question.id}_supporting_docs`,
-                          ) as HTMLInputElement
-                          if (fileInput) {
-                            fileInput.value = ""
-                          }
-                        }}
-                        className="h-8 w-8 p-0"
-                        disabled={disabled}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-
-                      <p className="text-xs text-gray-600">
-                        {fileUploads[`${question.id}_supporting_docs`].fileName}
-                      </p>
-                    </div>
-                  )}
-                  {fileUploads[`${question.id}_supporting_docs`]?.error && (
-                    <p className="mt-1 text-sm text-red-500" role="alert">
-                      {fileUploads[`${question.id}_supporting_docs`].error}
-                    </p>
-                  )}
+                  {(() => {
+                    const fileDataRaw =
+                      fileUploads[`${question.id}_supporting_docs`]
+                    const fileData =
+                      fileDataRaw && "files" in fileDataRaw
+                        ? fileDataRaw
+                        : fileDataRaw && "file" in fileDataRaw
+                          ? {
+                              files: fileDataRaw.file ? [fileDataRaw.file] : [],
+                              fileNames: fileDataRaw.fileName
+                                ? [fileDataRaw.fileName]
+                                : [],
+                              error: fileDataRaw.error,
+                            }
+                          : { files: [], fileNames: [], error: undefined }
+                    return (
+                      <>
+                        {fileData.fileNames.length > 0 && (
+                          <div className="space-y-2">
+                            {fileData.fileNames.map((fileName, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2"
+                              >
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const newFiles = [...fileData.files]
+                                    const newFileNames = [...fileData.fileNames]
+                                    newFiles.splice(index, 1)
+                                    newFileNames.splice(index, 1)
+                                    const fileKey = `${question.id}_supporting_docs`
+                                    setFileUploads((prev) => ({
+                                      ...prev,
+                                      [fileKey]:
+                                        newFiles.length > 0
+                                          ? {
+                                              files: newFiles,
+                                              fileNames: newFileNames,
+                                              error: undefined,
+                                            }
+                                          : {
+                                              files: [],
+                                              fileNames: [],
+                                              error: undefined,
+                                            },
+                                    }))
+                                    if (newFiles.length > 0) {
+                                      onChange?.({
+                                        ...loanValue,
+                                        supportingDocs: newFiles,
+                                      })
+                                    } else {
+                                      onChange?.({
+                                        ...loanValue,
+                                        supportingDocs: null,
+                                      })
+                                      const fileInput = document.getElementById(
+                                        `${question.id}_supporting_docs`,
+                                      ) as HTMLInputElement
+                                      if (fileInput) {
+                                        fileInput.value = ""
+                                      }
+                                    }
+                                  }}
+                                  className="h-8 w-8 p-0"
+                                  disabled={disabled}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                                <p className="text-xs text-gray-600">
+                                  {fileName}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {fileData.error && (
+                          <p className="mt-1 text-sm text-red-500" role="alert">
+                            {fileData.error}
+                          </p>
+                        )}
+                        <span className="text-xs text-gray-500">
+                          Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max
+                          3 files, 10MB total)
+                        </span>
+                      </>
+                    )
+                  })()}
                   {renderError(error)}
                 </div>
               </div>
@@ -2428,23 +2884,268 @@ export const QuestionRenderer = ({
       }>) || []
     const allowCustom = setupConfig.allow_custom_conditions === "yes"
 
+    // Get current form value - should be an object with selectedConditions and customCondition
+    const specialConditionsValueRaw =
+      (value as {
+        selectedConditions?: number[] | string[]
+        customCondition?: string
+        conditionAttachments?: Record<number | string, File[]>
+      }) || {}
+
+    // Normalize the value to ensure proper types
+    const specialConditionsValue = {
+      ...specialConditionsValueRaw,
+      selectedConditions: Array.isArray(
+        specialConditionsValueRaw.selectedConditions,
+      )
+        ? specialConditionsValueRaw.selectedConditions.map((idx: any) =>
+            typeof idx === "string" ? parseInt(idx, 10) : idx,
+          )
+        : [],
+      // Filter out empty objects from conditionAttachments
+      conditionAttachments: specialConditionsValueRaw.conditionAttachments
+        ? Object.fromEntries(
+            Object.entries(
+              specialConditionsValueRaw.conditionAttachments,
+            ).filter(
+              ([_, files]) =>
+                Array.isArray(files) &&
+                files.length > 0 &&
+                files.every((f) => f instanceof File),
+            ),
+          )
+        : {},
+    }
+
+    const selectedConditions = specialConditionsValue.selectedConditions || []
+    const customCondition = specialConditionsValue.customCondition || ""
+    const conditionAttachments =
+      specialConditionsValue.conditionAttachments || {}
+
+    // Get file upload state for condition attachments
+    const getConditionFileData = (conditionIndex: number) => {
+      const fileKey = `${question.id}_condition_${conditionIndex}_attachments`
+      const fileDataRaw = fileUploads[fileKey]
+      return fileDataRaw && "files" in fileDataRaw
+        ? fileDataRaw
+        : { files: [], fileNames: [], error: undefined }
+    }
+
+    const handleConditionToggle = (
+      conditionIndex: number,
+      checked: boolean,
+    ) => {
+      if (editingMode) return
+
+      // Ensure selectedConditions contains numbers, not strings
+      const currentSelected = selectedConditions.map((idx) =>
+        typeof idx === "string" ? parseInt(idx, 10) : idx,
+      )
+
+      const newSelected = checked
+        ? [...currentSelected, conditionIndex]
+        : currentSelected.filter((idx) => idx !== conditionIndex)
+
+      onChange?.({
+        ...specialConditionsValue,
+        selectedConditions: newSelected,
+      })
+    }
+
+    const handleConditionFileUpload = (
+      conditionIndex: number,
+      event: React.ChangeEvent<HTMLInputElement>,
+    ) => {
+      const files = Array.from(event.target.files || [])
+      if (files.length === 0) return
+
+      // Validate files (max 3, total 10MB)
+      const fileError = validateMultipleFiles(files, 3, 10 * 1024 * 1024)
+
+      const fileKey = `${question.id}_condition_${conditionIndex}_attachments`
+      setFileUploads((prev) => ({
+        ...prev,
+        [fileKey]: {
+          files,
+          fileNames: files.map((f) => f.name),
+          error: fileError || undefined,
+        },
+      }))
+
+      if (!fileError && files.length > 0) {
+        // Ensure we only store actual File objects
+        const validFiles = files.filter((f) => f instanceof File)
+        if (validFiles.length > 0) {
+          // Update form value with files
+          onChange?.({
+            ...specialConditionsValue,
+            conditionAttachments: {
+              ...conditionAttachments,
+              [conditionIndex]: validFiles,
+            },
+          })
+        }
+      }
+
+      // Clear the input
+      event.target.value = ""
+    }
+
+    const handleRemoveConditionFile = (
+      conditionIndex: number,
+      fileIndex: number,
+    ) => {
+      const fileKey = `${question.id}_condition_${conditionIndex}_attachments`
+      const fileData = getConditionFileData(conditionIndex)
+      const newFiles = [...fileData.files]
+      const newFileNames = [...fileData.fileNames]
+      newFiles.splice(fileIndex, 1)
+      newFileNames.splice(fileIndex, 1)
+
+      setFileUploads((prev) => ({
+        ...prev,
+        [fileKey]:
+          newFiles.length > 0
+            ? {
+                files: newFiles,
+                fileNames: newFileNames,
+                error: undefined,
+              }
+            : {
+                files: [],
+                fileNames: [],
+                error: undefined,
+              },
+      }))
+
+      // Update form value - ensure only File objects are stored
+      const updatedAttachments = { ...conditionAttachments }
+      const validFiles = newFiles.filter((f) => f instanceof File)
+      if (validFiles.length > 0) {
+        updatedAttachments[conditionIndex] = validFiles
+      } else {
+        delete updatedAttachments[conditionIndex]
+      }
+      onChange?.({
+        ...specialConditionsValue,
+        conditionAttachments: updatedAttachments,
+      })
+    }
+
     return (
       <div className="space-y-3">
         {conditions.length > 0 ? (
-          <div className="space-y-2">
-            {conditions.map((condition, idx) => (
-              <div key={idx} className="flex items-start gap-2">
-                <Checkbox disabled={disabled} className="mt-0.5" />
-                <div className="flex-1">
-                  <span className="text-sm text-gray-700">
-                    {condition.name}
-                  </span>
-                  {condition.details && (
-                    <p className="text-xs text-gray-500">{condition.details}</p>
+          <div className="space-y-3">
+            {conditions.map((condition, idx) => {
+              const isSelected = selectedConditions.includes(idx)
+              const fileData = getConditionFileData(idx)
+              const hasFiles = fileData.files.length > 0
+
+              return (
+                <div key={idx} className="space-y-3">
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={(checked) =>
+                        handleConditionToggle(idx, checked === true)
+                      }
+                      disabled={disabled}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm text-gray-700">
+                        {condition.name}
+                      </span>
+                      {condition.details && (
+                        <p className="text-xs text-gray-500">
+                          {condition.details}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* File upload for this condition - always at the bottom (show if selected or in form builder for testing) */}
+                  {(isSelected || editingMode) && (
+                    <div className="ml-7 space-y-2">
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                        Attachments (optional, max 3 files, 10MB total)
+                      </label>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                            onClick={() =>
+                              document
+                                .getElementById(
+                                  `${question.id}_condition_${idx}_file_input`,
+                                )
+                                ?.click()
+                            }
+                            disabled={disabled || editingMode}
+                          >
+                            <FileText size={14} />
+                            Choose files
+                          </Button>
+                          <input
+                            id={`${question.id}_condition_${idx}_file_input`}
+                            type="file"
+                            multiple
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                            onChange={(e) => handleConditionFileUpload(idx, e)}
+                            className="hidden"
+                            disabled={disabled || editingMode}
+                            data-field-id={question.id}
+                          />
+                        </div>
+
+                        {/* Display uploaded files */}
+                        {hasFiles && (
+                          <div className="space-y-1">
+                            {fileData.fileNames.map((fileName, fileIdx) => (
+                              <div
+                                key={fileIdx}
+                                className="flex items-center justify-between rounded-md bg-gray-50 p-2"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <FileText
+                                    size={14}
+                                    className="text-gray-500"
+                                  />
+                                  <span className="text-xs text-gray-700">
+                                    {fileName}
+                                  </span>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleRemoveConditionFile(idx, fileIdx)
+                                  }
+                                  disabled={disabled || editingMode}
+                                  className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                                >
+                                  <X size={14} />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {fileData.error && (
+                          <p className="text-xs text-red-500" role="alert">
+                            {fileData.error}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <p className="text-sm text-gray-500">No predefined conditions</p>
@@ -2471,6 +3172,16 @@ export const QuestionRenderer = ({
             </div>
             <div className="relative w-full">
               <Textarea
+                value={editingMode ? "" : customCondition}
+                onChange={(e) => {
+                  if (!editingMode) {
+                    onChange?.({
+                      ...specialConditionsValue,
+                      customCondition: e.target.value,
+                    })
+                  }
+                }}
+                onBlur={onBlur}
                 placeholder={getSubQuestionPlaceholder(
                   uiConfig,
                   "customConditionPlaceholder",
@@ -2482,6 +3193,7 @@ export const QuestionRenderer = ({
                   editingMode && "cursor-not-allowed",
                 )}
                 style={getInputStyle()}
+                data-field-id={question.id}
               />
               {renderEditOverlay(
                 "customConditionPlaceholder",
@@ -2502,6 +3214,110 @@ export const QuestionRenderer = ({
   if (question.type === "settlementDate") {
     const dateType = setupConfig.settlement_date_type
     const location = setupConfig.settlement_location
+    const settlementDateConfig = setupConfig.settlement_date_config
+
+    // Helper function to format text (replace underscores with spaces and capitalize)
+    const formatText = (text: string): string => {
+      if (!text) return ""
+      return text
+        .replace(/_/g, " ") // Replace underscores with spaces
+        .split(" ")
+        .map(
+          (word: string) =>
+            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+        )
+        .join(" ")
+    }
+
+    // Render custom settlement date section for "Create Your Own" functionality
+    const renderCustomSettlementDate = (config: any) => {
+      if (!config) return null
+
+      const { timeConstraint, number, timeUnit, action, trigger } = config
+
+      // Helper function to render a section (static text or dropdown)
+      const renderSection = (sectionData: string[]) => {
+        if (!sectionData || !Array.isArray(sectionData)) return null
+
+        if (sectionData.length === 1) {
+          // Single selection - show as static text with proper formatting
+          return (
+            <span className="font-medium">{formatText(sectionData[0])}</span>
+          )
+        } else if (sectionData.length > 1) {
+          // Multiple selections - show as dropdown
+          const sectionValue =
+            (formValues.settlementDateCYO as any)?.[
+              sectionData === timeConstraint
+                ? "timeConstraint"
+                : sectionData === number
+                  ? "number"
+                  : sectionData === timeUnit
+                    ? "timeUnit"
+                    : sectionData === action
+                      ? "action"
+                      : "trigger"
+            ] || ""
+
+          return (
+            <Select
+              value={sectionValue}
+              onValueChange={(value) => {
+                if (!editingMode) {
+                  const fieldName =
+                    sectionData === timeConstraint
+                      ? "timeConstraint"
+                      : sectionData === number
+                        ? "number"
+                        : sectionData === timeUnit
+                          ? "timeUnit"
+                          : sectionData === action
+                            ? "action"
+                            : "trigger"
+                  const newValues = {
+                    ...formValues,
+                    settlementDateCYO: {
+                      ...((formValues.settlementDateCYO as any) || {}),
+                      [fieldName]: value,
+                    },
+                  }
+                  setFormValues(newValues)
+                  onChange?.(newValues)
+                }
+              }}
+              disabled={disabled || editingMode}
+            >
+              <SelectTrigger
+                className="w-full max-w-xs"
+                style={getInputStyle()}
+              >
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {sectionData.map((option: string, index: number) => (
+                  <SelectItem key={index} value={option}>
+                    {formatText(option)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )
+        }
+        return null
+      }
+
+      return (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-1 text-sm text-gray-600">
+            {renderSection(timeConstraint)}
+            {renderSection(number)}
+            {renderSection(timeUnit)}
+            {renderSection(action)}
+            {renderSection(trigger)}
+          </div>
+        </div>
+      )
+    }
 
     return (
       <div className="space-y-3">
@@ -2626,30 +3442,50 @@ export const QuestionRenderer = ({
             </div>
           )}
           {dateType === "CYO" && (
-            <div className="relative max-w-md">
-              <Input
-                type="text"
-                placeholder={uiConfig.placeholder || "Enter settlement date"}
-                disabled={disabled}
-                className={cn(editingMode && "cursor-not-allowed", "w-full")}
-                style={getInputStyle()}
-                value={editingMode ? "" : formValues.settlementDateCYO || ""}
-                onChange={(e) => {
-                  if (!editingMode) {
-                    const newValues = {
-                      ...formValues,
-                      settlementDateCYO: e.target.value,
+            <div className="space-y-2">
+              {settlementDateConfig &&
+              Object.keys(settlementDateConfig).length > 0 &&
+              Object.values(settlementDateConfig).some(
+                (selections) =>
+                  Array.isArray(selections) && selections.length > 0,
+              ) ? (
+                // Render custom settlement date UI based on configuration
+                renderCustomSettlementDate(settlementDateConfig)
+              ) : (
+                // Fallback to simple text input if no configuration
+                <div className="relative max-w-md">
+                  <Input
+                    type="text"
+                    placeholder={
+                      uiConfig.placeholder || "Enter settlement date"
                     }
-                    setFormValues(newValues)
-                    onChange?.(newValues)
-                  }
-                }}
-                onBlur={onBlur}
-                data-field-id={question.id}
-              />
-              {renderEditOverlay(
-                "placeholder",
-                uiConfig.placeholder || "Enter settlement date",
+                    disabled={disabled}
+                    className={cn(
+                      editingMode && "cursor-not-allowed",
+                      "w-full",
+                    )}
+                    style={getInputStyle()}
+                    value={
+                      editingMode ? "" : formValues.settlementDateCYO || ""
+                    }
+                    onChange={(e) => {
+                      if (!editingMode) {
+                        const newValues = {
+                          ...formValues,
+                          settlementDateCYO: e.target.value,
+                        }
+                        setFormValues(newValues)
+                        onChange?.(newValues)
+                      }
+                    }}
+                    onBlur={onBlur}
+                    data-field-id={question.id}
+                  />
+                  {renderEditOverlay(
+                    "placeholder",
+                    uiConfig.placeholder || "Enter settlement date",
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -2715,13 +3551,19 @@ export const QuestionRenderer = ({
     const allowAttachments =
       setupConfig.allow_attachments === "yes" ||
       setupConfig.allowAttachments === "yes"
-    const attachmentData = fileUploads[
-      `${question.id}_message_attachments`
-    ] || {
-      file: null,
-      fileName: "",
-      error: undefined,
-    }
+    const attachmentDataRaw = fileUploads[`${question.id}_message_attachments`]
+    const attachmentData =
+      attachmentDataRaw && "files" in attachmentDataRaw
+        ? attachmentDataRaw
+        : attachmentDataRaw && "file" in attachmentDataRaw
+          ? {
+              files: attachmentDataRaw.file ? [attachmentDataRaw.file] : [],
+              fileNames: attachmentDataRaw.fileName
+                ? [attachmentDataRaw.fileName]
+                : [],
+              error: attachmentDataRaw.error,
+            }
+          : { files: [], fileNames: [], error: undefined }
 
     // Separate textarea value from file attachments
     // Value should be a string for the textarea, files are stored separately
@@ -2777,23 +3619,17 @@ export const QuestionRenderer = ({
               multiple
               onChange={(e) => {
                 const files = Array.from(e.target.files || [])
-                // Validate all files
-                let fileError: string | undefined = undefined
-                for (const file of files) {
-                  const error = validateFileSize(file)
-                  if (error) {
-                    fileError = error
-                    break
-                  }
-                }
-
-                const fileNames = files.map((f) => f.name).join(", ")
+                const fileError = validateMultipleFiles(
+                  files,
+                  3,
+                  10 * 1024 * 1024,
+                )
                 setFileUploads((prev) => ({
                   ...prev,
                   [`${question.id}_message_attachments`]: {
-                    file: files[0] || null,
-                    fileName: fileNames || "",
-                    error: fileError,
+                    files,
+                    fileNames: files.map((f) => f.name),
+                    error: fileError || undefined,
                   },
                 }))
                 if (!fileError && files.length > 0) {
@@ -2801,6 +3637,14 @@ export const QuestionRenderer = ({
                   const currentMessage =
                     typeof value === "string" ? value : value?.message || ""
                   onChange?.({ message: currentMessage, attachments: files })
+                } else if (files.length === 0) {
+                  const currentMessage =
+                    typeof value === "string" ? value : value?.message || ""
+                  onChange?.(
+                    currentMessage
+                      ? currentMessage
+                      : { message: "", attachments: [] },
+                  )
                 }
               }}
             />
@@ -2812,47 +3656,77 @@ export const QuestionRenderer = ({
                 <p className="text-sm">📎 Attach files (Optional)</p>
               </label>
             </div>
-            {attachmentData.fileName && (
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFileUploads((prev) => ({
-                      ...prev,
-                      [`${question.id}_message_attachments`]: {
-                        file: null,
-                        fileName: "",
-                        error: undefined,
-                      },
-                    }))
-                    // Clear files but keep message text
-                    const currentMessage =
-                      typeof value === "string" ? value : value?.message || ""
-                    onChange?.(currentMessage || null)
-                    const fileInput = document.getElementById(
-                      `${question.id}_message_attachments`,
-                    ) as HTMLInputElement
-                    if (fileInput) {
-                      fileInput.value = ""
-                    }
-                  }}
-                  className="h-8 w-8 p-0"
-                  disabled={disabled}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <p className="text-xs text-gray-600">
-                  {attachmentData.fileName}
-                </p>
+            {attachmentData.fileNames.length > 0 && (
+              <div className="space-y-2">
+                {attachmentData.fileNames.map((fileName, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newFiles = [...attachmentData.files]
+                        const newFileNames = [...attachmentData.fileNames]
+                        newFiles.splice(index, 1)
+                        newFileNames.splice(index, 1)
+                        setFileUploads((prev) => ({
+                          ...prev,
+                          [`${question.id}_message_attachments`]:
+                            newFiles.length > 0
+                              ? {
+                                  files: newFiles,
+                                  fileNames: newFileNames,
+                                  error: undefined,
+                                }
+                              : {
+                                  files: [],
+                                  fileNames: [],
+                                  error: undefined,
+                                },
+                        }))
+                        // Update attachments in value
+                        const currentMessage =
+                          typeof value === "string"
+                            ? value
+                            : value?.message || ""
+                        if (newFiles.length > 0) {
+                          onChange?.({
+                            message: currentMessage,
+                            attachments: newFiles,
+                          })
+                        } else {
+                          onChange?.(
+                            currentMessage
+                              ? currentMessage
+                              : { message: "", attachments: [] },
+                          )
+                          const fileInput = document.getElementById(
+                            `${question.id}_message_attachments`,
+                          ) as HTMLInputElement
+                          if (fileInput) {
+                            fileInput.value = ""
+                          }
+                        }
+                      }}
+                      className="h-8 w-8 p-0"
+                      disabled={disabled}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <p className="text-xs text-gray-600">{fileName}</p>
+                  </div>
+                ))}
               </div>
             )}
             {attachmentData.error && (
-              <p className="text-xs text-red-500" role="alert">
+              <p className="mt-1 text-sm text-red-500" role="alert">
                 {attachmentData.error}
               </p>
             )}
+            <span className="text-xs text-gray-500">
+              Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files,
+              10MB total)
+            </span>
           </div>
         )}
       </div>
@@ -2980,7 +3854,7 @@ export const QuestionRenderer = ({
 
     return (
       <div>
-        <div className="relative max-w-md flex items-center gap-2">
+        <div className="relative flex max-w-md items-center gap-2">
           <PhoneInput
             value={phoneValue}
             onChange={(newValue) => {
@@ -2999,10 +3873,13 @@ export const QuestionRenderer = ({
           {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
           {editingMode && onEditPlaceholder && (
             <div
-              className="absolute left-[108px] right-0 top-0 bottom-0 z-20 cursor-pointer"
+              className="absolute top-0 right-0 bottom-0 left-[108px] z-20 cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation()
-                onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter your phone number")
+                onEditPlaceholder(
+                  "placeholder",
+                  uiConfig.placeholder || "Enter your phone number",
+                )
               }}
               title="Click to edit placeholder"
             />
@@ -3322,78 +4199,488 @@ export const QuestionRenderer = ({
       const numberType = setupConfig.number_type
 
       if (numberType === "money") {
-        const currencyStip = setupConfig.currency_stipulation
-        return (
-          <div className="flex gap-2">
-            {currencyStip === "fixed" && (
-              <span className="flex items-center text-sm text-gray-600">
-                {setupConfig.currency_fixed}
-              </span>
-            )}
-            <div className="relative max-w-md flex-1">
-              <Input
-                type="number"
-                min="0"
-                placeholder={uiConfig.amountPlaceholder || "Enter amount"}
-                disabled={disabled}
-                className="w-full"
-                style={getInputStyle()}
-              />
-              {renderEditOverlay(
-                "amountPlaceholder",
-                uiConfig.amountPlaceholder || "Enter amount",
-              )}
-            </div>
-            {currencyStip === "options" && (
-              <Select disabled={disabled}>
-                <SelectTrigger
-                  className="w-full max-w-xs"
-                  style={getSelectStyle()}
-                >
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent>
-                  {setupConfig.currency_options
-                    ?.split(",")
-                    .map((curr: string, idx: number) => (
-                      <SelectItem key={idx} value={curr.trim()}>
-                        {curr.trim()}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            )}
-            {currencyStip === "any" && (
-              <div className="relative max-w-xs flex-1">
-                <Input
-                  type="text"
-                  placeholder={uiConfig.currencyPlaceholder || "Currency"}
+        const currencyStip = setupConfig.currency_stipulation || "any"
+        // Handle both array format (new) and comma-separated string (legacy)
+        let currencyOptions: string[] = []
+        if (setupConfig.currency_options) {
+          if (Array.isArray(setupConfig.currency_options)) {
+            // New format: array of objects with value/label
+            currencyOptions = setupConfig.currency_options
+              .map((opt: any) => {
+                if (typeof opt === "string") return opt
+                return opt?.value || opt
+              })
+              .filter((c: string) => c && c.trim() !== "")
+          } else if (typeof setupConfig.currency_options === "string") {
+            // Legacy format: comma-separated string
+            currencyOptions = setupConfig.currency_options
+              .split(",")
+              .map((c: string) => c.trim())
+              .filter((c: string) => c !== "")
+          }
+        }
+        const fixedCurrency = setupConfig.currency_fixed || "USD"
+
+        // Standard currencies for "any" mode
+        const STANDARD_CURRENCIES = [
+          "USD",
+          "EUR",
+          "GBP",
+          "CAD",
+          "AUD",
+          "NZD",
+          "SGD",
+          "JPY",
+          "CNY",
+          "CHF",
+        ]
+
+        // Check if we should show multiple currency/amount pairs (when options mode with 2+ currencies)
+        // Disable multiple pairs mode for custom questions - they should show single currency selector
+        const showMultiplePairs = false
+
+        // Parse current value - use formValues for builder preview, value prop for actual form
+        const displayValue = editingMode && !onChange ? formValues : value
+
+        // Initialize amounts array for multiple pairs mode
+        let amountsArray: Array<{ amount: string | number; currency: string }> =
+          []
+        if (showMultiplePairs) {
+          if (Array.isArray(displayValue)) {
+            amountsArray = displayValue.map((item) => ({
+              amount: item?.amount !== undefined ? item.amount : "",
+              currency: item?.currency || currencyOptions[0] || "USD",
+            }))
+          } else if (
+            typeof displayValue === "object" &&
+            displayValue !== null &&
+            !Array.isArray(displayValue)
+          ) {
+            // Single object - convert to array
+            amountsArray = [
+              {
+                amount:
+                  (displayValue as any).amount !== undefined
+                    ? (displayValue as any).amount
+                    : "",
+                currency:
+                  (displayValue as any).currency || currencyOptions[0] || "USD",
+              },
+            ]
+          } else {
+            // Initialize with one empty pair
+            amountsArray = [
+              {
+                amount: "",
+                currency: currencyOptions[0] || "USD",
+              },
+            ]
+          }
+        }
+
+        // For single pair mode, parse current value
+        let currentAmount: string | number = ""
+        let currentCurrency = "USD" // Default to USD
+
+        if (!showMultiplePairs) {
+          if (typeof displayValue === "object" && displayValue !== null) {
+            currentAmount =
+              (displayValue as any).amount !== undefined
+                ? (displayValue as any).amount
+                : ""
+            // Use currency from value if provided, otherwise keep USD default
+            if ((displayValue as any).currency) {
+              currentCurrency = (displayValue as any).currency
+            }
+          } else {
+            currentAmount =
+              displayValue !== undefined && displayValue !== null
+                ? displayValue
+                : ""
+            // Default currency logic if not set
+            if (currencyStip === "fixed") {
+              currentCurrency = fixedCurrency
+            } else if (
+              currencyStip === "options" &&
+              currencyOptions.length > 0
+            ) {
+              // For options mode, prefer USD if available, otherwise first option
+              currentCurrency = currencyOptions.includes("USD")
+                ? "USD"
+                : currencyOptions[0]
+            } else {
+              currentCurrency = "USD"
+            }
+          }
+
+          // Ensure currentCurrency is valid for the mode
+          if (
+            currencyStip === "options" &&
+            !currencyOptions.includes(currentCurrency) &&
+            currencyOptions.length > 0
+          ) {
+            // Prefer USD if available in options, otherwise use first option
+            currentCurrency = currencyOptions.includes("USD")
+              ? "USD"
+              : currencyOptions[0]
+          }
+
+          // If currency is still empty or invalid, default to USD
+          if (!currentCurrency) {
+            currentCurrency = "USD"
+          }
+        }
+
+        const handleAmountChange = (val: string, index?: number) => {
+          if (showMultiplePairs && index !== undefined) {
+            const num = val === "" ? "" : Number(val)
+            const newAmounts = [...amountsArray]
+            newAmounts[index] = {
+              ...newAmounts[index],
+              amount: num,
+            }
+
+            if (editingMode && !onChange) {
+              setFormValues(newAmounts)
+            } else {
+              onChange?.(newAmounts)
+            }
+          } else {
+            const num = val === "" ? "" : Number(val)
+            // Ensure currency is always set (use currentCurrency or default to USD)
+            const currency = currentCurrency || "USD"
+            const newValue = { amount: num, currency: currency }
+
+            if (editingMode && !onChange) {
+              // In builder preview, update local state
+              setFormValues(newValue)
+            } else {
+              // In actual form, call onChange
+              onChange?.(newValue)
+            }
+          }
+        }
+
+        const handleCurrencyChange = (val: string, index?: number) => {
+          if (showMultiplePairs && index !== undefined) {
+            const newAmounts = [...amountsArray]
+            newAmounts[index] = {
+              ...newAmounts[index],
+              currency: val,
+            }
+
+            if (editingMode && !onChange) {
+              setFormValues(newAmounts)
+            } else {
+              onChange?.(newAmounts)
+            }
+          } else {
+            // Get the current amount from formData or formValues
+            const currentAmountValue =
+              editingMode && !onChange
+                ? formValues.amount !== undefined
+                  ? formValues.amount
+                  : currentAmount
+                : typeof value === "object" && value !== null
+                  ? (value as any).amount
+                  : currentAmount
+            const num =
+              currentAmountValue === "" || currentAmountValue === undefined
+                ? ""
+                : Number(currentAmountValue)
+            const newValue = { amount: num, currency: val }
+
+            if (editingMode && !onChange) {
+              // In builder preview, update local state
+              setFormValues(newValue)
+            } else {
+              // In actual form, call onChange
+              onChange?.(newValue)
+            }
+          }
+        }
+
+        const handleAddAnother = () => {
+          const defaultCurrency = currencyOptions[0] || "USD"
+          const newAmounts = [
+            ...amountsArray,
+            { amount: "", currency: defaultCurrency },
+          ]
+
+          if (editingMode && !onChange) {
+            setFormValues(newAmounts)
+          } else {
+            onChange?.(newAmounts)
+          }
+        }
+
+        const handleRemovePair = (index: number) => {
+          const newAmounts = amountsArray.filter((_, i) => i !== index)
+
+          if (editingMode && !onChange) {
+            setFormValues(newAmounts)
+          } else {
+            onChange?.(newAmounts)
+          }
+        }
+
+        // Render multiple currency/amount pairs
+        if (showMultiplePairs) {
+          return (
+            <div className="space-y-3">
+              {amountsArray.map((pair, index) => (
+                <div key={index} className="flex gap-2">
+                  {/* Currency Selector */}
+                  <Select
+                    value={pair.currency}
+                    onValueChange={(val) => {
+                      if (!editingMode) {
+                        handleCurrencyChange(val, index)
+                      }
+                    }}
+                    disabled={disabled || editingMode}
+                  >
+                    <SelectTrigger
+                      className="w-full max-w-xs"
+                      style={getSelectStyle()}
+                    >
+                      <SelectValue placeholder="Curr" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencyOptions.map((c: string) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Amount Input */}
+                  <div className="relative max-w-md flex-1">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder={uiConfig.amountPlaceholder || "Enter amount"}
+                      disabled={disabled || editingMode}
+                      className={cn(
+                        editingMode && "cursor-not-allowed",
+                        "w-full",
+                      )}
+                      style={getInputStyle()}
+                      value={editingMode ? "" : pair.amount}
+                      onChange={(e) => {
+                        if (!editingMode) {
+                          // Prevent "e", "E", "+", "-" characters
+                          const val = e.target.value.replace(/[eE\+\-]/g, "")
+                          handleAmountChange(val, index)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Prevent "e", "E", "+", "-" keys
+                        if (
+                          e.key === "e" ||
+                          e.key === "E" ||
+                          e.key === "+" ||
+                          e.key === "-"
+                        ) {
+                          e.preventDefault()
+                        }
+                      }}
+                      onBlur={onBlur}
+                      data-field-id={`${question.id}_${index}`}
+                    />
+                    {editingMode &&
+                      onEditPlaceholder &&
+                      renderEditOverlay(
+                        "amountPlaceholder",
+                        uiConfig.amountPlaceholder || "Enter amount",
+                      )}
+                  </div>
+
+                  {/* Remove button (only show if more than 1 pair) */}
+                  {amountsArray.length > 1 && !editingMode && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRemovePair(index)}
+                      disabled={disabled}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ))}
+
+              {/* Add Another button */}
+              {!editingMode && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddAnother}
                   disabled={disabled}
-                  className="w-full"
+                  className="mt-2"
+                >
+                  Add another Currency
+                </Button>
+              )}
+
+              {renderError(error)}
+            </div>
+          )
+        }
+
+        // Render single currency/amount pair
+        return (
+          <div>
+            <div className="flex gap-2">
+              {/* Currency Selector */}
+              {(currencyStip === "options" || currencyStip === "any") && (
+                <Select
+                  value={currentCurrency}
+                  onValueChange={(val) => {
+                    // Allow currency changes even in editing mode (for builder preview)
+                    handleCurrencyChange(val)
+                  }}
+                  disabled={disabled}
+                >
+                  <SelectTrigger
+                    className="w-full max-w-xs"
+                    style={getSelectStyle()}
+                  >
+                    <SelectValue placeholder="Curr" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencyStip === "options"
+                      ? currencyOptions.map((c: string) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))
+                      : STANDARD_CURRENCIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Amount Input */}
+              <div className="relative max-w-md flex-1">
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder={uiConfig.amountPlaceholder || "Enter amount"}
+                  disabled={disabled}
+                  className={cn(
+                    editingMode && "cursor-not-allowed",
+                    "w-full",
+                    currencyStip === "fixed" && "pr-12", // Add padding for currency decorator
+                  )}
                   style={getInputStyle()}
+                  value={editingMode ? "" : currentAmount}
+                  onChange={(e) => {
+                    if (!editingMode) {
+                      // Prevent "e", "E", "+", "-" characters (scientific notation and signs)
+                      const val = e.target.value.replace(/[eE\+\-]/g, "")
+                      handleAmountChange(val)
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    // Prevent "e", "E", "+", "-" keys
+                    if (
+                      e.key === "e" ||
+                      e.key === "E" ||
+                      e.key === "+" ||
+                      e.key === "-"
+                    ) {
+                      e.preventDefault()
+                    }
+                  }}
+                  onBlur={onBlur}
+                  data-field-id={question.id}
                 />
-                {renderEditOverlay(
-                  "currencyPlaceholder",
-                  uiConfig.currencyPlaceholder || "Currency",
+                {/* Currency decorator for fixed mode */}
+                {currencyStip === "fixed" && (
+                  <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
+                    {fixedCurrency}
+                  </div>
+                )}
+                {/* Edit overlay - adjust right padding for fixed currency mode */}
+                {currencyStip === "fixed" &&
+                editingMode &&
+                onEditPlaceholder ? (
+                  <div
+                    className="absolute inset-0 right-12 z-20 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEditPlaceholder(
+                        "amountPlaceholder",
+                        uiConfig.amountPlaceholder || "Enter amount",
+                      )
+                    }}
+                    title="Click to edit placeholder"
+                  />
+                ) : (
+                  renderEditOverlay(
+                    "amountPlaceholder",
+                    uiConfig.amountPlaceholder || "Enter amount",
+                  )
                 )}
               </div>
-            )}
+            </div>
+            {renderError(error)}
           </div>
         )
       } else if (numberType === "phone") {
+        // Handle both string (legacy) and object (new format) values
+        const phoneValue = editingMode
+          ? ""
+          : typeof value === "object" &&
+              value !== null &&
+              "countryCode" in value
+            ? value
+            : (value as string) || { countryCode: "+1", number: "" }
+
         return (
-          <div className="relative max-w-md">
-            <Input
-              type="tel"
-              placeholder={uiConfig.phonePlaceholder || "Enter phone number"}
-              disabled={disabled}
-              className="w-full"
-              style={getInputStyle()}
-            />
-            {renderEditOverlay(
-              "phonePlaceholder",
-              uiConfig.phonePlaceholder || "Enter phone number",
-            )}
+          <div>
+            <div className="relative flex max-w-md items-center gap-2">
+              <PhoneInput
+                value={phoneValue}
+                onChange={(newValue) => {
+                  // Allow changes in editing mode for preview (similar to offerAmount)
+                  onChange?.(newValue)
+                }}
+                onBlur={onBlur}
+                disabled={disabled}
+                editingMode={editingMode}
+                placeholder={uiConfig.phonePlaceholder || "555-123-4567"}
+                className={cn(editingMode && "cursor-not-allowed", "w-full")}
+                style={getInputStyle()}
+                data-field-id={question.id}
+              />
+              {/* Edit overlay only covers the phone number input part, not the country code dropdown */}
+              {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
+              {editingMode && onEditPlaceholder && (
+                <div
+                  className="absolute top-0 right-0 bottom-0 left-[108px] z-20 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEditPlaceholder(
+                      "phonePlaceholder",
+                      uiConfig.phonePlaceholder || "Enter your phone number",
+                    )
+                  }}
+                  title="Click to edit placeholder"
+                />
+              )}
+            </div>
+            {renderError(error)}
           </div>
         )
       } else if (numberType === "percentage") {
@@ -3436,11 +4723,17 @@ export const QuestionRenderer = ({
         )
       }
     } else if (answerType === "file_upload") {
-      const fileData = fileUploads[`${question.id}_file`] || {
-        file: null,
-        fileName: "",
-        error: undefined,
-      }
+      const fileDataRaw = fileUploads[`${question.id}_file`]
+      const fileData =
+        fileDataRaw && "files" in fileDataRaw
+          ? fileDataRaw
+          : fileDataRaw && "file" in fileDataRaw
+            ? {
+                files: fileDataRaw.file ? [fileDataRaw.file] : [],
+                fileNames: fileDataRaw.fileName ? [fileDataRaw.fileName] : [],
+                error: fileDataRaw.error,
+              }
+            : { files: [], fileNames: [], error: undefined }
 
       return (
         <div className="space-y-2">
@@ -3449,20 +4742,28 @@ export const QuestionRenderer = ({
             id={`${question.id}_file_input`}
             className="hidden"
             disabled={disabled}
+            multiple
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             onChange={(e) => {
-              const file = e.target.files?.[0] || null
+              const files = Array.from(e.target.files || [])
               const fileKey = `${question.id}_file`
-              const fileError = file ? validateFileSize(file) : null
+              const fileError = validateMultipleFiles(
+                files,
+                3,
+                10 * 1024 * 1024,
+              )
               setFileUploads((prev) => ({
                 ...prev,
                 [fileKey]: {
-                  file,
-                  fileName: file ? file.name : "",
+                  files,
+                  fileNames: files.map((f) => f.name),
                   error: fileError || undefined,
                 },
               }))
-              if (!fileError && file) {
-                onChange?.(file)
+              if (!fileError && files.length > 0) {
+                onChange?.(files.length === 1 ? files[0] : files)
+              } else if (files.length === 0) {
+                onChange?.(null)
               }
             }}
             data-field-id={question.id}
@@ -3475,37 +4776,63 @@ export const QuestionRenderer = ({
               <p className="text-sm">📎 Upload files</p>
             </label>
           </div>
-          {fileData.fileName && (
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setFileUploads((prev) => ({
-                    ...prev,
-                    [`${question.id}_file`]: {
-                      file: null,
-                      fileName: "",
-                      error: undefined,
-                    },
-                  }))
-                  onChange?.(null)
-                  const fileInput = document.getElementById(
-                    `${question.id}_file_input`,
-                  ) as HTMLInputElement
-                  if (fileInput) {
-                    fileInput.value = ""
-                  }
-                }}
-                className="h-8 w-8 p-0"
-                disabled={disabled}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <p className="text-xs text-gray-600">{fileData.fileName}</p>
+          {fileData.fileNames.length > 0 && (
+            <div className="space-y-2">
+              {fileData.fileNames.map((fileName, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const newFiles = [...fileData.files]
+                      const newFileNames = [...fileData.fileNames]
+                      newFiles.splice(index, 1)
+                      newFileNames.splice(index, 1)
+                      const fileKey = `${question.id}_file`
+                      setFileUploads((prev) => ({
+                        ...prev,
+                        [fileKey]:
+                          newFiles.length > 0
+                            ? {
+                                files: newFiles,
+                                fileNames: newFileNames,
+                                error: undefined,
+                              }
+                            : {
+                                files: [],
+                                fileNames: [],
+                                error: undefined,
+                              },
+                      }))
+                      if (newFiles.length > 0) {
+                        onChange?.(
+                          newFiles.length === 1 ? newFiles[0] : newFiles,
+                        )
+                      } else {
+                        onChange?.(null)
+                        const fileInput = document.getElementById(
+                          `${question.id}_file_input`,
+                        ) as HTMLInputElement
+                        if (fileInput) {
+                          fileInput.value = ""
+                        }
+                      }
+                    }}
+                    className="h-8 w-8 p-0"
+                    disabled={disabled}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <p className="text-xs text-gray-600">{fileName}</p>
+                </div>
+              ))}
             </div>
           )}
+          <span className="text-xs text-gray-500">
+            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files, 10MB
+            total)
+          </span>
           {renderError(fileData.error || error)}
         </div>
       )
@@ -3540,33 +4867,29 @@ export const QuestionRenderer = ({
         )
       } else if (timeType === "datetime") {
         return (
-          <div className="flex max-w-md gap-2">
-            <div className="flex-1">
-              <DatePicker
-                style={getInputStyle()}
-                value={formValues[`${question.id}_date`]}
-                onChange={(date) =>
-                  setFormValues((prev) => ({
-                    ...prev,
-                    [`${question.id}_date`]: date,
-                  }))
-                }
-                brandingConfig={brandingConfig}
-              />
-            </div>
-            <div className="flex-1">
-              <TimePicker
-                style={getInputStyle()}
-                value={formValues[`${question.id}_time`]}
-                onChange={(time) =>
-                  setFormValues((prev) => ({
-                    ...prev,
-                    [`${question.id}_time`]: time,
-                  }))
-                }
-                brandingConfig={brandingConfig}
-              />
-            </div>
+          <div className="flex max-w-md items-center gap-3">
+            <DatePicker
+              style={getInputStyle()}
+              value={formValues[`${question.id}_date`]}
+              onChange={(date) =>
+                setFormValues((prev) => ({
+                  ...prev,
+                  [`${question.id}_date`]: date,
+                }))
+              }
+              brandingConfig={brandingConfig}
+            />
+            <TimePicker
+              style={getInputStyle()}
+              value={formValues[`${question.id}_time`]}
+              onChange={(time) =>
+                setFormValues((prev) => ({
+                  ...prev,
+                  [`${question.id}_time`]: time,
+                }))
+              }
+              brandingConfig={brandingConfig}
+            />
           </div>
         )
       }
@@ -3590,11 +4913,22 @@ export const QuestionRenderer = ({
         </RadioGroup>
       )
     } else if (answerType === "single_select") {
-      const options =
-        setupConfig.select_options
-          ?.split(",")
-          .map((opt: string) => opt.trim())
-          .filter((opt: string) => opt.length > 0) || []
+      // Handle both array format (new) and comma-separated string (legacy)
+      let options: string[] = []
+      if (setupConfig.select_options) {
+        if (Array.isArray(setupConfig.select_options)) {
+          // New format: array of strings
+          options = setupConfig.select_options.filter(
+            (opt: string) => opt && opt.trim() !== "",
+          )
+        } else if (typeof setupConfig.select_options === "string") {
+          // Legacy format: comma-separated string
+          options = setupConfig.select_options
+            .split(",")
+            .map((opt: string) => opt.trim())
+            .filter((opt: string) => opt.length > 0)
+        }
+      }
       return (
         <RadioGroup disabled={disabled}>
           {options.map((opt: string, idx: number) => (
@@ -3606,11 +4940,22 @@ export const QuestionRenderer = ({
         </RadioGroup>
       )
     } else if (answerType === "multi_select") {
-      const options =
-        setupConfig.select_options
-          ?.split(",")
-          .map((opt: string) => opt.trim())
-          .filter((opt: string) => opt.length > 0) || []
+      // Handle both array format (new) and comma-separated string (legacy)
+      let options: string[] = []
+      if (setupConfig.select_options) {
+        if (Array.isArray(setupConfig.select_options)) {
+          // New format: array of strings
+          options = setupConfig.select_options.filter(
+            (opt: string) => opt && opt.trim() !== "",
+          )
+        } else if (typeof setupConfig.select_options === "string") {
+          // Legacy format: comma-separated string
+          options = setupConfig.select_options
+            .split(",")
+            .map((opt: string) => opt.trim())
+            .filter((opt: string) => opt.length > 0)
+        }
+      }
       return (
         <div className="space-y-2">
           {options.map((opt: string, idx: number) => (
@@ -3622,11 +4967,13 @@ export const QuestionRenderer = ({
         </div>
       )
     } else if (answerType === "statement") {
-      const showTickbox = setupConfig.add_tickbox === "yes"
+      const tickboxMode = setupConfig.add_tickbox || "no"
+      const showTickbox =
+        tickboxMode === "required" || tickboxMode === "optional"
       // Only disable checkbox in editing mode, not in form preview/user-facing form
       const tickboxDisabled = editingMode || !showTickbox
-      const isRequired = setupConfig.tickbox_requirement === "essential"
-      const isOptional = !isRequired
+      const isRequired = tickboxMode === "required"
+      const isOptional = tickboxMode === "optional"
 
       return (
         <div className="space-y-2">
@@ -3686,7 +5033,7 @@ export const QuestionRenderer = ({
 
       return (
         <div>
-          <div className="relative max-w-md flex items-center gap-2">
+          <div className="relative flex max-w-md items-center gap-2">
             <PhoneInput
               value={phoneValue}
               onChange={(newValue) => {
@@ -3705,10 +5052,13 @@ export const QuestionRenderer = ({
             {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
             {editingMode && onEditPlaceholder && (
               <div
-                className="absolute left-[108px] right-0 top-0 bottom-0 z-20 cursor-pointer"
+                className="absolute top-0 right-0 bottom-0 left-[108px] z-20 cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onEditPlaceholder("placeholder", uiConfig.placeholder || "Enter your phone number")
+                  onEditPlaceholder(
+                    "placeholder",
+                    uiConfig.placeholder || "Enter your phone number",
+                  )
                 }}
                 title="Click to edit placeholder"
               />

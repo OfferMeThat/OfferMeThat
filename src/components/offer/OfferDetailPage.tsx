@@ -6,6 +6,7 @@ import {
   formatMessageToAgent,
   formatPurchaserData,
   formatSettlementDateData,
+  formatSpecialConditions,
   formatSubjectToLoanApproval,
 } from "@/lib/formatOfferData"
 import { parseAllCustomQuestions } from "@/lib/parseCustomQuestionsData"
@@ -313,19 +314,41 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
         {(() => {
           // Check if there's any actual content to display
           const hasSpecialConditions = !!offer.specialConditions
-          const hasPurchaseAgreement = !!offer.purchaseAgreementFileUrl
+          // Helper to parse purchaseAgreementFileUrl (can be single URL string or JSON array)
+          const parsePurchaseAgreementUrls = (
+            value: string | null | undefined,
+          ): string[] => {
+            if (!value) return []
+            try {
+              // Try to parse as JSON array
+              const parsed = JSON.parse(value)
+              if (Array.isArray(parsed)) {
+                return parsed.filter((url) => typeof url === "string")
+              }
+            } catch {
+              // Not JSON, treat as single URL string
+            }
+            // Single URL string (backward compatibility)
+            return [value]
+          }
+          const purchaseAgreementUrls = parsePurchaseAgreementUrls(
+            offer.purchaseAgreementFileUrl,
+          )
+          const hasPurchaseAgreement = purchaseAgreementUrls.length > 0
           const hasMessageToAgent =
-            offer.messageToAgent && formatMessageToAgent(offer.messageToAgent)
+            offer.messageToAgent &&
+            formatMessageToAgent(offer.messageToAgent as any)
           const hasPurchaserData =
-            offer.purchaserData && formatPurchaserData(offer.purchaserData)
+            offer.purchaserData &&
+            formatPurchaserData(offer.purchaserData as any)
           const hasDepositData =
-            offer.depositData && formatDepositData(offer.depositData)
+            offer.depositData && formatDepositData(offer.depositData as any)
           const hasSettlementDateData =
             offer.settlementDateData &&
-            formatSettlementDateData(offer.settlementDateData)
+            formatSettlementDateData(offer.settlementDateData as any)
           const hasSubjectToLoanApproval =
             offer.subjectToLoanApproval &&
-            formatSubjectToLoanApproval(offer.subjectToLoanApproval)
+            formatSubjectToLoanApproval(offer.subjectToLoanApproval as any)
           const hasCustomQuestions = parsedCustomQuestions.length > 0
 
           const hasAnyContent =
@@ -351,32 +374,60 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                     <p className="mb-2 text-sm font-medium text-gray-500">
                       Special Conditions
                     </p>
-                    <p className="text-base whitespace-pre-wrap text-gray-900">
-                      {offer.specialConditions}
-                    </p>
+                    {(() => {
+                      // Parse specialConditions if it's a JSON string
+                      let specialConditionsData = offer.specialConditions
+                      if (typeof specialConditionsData === "string") {
+                        try {
+                          specialConditionsData = JSON.parse(
+                            specialConditionsData,
+                          )
+                        } catch {
+                          // If parsing fails, treat as legacy string format
+                        }
+                      }
+                      const setupConfig = (offer as any)
+                        .specialConditionsSetupConfig
+
+                      return formatSpecialConditions(
+                        specialConditionsData,
+                        setupConfig,
+                      )
+                    })()}
                   </div>
                 )}
 
-                {offer.purchaseAgreementFileUrl && (
+                {purchaseAgreementUrls.length > 0 && (
                   <div>
                     <p className="mb-2 text-sm font-medium text-gray-500">
                       Purchase Agreement
+                      {purchaseAgreementUrls.length > 1 &&
+                        ` (${purchaseAgreementUrls.length} files)`}
                     </p>
-                    <a
-                      href={offer.purchaseAgreementFileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 hover:underline"
-                    >
-                      <FileText size={16} />
-                      View Purchase Agreement
-                    </a>
+                    <div className="flex flex-col gap-1">
+                      {purchaseAgreementUrls.map((url, index) => (
+                        <a
+                          key={index}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 hover:underline"
+                        >
+                          <FileText size={16} />
+                          {purchaseAgreementUrls.length > 1
+                            ? `View Purchase Agreement ${index + 1}`
+                            : "View Purchase Agreement"}
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 )}
 
                 {offer.messageToAgent &&
                   (() => {
-                    const formatted = formatMessageToAgent(offer.messageToAgent)
+                    const formatted = formatMessageToAgent(
+                      offer.messageToAgent as any,
+                    )
                     return formatted ? (
                       <div>
                         <p className="mb-2 text-sm font-medium text-gray-500">
@@ -389,7 +440,9 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
 
                 {offer.purchaserData &&
                   (() => {
-                    const formatted = formatPurchaserData(offer.purchaserData)
+                    const formatted = formatPurchaserData(
+                      offer.purchaserData as any,
+                    )
                     return formatted ? (
                       <div>
                         <p className="mb-2 text-sm font-medium text-gray-500">
@@ -402,7 +455,9 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
 
                 {offer.depositData &&
                   (() => {
-                    const formatted = formatDepositData(offer.depositData)
+                    const formatted = formatDepositData(
+                      offer.depositData as any,
+                    )
                     return formatted ? (
                       <div>
                         <p className="mb-2 text-sm font-medium text-gray-500">
@@ -416,7 +471,7 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                 {offer.settlementDateData &&
                   (() => {
                     const formatted = formatSettlementDateData(
-                      offer.settlementDateData,
+                      offer.settlementDateData as any,
                     )
                     return formatted ? (
                       <div>
@@ -431,15 +486,11 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                 {offer.subjectToLoanApproval &&
                   (() => {
                     const formatted = formatSubjectToLoanApproval(
-                      offer.subjectToLoanApproval,
+                      offer.subjectToLoanApproval as any,
                     )
+                    // formatSubjectToLoanApproval already includes the label, so just render it
                     return formatted ? (
-                      <div>
-                        <p className="mb-2 text-sm font-medium text-gray-500">
-                          Subject to Loan Approval
-                        </p>
-                        <div className="text-base">{formatted}</div>
-                      </div>
+                      <div className="text-base">{formatted}</div>
                     ) : null
                   })()}
 

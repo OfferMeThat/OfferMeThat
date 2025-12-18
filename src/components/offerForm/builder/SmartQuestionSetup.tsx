@@ -173,7 +173,25 @@ const SmartQuestionSetup = ({
 }: SmartQuestionSetupProps) => {
   const [answers, setAnswers] = useState<Record<string, any>>(() => {
     // Initialize with initial config in edit mode, empty otherwise
-    return mode === "edit" ? { ...initialSetupConfig } : {}
+    const initialAnswers = mode === "edit" ? { ...initialSetupConfig } : {}
+
+    // Convert legacy comma-separated currency_options string to array format
+    if (
+      initialAnswers.currency_options &&
+      typeof initialAnswers.currency_options === "string"
+    ) {
+      const currencyCodes = initialAnswers.currency_options
+        .split(",")
+        .map((c: string) => c.trim())
+        .filter((c: string) => c !== "")
+      // Convert to array of objects format
+      initialAnswers.currency_options = currencyCodes.map((code: string) => ({
+        value: code,
+        label: code,
+      }))
+    }
+
+    return initialAnswers
   })
   const [showDueDateModal, setShowDueDateModal] = useState(false)
   const [showLoanDueDateModal, setShowLoanDueDateModal] = useState(false)
@@ -193,7 +211,25 @@ const SmartQuestionSetup = ({
       setAnswers((prev) => {
         // Merge with existing answers to preserve any user changes
         // but update with any new values from initialSetupConfig
-        return { ...prev, ...initialSetupConfig }
+        const updated = { ...prev, ...initialSetupConfig }
+
+        // Convert legacy comma-separated currency_options string to array format
+        if (
+          updated.currency_options &&
+          typeof updated.currency_options === "string"
+        ) {
+          const currencyCodes = updated.currency_options
+            .split(",")
+            .map((c: string) => c.trim())
+            .filter((c: string) => c !== "")
+          // Convert to array of objects format
+          updated.currency_options = currencyCodes.map((code: string) => ({
+            value: code,
+            label: code,
+          }))
+        }
+
+        return updated
       })
     }
   }, [mode, initialSetupConfig])
@@ -229,7 +265,52 @@ const SmartQuestionSetup = ({
       const generatedProperties = smartQuestion.generateProperties(
         answersRef.current,
       )
-      onComplete(generatedProperties, answersRef.current)
+
+      // Determine required status based on mandatory settings in answers
+      let requiredOverride: boolean | undefined = undefined
+      const answers = answersRef.current
+
+      // Check for mandatory/optional settings that should affect question required status
+      // Name of Purchaser - collect_identification
+      if (smartQuestion.id === "name_of_purchaser") {
+        if (answers.collect_identification === "mandatory") {
+          requiredOverride = true
+        } else if (
+          answers.collect_identification === "optional" ||
+          answers.collect_identification === "no"
+        ) {
+          requiredOverride = false
+        }
+      }
+
+      // Subject to Loan Approval - lender_details and attachments
+      if (smartQuestion.id === "loan_approval") {
+        if (
+          answers.lender_details === "required" ||
+          answers.attachments === "required"
+        ) {
+          requiredOverride = true
+        } else if (
+          answers.lender_details === "not_required" &&
+          answers.attachments === "not_required"
+        ) {
+          requiredOverride = false
+        }
+      }
+
+      // Evidence of Funds - evidence_of_funds
+      if (smartQuestion.id === "evidence_of_funds") {
+        if (answers.evidence_of_funds === "required") {
+          requiredOverride = true
+        } else if (
+          answers.evidence_of_funds === "optional" ||
+          answers.evidence_of_funds === "not_required"
+        ) {
+          requiredOverride = false
+        }
+      }
+
+      onComplete(generatedProperties, answersRef.current, requiredOverride)
     } catch (error) {
       console.error("Error in handleSave:", error)
       isSavingRef.current = false
@@ -403,24 +484,62 @@ const SmartQuestionSetup = ({
     for (let i = 0; i < setupQuestions.length; i++) {
       const question = setupQuestions[i]
 
-      // If question has no conditional or conditional_display, show it
-      if (!question.conditional && !question.conditional_display) {
+      // Check if this question should be shown based on its conditions
+      // Handle three possible formats:
+      // 1. question.conditional or question.conditional_display with { dependsOn: string, showWhen: string }
+      // 2. question.conditional or question.conditional_display with { dependsOn: { questionId, value } }
+      // 3. question.dependsOn directly (from offerFormQuestions.ts format)
+
+      const conditional = question.conditional || question.conditional_display
+      const questionAny = question as any
+      const directDependsOn = questionAny.dependsOn
+
+      // If question has no conditional, conditional_display, or direct dependsOn, show it
+      if (!conditional && !directDependsOn) {
         visibleQuestions.push(question)
         continue
       }
 
-      // Check if this question should be shown based on its conditions
-      const conditional = question.conditional || question.conditional_display
-      if (!conditional) continue // Should be covered by above check but for type safety
+      // Determine dependsOnId and showWhenValue
+      let dependsOnId: string
+      let showWhenValue: string | string[]
 
-      const { dependsOn, showWhen } = conditional
-      const dependentAnswer = answers[dependsOn]
+      if (
+        directDependsOn &&
+        typeof directDependsOn === "object" &&
+        "questionId" in directDependsOn
+      ) {
+        // Format 3: question.dependsOn directly (from offerFormQuestions.ts)
+        dependsOnId = directDependsOn.questionId
+        showWhenValue = directDependsOn.value
+      } else if (conditional) {
+        if (typeof conditional.dependsOn === "string") {
+          // Format 1: { dependsOn: string, showWhen: string }
+          dependsOnId = conditional.dependsOn
+          showWhenValue = conditional.showWhen
+        } else if (
+          conditional.dependsOn &&
+          typeof conditional.dependsOn === "object" &&
+          "questionId" in conditional.dependsOn
+        ) {
+          // Format 2: { dependsOn: { questionId, value } }
+          const dependsOnObj = conditional.dependsOn as any
+          dependsOnId = dependsOnObj.questionId
+          showWhenValue = dependsOnObj.value
+        } else {
+          continue
+        }
+      } else {
+        continue
+      }
+
+      const dependentAnswer = answers[dependsOnId]
 
       let shouldShow = false
-      if (Array.isArray(showWhen)) {
-        shouldShow = showWhen.includes(dependentAnswer)
+      if (Array.isArray(showWhenValue)) {
+        shouldShow = showWhenValue.includes(dependentAnswer)
       } else {
-        shouldShow = dependentAnswer === showWhen
+        shouldShow = dependentAnswer === showWhenValue
       }
 
       if (shouldShow) {
@@ -681,6 +800,23 @@ const SmartQuestionSetup = ({
   }
 
   const handleAnswerChange = (questionId: string, value: any) => {
+    // Initialize currency_options when switching currency_stipulation to "options" for custom questions
+    if (
+      questionId === "currency_stipulation" &&
+      value === "options" &&
+      !answers["currency_options"]
+    ) {
+      setAnswers((prev) => ({
+        ...prev,
+        [questionId]: value,
+        currency_options: [
+          { value: "", label: "" },
+          { value: "", label: "" },
+        ],
+      }))
+      return
+    }
+
     setAnswers((prev) => {
       const newAnswers = {
         ...prev,
@@ -695,11 +831,41 @@ const SmartQuestionSetup = ({
       // Clear dependent fields when parent selection changes
       setupQuestions.forEach((question) => {
         const conditional = question.conditional || question.conditional_display
-        if (conditional && conditional.dependsOn === questionId) {
-          const { showWhen } = conditional
-          const shouldShow = Array.isArray(showWhen)
-            ? showWhen.includes(value)
-            : value === showWhen
+        const questionAny = question as any
+        const directDependsOn = questionAny.dependsOn
+
+        // Check if this question depends on the changed questionId
+        let dependsOnId: string | undefined
+        let showWhenValue: string | string[] | undefined
+
+        if (
+          directDependsOn &&
+          typeof directDependsOn === "object" &&
+          "questionId" in directDependsOn
+        ) {
+          dependsOnId = directDependsOn.questionId
+          showWhenValue = directDependsOn.value
+        } else if (conditional) {
+          if (typeof conditional.dependsOn === "string") {
+            dependsOnId = conditional.dependsOn
+            showWhenValue = conditional.showWhen
+          } else if (
+            conditional.dependsOn &&
+            typeof conditional.dependsOn === "object" &&
+            "questionId" in conditional.dependsOn
+          ) {
+            const dependsOnObj = conditional.dependsOn as any
+            dependsOnId = dependsOnObj.questionId
+            showWhenValue = dependsOnObj.value
+          }
+        }
+
+        if (dependsOnId === questionId) {
+          const shouldShow = showWhenValue
+            ? Array.isArray(showWhenValue)
+              ? showWhenValue.includes(value)
+              : value === showWhenValue
+            : false
 
           // If the dependent field should not be shown, clear its value
           if (!shouldShow) {
@@ -717,6 +883,16 @@ const SmartQuestionSetup = ({
         questionId === "currency_stipulation_instalment_1" ||
         questionId === "currency_stipulation_instalment_2"
       ) {
+        // For custom questions, initialize currency_options when switching to "options"
+        if (questionId === "currency_stipulation" && value === "options") {
+          if (!newAnswers["currency_options"]) {
+            newAnswers["currency_options"] = [
+              { value: "", label: "" },
+              { value: "", label: "" },
+            ]
+          }
+        }
+
         // Clear all currency options when currency stipulation changes
         const currencyOptionIds = []
         if (questionId === "currency_stipulation") {
@@ -964,17 +1140,17 @@ const SmartQuestionSetup = ({
         // Check if this is a required field that needs a value
         if (question.required !== false) {
           const value = answers[question.id]
-          
+
           // Skip currency option fields as they're handled separately
           if (question.id.includes("currency_options_")) {
             continue
           }
-          
+
           // Check if the field is empty
           if (value === undefined || value === "" || value === null) {
             return false
           }
-          
+
           // Special validation for deposit_holding_details when deposit_holding is "stipulate"
           if (question.id.includes("deposit_holding_details")) {
             const holdingFieldId = question.id.replace("_details", "")
@@ -984,12 +1160,17 @@ const SmartQuestionSetup = ({
               }
             }
           }
-          
+
           // Special validation for fixed_deposit fields
-          if (question.id.includes("fixed_deposit_amount") && !question.id.includes("currency")) {
+          if (
+            question.id.includes("fixed_deposit_amount") &&
+            !question.id.includes("currency")
+          ) {
             // If fixed_amount is selected, check for corresponding currency
             const currencyFieldId = question.id.replace("amount", "currency")
-            const hasCurrencyField = visibleQuestions.some(q => q.id === currencyFieldId)
+            const hasCurrencyField = visibleQuestions.some(
+              (q) => q.id === currencyFieldId,
+            )
             if (hasCurrencyField) {
               const currencyValue = answers[currencyFieldId]
               if (!currencyValue || currencyValue === "") {
@@ -1032,6 +1213,7 @@ const SmartQuestionSetup = ({
           }
 
           // Skip all currency option fields (1, 2, 3, 4, 5) as they're handled in the special layout
+          // BUT allow currency_options for custom questions (it's a single field, not numbered)
           if (question.id.includes("currency_options_")) {
             return null
           }
@@ -1045,9 +1227,12 @@ const SmartQuestionSetup = ({
 
           return (
             <div key={question.id} className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-900">
-                {question.question}
-              </h3>
+              {/* Don't show label for currency_options - it's handled in the currency_options type rendering */}
+              {question.id !== "currency_options" && (
+                <h3 className="text-sm font-medium text-gray-900">
+                  {question.question}
+                </h3>
+              )}
 
               {question.type === "radio" ? (
                 <div className="space-y-2">
@@ -1105,7 +1290,7 @@ const SmartQuestionSetup = ({
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select an option" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[300px]">
                     {question.options?.map((option) => (
                       <SelectItem
                         key={
@@ -1353,201 +1538,218 @@ const SmartQuestionSetup = ({
                   })()}
                 </div>
               ) : question.type === "currency_options" ? (
-                <div className="space-y-3">
-                  {(() => {
-                    const currencyOptions = answers[question.id] || [
-                      { value: "", label: "" },
-                      { value: "", label: "" },
-                    ]
-                    const maxCurrencies = 5
+                <div className="mt-4 space-y-4 border-t pt-4">
+                  <div className="space-y-3">
+                    {(() => {
+                      const currencyOptions = answers[question.id] || [
+                        { value: "", label: "" },
+                        { value: "", label: "" },
+                      ]
+                      const maxCurrencies = 5
+                      const validOptions = currencyOptions.filter(
+                        (opt: any) => opt?.value && opt.value !== "",
+                      )
+                      const needsMore = validOptions.length < 2
 
-                    // Currency options from the smartQuestions.js file
-                    const allCurrencies = [
-                      { value: "USD", label: "USD - US Dollar" },
-                      { value: "EUR", label: "EUR - Euro" },
-                      { value: "GBP", label: "GBP - British Pound" },
-                      { value: "CAD", label: "CAD - Canadian Dollar" },
-                      { value: "AUD", label: "AUD - Australian Dollar" },
-                      { value: "JPY", label: "JPY - Japanese Yen" },
-                      { value: "CHF", label: "CHF - Swiss Franc" },
-                      { value: "CNY", label: "CNY - Chinese Yuan" },
-                      { value: "SEK", label: "SEK - Swedish Krona" },
-                      { value: "NOK", label: "NOK - Norwegian Krone" },
-                      { value: "DKK", label: "DKK - Danish Krone" },
-                      { value: "PLN", label: "PLN - Polish Zloty" },
-                      { value: "CZK", label: "CZK - Czech Koruna" },
-                      { value: "HUF", label: "HUF - Hungarian Forint" },
-                      { value: "RON", label: "RON - Romanian Leu" },
-                      { value: "BGN", label: "BGN - Bulgarian Lev" },
-                      { value: "HRK", label: "HRK - Croatian Kuna" },
-                      { value: "RSD", label: "RSD - Serbian Dinar" },
-                      { value: "MKD", label: "MKD - Macedonian Denar" },
-                      { value: "ALL", label: "ALL - Albanian Lek" },
-                      { value: "BAM", label: "BAM - Bosnia-Herzegovina Mark" },
-                      { value: "ISK", label: "ISK - Icelandic Krona" },
-                      { value: "MDL", label: "MDL - Moldovan Leu" },
-                      { value: "UAH", label: "UAH - Ukrainian Hryvnia" },
-                      { value: "BYN", label: "BYN - Belarusian Ruble" },
-                      { value: "RUB", label: "RUB - Russian Ruble" },
-                      { value: "TRY", label: "TRY - Turkish Lira" },
-                      { value: "ILS", label: "ILS - Israeli Shekel" },
-                      { value: "AED", label: "AED - UAE Dirham" },
-                      { value: "SAR", label: "SAR - Saudi Riyal" },
-                      { value: "QAR", label: "QAR - Qatari Riyal" },
-                      { value: "KWD", label: "KWD - Kuwaiti Dinar" },
-                      { value: "BHD", label: "BHD - Bahraini Dinar" },
-                      { value: "OMR", label: "OMR - Omani Rial" },
-                      { value: "JOD", label: "JOD - Jordanian Dinar" },
-                      { value: "LBP", label: "LBP - Lebanese Pound" },
-                      { value: "EGP", label: "EGP - Egyptian Pound" },
-                      { value: "MAD", label: "MAD - Moroccan Dirham" },
-                      { value: "TND", label: "TND - Tunisian Dinar" },
-                      { value: "DZD", label: "DZD - Algerian Dinar" },
-                      { value: "LYD", label: "LYD - Libyan Dinar" },
-                      { value: "ETB", label: "ETB - Ethiopian Birr" },
-                      { value: "KES", label: "KES - Kenyan Shilling" },
-                      { value: "UGX", label: "UGX - Ugandan Shilling" },
-                      { value: "TZS", label: "TZS - Tanzanian Shilling" },
-                      { value: "ZAR", label: "ZAR - South African Rand" },
-                      { value: "NGN", label: "NGN - Nigerian Naira" },
-                      { value: "GHS", label: "GHS - Ghanaian Cedi" },
-                      { value: "XOF", label: "XOF - West African CFA Franc" },
-                      {
-                        value: "XAF",
-                        label: "XAF - Central African CFA Franc",
-                      },
-                      { value: "BRL", label: "BRL - Brazilian Real" },
-                      { value: "ARS", label: "ARS - Argentine Peso" },
-                      { value: "CLP", label: "CLP - Chilean Peso" },
-                      { value: "COP", label: "COP - Colombian Peso" },
-                      { value: "MXN", label: "MXN - Mexican Peso" },
-                      { value: "PEN", label: "PEN - Peruvian Sol" },
-                      { value: "UYU", label: "UYU - Uruguayan Peso" },
-                      { value: "VES", label: "VES - Venezuelan Bolívar" },
-                      { value: "INR", label: "INR - Indian Rupee" },
-                      { value: "PKR", label: "PKR - Pakistani Rupee" },
-                      { value: "BDT", label: "BDT - Bangladeshi Taka" },
-                      { value: "LKR", label: "LKR - Sri Lankan Rupee" },
-                      { value: "NPR", label: "NPR - Nepalese Rupee" },
-                      { value: "AFN", label: "AFN - Afghan Afghani" },
-                      { value: "KZT", label: "KZT - Kazakhstani Tenge" },
-                      { value: "UZS", label: "UZS - Uzbekistani Som" },
-                      { value: "KGS", label: "KGS - Kyrgyzstani Som" },
-                      { value: "TJS", label: "TJS - Tajikistani Somoni" },
-                      { value: "TMT", label: "TMT - Turkmenistani Manat" },
-                      { value: "MNT", label: "MNT - Mongolian Tugrik" },
-                      { value: "KRW", label: "KRW - South Korean Won" },
-                      { value: "THB", label: "THB - Thai Baht" },
-                      { value: "VND", label: "VND - Vietnamese Dong" },
-                      { value: "IDR", label: "IDR - Indonesian Rupiah" },
-                      { value: "MYR", label: "MYR - Malaysian Ringgit" },
-                      { value: "SGD", label: "SGD - Singapore Dollar" },
-                      { value: "PHP", label: "PHP - Philippine Peso" },
-                      { value: "HKD", label: "HKD - Hong Kong Dollar" },
-                      { value: "TWD", label: "TWD - Taiwan Dollar" },
-                      { value: "NZD", label: "NZD - New Zealand Dollar" },
-                      { value: "FJD", label: "FJD - Fijian Dollar" },
-                      { value: "PGK", label: "PGK - Papua New Guinea Kina" },
-                      { value: "SBD", label: "SBD - Solomon Islands Dollar" },
-                      { value: "VUV", label: "VUV - Vanuatu Vatu" },
-                      { value: "WST", label: "WST - Samoan Tala" },
-                      { value: "TOP", label: "TOP - Tongan Paʻanga" },
-                      { value: "KID", label: "KID - Kiribati Dollar" },
-                    ]
+                      // Currency options from the smartQuestions.js file
+                      const allCurrencies = [
+                        { value: "USD", label: "USD - US Dollar" },
+                        { value: "EUR", label: "EUR - Euro" },
+                        { value: "GBP", label: "GBP - British Pound" },
+                        { value: "CAD", label: "CAD - Canadian Dollar" },
+                        { value: "AUD", label: "AUD - Australian Dollar" },
+                        { value: "JPY", label: "JPY - Japanese Yen" },
+                        { value: "CHF", label: "CHF - Swiss Franc" },
+                        { value: "CNY", label: "CNY - Chinese Yuan" },
+                        { value: "SEK", label: "SEK - Swedish Krona" },
+                        { value: "NOK", label: "NOK - Norwegian Krone" },
+                        { value: "DKK", label: "DKK - Danish Krone" },
+                        { value: "PLN", label: "PLN - Polish Zloty" },
+                        { value: "CZK", label: "CZK - Czech Koruna" },
+                        { value: "HUF", label: "HUF - Hungarian Forint" },
+                        { value: "RON", label: "RON - Romanian Leu" },
+                        { value: "BGN", label: "BGN - Bulgarian Lev" },
+                        { value: "HRK", label: "HRK - Croatian Kuna" },
+                        { value: "RSD", label: "RSD - Serbian Dinar" },
+                        { value: "MKD", label: "MKD - Macedonian Denar" },
+                        { value: "ALL", label: "ALL - Albanian Lek" },
+                        {
+                          value: "BAM",
+                          label: "BAM - Bosnia-Herzegovina Mark",
+                        },
+                        { value: "ISK", label: "ISK - Icelandic Krona" },
+                        { value: "MDL", label: "MDL - Moldovan Leu" },
+                        { value: "UAH", label: "UAH - Ukrainian Hryvnia" },
+                        { value: "BYN", label: "BYN - Belarusian Ruble" },
+                        { value: "RUB", label: "RUB - Russian Ruble" },
+                        { value: "TRY", label: "TRY - Turkish Lira" },
+                        { value: "ILS", label: "ILS - Israeli Shekel" },
+                        { value: "AED", label: "AED - UAE Dirham" },
+                        { value: "SAR", label: "SAR - Saudi Riyal" },
+                        { value: "QAR", label: "QAR - Qatari Riyal" },
+                        { value: "KWD", label: "KWD - Kuwaiti Dinar" },
+                        { value: "BHD", label: "BHD - Bahraini Dinar" },
+                        { value: "OMR", label: "OMR - Omani Rial" },
+                        { value: "JOD", label: "JOD - Jordanian Dinar" },
+                        { value: "LBP", label: "LBP - Lebanese Pound" },
+                        { value: "EGP", label: "EGP - Egyptian Pound" },
+                        { value: "MAD", label: "MAD - Moroccan Dirham" },
+                        { value: "TND", label: "TND - Tunisian Dinar" },
+                        { value: "DZD", label: "DZD - Algerian Dinar" },
+                        { value: "LYD", label: "LYD - Libyan Dinar" },
+                        { value: "ETB", label: "ETB - Ethiopian Birr" },
+                        { value: "KES", label: "KES - Kenyan Shilling" },
+                        { value: "UGX", label: "UGX - Ugandan Shilling" },
+                        { value: "TZS", label: "TZS - Tanzanian Shilling" },
+                        { value: "ZAR", label: "ZAR - South African Rand" },
+                        { value: "NGN", label: "NGN - Nigerian Naira" },
+                        { value: "GHS", label: "GHS - Ghanaian Cedi" },
+                        { value: "XOF", label: "XOF - West African CFA Franc" },
+                        {
+                          value: "XAF",
+                          label: "XAF - Central African CFA Franc",
+                        },
+                        { value: "BRL", label: "BRL - Brazilian Real" },
+                        { value: "ARS", label: "ARS - Argentine Peso" },
+                        { value: "CLP", label: "CLP - Chilean Peso" },
+                        { value: "COP", label: "COP - Colombian Peso" },
+                        { value: "MXN", label: "MXN - Mexican Peso" },
+                        { value: "PEN", label: "PEN - Peruvian Sol" },
+                        { value: "UYU", label: "UYU - Uruguayan Peso" },
+                        { value: "VES", label: "VES - Venezuelan Bolívar" },
+                        { value: "INR", label: "INR - Indian Rupee" },
+                        { value: "PKR", label: "PKR - Pakistani Rupee" },
+                        { value: "BDT", label: "BDT - Bangladeshi Taka" },
+                        { value: "LKR", label: "LKR - Sri Lankan Rupee" },
+                        { value: "NPR", label: "NPR - Nepalese Rupee" },
+                        { value: "AFN", label: "AFN - Afghan Afghani" },
+                        { value: "KZT", label: "KZT - Kazakhstani Tenge" },
+                        { value: "UZS", label: "UZS - Uzbekistani Som" },
+                        { value: "KGS", label: "KGS - Kyrgyzstani Som" },
+                        { value: "TJS", label: "TJS - Tajikistani Somoni" },
+                        { value: "TMT", label: "TMT - Turkmenistani Manat" },
+                        { value: "MNT", label: "MNT - Mongolian Tugrik" },
+                        { value: "KRW", label: "KRW - South Korean Won" },
+                        { value: "THB", label: "THB - Thai Baht" },
+                        { value: "VND", label: "VND - Vietnamese Dong" },
+                        { value: "IDR", label: "IDR - Indonesian Rupiah" },
+                        { value: "MYR", label: "MYR - Malaysian Ringgit" },
+                        { value: "SGD", label: "SGD - Singapore Dollar" },
+                        { value: "PHP", label: "PHP - Philippine Peso" },
+                        { value: "HKD", label: "HKD - Hong Kong Dollar" },
+                        { value: "TWD", label: "TWD - Taiwan Dollar" },
+                        { value: "NZD", label: "NZD - New Zealand Dollar" },
+                        { value: "FJD", label: "FJD - Fijian Dollar" },
+                        { value: "PGK", label: "PGK - Papua New Guinea Kina" },
+                        { value: "SBD", label: "SBD - Solomon Islands Dollar" },
+                        { value: "VUV", label: "VUV - Vanuatu Vatu" },
+                        { value: "WST", label: "WST - Samoan Tala" },
+                        { value: "TOP", label: "TOP - Tongan Paʻanga" },
+                        { value: "KID", label: "KID - Kiribati Dollar" },
+                      ]
 
-                    return (
-                      <div className="space-y-3">
-                        {currencyOptions.map(
-                          (currency: SmartQuestionOption, index: number) => (
-                            <div
-                              key={index}
-                              className="flex items-center space-x-3"
-                            >
-                              <Label className="min-w-[100px] text-sm font-medium text-gray-900">
-                                Currency {index + 1}:
-                              </Label>
-                              <Select
-                                value={currency.value || ""}
-                                onValueChange={(value) => {
-                                  const newCurrencies = [...currencyOptions]
-                                  const selectedCurrency = allCurrencies.find(
-                                    (c) => c.value === value,
-                                  )
-                                  newCurrencies[index] = {
-                                    value: value,
-                                    label: selectedCurrency
-                                      ? selectedCurrency.label
-                                      : value,
-                                  }
-                                  handleAnswerChange(question.id, newCurrencies)
-                                }}
+                      return (
+                        <>
+                          <div className="mb-4">
+                            <h3 className="mb-3 text-sm font-medium text-gray-900">
+                              {question.question || "Currency Options"}
+                            </h3>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-500">
+                                Select at least 2 currencies
+                              </span>
+                            </div>
+                          </div>
+                          {currencyOptions.map(
+                            (currency: SmartQuestionOption, index: number) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2"
                               >
-                                <SelectTrigger className="flex-1">
-                                  <SelectValue placeholder="Select currency" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {allCurrencies.map((currencyOption) => (
-                                    <SelectItem
-                                      key={currencyOption.value}
-                                      value={currencyOption.value}
-                                    >
-                                      {typeof currencyOption.label === "string"
-                                        ? currencyOption.label
-                                        : getCurrencyDisplayName(
-                                            currencyOption.value,
-                                          )}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              {currencyOptions.length > 2 && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    const newCurrencies =
-                                      currencyOptions.filter(
-                                        (_: any, i: number) => i !== index,
-                                      )
+                                <span className="w-32 text-xs font-medium text-gray-700">
+                                  Currency Option {index + 1}:
+                                </span>
+                                <Select
+                                  value={currency.value || ""}
+                                  onValueChange={(value) => {
+                                    const newCurrencies = [...currencyOptions]
+                                    const selectedCurrency = allCurrencies.find(
+                                      (c) => c.value === value,
+                                    )
+                                    newCurrencies[index] = {
+                                      value: value,
+                                      label: selectedCurrency
+                                        ? selectedCurrency.label
+                                        : value,
+                                    }
                                     handleAnswerChange(
                                       question.id,
                                       newCurrencies,
                                     )
                                   }}
-                                  className="text-red-600 hover:text-red-700"
                                 >
-                                  Remove
-                                </Button>
-                              )}
-                            </div>
-                          ),
-                        )}
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Currency" />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[300px]">
+                                    {allCurrencies.map((currencyOption) => (
+                                      <SelectItem
+                                        key={currencyOption.value}
+                                        value={currencyOption.value}
+                                      >
+                                        {currencyOption.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {currencyOptions.length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newCurrencies =
+                                        currencyOptions.filter(
+                                          (_: any, i: number) => i !== index,
+                                        )
+                                      handleAnswerChange(
+                                        question.id,
+                                        newCurrencies,
+                                      )
+                                    }}
+                                    className="text-xs text-red-600 hover:text-red-700"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            ),
+                          )}
 
-                        {currencyOptions.length < maxCurrencies && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const newCurrencies = [
-                                ...currencyOptions,
-                                { value: "", label: "" },
-                              ]
-                              handleAnswerChange(question.id, newCurrencies)
-                            }}
-                            className="mt-2"
-                          >
-                            Add another Currency
-                          </Button>
-                        )}
+                          {needsMore && (
+                            <p className="text-xs text-amber-600">
+                              Please select at least 2 currencies for buyers to
+                              choose from.
+                            </p>
+                          )}
 
-                        <p className="text-xs text-gray-500">
-                          Maximum {maxCurrencies} currencies allowed
-                        </p>
-                      </div>
-                    )
-                  })()}
+                          {currencyOptions.length < maxCurrencies && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newCurrencies = [
+                                  ...currencyOptions,
+                                  { value: "", label: "" },
+                                ]
+                                handleAnswerChange(question.id, newCurrencies)
+                              }}
+                              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                            >
+                              + Add another Currency
+                            </button>
+                          )}
+                        </>
+                      )
+                    })()}
+                  </div>
                 </div>
               ) : null}
 

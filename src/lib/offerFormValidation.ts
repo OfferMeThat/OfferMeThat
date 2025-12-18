@@ -49,7 +49,11 @@ export const buildQuestionValidation = (
     case "submitterPhone":
       // Phone can be a string (legacy) or an object { countryCode: string, number: string }
       schema = yup.lazy((value) => {
-        if (typeof value === "object" && value !== null && "countryCode" in value) {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "countryCode" in value
+        ) {
           // New format: object with countryCode and number
           return yup.object().shape({
             countryCode: yup
@@ -102,22 +106,27 @@ export const buildQuestionValidation = (
               .required(required ? "Currency is required" : undefined),
           })
           // Add required to the object schema if needed
-          return required ? objectSchema.required("This field is required") : objectSchema
+          return required
+            ? objectSchema.required("This field is required")
+            : objectSchema
         }
         // If value is undefined or null, and question is required, validate as object with default currency
         if (value === undefined || value === null) {
           if (required) {
-            return yup.object().shape({
-              amount: yup
-                .number()
-                .typeError("Please enter a valid number")
-                .positive("Amount must be positive")
-                .required("Amount is required"),
-              currency: yup
-                .string()
-                .default("USD")
-                .required("Currency is required"),
-            }).required("This field is required")
+            return yup
+              .object()
+              .shape({
+                amount: yup
+                  .number()
+                  .typeError("Please enter a valid number")
+                  .positive("Amount must be positive")
+                  .required("Amount is required"),
+                currency: yup
+                  .string()
+                  .default("USD")
+                  .required("Currency is required"),
+              })
+              .required("This field is required")
           }
           return yup.mixed().nullable().optional()
         }
@@ -126,7 +135,9 @@ export const buildQuestionValidation = (
           .number()
           .typeError("Please enter a valid number")
           .positive("Amount must be positive")
-        return required ? numberSchema.required("This field is required") : numberSchema
+        return required
+          ? numberSchema.required("This field is required")
+          : numberSchema
       }) as unknown as yup.AnySchema
       // Mark this as a lazy schema so we don't add .required() to it later
       ;(schema as any)._isLazy = true
@@ -141,10 +152,16 @@ export const buildQuestionValidation = (
       // Name of purchaser can be:
       // 1. A string (for single_field method)
       // 2. An object with { name: string, idFile?: File } (for single_field with file)
-      // 3. An object with { scenario, numPurchasers, nameFields, etc. } (for individual_names method)
+      // 3. An object with { scenario, numPurchasers, nameFields, idFiles, etc. } (for individual_names method)
       const nameOfPurchaserSetup =
         (question.setupConfig as Record<string, any>) || {}
       const collectionMethod = nameOfPurchaserSetup.collection_method
+      const collectIdentification = nameOfPurchaserSetup.collect_identification
+      // ID is required ONLY if BOTH:
+      // 1. collect_identification is exactly "mandatory" AND
+      // 2. The question itself is required
+      // If the question is not required (even if collect_identification is "mandatory"), ID is NOT required
+      const idRequired = collectIdentification === "mandatory" && required
 
       if (collectionMethod === "single_field") {
         // For single field, can be string or object with name/idFile
@@ -168,7 +185,7 @@ export const buildQuestionValidation = (
               return true
             }
 
-            // If it's an object, validate the name property
+            // If it's an object, validate the name property and idFile if required
             if (typeof value === "object" && value !== null) {
               const name = (value as any).name || ""
               if (!name && required) {
@@ -179,6 +196,23 @@ export const buildQuestionValidation = (
                   message: "Maximum 150 characters allowed",
                 })
               }
+
+              // Validate ID file ONLY if BOTH collect_identification is "mandatory" AND question is required
+              // If collect_identification is "optional" or "no", or if question is not required, skip this validation
+              // Only require ID file if name is provided (user has filled in the name)
+              if (
+                collectIdentification === "mandatory" &&
+                required &&
+                name &&
+                name.trim() &&
+                !(value as any).idFile
+              ) {
+                return this.createError({
+                  message: "ID upload is required",
+                  path: `${this.path}.idFile`,
+                })
+              }
+
               return true
             }
 
@@ -246,6 +280,40 @@ export const buildQuestionValidation = (
               }
             }
 
+            // Validate ID files ONLY if BOTH collect_identification is "mandatory" AND question is required
+            // If collect_identification is "optional" or "no", or if question is not required, skip this validation entirely
+            if (collectIdentification === "mandatory" && required) {
+              const idFiles = obj.idFiles || {}
+              const nameFields = obj.nameFields || {}
+
+              // Check that each person with a name has an ID file
+              const missingIds: string[] = []
+              Object.keys(nameFields).forEach((prefix) => {
+                const nameData = nameFields[prefix]
+                if (
+                  nameData &&
+                  typeof nameData === "object" &&
+                  nameData.firstName &&
+                  nameData.firstName.trim() &&
+                  nameData.lastName &&
+                  nameData.lastName.trim()
+                ) {
+                  // This person has a name, so they need an ID file if ID is mandatory
+                  if (!idFiles[prefix] || !(idFiles[prefix] instanceof File)) {
+                    missingIds.push(prefix)
+                  }
+                }
+              })
+
+              if (missingIds.length > 0) {
+                return this.createError({
+                  message: "ID upload is required for all purchasers",
+                  path: `${this.path}.idFiles`,
+                })
+              }
+            }
+            // If collect_identification is "optional" or "no" or undefined, no ID validation is needed
+
             return true
           })
           .nullable()
@@ -300,8 +368,12 @@ export const buildQuestionValidation = (
       } else if (answerType === "statement") {
         // Statement questions have an optional checkbox
         const setupConfig = (question.setupConfig as Record<string, any>) || {}
-        const tickboxRequirement = setupConfig.tickbox_requirement
-        if (tickboxRequirement === "essential") {
+        const addTickbox = setupConfig.add_tickbox || "no"
+        // Check if tickbox is required (new format) or if legacy format with tickbox_requirement
+        const isRequired =
+          addTickbox === "required" ||
+          (addTickbox === "yes" && setupConfig.tickbox_requirement === "essential")
+        if (isRequired) {
           schema = yup.boolean().required("You must agree to this statement")
         } else {
           schema = yup.boolean().nullable().optional()
@@ -318,7 +390,11 @@ export const buildQuestionValidation = (
       } else if (answerType === "phone") {
         // Phone can be a string (legacy) or an object { countryCode: string, number: string }
         schema = yup.lazy((value) => {
-          if (typeof value === "object" && value !== null && "countryCode" in value) {
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            "countryCode" in value
+          ) {
             // New format: object with countryCode and number
             return yup.object().shape({
               countryCode: yup
@@ -479,10 +555,48 @@ export const buildQuestionValidation = (
         )
       break
 
+    case "attachPurchaseAgreement":
+      // Can be a File, array of Files, string (URL), or array of strings (URLs)
+      schema = yup.lazy((value) => {
+        // If it's a File or array of Files, that's valid (will be uploaded)
+        if (value instanceof File) {
+          return yup.mixed()
+        }
+        if (Array.isArray(value) && value.every((v) => v instanceof File)) {
+          return yup.array().of(yup.mixed())
+        }
+        // If it's a string (URL), validate as string
+        if (typeof value === "string") {
+          return yup.string()
+        }
+        // If it's an array of strings (URLs), validate as array of strings
+        if (Array.isArray(value) && value.every((v) => typeof v === "string")) {
+          return yup.array().of(yup.string())
+        }
+        // If it's null/undefined and required, show error
+        if (value === null || value === undefined) {
+          if (required) {
+            return yup.mixed().required("This field is required")
+          }
+          return yup.mixed().nullable().optional()
+        }
+        // For any other type, allow it (might be in transition state)
+        return yup.mixed()
+      }) as unknown as yup.AnySchema
+      // Mark this as a lazy schema so we don't add .required() to it later
+      ;(schema as any)._isLazy = true
+      break
+
     case "subjectToLoanApproval":
       // Complex field with nested data including supporting documents
       const setupConfig = (question.setupConfig as Record<string, any>) || {}
       const attachments = setupConfig.attachments
+      const lenderDetails = setupConfig.lender_details
+
+      // Attachments are required if attachments === "required" AND question is required
+      const attachmentsRequired = attachments === "required" && required
+      // Lender details are required if lender_details === "required" AND question is required
+      const lenderDetailsRequired = lenderDetails === "required" && required
 
       if (required) {
         // Create a schema that validates the object structure
@@ -490,8 +604,8 @@ export const buildQuestionValidation = (
           subjectToLoan: yup.string().required("This field is required"),
         })
 
-        // If attachments are required and question is required, validate supporting docs
-        if (attachments && attachments !== "not_required") {
+        // Add validation for attachments if required
+        if (attachmentsRequired) {
           schema = baseSchema.test(
             "supporting-docs-required",
             "Supporting documents are required when 'Yes' is selected",
@@ -500,7 +614,6 @@ export const buildQuestionValidation = (
                 return true // Not required if "No" is selected
               }
               // Check if supporting documents file is provided
-              // The file should be stored in the value object or as a separate field
               const loanValue = value as any
               const hasSupportingDocs =
                 loanValue.supportingDocs &&
@@ -519,8 +632,84 @@ export const buildQuestionValidation = (
         } else {
           schema = baseSchema
         }
+
+        // Add validation for lender details if required
+        if (lenderDetailsRequired) {
+          schema = (schema as any).test(
+            "lender-details-required",
+            "Lender details are required when 'Yes' is selected",
+            function (this: any, value: any) {
+              if (!value || value.subjectToLoan !== "yes") {
+                return true // Not required if "No" is selected
+              }
+              // Check if lender details are provided
+              // Lender details can be in companyName (if lender_details === "required")
+              // or contactName, contactEmail, contactPhone (if lender_details === "optional" or "required")
+              const hasLenderDetails =
+                (value.companyName && String(value.companyName).trim()) ||
+                (value.contactName && String(value.contactName).trim())
+              if (!hasLenderDetails) {
+                return this.createError({
+                  message: "Lender details are required",
+                  path: `${this.path}.companyName`,
+                })
+              }
+              return true
+            },
+          )
+        }
       } else {
-        schema = yup.mixed().nullable()
+        // Question is not required, but sub-fields might still be required
+        schema = yup
+          .mixed()
+          .test("subjectToLoanApproval-optional", function (value) {
+            if (!value) {
+              return true // Question is optional, so empty is fine
+            }
+
+            // If "Yes" is selected, validate required sub-fields
+            const loanValue = value as any
+            if (loanValue.subjectToLoan === "yes") {
+              // Validate attachments if required
+              if (attachmentsRequired) {
+                const loanValue = value as any
+                const hasSupportingDocs =
+                  loanValue.supportingDocs &&
+                  (Array.isArray(loanValue.supportingDocs)
+                    ? loanValue.supportingDocs.length > 0
+                    : loanValue.supportingDocs !== null)
+                if (!hasSupportingDocs) {
+                  return this.createError({
+                    message: "Supporting documents are required",
+                    path: `${this.path}.supportingDocs`,
+                  })
+                }
+              }
+
+              // Validate lender details if required
+              if (lenderDetailsRequired) {
+                // Check if lender details are provided
+                // Lender details can be in companyName (if lender_details === "required")
+                // or contactName, contactEmail, contactPhone (if lender_details === "optional" or "required")
+                const loanValue = value as any
+                const hasLenderDetails =
+                  (loanValue.companyName &&
+                    String(loanValue.companyName).trim()) ||
+                  (loanValue.contactName &&
+                    String(loanValue.contactName).trim())
+                if (!hasLenderDetails) {
+                  return (this as any).createError({
+                    message: "Lender details are required",
+                    path: `${(this as any).path}.companyName`,
+                  })
+                }
+              }
+            }
+
+            return true
+          })
+          .nullable()
+          .optional()
       }
       break
 
@@ -645,6 +834,61 @@ export const buildQuestionValidation = (
       schema = yup.string().max(150, "Maximum 150 characters allowed")
       break
 
+    case "specialConditions":
+      // Special conditions can be a string (legacy) or an object with selectedConditions, customCondition, and conditionAttachments
+      schema = yup
+        .mixed()
+        .test(
+          "specialConditions",
+          "Invalid special conditions format",
+          function (value) {
+            // Allow null/undefined if not required
+            if (!required && (value === null || value === undefined || value === "")) {
+              return true
+            }
+
+            // If required and empty, return error
+            if (required && (!value || value === "")) {
+              return this.createError({
+                message: "Please select at least one condition or add a custom condition",
+              })
+            }
+
+            // Handle legacy string format
+            if (typeof value === "string") {
+              return true
+            }
+
+            // Handle new object format
+            if (typeof value === "object" && value !== null) {
+              const data = value as {
+                selectedConditions?: number[] | string[]
+                customCondition?: string
+                conditionAttachments?: Record<number | string, File[]>
+              }
+
+              // Must have at least one condition selected or a custom condition
+              const hasSelectedConditions =
+                Array.isArray(data.selectedConditions) &&
+                data.selectedConditions.length > 0
+              const hasCustomCondition =
+                typeof data.customCondition === "string" &&
+                data.customCondition.trim() !== ""
+
+              if (!hasSelectedConditions && !hasCustomCondition) {
+                return this.createError({
+                  message: "Please select at least one condition or add a custom condition",
+                })
+              }
+
+              return true
+            }
+
+            return false
+          },
+        )
+      break
+
     default:
       // Default validation for unknown types
       schema = yup.string().max(150, "Maximum 150 characters allowed")
@@ -684,14 +928,25 @@ export const buildFormValidationSchema = (
   const shape: Record<string, yup.AnySchema> = {}
 
   questions.forEach((question) => {
-    if (question.type === "submitButton") return
+    // Submit button requires T&C checkbox to be checked
+    if (question.type === "submitButton") {
+      shape[question.id] = yup
+        .boolean()
+        .required("You must agree to the terms and conditions")
+        .oneOf([true], "You must agree to the terms and conditions")
+      return
+    }
 
     // In test mode, make specifyListing optional
-    const isRequired = isTestMode && question.type === "specifyListing" 
-      ? false 
-      : question.required
+    const isRequired =
+      isTestMode && question.type === "specifyListing"
+        ? false
+        : question.required
 
-    const schema = buildQuestionValidation({ ...question, required: isRequired })
+    const schema = buildQuestionValidation({
+      ...question,
+      required: isRequired,
+    })
     if (schema) {
       // Use question ID as the key
       shape[question.id] = schema
@@ -710,6 +965,43 @@ export const validateFileSize = (file: File | null): string | null => {
   if (file.size > maxSize) {
     return "File size must be less than 10MB"
   }
+  return null
+}
+
+/**
+ * Validates multiple files for upload
+ * @param files - Array of File objects
+ * @param maxFiles - Maximum number of files allowed (default: 3)
+ * @param maxTotalSize - Maximum total size in bytes (default: 10MB)
+ * @returns Error message if validation fails, null if valid
+ */
+export const validateMultipleFiles = (
+  files: File[],
+  maxFiles: number = 3,
+  maxTotalSize: number = 10 * 1024 * 1024, // 10MB
+): string | null => {
+  if (files.length === 0) return null
+
+  // Check max number of files
+  if (files.length > maxFiles) {
+    return `Maximum ${maxFiles} files allowed`
+  }
+
+  // Check individual file sizes
+  for (const file of files) {
+    const fileError = validateFileSize(file)
+    if (fileError) {
+      return fileError
+    }
+  }
+
+  // Check total size
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+  if (totalSize > maxTotalSize) {
+    const maxSizeMB = (maxTotalSize / (1024 * 1024)).toFixed(0)
+    return `Total file size must be less than ${maxSizeMB}MB`
+  }
+
   return null
 }
 

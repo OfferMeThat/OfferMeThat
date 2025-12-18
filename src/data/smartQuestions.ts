@@ -1535,7 +1535,11 @@ export const smartQuestionsConfig = {
       return question
     },
 
-    generateCurrencyField: function (currencyStipulation, setupAnswers, suffix = "") {
+    generateCurrencyField: function (
+      currencyStipulation,
+      setupAnswers,
+      suffix = "",
+    ) {
       if (currencyStipulation === "any") {
         return {
           type: "select",
@@ -1642,7 +1646,9 @@ export const smartQuestionsConfig = {
       } else if (currencyStipulation === "options") {
         const currencyOptions = []
         for (let i = 1; i <= 2; i++) {
-          const currencyValue = setupAnswers[`currency_options_${i}${suffix}`] || setupAnswers[`currency_options_${i}`]
+          const currencyValue =
+            setupAnswers[`currency_options_${i}${suffix}`] ||
+            setupAnswers[`currency_options_${i}`]
           if (currencyValue) {
             // Get the full currency name for better display
             const currencyName = this.getCurrencyDisplayName
@@ -1660,7 +1666,9 @@ export const smartQuestionsConfig = {
           options: currencyOptions,
         }
       } else if (currencyStipulation === "fixed") {
-        const fixedCurrency = setupAnswers[`stipulated_currency${suffix}`] || setupAnswers.stipulated_currency
+        const fixedCurrency =
+          setupAnswers[`stipulated_currency${suffix}`] ||
+          setupAnswers.stipulated_currency
         return {
           type: "display",
           value: fixedCurrency || "",
@@ -3204,16 +3212,13 @@ export const smartQuestionsConfig = {
         },
       },
       {
-        id: "currency_management",
-        question: "Do you want to stipulate a currency?",
-        type: "select",
+        id: "currency_stipulation",
+        question: "Would you like to allow Buyers to select a Currency?",
+        type: "radio",
         options: [
-          { value: "any", label: "Let Buyer/Agent choose any currency" },
-          {
-            value: "options",
-            label: "Give Buyer/Agent 2+ currencies to select from",
-          },
-          { value: "fixed", label: "Yes, stipulate currency" },
+          { value: "any", label: "Yes, let Buyer choose any" },
+          { value: "options", label: "Yes, give Buyer 2+ options" },
+          { value: "fixed", label: "No, stipulate a Currency" },
         ],
         required: true,
         conditional: {
@@ -3223,11 +3228,11 @@ export const smartQuestionsConfig = {
       },
       {
         id: "currency_options",
-        question: "Select Currencies",
+        question: "Currency Options",
         type: "currency_options",
         required: true,
         conditional: {
-          dependsOn: "currency_management",
+          dependsOn: "currency_stipulation",
           showWhen: "options",
         },
       },
@@ -3387,7 +3392,7 @@ export const smartQuestionsConfig = {
         ],
         required: true,
         conditional: {
-          dependsOn: "currency_management",
+          dependsOn: "currency_stipulation",
           showWhen: "fixed",
         },
       },
@@ -3502,7 +3507,7 @@ export const smartQuestionsConfig = {
         answer_type,
         question_text,
         number_type,
-        currency_management,
+        currency_stipulation,
         currency_options,
         fixed_currency,
         number_question_text,
@@ -3537,9 +3542,9 @@ export const smartQuestionsConfig = {
           if (number_type === "money") {
             finalQuestionText = money_question_text
             questionType = "number"
-            if (currency_management === "fixed") {
+            if (currency_stipulation === "fixed") {
               additionalProps.currency = fixed_currency
-            } else if (currency_management === "options") {
+            } else if (currency_stipulation === "options") {
               // Extract currency codes from currency_options array
               if (Array.isArray(currency_options)) {
                 additionalProps.currency_options = currency_options.map(
@@ -3555,7 +3560,7 @@ export const smartQuestionsConfig = {
               } else {
                 additionalProps.currency_options = currency_options
               }
-            } else if (currency_management === "any") {
+            } else if (currency_stipulation === "any") {
               // Buyer can choose any currency - show currency selector with all options
               additionalProps.currency_options = [
                 "USD",
@@ -3701,7 +3706,14 @@ export const smartQuestionsConfig = {
         case "statement":
           finalQuestionText = statement_text
           questionType = "display"
-          if (add_tickbox === "yes") {
+          // Handle new format: required, optional, or no
+          if (add_tickbox === "required" || add_tickbox === "optional") {
+            additionalProps.show_tickbox = true
+            additionalProps.tickbox_required = add_tickbox === "required"
+            additionalProps.tickbox_text = tickbox_text || "I agree"
+          }
+          // Legacy format support: "yes" with tickbox_requirement
+          else if (add_tickbox === "yes") {
             additionalProps.show_tickbox = true
             additionalProps.tickbox_required =
               tickbox_requirement === "essential"

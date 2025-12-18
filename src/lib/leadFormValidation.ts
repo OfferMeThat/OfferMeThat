@@ -213,8 +213,12 @@ export const buildFormValidationSchema = (
   const shape: Record<string, yup.AnySchema> = {}
 
   questions.forEach((question) => {
-    // Skip submit buttons
+    // Submit button requires T&C checkbox to be checked
     if (question.type === "submitButton") {
+      shape[question.id] = yup
+        .boolean()
+        .required("You must agree to the terms and conditions")
+        .oneOf([true], "You must agree to the terms and conditions")
       return
     }
 

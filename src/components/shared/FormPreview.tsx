@@ -193,10 +193,9 @@ export const FormPreview = ({
         })
         setValidationErrors(newErrors)
 
-        // Mark all fields on current page as touched
+        // Mark all fields on current page as touched, including submit button for T&C checkbox
         const newTouched = new Set(touchedFields)
         currentPage.questions.forEach((question) => {
-          if (question.type === "submitButton") return
           newTouched.add(question.id)
         })
         setTouchedFields(newTouched)
@@ -293,12 +292,10 @@ export const FormPreview = ({
         })
         setValidationErrors(newErrors)
 
-        // Mark all fields as touched
+        // Mark all fields as touched, including submit button for T&C checkbox
         const newTouched = new Set(touchedFields)
         questions.forEach((question) => {
-          if (question.type !== "submitButton") {
-            newTouched.add(question.id)
-          }
+          newTouched.add(question.id)
         })
         setTouchedFields(newTouched)
 
@@ -437,11 +434,7 @@ export const FormPreview = ({
       </div>
 
       {!isFirstPage && (
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          className="mx-auto w-1/2 gap-2"
-        >
+        <Button variant="outline" onClick={handlePrevious} className="gap-2">
           <ChevronLeft className="h-4 w-4" />
           Previous
         </Button>
@@ -450,8 +443,29 @@ export const FormPreview = ({
       {/* Questions */}
       <div className="space-y-0">
         {currentPage.questions.map((question, index) => {
-          // Skip rendering the submit button in the questions list
+          // Render submit button question with T&C checkbox on last page
           if (question.type === "submitButton") {
+            if (isLastPage) {
+              return (
+                <div key={question.id} className="mt-6">
+                  <QuestionRenderer
+                    question={question as any}
+                    disabled={false}
+                    editingMode={false}
+                    formId={question.formId}
+                    brandingConfig={brandingConfig}
+                    value={formData[question.id]}
+                    onChange={(value) => handleFieldChange(question.id, value)}
+                    onBlur={() => handleFieldBlur(question.id)}
+                    error={
+                      touchedFields.has(question.id)
+                        ? validationErrors[question.id]
+                        : undefined
+                    }
+                  />
+                </div>
+              )
+            }
             return null
           }
 
@@ -541,7 +555,8 @@ export const FormPreview = ({
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>
-        ) : (
+        ) : hasSubmitButton ? // Submit button is rendered via QuestionRenderer above, so we don't need a separate button here
+        null : (
           <Button
             size="lg"
             onClick={handleSubmit}
@@ -551,22 +566,7 @@ export const FormPreview = ({
               color: brandingConfig?.buttonTextColor || undefined,
             }}
           >
-            {hasSubmitButton
-              ? (() => {
-                  const submitButtonQuestion = currentPage.questions.find(
-                    (q) => q.type === "submitButton",
-                  )
-                  const submitUiConfig = parseUIConfig(
-                    submitButtonQuestion?.uiConfig || {},
-                  )
-                  return (
-                    submitUiConfig.label ||
-                    (formType === "offer" ? "Submit Offer" : "Submit")
-                  )
-                })()
-              : formType === "offer"
-                ? "Submit Offer"
-                : "Submit"}
+            {formType === "offer" ? "Submit Offer" : "Submit"}
           </Button>
         )}
       </div>
