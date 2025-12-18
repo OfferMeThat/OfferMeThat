@@ -55,7 +55,13 @@ export type SetupQuestionOption = {
 export type SetupQuestion = {
   id: string // key in setupConfig JSON
   label: string
-  type: "radio" | "select" | "text" | "number" | "multiChoiceSelect"
+  type:
+    | "radio"
+    | "select"
+    | "text"
+    | "number"
+    | "multiChoiceSelect"
+    | "currency_options"
   options?: SetupQuestionOption[] // Required for radio/select/multiChoiceSelect, not for text/number
   placeholder?: string // For text/number inputs
   dependsOn?: {
@@ -1110,25 +1116,24 @@ export const QUESTION_DEFINITIONS: Partial<
       // PATH 2: Money - Q3
       {
         id: "currency_stipulation",
-        label: "Stipulate currency?",
-        type: "select",
+        label: "Would you like to allow Buyers to select a Currency?",
+        type: "radio",
         dependsOn: {
           questionId: "number_type",
           value: "money",
         },
         options: [
-          { value: "any", label: "Let Buyer choose any" },
-          { value: "options", label: "Give Buyer 2+ options" },
-          { value: "fixed", label: "Stipulate a currency" },
+          { value: "any", label: "Yes, let Buyer choose any" },
+          { value: "options", label: "Yes, give Buyer 2+ options" },
+          { value: "fixed", label: "No, stipulate a Currency" },
         ],
       },
 
       // PATH 2: Money - Q4 (if options)
       {
         id: "currency_options",
-        label: "Select currencies to offer (comma-separated)",
-        type: "text",
-        placeholder: "USD, EUR, GBP",
+        label: "Currency Options",
+        type: "currency_options",
         dependsOn: {
           questionId: "currency_stipulation",
           value: "options",
