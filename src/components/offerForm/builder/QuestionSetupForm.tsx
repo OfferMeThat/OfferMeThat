@@ -20,6 +20,7 @@ import { QuestionSetupConfig, QuestionUIConfig } from "@/types/questionConfig"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import SmartQuestionSetup from "./SmartQuestionSetup"
+import DepositDueDateModal from "./DepositDueDateModal"
 
 interface QuestionSetupFormProps {
   questionType: QuestionType
@@ -77,6 +78,9 @@ const QuestionSetupForm = ({
       : [{ name: "", details: "" }],
   )
 
+  // State for settlement date modal
+  const [showSettlementDateModal, setShowSettlementDateModal] = useState(false)
+
   // Use ref to track previous config to avoid infinite loops
   const prevConfigRef = useRef<string>("")
   const questionTypeRef = useRef<QuestionType | null>(null)
@@ -120,6 +124,23 @@ const QuestionSetupForm = ({
       ...prev,
       [questionId]: value,
     }))
+
+    // Auto-open settlement date modal when "CYO" is selected
+    if (
+      questionType === "settlementDate" &&
+      questionId === "settlement_date_type" &&
+      value === "CYO"
+    ) {
+      setShowSettlementDateModal(true)
+    }
+  }
+
+  const handleSettlementDateConfig = (config: any) => {
+    setSetupConfig((prev) => ({
+      ...prev,
+      settlement_date_config: config,
+    }))
+    setShowSettlementDateModal(false)
   }
 
   const handleAddCondition = () => {
@@ -401,23 +422,68 @@ const QuestionSetupForm = ({
 
             {/* Select dropdown */}
             {question.type === "select" && question.options && (
-              <Select
-                value={setupConfig[question.id] || ""}
-                onValueChange={(value) =>
-                  handleConfigChange(question.id, value)
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select an option" />
-                </SelectTrigger>
-                <SelectContent>
-                  {question.options.map((option: any) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Select
+                  value={setupConfig[question.id] || ""}
+                  onValueChange={(value) =>
+                    handleConfigChange(question.id, value)
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select an option" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {question.options.map((option: any) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Show Configure Custom Settlement Date button when CYO is selected */}
+                {questionType === "settlementDate" &&
+                  question.id === "settlement_date_type" &&
+                  setupConfig[question.id] === "CYO" && (
+                    <div className="mt-3">
+                      <Button
+                        type="button"
+                        onClick={() => setShowSettlementDateModal(true)}
+                        className="bg-green-600 text-white hover:bg-green-700"
+                      >
+                        {!setupConfig.settlement_date_config ||
+                        Object.keys(setupConfig.settlement_date_config || {})
+                          .length === 0 ||
+                        !Object.values(
+                          setupConfig.settlement_date_config || {},
+                        ).some(
+                          (selections) =>
+                            Array.isArray(selections) && selections.length > 0,
+                        )
+                          ? "Create Custom Settlement Date"
+                          : "View/Edit Custom Settlement Date"}
+                      </Button>
+
+                      {/* Show warning if no configuration has been made */}
+                      {(!setupConfig.settlement_date_config ||
+                        Object.keys(setupConfig.settlement_date_config || {})
+                          .length === 0 ||
+                        !Object.values(
+                          setupConfig.settlement_date_config || {},
+                        ).some(
+                          (selections) =>
+                            Array.isArray(selections) && selections.length > 0,
+                        )) && (
+                        <div className="mt-2 rounded-md border border-yellow-200 bg-yellow-50 p-2">
+                          <p className="text-sm text-yellow-800">
+                            ⚠️ You must configure your custom settlement date
+                            options before proceeding.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+              </div>
             )}
 
             {/* Text input */}
@@ -718,6 +784,17 @@ const QuestionSetupForm = ({
             {mode === "edit" ? "Save Changes" : "Add Question"}
           </Button>
         </div>
+      )}
+
+      {/* Settlement Date Configuration Modal */}
+      {questionType === "settlementDate" && (
+        <DepositDueDateModal
+          isOpen={showSettlementDateModal}
+          onClose={() => setShowSettlementDateModal(false)}
+          onSave={handleSettlementDateConfig}
+          initialConfig={setupConfig.settlement_date_config || {}}
+          title="Settlement Date"
+        />
       )}
     </div>
   )

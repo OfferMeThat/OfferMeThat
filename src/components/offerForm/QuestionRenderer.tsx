@@ -3169,6 +3169,110 @@ export const QuestionRenderer = ({
   if (question.type === "settlementDate") {
     const dateType = setupConfig.settlement_date_type
     const location = setupConfig.settlement_location
+    const settlementDateConfig = setupConfig.settlement_date_config
+
+    // Helper function to format text (replace underscores with spaces and capitalize)
+    const formatText = (text: string): string => {
+      if (!text) return ""
+      return text
+        .replace(/_/g, " ") // Replace underscores with spaces
+        .split(" ")
+        .map(
+          (word: string) =>
+            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+        )
+        .join(" ")
+    }
+
+    // Render custom settlement date section for "Create Your Own" functionality
+    const renderCustomSettlementDate = (config: any) => {
+      if (!config) return null
+
+      const { timeConstraint, number, timeUnit, action, trigger } = config
+
+      // Helper function to render a section (static text or dropdown)
+      const renderSection = (sectionData: string[]) => {
+        if (!sectionData || !Array.isArray(sectionData)) return null
+
+        if (sectionData.length === 1) {
+          // Single selection - show as static text with proper formatting
+          return (
+            <span className="font-medium">{formatText(sectionData[0])}</span>
+          )
+        } else if (sectionData.length > 1) {
+          // Multiple selections - show as dropdown
+          const sectionValue =
+            (formValues.settlementDateCYO as any)?.[
+              sectionData === timeConstraint
+                ? "timeConstraint"
+                : sectionData === number
+                  ? "number"
+                  : sectionData === timeUnit
+                    ? "timeUnit"
+                    : sectionData === action
+                      ? "action"
+                      : "trigger"
+            ] || ""
+
+          return (
+            <Select
+              value={sectionValue}
+              onValueChange={(value) => {
+                if (!editingMode) {
+                  const fieldName =
+                    sectionData === timeConstraint
+                      ? "timeConstraint"
+                      : sectionData === number
+                        ? "number"
+                        : sectionData === timeUnit
+                          ? "timeUnit"
+                          : sectionData === action
+                            ? "action"
+                            : "trigger"
+                  const newValues = {
+                    ...formValues,
+                    settlementDateCYO: {
+                      ...((formValues.settlementDateCYO as any) || {}),
+                      [fieldName]: value,
+                    },
+                  }
+                  setFormValues(newValues)
+                  onChange?.(newValues)
+                }
+              }}
+              disabled={disabled || editingMode}
+            >
+              <SelectTrigger
+                className="w-full max-w-xs"
+                style={getInputStyle()}
+              >
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {sectionData.map((option: string, index: number) => (
+                  <SelectItem key={index} value={option}>
+                    {formatText(option)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )
+        }
+        return null
+      }
+
+      return (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-1 text-sm text-gray-600">
+            {renderSection(timeConstraint)}
+            {renderSection(number)}
+            {renderSection(timeUnit)}
+            {renderSection(action)}
+            {renderSection(trigger)}
+          </div>
+        </div>
+      )
+    }
 
     return (
       <div className="space-y-3">
@@ -3293,30 +3397,50 @@ export const QuestionRenderer = ({
             </div>
           )}
           {dateType === "CYO" && (
-            <div className="relative max-w-md">
-              <Input
-                type="text"
-                placeholder={uiConfig.placeholder || "Enter settlement date"}
-                disabled={disabled}
-                className={cn(editingMode && "cursor-not-allowed", "w-full")}
-                style={getInputStyle()}
-                value={editingMode ? "" : formValues.settlementDateCYO || ""}
-                onChange={(e) => {
-                  if (!editingMode) {
-                    const newValues = {
-                      ...formValues,
-                      settlementDateCYO: e.target.value,
+            <div className="space-y-2">
+              {settlementDateConfig &&
+              Object.keys(settlementDateConfig).length > 0 &&
+              Object.values(settlementDateConfig).some(
+                (selections) =>
+                  Array.isArray(selections) && selections.length > 0,
+              ) ? (
+                // Render custom settlement date UI based on configuration
+                renderCustomSettlementDate(settlementDateConfig)
+              ) : (
+                // Fallback to simple text input if no configuration
+                <div className="relative max-w-md">
+                  <Input
+                    type="text"
+                    placeholder={
+                      uiConfig.placeholder || "Enter settlement date"
                     }
-                    setFormValues(newValues)
-                    onChange?.(newValues)
-                  }
-                }}
-                onBlur={onBlur}
-                data-field-id={question.id}
-              />
-              {renderEditOverlay(
-                "placeholder",
-                uiConfig.placeholder || "Enter settlement date",
+                    disabled={disabled}
+                    className={cn(
+                      editingMode && "cursor-not-allowed",
+                      "w-full",
+                    )}
+                    style={getInputStyle()}
+                    value={
+                      editingMode ? "" : formValues.settlementDateCYO || ""
+                    }
+                    onChange={(e) => {
+                      if (!editingMode) {
+                        const newValues = {
+                          ...formValues,
+                          settlementDateCYO: e.target.value,
+                        }
+                        setFormValues(newValues)
+                        onChange?.(newValues)
+                      }
+                    }}
+                    onBlur={onBlur}
+                    data-field-id={question.id}
+                  />
+                  {renderEditOverlay(
+                    "placeholder",
+                    uiConfig.placeholder || "Enter settlement date",
+                  )}
+                </div>
               )}
             </div>
           )}
