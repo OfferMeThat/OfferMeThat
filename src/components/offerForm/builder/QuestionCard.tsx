@@ -83,7 +83,8 @@ const QuestionCard = ({
   const isStatementQuestion =
     isCustomQuestion && setupConfig.answer_type === "statement"
 
-  const labelText = isStatementQuestion
+  // For offer expiry, show "Does your Offer have an Expiry?" when optional
+  let labelText = isStatementQuestion
     ? setupConfig.question_text || "Question"
     : isCustomQuestion
       ? setupConfig.question_text ||
@@ -91,6 +92,16 @@ const QuestionCard = ({
         questionDefinition?.label ||
         "Question"
       : uiConfig.label || questionDefinition?.label || "Question"
+
+  // Override label for offer expiry based on required status
+  if (question.type === "offerExpiry") {
+    // If required, use "Offer Expiry", if optional use "Does your Offer have an Expiry?"
+    if (!question.required) {
+      labelText = "Does your Offer have an Expiry?"
+    } else {
+      labelText = "Offer Expiry"
+    }
+  }
 
   const handleLabelEdit = (fieldKey?: string, currentText?: string) => {
     // If called without parameters, it's the main label

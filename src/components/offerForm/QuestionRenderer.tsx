@@ -2153,7 +2153,6 @@ export const QuestionRenderer = ({
 
   // Offer Expiry - Use DatePicker and TimePicker
   if (question.type === "offerExpiry") {
-    const isOptional = setupConfig.expiry_requirement === "optional"
     const expiryValue =
       (value as {
         hasExpiry?: string
@@ -2164,37 +2163,37 @@ export const QuestionRenderer = ({
 
     return (
       <div className="space-y-3">
-        {isOptional && (
-          <RadioGroup
-            value={expiryValue.hasExpiry || ""}
-            onValueChange={(val) => {
-              if (!editingMode) {
-                onChange?.({ ...expiryValue, hasExpiry: val })
-              }
-            }}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="yes" id="expiry-yes" />
-              <Label htmlFor="expiry-yes">Yes</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="no" id="expiry-no" />
-              <Label htmlFor="expiry-no">No</Label>
-            </div>
-          </RadioGroup>
-        )}
+        {/* Always show radio buttons */}
+        <RadioGroup
+          value={expiryValue.hasExpiry || ""}
+          onValueChange={(val) => {
+            // Allow selection in form builder too
+            onChange?.({ ...expiryValue, hasExpiry: val })
+          }}
+          disabled={disabled}
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="yes" id="expiry-yes" />
+            <Label htmlFor="expiry-yes">Yes</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="no" id="expiry-no" />
+            <Label htmlFor="expiry-no">No</Label>
+          </div>
+        </RadioGroup>
 
-        {(!isOptional || hasExpiry) && (
+        {/* Show date/time pickers only when "Yes" is selected */}
+        {hasExpiry && (
           <div className="flex max-w-md gap-2">
             <div className="min-w-0 flex-1">
               <DatePicker
                 label={uiConfig.dateLabel || "Select date"}
                 value={expiryValue.expiryDate}
                 onChange={(date) => {
-                  if (!editingMode) {
-                    onChange?.({ ...expiryValue, expiryDate: date })
-                  }
+                  // Allow selection in form builder too
+                  onChange?.({ ...expiryValue, expiryDate: date })
                 }}
+                disabled={disabled}
                 brandingConfig={brandingConfig}
                 data-field-id={question.id}
                 btnClassName="w-full"
@@ -2205,10 +2204,10 @@ export const QuestionRenderer = ({
                 label={uiConfig.timeLabel || "Select time"}
                 value={expiryValue.expiryTime}
                 onChange={(time) => {
-                  if (!editingMode) {
-                    onChange?.({ ...expiryValue, expiryTime: time })
-                  }
+                  // Allow selection in form builder too
+                  onChange?.({ ...expiryValue, expiryTime: time })
                 }}
+                disabled={disabled}
                 brandingConfig={brandingConfig}
                 data-field-id={question.id}
                 btnClassName="w-full"
