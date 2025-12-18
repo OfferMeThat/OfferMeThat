@@ -4967,11 +4967,13 @@ export const QuestionRenderer = ({
         </div>
       )
     } else if (answerType === "statement") {
-      const showTickbox = setupConfig.add_tickbox === "yes"
+      const tickboxMode = setupConfig.add_tickbox || "no"
+      const showTickbox =
+        tickboxMode === "required" || tickboxMode === "optional"
       // Only disable checkbox in editing mode, not in form preview/user-facing form
       const tickboxDisabled = editingMode || !showTickbox
-      const isRequired = setupConfig.tickbox_requirement === "essential"
-      const isOptional = !isRequired
+      const isRequired = tickboxMode === "required"
+      const isOptional = tickboxMode === "optional"
 
       return (
         <div className="space-y-2">

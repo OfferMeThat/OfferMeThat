@@ -368,8 +368,12 @@ export const buildQuestionValidation = (
       } else if (answerType === "statement") {
         // Statement questions have an optional checkbox
         const setupConfig = (question.setupConfig as Record<string, any>) || {}
-        const tickboxRequirement = setupConfig.tickbox_requirement
-        if (tickboxRequirement === "essential") {
+        const addTickbox = setupConfig.add_tickbox || "no"
+        // Check if tickbox is required (new format) or if legacy format with tickbox_requirement
+        const isRequired =
+          addTickbox === "required" ||
+          (addTickbox === "yes" && setupConfig.tickbox_requirement === "essential")
+        if (isRequired) {
           schema = yup.boolean().required("You must agree to this statement")
         } else {
           schema = yup.boolean().nullable().optional()

@@ -243,14 +243,18 @@ export function parseCustomQuestion(
 
     case "statement": {
       // Statement might have an agreement checkbox
-      if (typeof value === "object" && value !== null) {
+      // Value is stored as boolean (true = agreed, false/undefined = not agreed)
+      if (typeof value === "boolean") {
+        formattedValue = value ? "✓ Agreed" : "Not agreed"
+      } else if (typeof value === "object" && value !== null) {
+        // Legacy format: object with agreed/checked property
         const agreed = value.agreed || value.checked || false
         const text = value.text || value.statement || ""
         formattedValue = agreed ? `✓ Agreed: ${text}` : text || "Not agreed"
-      } else if (typeof value === "boolean") {
-        formattedValue = value ? "Agreed" : "Not agreed"
+      } else if (value === true || value === "true" || value === 1) {
+        formattedValue = "✓ Agreed"
       } else {
-        formattedValue = String(value)
+        formattedValue = "Not agreed"
       }
       break
     }

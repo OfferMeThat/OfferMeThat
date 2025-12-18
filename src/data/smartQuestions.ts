@@ -3706,7 +3706,14 @@ export const smartQuestionsConfig = {
         case "statement":
           finalQuestionText = statement_text
           questionType = "display"
-          if (add_tickbox === "yes") {
+          // Handle new format: required, optional, or no
+          if (add_tickbox === "required" || add_tickbox === "optional") {
+            additionalProps.show_tickbox = true
+            additionalProps.tickbox_required = add_tickbox === "required"
+            additionalProps.tickbox_text = tickbox_text || "I agree"
+          }
+          // Legacy format support: "yes" with tickbox_requirement
+          else if (add_tickbox === "yes") {
             additionalProps.show_tickbox = true
             additionalProps.tickbox_required =
               tickbox_requirement === "essential"

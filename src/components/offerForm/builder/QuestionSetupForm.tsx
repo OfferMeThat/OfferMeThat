@@ -197,7 +197,6 @@ const QuestionSetupForm = ({
         delete newConfig.allow_unsure
         delete newConfig.select_options
         delete newConfig.add_tickbox
-        delete newConfig.tickbox_requirement
         delete newConfig.tickbox_text
         
         // Initialize select_options as array when switching to single_select or multi_select
@@ -213,9 +212,8 @@ const QuestionSetupForm = ({
         delete newConfig.currency_fixed
       }
 
-      // When add_tickbox changes (and it's not yes), clear tickbox fields
-      if (questionType === "custom" && questionId === "add_tickbox" && value !== "yes") {
-        delete newConfig.tickbox_requirement
+      // When add_tickbox changes (and it's "no"), clear tickbox fields
+      if (questionType === "custom" && questionId === "add_tickbox" && value === "no") {
         delete newConfig.tickbox_text
       }
 

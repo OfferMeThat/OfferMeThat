@@ -1211,28 +1211,22 @@ export const QUESTION_DEFINITIONS: Partial<
           value: "statement",
         },
         options: [
-          { value: "yes", label: "Yes" },
-          { value: "no", label: "No" },
+          {
+            value: "required",
+            label: "Yes, and Submitter must tick the box to submit their Offer",
+          },
+          {
+            value: "optional",
+            label: "Yes, ticking the box is optional",
+          },
+          {
+            value: "no",
+            label: "No, just add a statement",
+          },
         ],
       },
 
       // PATH 7: Statement - Q4
-      {
-        id: "tickbox_requirement",
-        label:
-          "Is it optional or essential that the Buyer/Agent ticks to agree?",
-        type: "select",
-        dependsOn: {
-          questionId: "add_tickbox",
-          value: "yes",
-        },
-        options: [
-          { value: "optional", label: "Optional" },
-          { value: "essential", label: "Essential" },
-        ],
-      },
-
-      // PATH 7: Statement - Q5
       {
         id: "tickbox_text",
         label:
@@ -1241,7 +1235,7 @@ export const QUESTION_DEFINITIONS: Partial<
         placeholder: "I agree",
         dependsOn: {
           questionId: "add_tickbox",
-          value: "yes",
+          value: ["required", "optional"],
         },
       },
 
