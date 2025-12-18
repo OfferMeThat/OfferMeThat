@@ -145,10 +145,10 @@ const PersonNameFields = ({
             error: fileDataRaw.error,
           }
         : {
-      file: null,
-      fileName: "",
-      error: undefined,
-    }
+            file: null,
+            fileName: "",
+            error: undefined,
+          }
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
@@ -173,23 +173,66 @@ const PersonNameFields = ({
   // Check if this preference is stored in nameFields (for each person)
   const skipMiddleName = nameFields[prefix]?.skipMiddleName || false
 
+  // Create prefixed field IDs for repeated fields (e.g., representatives)
+  // Use prefix only if it's not a single field (prefixes like "rep-1", "rep-2", etc.)
+  const isRepeatedField = prefix && prefix.startsWith("rep-")
+  const firstNameLabelId = isRepeatedField
+    ? `${prefix}_firstNameLabel`
+    : "firstNameLabel"
+  const middleNameLabelId = isRepeatedField
+    ? `${prefix}_middleNameLabel`
+    : "middleNameLabel"
+  const lastNameLabelId = isRepeatedField
+    ? `${prefix}_lastNameLabel`
+    : "lastNameLabel"
+  const firstNamePlaceholderId = isRepeatedField
+    ? `${prefix}_firstNamePlaceholder`
+    : "firstNamePlaceholder"
+  const middleNamePlaceholderId = isRepeatedField
+    ? `${prefix}_middleNamePlaceholder`
+    : "middleNamePlaceholder"
+  const lastNamePlaceholderId = isRepeatedField
+    ? `${prefix}_lastNamePlaceholder`
+    : "lastNamePlaceholder"
+
+  // Get labels with fallback to base labels if prefixed ones don't exist
+  const getLabel = (prefixedId: string, baseId: string, fallback: string) => {
+    const prefixedLabel = getSubQuestionLabel(uiConfig, prefixedId, "")
+    if (prefixedLabel) return prefixedLabel
+    return getSubQuestionLabel(uiConfig, baseId, fallback)
+  }
+
+  const getPlaceholder = (
+    prefixedId: string,
+    baseId: string,
+    fallback: string,
+  ) => {
+    const prefixedPlaceholder = getSubQuestionPlaceholder(
+      uiConfig,
+      prefixedId,
+      "",
+    )
+    if (prefixedPlaceholder) return prefixedPlaceholder
+    return getSubQuestionPlaceholder(uiConfig, baseId, fallback)
+  }
+
   return (
     <div className="space-y-3">
       <div>
         <div className="relative inline-block">
           <Label className="mb-1 block text-sm">
-            {getSubQuestionLabel(uiConfig, "firstNameLabel", "First Name:")}
+            {getLabel(firstNameLabelId, "firstNameLabel", "First Name:")}
           </Label>
           {renderLabelOverlay(
-            "firstNameLabel",
-            getSubQuestionLabel(uiConfig, "firstNameLabel", "First Name:"),
+            firstNameLabelId,
+            getLabel(firstNameLabelId, "firstNameLabel", "First Name:"),
           )}
         </div>
         <div className="relative max-w-md">
           <Input
             type="text"
-            placeholder={getSubQuestionPlaceholder(
-              uiConfig,
+            placeholder={getPlaceholder(
+              firstNamePlaceholderId,
               "firstNamePlaceholder",
               "Enter first name",
             )}
@@ -217,9 +260,9 @@ const PersonNameFields = ({
             }}
           />
           {renderEditOverlay(
-            "firstNamePlaceholder",
-            getSubQuestionPlaceholder(
-              uiConfig,
+            firstNamePlaceholderId,
+            getPlaceholder(
+              firstNamePlaceholderId,
               "firstNamePlaceholder",
               "Enter first name",
             ),
@@ -232,16 +275,16 @@ const PersonNameFields = ({
             <div>
               <div className="relative inline-block">
                 <Label className="mb-1 block text-sm">
-                  {getSubQuestionLabel(
-                    uiConfig,
+                  {getLabel(
+                    middleNameLabelId,
                     "middleNameLabel",
                     "Middle Name:",
                   )}
                 </Label>
                 {renderLabelOverlay(
-                  "middleNameLabel",
-                  getSubQuestionLabel(
-                    uiConfig,
+                  middleNameLabelId,
+                  getLabel(
+                    middleNameLabelId,
                     "middleNameLabel",
                     "Middle Name:",
                   ),
@@ -250,8 +293,8 @@ const PersonNameFields = ({
               <div className="relative max-w-md">
                 <Input
                   type="text"
-                  placeholder={getSubQuestionPlaceholder(
-                    uiConfig,
+                  placeholder={getPlaceholder(
+                    middleNamePlaceholderId,
                     "middleNamePlaceholder",
                     "Enter middle name",
                   )}
@@ -279,9 +322,9 @@ const PersonNameFields = ({
                   }}
                 />
                 {renderEditOverlay(
-                  "middleNamePlaceholder",
-                  getSubQuestionPlaceholder(
-                    uiConfig,
+                  middleNamePlaceholderId,
+                  getPlaceholder(
+                    middleNamePlaceholderId,
                     "middleNamePlaceholder",
                     "Enter middle name",
                   ),
@@ -331,18 +374,18 @@ const PersonNameFields = ({
       <div>
         <div className="relative inline-block">
           <Label className="mb-1 block text-sm">
-            {getSubQuestionLabel(uiConfig, "lastNameLabel", "Last Name:")}
+            {getLabel(lastNameLabelId, "lastNameLabel", "Last Name:")}
           </Label>
           {renderLabelOverlay(
-            "lastNameLabel",
-            getSubQuestionLabel(uiConfig, "lastNameLabel", "Last Name:"),
+            lastNameLabelId,
+            getLabel(lastNameLabelId, "lastNameLabel", "Last Name:"),
           )}
         </div>
         <div className="relative max-w-md">
           <Input
             type="text"
-            placeholder={getSubQuestionPlaceholder(
-              uiConfig,
+            placeholder={getPlaceholder(
+              lastNamePlaceholderId,
               "lastNamePlaceholder",
               "Enter last name",
             )}
@@ -369,9 +412,9 @@ const PersonNameFields = ({
             }}
           />
           {renderEditOverlay(
-            "lastNamePlaceholder",
-            getSubQuestionPlaceholder(
-              uiConfig,
+            lastNamePlaceholderId,
+            getPlaceholder(
+              lastNamePlaceholderId,
               "lastNamePlaceholder",
               "Enter last name",
             ),
@@ -635,7 +678,7 @@ export const QuestionRenderer = ({
             file = fileData.files[0]
           }
           if (file) {
-          const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
+            const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
             idFiles[prefix] = file
           }
         }
@@ -1446,48 +1489,48 @@ export const QuestionRenderer = ({
                 return (
                   <>
                     {fileData.fileName && (
-                <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setFileUploads((prev) => ({
-                          ...prev,
-                          [`${question.id}_single_id_upload`]: {
-                            file: null,
-                            fileName: "",
-                            error: undefined,
-                          },
-                        }))
-                        // Clear file but keep name
-                        const currentName =
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setFileUploads((prev) => ({
+                              ...prev,
+                              [`${question.id}_single_id_upload`]: {
+                                file: null,
+                                fileName: "",
+                                error: undefined,
+                              },
+                            }))
+                            // Clear file but keep name
+                            const currentName =
                               typeof value === "string"
                                 ? value
                                 : value?.name || ""
-                        onChange?.(currentName || null)
-                        const fileInput = document.getElementById(
-                          `${question.id}_single_id_upload`,
-                        ) as HTMLInputElement
-                        if (fileInput) {
-                          fileInput.value = ""
-                        }
-                      }}
-                      className="h-8 w-8 p-0"
-                      disabled={disabled}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  <p className="text-xs text-gray-600">
+                            onChange?.(currentName || null)
+                            const fileInput = document.getElementById(
+                              `${question.id}_single_id_upload`,
+                            ) as HTMLInputElement
+                            if (fileInput) {
+                              fileInput.value = ""
+                            }
+                          }}
+                          className="h-8 w-8 p-0"
+                          disabled={disabled}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <p className="text-xs text-gray-600">
                           {fileData.fileName}
-                  </p>
-                </div>
-              )}
+                        </p>
+                      </div>
+                    )}
                     {fileData.error && (
-                <p className="mt-1 text-sm text-red-500" role="alert">
+                      <p className="mt-1 text-sm text-red-500" role="alert">
                         {fileData.error}
-                </p>
-              )}
+                      </p>
+                    )}
                   </>
                 )
               })()}
@@ -1533,7 +1576,7 @@ export const QuestionRenderer = ({
             file = fileData.files[0]
           }
           if (file) {
-          const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
+            const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
             idFiles[prefix] = file
           }
         }
@@ -2049,18 +2092,18 @@ export const QuestionRenderer = ({
             <div className="space-y-2">
               {fileData.fileNames.map((fileName, index) => (
                 <div key={index} className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
                       const newFiles = [...fileData.files]
                       const newFileNames = [...fileData.fileNames]
                       newFiles.splice(index, 1)
                       newFileNames.splice(index, 1)
                       const fileKey = `${question.id}_purchase_agreement`
-                    setFileUploads((prev) => ({
-                      ...prev,
+                      setFileUploads((prev) => ({
+                        ...prev,
                         [fileKey]:
                           newFiles.length > 0
                             ? {
@@ -2071,28 +2114,28 @@ export const QuestionRenderer = ({
                             : {
                                 files: [],
                                 fileNames: [],
-                        error: undefined,
-                      },
-                    }))
+                                error: undefined,
+                              },
+                      }))
                       if (newFiles.length > 0) {
                         onChange?.(
                           newFiles.length === 1 ? newFiles[0] : newFiles,
                         )
                       } else {
-                    onChange?.(null)
-                    const fileInput = document.getElementById(
-                      `${question.id}_purchase_agreement_file`,
-                    ) as HTMLInputElement
-                    if (fileInput) {
-                      fileInput.value = ""
+                        onChange?.(null)
+                        const fileInput = document.getElementById(
+                          `${question.id}_purchase_agreement_file`,
+                        ) as HTMLInputElement
+                        if (fileInput) {
+                          fileInput.value = ""
                         }
-                    }
-                  }}
-                  className="h-8 w-8 p-0"
-                  disabled={disabled}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                      }
+                    }}
+                    className="h-8 w-8 p-0"
+                    disabled={disabled}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                   <p className="text-xs text-gray-600">{fileName}</p>
                 </div>
               ))}
@@ -2645,18 +2688,18 @@ export const QuestionRenderer = ({
                                 key={index}
                                 className="flex items-center gap-2"
                               >
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
                                     const newFiles = [...fileData.files]
                                     const newFileNames = [...fileData.fileNames]
                                     newFiles.splice(index, 1)
                                     newFileNames.splice(index, 1)
                                     const fileKey = `${question.id}_supporting_docs`
-                          setFileUploads((prev) => ({
-                            ...prev,
+                                    setFileUploads((prev) => ({
+                                      ...prev,
                                       [fileKey]:
                                         newFiles.length > 0
                                           ? {
@@ -2667,9 +2710,9 @@ export const QuestionRenderer = ({
                                           : {
                                               files: [],
                                               fileNames: [],
-                              error: undefined,
-                            },
-                          }))
+                                              error: undefined,
+                                            },
+                                    }))
                                     if (newFiles.length > 0) {
                                       onChange?.({
                                         ...loanValue,
@@ -2680,31 +2723,31 @@ export const QuestionRenderer = ({
                                         ...loanValue,
                                         supportingDocs: null,
                                       })
-                          const fileInput = document.getElementById(
-                            `${question.id}_supporting_docs`,
-                          ) as HTMLInputElement
-                          if (fileInput) {
-                            fileInput.value = ""
+                                      const fileInput = document.getElementById(
+                                        `${question.id}_supporting_docs`,
+                                      ) as HTMLInputElement
+                                      if (fileInput) {
+                                        fileInput.value = ""
                                       }
-                          }
-                        }}
-                        className="h-8 w-8 p-0"
-                        disabled={disabled}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                      <p className="text-xs text-gray-600">
+                                    }
+                                  }}
+                                  className="h-8 w-8 p-0"
+                                  disabled={disabled}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                                <p className="text-xs text-gray-600">
                                   {fileName}
-                      </p>
+                                </p>
                               </div>
                             ))}
-                    </div>
-                  )}
+                          </div>
+                        )}
                         {fileData.error && (
-                    <p className="mt-1 text-sm text-red-500" role="alert">
+                          <p className="mt-1 text-sm text-red-500" role="alert">
                             {fileData.error}
-                    </p>
-                  )}
+                          </p>
+                        )}
                         <span className="text-xs text-gray-500">
                           Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max
                           3 files, 10MB total)
@@ -3193,17 +3236,17 @@ export const QuestionRenderer = ({
               <div className="space-y-2">
                 {attachmentData.fileNames.map((fileName, index) => (
                   <div key={index} className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
                         const newFiles = [...attachmentData.files]
                         const newFileNames = [...attachmentData.fileNames]
                         newFiles.splice(index, 1)
                         newFileNames.splice(index, 1)
-                    setFileUploads((prev) => ({
-                      ...prev,
+                        setFileUploads((prev) => ({
+                          ...prev,
                           [`${question.id}_message_attachments`]:
                             newFiles.length > 0
                               ? {
@@ -3214,11 +3257,11 @@ export const QuestionRenderer = ({
                               : {
                                   files: [],
                                   fileNames: [],
-                        error: undefined,
-                      },
-                    }))
+                                  error: undefined,
+                                },
+                        }))
                         // Update attachments in value
-                    const currentMessage =
+                        const currentMessage =
                           typeof value === "string"
                             ? value
                             : value?.message || ""
@@ -3233,19 +3276,19 @@ export const QuestionRenderer = ({
                               ? currentMessage
                               : { message: "", attachments: [] },
                           )
-                    const fileInput = document.getElementById(
-                      `${question.id}_message_attachments`,
-                    ) as HTMLInputElement
-                    if (fileInput) {
-                      fileInput.value = ""
+                          const fileInput = document.getElementById(
+                            `${question.id}_message_attachments`,
+                          ) as HTMLInputElement
+                          if (fileInput) {
+                            fileInput.value = ""
                           }
-                    }
-                  }}
-                  className="h-8 w-8 p-0"
-                  disabled={disabled}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                        }
+                      }}
+                      className="h-8 w-8 p-0"
+                      disabled={disabled}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                     <p className="text-xs text-gray-600">{fileName}</p>
                   </div>
                 ))}
@@ -3903,18 +3946,18 @@ export const QuestionRenderer = ({
             <div className="space-y-2">
               {fileData.fileNames.map((fileName, index) => (
                 <div key={index} className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
                       const newFiles = [...fileData.files]
                       const newFileNames = [...fileData.fileNames]
                       newFiles.splice(index, 1)
                       newFileNames.splice(index, 1)
                       const fileKey = `${question.id}_file`
-                  setFileUploads((prev) => ({
-                    ...prev,
+                      setFileUploads((prev) => ({
+                        ...prev,
                         [fileKey]:
                           newFiles.length > 0
                             ? {
@@ -3925,28 +3968,28 @@ export const QuestionRenderer = ({
                             : {
                                 files: [],
                                 fileNames: [],
-                      error: undefined,
-                    },
-                  }))
+                                error: undefined,
+                              },
+                      }))
                       if (newFiles.length > 0) {
                         onChange?.(
                           newFiles.length === 1 ? newFiles[0] : newFiles,
                         )
                       } else {
-                  onChange?.(null)
-                  const fileInput = document.getElementById(
-                    `${question.id}_file_input`,
-                  ) as HTMLInputElement
-                  if (fileInput) {
-                    fileInput.value = ""
+                        onChange?.(null)
+                        const fileInput = document.getElementById(
+                          `${question.id}_file_input`,
+                        ) as HTMLInputElement
+                        if (fileInput) {
+                          fileInput.value = ""
                         }
-                  }
-                }}
-                className="h-8 w-8 p-0"
-                disabled={disabled}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+                      }
+                    }}
+                    className="h-8 w-8 p-0"
+                    disabled={disabled}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                   <p className="text-xs text-gray-600">{fileName}</p>
                 </div>
               ))}

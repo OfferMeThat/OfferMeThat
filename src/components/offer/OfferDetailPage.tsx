@@ -381,7 +381,8 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                   <div>
                     <p className="mb-2 text-sm font-medium text-gray-500">
                       Purchase Agreement
-                      {purchaseAgreementUrls.length > 1 && ` (${purchaseAgreementUrls.length} files)`}
+                      {purchaseAgreementUrls.length > 1 &&
+                        ` (${purchaseAgreementUrls.length} files)`}
                     </p>
                     <div className="flex flex-col gap-1">
                       {purchaseAgreementUrls.map((url, index) => (

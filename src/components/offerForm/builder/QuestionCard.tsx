@@ -172,6 +172,11 @@ const QuestionCard = ({
 
         // Known sub-question ID patterns for complex questions and other question types
         // These are fields that should be saved to subQuestions, not direct uiConfig
+        // Also handle prefixed IDs for repeated fields (e.g., "rep-1_firstNameLabel", "rep-2_firstNameLabel")
+        const isPrefixedRepeatedField =
+          /^(rep-\d+|other-person-\d+|other-corporation-\d+)_(firstName|middleName|lastName)(Label|Placeholder)$/.test(
+            subQuestionId,
+          )
         const isSubQuestionId =
           subQuestionId.startsWith("deposit_") ||
           subQuestionId.startsWith("loan_") ||
@@ -201,6 +206,7 @@ const QuestionCard = ({
           subQuestionId === "middleNamePlaceholder" ||
           subQuestionId === "lastNamePlaceholder" ||
           subQuestionId === "corporationNamePlaceholder" ||
+          isPrefixedRepeatedField ||
           (isComplexQuestion && subQuestionId.includes("_")) ||
           // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
           (question.type === "custom" &&
@@ -245,6 +251,11 @@ const QuestionCard = ({
 
       // Known sub-question ID patterns for complex questions and other question types
       // These are fields that should be saved to subQuestions, not direct uiConfig
+      // Also handle prefixed IDs for repeated fields (e.g., "rep-1_firstNameLabel", "rep-2_firstNameLabel")
+      const isPrefixedRepeatedField =
+        /^(rep-\d+|other-person-\d+|other-corporation-\d+)_(firstName|middleName|lastName)(Label|Placeholder)$/.test(
+          subQuestionId,
+        )
       const isSubQuestionId =
         subQuestionId.startsWith("deposit_") ||
         subQuestionId.startsWith("loan_") ||
@@ -274,6 +285,7 @@ const QuestionCard = ({
         subQuestionId === "middleNamePlaceholder" ||
         subQuestionId === "lastNamePlaceholder" ||
         subQuestionId === "corporationNamePlaceholder" ||
+        isPrefixedRepeatedField ||
         (isComplexQuestion && subQuestionId.includes("_")) ||
         // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
         (question.type === "custom" &&

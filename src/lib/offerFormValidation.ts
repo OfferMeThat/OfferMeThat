@@ -49,7 +49,11 @@ export const buildQuestionValidation = (
     case "submitterPhone":
       // Phone can be a string (legacy) or an object { countryCode: string, number: string }
       schema = yup.lazy((value) => {
-        if (typeof value === "object" && value !== null && "countryCode" in value) {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "countryCode" in value
+        ) {
           // New format: object with countryCode and number
           return yup.object().shape({
             countryCode: yup
@@ -102,22 +106,27 @@ export const buildQuestionValidation = (
               .required(required ? "Currency is required" : undefined),
           })
           // Add required to the object schema if needed
-          return required ? objectSchema.required("This field is required") : objectSchema
+          return required
+            ? objectSchema.required("This field is required")
+            : objectSchema
         }
         // If value is undefined or null, and question is required, validate as object with default currency
         if (value === undefined || value === null) {
           if (required) {
-            return yup.object().shape({
-              amount: yup
-                .number()
-                .typeError("Please enter a valid number")
-                .positive("Amount must be positive")
-                .required("Amount is required"),
-              currency: yup
-                .string()
-                .default("USD")
-                .required("Currency is required"),
-            }).required("This field is required")
+            return yup
+              .object()
+              .shape({
+                amount: yup
+                  .number()
+                  .typeError("Please enter a valid number")
+                  .positive("Amount must be positive")
+                  .required("Amount is required"),
+                currency: yup
+                  .string()
+                  .default("USD")
+                  .required("Currency is required"),
+              })
+              .required("This field is required")
           }
           return yup.mixed().nullable().optional()
         }
@@ -126,7 +135,9 @@ export const buildQuestionValidation = (
           .number()
           .typeError("Please enter a valid number")
           .positive("Amount must be positive")
-        return required ? numberSchema.required("This field is required") : numberSchema
+        return required
+          ? numberSchema.required("This field is required")
+          : numberSchema
       }) as unknown as yup.AnySchema
       // Mark this as a lazy schema so we don't add .required() to it later
       ;(schema as any)._isLazy = true
@@ -185,7 +196,7 @@ export const buildQuestionValidation = (
                   message: "Maximum 150 characters allowed",
                 })
               }
-              
+
               // Validate ID file ONLY if BOTH collect_identification is "mandatory" AND question is required
               // If collect_identification is "optional" or "no", or if question is not required, skip this validation
               // Only require ID file if name is provided (user has filled in the name)
@@ -201,7 +212,7 @@ export const buildQuestionValidation = (
                   path: `${this.path}.idFile`,
                 })
               }
-              
+
               return true
             }
 
@@ -274,7 +285,7 @@ export const buildQuestionValidation = (
             if (collectIdentification === "mandatory" && required) {
               const idFiles = obj.idFiles || {}
               const nameFields = obj.nameFields || {}
-              
+
               // Check that each person with a name has an ID file
               const missingIds: string[] = []
               Object.keys(nameFields).forEach((prefix) => {
@@ -293,7 +304,7 @@ export const buildQuestionValidation = (
                   }
                 }
               })
-              
+
               if (missingIds.length > 0) {
                 return this.createError({
                   message: "ID upload is required for all purchasers",
@@ -375,7 +386,11 @@ export const buildQuestionValidation = (
       } else if (answerType === "phone") {
         // Phone can be a string (legacy) or an object { countryCode: string, number: string }
         schema = yup.lazy((value) => {
-          if (typeof value === "object" && value !== null && "countryCode" in value) {
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            "countryCode" in value
+          ) {
             // New format: object with countryCode and number
             return yup.object().shape({
               countryCode: yup
@@ -573,7 +588,7 @@ export const buildQuestionValidation = (
       const setupConfig = (question.setupConfig as Record<string, any>) || {}
       const attachments = setupConfig.attachments
       const lenderDetails = setupConfig.lender_details
-      
+
       // Attachments are required if attachments === "required" AND question is required
       const attachmentsRequired = attachments === "required" && required
       // Lender details are required if lender_details === "required" AND question is required
@@ -613,7 +628,7 @@ export const buildQuestionValidation = (
         } else {
           schema = baseSchema
         }
-        
+
         // Add validation for lender details if required
         if (lenderDetailsRequired) {
           schema = (schema as any).test(
@@ -624,12 +639,15 @@ export const buildQuestionValidation = (
                 return true // Not required if "No" is selected
               }
               // Check if lender details are provided
+              // Lender details can be in companyName (if lender_details === "required")
+              // or contactName, contactEmail, contactPhone (if lender_details === "optional" or "required")
               const hasLenderDetails =
-                value.lenderName && value.lenderName.trim()
+                (value.companyName && String(value.companyName).trim()) ||
+                (value.contactName && String(value.contactName).trim())
               if (!hasLenderDetails) {
-                return this.createError({
+                return (this as any).createError({
                   message: "Lender details are required",
-                  path: `${this.path}.lenderName`,
+                  path: `${(this as any).path}.companyName`,
                 })
               }
               return true
@@ -644,9 +662,10 @@ export const buildQuestionValidation = (
             if (!value) {
               return true // Question is optional, so empty is fine
             }
-            
+
             // If "Yes" is selected, validate required sub-fields
-            if (value.subjectToLoan === "yes") {
+            const loanValue = value as any
+            if (loanValue.subjectToLoan === "yes") {
               // Validate attachments if required
               if (attachmentsRequired) {
                 const loanValue = value as any
@@ -662,20 +681,27 @@ export const buildQuestionValidation = (
                   })
                 }
               }
-              
+
               // Validate lender details if required
               if (lenderDetailsRequired) {
+                // Check if lender details are provided
+                // Lender details can be in companyName (if lender_details === "required")
+                // or contactName, contactEmail, contactPhone (if lender_details === "optional" or "required")
+                const loanValue = value as any
                 const hasLenderDetails =
-                  value.lenderName && value.lenderName.trim()
+                  (loanValue.companyName &&
+                    String(loanValue.companyName).trim()) ||
+                  (loanValue.contactName &&
+                    String(loanValue.contactName).trim())
                 if (!hasLenderDetails) {
-                  return this.createError({
+                  return (this as any).createError({
                     message: "Lender details are required",
-                    path: `${this.path}.lenderName`,
+                    path: `${(this as any).path}.companyName`,
                   })
                 }
               }
             }
-            
+
             return true
           })
           .nullable()
@@ -853,11 +879,15 @@ export const buildFormValidationSchema = (
     }
 
     // In test mode, make specifyListing optional
-    const isRequired = isTestMode && question.type === "specifyListing" 
-      ? false 
-      : question.required
+    const isRequired =
+      isTestMode && question.type === "specifyListing"
+        ? false
+        : question.required
 
-    const schema = buildQuestionValidation({ ...question, required: isRequired })
+    const schema = buildQuestionValidation({
+      ...question,
+      required: isRequired,
+    })
     if (schema) {
       // Use question ID as the key
       shape[question.id] = schema

@@ -364,7 +364,9 @@ export function formatSubjectToLoanApproval(
   // Check if subject to loan approval
   const isSubjectToLoan =
     loanData.subjectToLoanApproval === "yes" ||
-    loanData.subjectToLoanApproval === true
+    loanData.subjectToLoanApproval === true ||
+    loanData.subjectToLoan === "yes" ||
+    loanData.subjectToLoan === true
 
   // Format loan amount
   let loanAmountDisplay: string | null = null
@@ -402,7 +404,7 @@ export function formatSubjectToLoanApproval(
   if (loanData.supportingDocUrls) {
     // Old plural field name
     if (Array.isArray(loanData.supportingDocUrls)) {
-    supportingDocs.push(...loanData.supportingDocUrls)
+      supportingDocs.push(...loanData.supportingDocUrls)
     }
   }
   if (loanData.supportingDocsUrls) {
@@ -413,7 +415,7 @@ export function formatSubjectToLoanApproval(
   }
   if (loanData.preApprovalDocuments) {
     if (Array.isArray(loanData.preApprovalDocuments)) {
-    supportingDocs.push(...loanData.preApprovalDocuments)
+      supportingDocs.push(...loanData.preApprovalDocuments)
     }
   }
 
@@ -426,6 +428,8 @@ export function formatSubjectToLoanApproval(
     evidenceOfFunds.push(...loanData.evidenceOfFundsUrls)
   }
 
+  // Always show at least the subject to loan approval status
+  // Even if it's "No", we should display it if data exists
   return (
     <div className="space-y-3">
       <div>
@@ -435,7 +439,7 @@ export function formatSubjectToLoanApproval(
         <span className="text-gray-900">{isSubjectToLoan ? "Yes" : "No"}</span>
       </div>
 
-      {isSubjectToLoan && (
+      {isSubjectToLoan ? (
         <>
           {loanAmountDisplay && (
             <div>
@@ -444,16 +448,60 @@ export function formatSubjectToLoanApproval(
             </div>
           )}
 
-          {(loanData.lenderName || loanData.lenderDetails) && (
-            <div>
-              <span className="font-medium text-gray-700">Lender: </span>
-              <span className="text-gray-900">
-                {loanData.lenderName || loanData.lenderDetails}
-              </span>
+          {/* Lender Details */}
+          {(loanData.companyName ||
+            loanData.contactName ||
+            loanData.contactEmail ||
+            loanData.contactPhone ||
+            loanData.lenderName ||
+            loanData.lenderDetails) && (
+            <div className="space-y-1">
+              {loanData.companyName && (
+                <div>
+                  <span className="font-medium text-gray-700">
+                    Company Name:{" "}
+                  </span>
+                  <span className="text-gray-900">{loanData.companyName}</span>
+                </div>
+              )}
+              {loanData.contactName && (
+                <div>
+                  <span className="font-medium text-gray-700">
+                    Contact Name:{" "}
+                  </span>
+                  <span className="text-gray-900">{loanData.contactName}</span>
+                </div>
+              )}
+              {loanData.contactEmail && (
+                <div>
+                  <span className="font-medium text-gray-700">
+                    Contact Email:{" "}
+                  </span>
+                  <span className="text-gray-900">{loanData.contactEmail}</span>
+                </div>
+              )}
+              {loanData.contactPhone && (
+                <div>
+                  <span className="font-medium text-gray-700">
+                    Contact Phone:{" "}
+                  </span>
+                  <span className="text-gray-900">{loanData.contactPhone}</span>
+                </div>
+              )}
+              {/* Backward compatibility with old field names */}
+              {(loanData.lenderName || loanData.lenderDetails) &&
+                !loanData.companyName && (
+                  <div>
+                    <span className="font-medium text-gray-700">Lender: </span>
+                    <span className="text-gray-900">
+                      {loanData.lenderName || loanData.lenderDetails}
+                    </span>
+                  </div>
+                )}
             </div>
           )}
 
-          {loanData.lenderUnknown && (
+          {loanData.unknownLender && (
             <div>
               <span className="font-medium text-gray-700">Lender: </span>
               <span className="text-gray-600 italic">Not yet determined</span>
@@ -482,7 +530,7 @@ export function formatSubjectToLoanApproval(
             </div>
           )}
         </>
-      )}
+      ) : null}
 
       {!isSubjectToLoan && evidenceOfFunds.length > 0 && (
         <div>
