@@ -142,7 +142,8 @@ const QuestionSetupForm = ({
       if (questionTypeChanged || Object.keys(initialSetupConfig).length === 0) {
         // For custom questions, only keep currency fields if they're in initialSetupConfig
         if (questionType === "custom") {
-          if (!initialSetupConfig.currency_stipulation) {
+          const customConfig = initialSetupConfig as any
+          if (!customConfig.currency_stipulation) {
             delete configToSet.currency_stipulation
             delete configToSet.currency_options
             delete configToSet.currency_fixed
@@ -150,7 +151,8 @@ const QuestionSetupForm = ({
         }
         // For offerAmount, only keep currency fields if they're in initialSetupConfig
         if (questionType === "offerAmount") {
-          if (!initialSetupConfig.currency_mode) {
+          const offerAmountConfig = initialSetupConfig as any
+          if (!offerAmountConfig.currency_mode) {
             delete configToSet.currency_mode
             delete configToSet.currency_options
             delete configToSet.fixed_currency

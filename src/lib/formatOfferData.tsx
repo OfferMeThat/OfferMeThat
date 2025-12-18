@@ -58,7 +58,13 @@ export function formatDepositData(data: DepositData): React.JSX.Element | null {
       {depositDue && (
         <div>
           <p className="text-sm font-medium text-gray-500">Deposit Due</p>
-          <p className="text-base text-gray-900">{depositDue}</p>
+          <p className="text-base text-gray-900">
+            {typeof depositDue === "string"
+              ? depositDue
+              : depositDue instanceof Date
+                ? depositDue.toLocaleDateString()
+                : String(depositDue)}
+          </p>
         </div>
       )}
 
@@ -69,36 +75,42 @@ export function formatDepositData(data: DepositData): React.JSX.Element | null {
         </div>
       )}
 
-      {instalments && instalments > 1 && instalmentData && (
-        <div>
-          <p className="text-sm font-medium text-gray-500">
-            Instalment Details
-          </p>
-          <div className="mt-2 space-y-2">
-            {instalmentData.map((instalment, index) => (
-              <div key={index} className="rounded-md border p-3">
-                <p className="text-sm font-medium text-gray-700">
-                  Instalment {index + 1}
-                </p>
-                {instalment.amount && (
-                  <p className="text-sm text-gray-600">
-                    Amount:{" "}
-                    {formatCurrency(instalment.amount, instalment.currency)}
+      {instalments &&
+        (typeof instalments === "number"
+          ? instalments > 1
+          : Number(instalments) > 1) &&
+        instalmentData && (
+          <div>
+            <p className="text-sm font-medium text-gray-500">
+              Instalment Details
+            </p>
+            <div className="mt-2 space-y-2">
+              {instalmentData.map((instalment: any, index: number) => (
+                <div key={index} className="rounded-md border p-3">
+                  <p className="text-sm font-medium text-gray-700">
+                    Instalment {index + 1}
                   </p>
-                )}
-                {instalment.due && (
-                  <p className="text-sm text-gray-600">Due: {instalment.due}</p>
-                )}
-                {instalment.holding && (
-                  <p className="text-sm text-gray-600">
-                    Holding: {instalment.holding}
-                  </p>
-                )}
-              </div>
-            ))}
+                  {instalment.amount && (
+                    <p className="text-sm text-gray-600">
+                      Amount:{" "}
+                      {formatCurrency(instalment.amount, instalment.currency)}
+                    </p>
+                  )}
+                  {instalment.due && (
+                    <p className="text-sm text-gray-600">
+                      Due: {instalment.due}
+                    </p>
+                  )}
+                  {instalment.holding && (
+                    <p className="text-sm text-gray-600">
+                      Holding: {instalment.holding}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   )
 }
@@ -110,7 +122,8 @@ export function formatPurchaserData(
 ): React.JSX.Element | null {
   if (!data) return null
 
-  const { scenario, purchasers, representatives } = data
+  const purchaserData = data as any
+  const { scenario, purchasers, representatives } = purchaserData
 
   return (
     <div className="space-y-4">
@@ -125,7 +138,7 @@ export function formatPurchaserData(
         <div>
           <p className="text-sm font-medium text-gray-500">Purchasers</p>
           <div className="mt-2 space-y-3">
-            {purchasers.map((purchaser, index) => (
+            {purchasers.map((purchaser: any, index: number) => (
               <div key={index} className="rounded-md border p-3">
                 <p className="text-sm font-medium text-gray-700">
                   Purchaser {index + 1}
@@ -167,7 +180,7 @@ export function formatPurchaserData(
         <div>
           <p className="text-sm font-medium text-gray-500">Representatives</p>
           <div className="mt-2 space-y-3">
-            {representatives.map((rep, index) => (
+            {representatives.map((rep: any, index: number) => (
               <div key={index} className="rounded-md border p-3">
                 <p className="text-sm font-medium text-gray-700">
                   Representative {index + 1}
@@ -280,7 +293,7 @@ export function formatMessageToAgent(
         <div>
           <p className="text-sm font-medium text-gray-500">Attachments</p>
           <div className="mt-2 space-y-1">
-            {attachmentUrls.map((url, index) => {
+            {attachmentUrls.map((url: string, index: number) => {
               const fileName = url.split("/").pop() || "Attachment"
               return (
                 <a
@@ -536,7 +549,7 @@ export function formatSpecialConditions(
                       Attachments:
                     </p>
                     <div className="flex flex-col gap-1">
-                      {attachments.map((url, attIdx) => {
+                      {attachments.map((url: string, attIdx: number) => {
                         // Extract file name from URL, handling query parameters
                         const urlWithoutParams = url.split("?")[0]
                         const fileName =

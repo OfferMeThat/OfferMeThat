@@ -638,7 +638,7 @@ export const buildQuestionValidation = (
           schema = (schema as any).test(
             "lender-details-required",
             "Lender details are required when 'Yes' is selected",
-            function (value: any) {
+            function (this: any, value: any) {
               if (!value || value.subjectToLoan !== "yes") {
                 return true // Not required if "No" is selected
               }
@@ -649,9 +649,9 @@ export const buildQuestionValidation = (
                 (value.companyName && String(value.companyName).trim()) ||
                 (value.contactName && String(value.contactName).trim())
               if (!hasLenderDetails) {
-                return (this as any).createError({
+                return this.createError({
                   message: "Lender details are required",
-                  path: `${(this as any).path}.companyName`,
+                  path: `${this.path}.companyName`,
                 })
               }
               return true

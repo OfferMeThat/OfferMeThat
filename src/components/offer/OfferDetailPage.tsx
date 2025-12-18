@@ -336,17 +336,19 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
           )
           const hasPurchaseAgreement = purchaseAgreementUrls.length > 0
           const hasMessageToAgent =
-            offer.messageToAgent && formatMessageToAgent(offer.messageToAgent)
+            offer.messageToAgent &&
+            formatMessageToAgent(offer.messageToAgent as any)
           const hasPurchaserData =
-            offer.purchaserData && formatPurchaserData(offer.purchaserData)
+            offer.purchaserData &&
+            formatPurchaserData(offer.purchaserData as any)
           const hasDepositData =
-            offer.depositData && formatDepositData(offer.depositData)
+            offer.depositData && formatDepositData(offer.depositData as any)
           const hasSettlementDateData =
             offer.settlementDateData &&
-            formatSettlementDateData(offer.settlementDateData)
+            formatSettlementDateData(offer.settlementDateData as any)
           const hasSubjectToLoanApproval =
             offer.subjectToLoanApproval &&
-            formatSubjectToLoanApproval(offer.subjectToLoanApproval)
+            formatSubjectToLoanApproval(offer.subjectToLoanApproval as any)
           const hasCustomQuestions = parsedCustomQuestions.length > 0
 
           const hasAnyContent =
@@ -423,7 +425,9 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
 
                 {offer.messageToAgent &&
                   (() => {
-                    const formatted = formatMessageToAgent(offer.messageToAgent)
+                    const formatted = formatMessageToAgent(
+                      offer.messageToAgent as any,
+                    )
                     return formatted ? (
                       <div>
                         <p className="mb-2 text-sm font-medium text-gray-500">
@@ -436,7 +440,9 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
 
                 {offer.purchaserData &&
                   (() => {
-                    const formatted = formatPurchaserData(offer.purchaserData)
+                    const formatted = formatPurchaserData(
+                      offer.purchaserData as any,
+                    )
                     return formatted ? (
                       <div>
                         <p className="mb-2 text-sm font-medium text-gray-500">
@@ -449,7 +455,9 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
 
                 {offer.depositData &&
                   (() => {
-                    const formatted = formatDepositData(offer.depositData)
+                    const formatted = formatDepositData(
+                      offer.depositData as any,
+                    )
                     return formatted ? (
                       <div>
                         <p className="mb-2 text-sm font-medium text-gray-500">
@@ -463,7 +471,7 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                 {offer.settlementDateData &&
                   (() => {
                     const formatted = formatSettlementDateData(
-                      offer.settlementDateData,
+                      offer.settlementDateData as any,
                     )
                     return formatted ? (
                       <div>
@@ -478,7 +486,7 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                 {offer.subjectToLoanApproval &&
                   (() => {
                     const formatted = formatSubjectToLoanApproval(
-                      offer.subjectToLoanApproval,
+                      offer.subjectToLoanApproval as any,
                     )
                     // formatSubjectToLoanApproval already includes the label, so just render it
                     return formatted ? (

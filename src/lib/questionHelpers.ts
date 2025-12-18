@@ -41,9 +41,10 @@ export function getQuestionRequiredFromSetup(
   }
 
   // Evidence of Funds - check evidence_of_funds
-  if (questionType === "evidenceOfFunds") {
-    if (config.evidence_of_funds === "required") return true
-    if (config.evidence_of_funds === "optional" || config.evidence_of_funds === "not_required") return false
+  if ((questionType as string) === "evidenceOfFunds") {
+    const configAny = config as any
+    if (configAny.evidence_of_funds === "required") return true
+    if (configAny.evidence_of_funds === "optional" || configAny.evidence_of_funds === "not_required") return false
   }
 
   // Return null if no setup-based requirement logic applies
@@ -112,10 +113,11 @@ export function syncSetupConfigFromRequired(
   }
 
   // Evidence of Funds - sync evidence_of_funds
-  if (questionType === "evidenceOfFunds") {
+  if ((questionType as string) === "evidenceOfFunds") {
     // Only update if it's currently "required" or "optional"
     // Don't change it if it's "not_required" (user explicitly doesn't want it)
-    if (config.evidence_of_funds === "required" || config.evidence_of_funds === "optional") {
+    const configAny = config as any
+    if (configAny.evidence_of_funds === "required" || configAny.evidence_of_funds === "optional") {
       config.evidence_of_funds = required ? "required" : "optional"
     }
   }
