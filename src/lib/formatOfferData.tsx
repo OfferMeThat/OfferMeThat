@@ -87,7 +87,7 @@ export function formatDepositData(data: DepositData): React.JSX.Element | null {
         data.depositDueWithin ||
         (data.deposit_due && typeof data.deposit_due === "string")) && (
         <div>
-          <p className="text-sm font-medium text-gray-500">Deposit Due</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">Deposit Due</p>
           <p className="text-base text-gray-900">
             {data.depositDueWithin
               ? `Within ${data.depositDueWithin.number} ${

@@ -11,16 +11,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { QUESTION_DEFINITIONS as OFFER_QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
 import { currencyNames } from "@/constants/forms"
+import { QUESTION_DEFINITIONS as OFFER_QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
 import { getQuestionRequiredFromSetup } from "@/lib/questionHelpers"
 import { cn } from "@/lib/utils"
 import { QuestionType } from "@/types/form"
 import { QuestionSetupConfig, QuestionUIConfig } from "@/types/questionConfig"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import SmartQuestionSetup from "./SmartQuestionSetup"
 import DepositDueDateModal from "./DepositDueDateModal"
+import SmartQuestionSetup from "./SmartQuestionSetup"
 
 interface QuestionSetupFormProps {
   questionType: QuestionType
@@ -50,7 +50,7 @@ const QuestionSetupForm = ({
   // Initialize setupConfig with defaults for offerAmount
   const initialConfig = useMemo(() => {
     const config = { ...initialSetupConfig } as Record<string, any>
-    
+
     // Convert legacy comma-separated select_options string to array format
     if (questionType === "custom" && config.select_options) {
       if (typeof config.select_options === "string") {
@@ -65,7 +65,7 @@ const QuestionSetupForm = ({
         }
       }
     }
-    
+
     // Clear currency-related fields when starting fresh (not in edit mode)
     // Only keep them if they're explicitly in initialSetupConfig
     if (Object.keys(initialSetupConfig).length === 0) {
@@ -77,19 +77,16 @@ const QuestionSetupForm = ({
       }
       // For offerAmount, we'll set defaults below
     }
-    
+
     // Set default currency_mode to "any" for offerAmount if not set
-    if (
-      questionType === "offerAmount" &&
-      !config.currency_mode
-    ) {
+    if (questionType === "offerAmount" && !config.currency_mode) {
       config.currency_mode = "any"
       // Also set default fixed_currency if switching to fixed mode later
       if (!config.fixed_currency) {
         config.fixed_currency = "USD"
       }
     }
-    
+
     return config
   }, [initialSetupConfig, questionType])
 
@@ -121,7 +118,7 @@ const QuestionSetupForm = ({
     // Only update if config actually changed or question type changed
     if (currentConfigString !== prevConfigRef.current || questionTypeChanged) {
       const configToSet = { ...initialSetupConfig } as Record<string, any>
-      
+
       // Convert legacy comma-separated select_options string to array format
       if (questionType === "custom" && configToSet.select_options) {
         if (typeof configToSet.select_options === "string") {
@@ -136,7 +133,7 @@ const QuestionSetupForm = ({
           }
         }
       }
-      
+
       // Clear currency-related fields when switching question types or starting fresh
       // Only keep them if they're explicitly in initialSetupConfig (edit mode)
       if (questionTypeChanged || Object.keys(initialSetupConfig).length === 0) {
@@ -159,19 +156,16 @@ const QuestionSetupForm = ({
           }
         }
       }
-      
+
       // Set default currency_mode to "any" for offerAmount if not set
-      if (
-        questionType === "offerAmount" &&
-        !configToSet.currency_mode
-      ) {
+      if (questionType === "offerAmount" && !configToSet.currency_mode) {
         configToSet.currency_mode = "any"
         // Also set default fixed_currency if switching to fixed mode later
         if (!configToSet.fixed_currency) {
           configToSet.fixed_currency = "USD"
         }
       }
-      
+
       setSetupConfig(configToSet)
       if (configToSet?.conditions && configToSet.conditions.length > 0) {
         setConditions(configToSet.conditions)
@@ -200,7 +194,7 @@ const QuestionSetupForm = ({
         delete newConfig.select_options
         delete newConfig.add_tickbox
         delete newConfig.tickbox_text
-        
+
         // Initialize select_options as array when switching to single_select or multi_select
         if (value === "single_select" || value === "multi_select") {
           newConfig.select_options = ["", ""]
@@ -208,14 +202,22 @@ const QuestionSetupForm = ({
       }
 
       // When number_type changes (and it's not money), clear currency fields
-      if (questionType === "custom" && questionId === "number_type" && value !== "money") {
+      if (
+        questionType === "custom" &&
+        questionId === "number_type" &&
+        value !== "money"
+      ) {
         delete newConfig.currency_stipulation
         delete newConfig.currency_options
         delete newConfig.currency_fixed
       }
 
       // When add_tickbox changes (and it's "no"), clear tickbox fields
-      if (questionType === "custom" && questionId === "add_tickbox" && value === "no") {
+      if (
+        questionType === "custom" &&
+        questionId === "add_tickbox" &&
+        value === "no"
+      ) {
         delete newConfig.tickbox_text
       }
 
@@ -260,7 +262,6 @@ const QuestionSetupForm = ({
     setConditions(updated)
   }
 
-
   // Validation function to check if setup is complete
   const validateSetup = useCallback(() => {
     const definition = questionDefinitions[questionType]
@@ -284,11 +285,10 @@ const QuestionSetupForm = ({
         const value = setupConfig[question.id]
         // For multiChoiceSelect, check if array is empty
         if (question.type === "multiChoiceSelect") {
-          if (
-            !Array.isArray(value) ||
-            value.length === 0
-          ) {
-            toast.error(`Please complete all required fields: ${question.label}`)
+          if (!Array.isArray(value) || value.length === 0) {
+            toast.error(
+              `Please complete all required fields: ${question.label}`,
+            )
             return false
           }
         } else if (value === undefined || value === "" || value === null) {
@@ -312,10 +312,14 @@ const QuestionSetupForm = ({
     if (questionType === "offerAmount") {
       if (setupConfig.currency_mode === "options") {
         const validCurrencies = Array.isArray(setupConfig.currency_options)
-          ? setupConfig.currency_options.filter((opt: string) => opt && opt !== "")
+          ? setupConfig.currency_options.filter(
+              (opt: string) => opt && opt !== "",
+            )
           : []
         if (validCurrencies.length < 2) {
-          toast.error("Please select at least 2 currencies for the currency options mode.")
+          toast.error(
+            "Please select at least 2 currencies for the currency options mode.",
+          )
           return false
         }
       }
@@ -373,9 +377,10 @@ const QuestionSetupForm = ({
       const offerAmountConfig = finalConfig as Record<string, any>
       if (offerAmountConfig.currency_mode === "options") {
         if (Array.isArray(offerAmountConfig.currency_options)) {
-          offerAmountConfig.currency_options = offerAmountConfig.currency_options.filter(
-            (opt: string) => opt && opt !== "",
-          )
+          offerAmountConfig.currency_options =
+            offerAmountConfig.currency_options.filter(
+              (opt: string) => opt && opt !== "",
+            )
         }
       }
       finalConfig = offerAmountConfig
@@ -409,23 +414,24 @@ const QuestionSetupForm = ({
     const definition = questionDefinitions[questionType]
     if (definition?.setupQuestions) {
       const cleanedConfig = { ...finalConfig } as Record<string, any>
-      
+
       // Remove conditional fields that don't meet their dependencies
       for (const setupQuestion of definition.setupQuestions) {
         if (setupQuestion.dependsOn) {
-          const dependentValue = cleanedConfig[setupQuestion.dependsOn.questionId]
+          const dependentValue =
+            cleanedConfig[setupQuestion.dependsOn.questionId]
           const requiredValue = setupQuestion.dependsOn.value
           const isMet = Array.isArray(requiredValue)
             ? requiredValue.includes(dependentValue)
             : dependentValue === requiredValue
-          
+
           if (!isMet && cleanedConfig[setupQuestion.id] !== undefined) {
             // Remove the field if dependency is not met
             delete cleanedConfig[setupQuestion.id]
           }
         }
       }
-      
+
       finalConfig = cleanedConfig
     }
 
@@ -434,7 +440,10 @@ const QuestionSetupForm = ({
     let finalUIConfig = initialUIConfig
     if (questionType === "custom") {
       const customConfig = finalConfig as Record<string, any>
-      if (customConfig.question_text && customConfig.answer_type !== "statement") {
+      if (
+        customConfig.question_text &&
+        customConfig.answer_type !== "statement"
+      ) {
         finalUIConfig = {
           ...initialUIConfig,
           label: customConfig.question_text,
@@ -449,7 +458,14 @@ const QuestionSetupForm = ({
     )
 
     onComplete(finalConfig, finalUIConfig, requiredFromSetup ?? undefined)
-  }, [setupConfig, conditions, questionType, initialUIConfig, onComplete, validateSetup])
+  }, [
+    setupConfig,
+    conditions,
+    questionType,
+    initialUIConfig,
+    onComplete,
+    validateSetup,
+  ])
 
   // Add event listener for external save trigger
   // Skip for deposit questions as they use SmartQuestionSetup which has its own handler
@@ -651,49 +667,51 @@ const QuestionSetupForm = ({
                     </SelectContent>
                   </Select>
 
-                {/* Show Configure Custom Settlement Date button when CYO is selected */}
-                {questionType === "settlementDate" &&
-                  question.id === "settlement_date_type" &&
-                  setupConfig[question.id] === "CYO" && (
-                    <div className="mt-3">
-                      <Button
-                        type="button"
-                        onClick={() => setShowSettlementDateModal(true)}
-                      >
-                        {!setupConfig.settlement_date_config ||
-                        Object.keys(setupConfig.settlement_date_config || {})
-                          .length === 0 ||
-                        !Object.values(
-                          setupConfig.settlement_date_config || {},
-                        ).some(
-                          (selections) =>
-                            Array.isArray(selections) && selections.length > 0,
-                        )
-                          ? "Create Custom Settlement Date"
-                          : "View/Edit Custom Settlement Date"}
-                      </Button>
+                  {/* Show Configure Custom Settlement Date button when CYO is selected */}
+                  {questionType === "settlementDate" &&
+                    question.id === "settlement_date_type" &&
+                    setupConfig[question.id] === "CYO" && (
+                      <div className="mt-3">
+                        <Button
+                          type="button"
+                          onClick={() => setShowSettlementDateModal(true)}
+                        >
+                          {!setupConfig.settlement_date_config ||
+                          Object.keys(setupConfig.settlement_date_config || {})
+                            .length === 0 ||
+                          !Object.values(
+                            setupConfig.settlement_date_config || {},
+                          ).some(
+                            (selections) =>
+                              Array.isArray(selections) &&
+                              selections.length > 0,
+                          )
+                            ? "Create Custom Settlement Date"
+                            : "View/Edit Custom Settlement Date"}
+                        </Button>
 
-                      {/* Show warning if no configuration has been made */}
-                      {(!setupConfig.settlement_date_config ||
-                        Object.keys(setupConfig.settlement_date_config || {})
-                          .length === 0 ||
-                        !Object.values(
-                          setupConfig.settlement_date_config || {},
-                        ).some(
-                          (selections) =>
-                            Array.isArray(selections) && selections.length > 0,
-                        )) && (
-                        <div className="mt-2 rounded-md border border-yellow-200 bg-yellow-50 p-2">
-                          <p className="text-sm text-yellow-800">
-                            ⚠️ You must configure your custom settlement date
-                            options before proceeding.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-              </div>
-            )}
+                        {/* Show warning if no configuration has been made */}
+                        {(!setupConfig.settlement_date_config ||
+                          Object.keys(setupConfig.settlement_date_config || {})
+                            .length === 0 ||
+                          !Object.values(
+                            setupConfig.settlement_date_config || {},
+                          ).some(
+                            (selections) =>
+                              Array.isArray(selections) &&
+                              selections.length > 0,
+                          )) && (
+                          <div className="mt-2 rounded-md border border-yellow-200 bg-yellow-50 p-2">
+                            <p className="text-sm text-yellow-800">
+                              ⚠️ You must configure your custom settlement date
+                              options before proceeding.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                </div>
+              )}
 
             {/* Select Options Builder (for single_select and multi_select) */}
             {question.id === "select_options" && question.type === "text" && (
@@ -712,7 +730,7 @@ const QuestionSetupForm = ({
                         .filter((opt: string) => opt !== "")
                     }
                   }
-                  
+
                   // Initialize with 2 empty options if empty
                   if (currentOptions.length === 0) {
                     currentOptions = ["", ""]
@@ -872,8 +890,9 @@ const QuestionSetupForm = ({
                   </div>
 
                   {(() => {
-                    const currentOptions =
-                      (setupConfig[question.id] as string[]) || ["", ""]
+                    const currentOptions = (setupConfig[
+                      question.id
+                    ] as string[]) || ["", ""]
                     const validOptions = currentOptions.filter(
                       (opt) => opt !== "",
                     )
@@ -882,8 +901,9 @@ const QuestionSetupForm = ({
                     return (
                       <>
                         {currentOptions.map((currency, index) => {
-                          const latestOptions =
-                            (setupConfig[question.id] as string[]) || ["", ""]
+                          const latestOptions = (setupConfig[
+                            question.id
+                          ] as string[]) || ["", ""]
                           return (
                             <div
                               key={`currency-${index}-${currency || "empty"}`}
@@ -896,30 +916,49 @@ const QuestionSetupForm = ({
                                 key={`select-${index}-${currency || "empty"}`}
                                 value={currency || ""}
                                 onValueChange={(value) => {
-                                  const freshOptions =
-                                    (setupConfig[question.id] as string[]) || [
-                                      "",
-                                      "",
-                                    ]
+                                  const freshOptions = (setupConfig[
+                                    question.id
+                                  ] as string[]) || ["", ""]
                                   const newOptions = [...freshOptions]
                                   newOptions[index] = value
-                                  handleConfigChange(
-                                    question.id,
-                                    newOptions,
-                                  )
+                                  handleConfigChange(question.id, newOptions)
                                 }}
                               >
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Select Currency" />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-[300px]">
-                                  {Object.entries(currencyNames).map(
-                                    ([code, name]) => (
-                                      <SelectItem key={code} value={code}>
-                                        {code} - {name}
-                                      </SelectItem>
-                                    ),
-                                  )}
+                                  {(() => {
+                                    // Get all currently selected currencies (excluding the current one)
+                                    const latestOptions = (setupConfig[
+                                      question.id
+                                    ] as string[]) || ["", ""]
+                                    const selectedCurrencies = latestOptions
+                                      .map((opt, idx) =>
+                                        idx === index ? null : opt,
+                                      )
+                                      .filter(
+                                        (opt) => opt && opt !== "",
+                                      ) as string[]
+
+                                    // Filter out already selected currencies
+                                    return Object.entries(currencyNames)
+                                      .filter(([code]) => {
+                                        // Allow the currently selected value for this dropdown
+                                        if (code === currency) {
+                                          return true
+                                        }
+                                        // Filter out if it's already selected in another dropdown
+                                        return !selectedCurrencies.includes(
+                                          code,
+                                        )
+                                      })
+                                      .map(([code, name]) => (
+                                        <SelectItem key={code} value={code}>
+                                          {code} - {name}
+                                        </SelectItem>
+                                      ))
+                                  })()}
                                 </SelectContent>
                               </Select>
                               {latestOptions.length > 2 && (
@@ -929,10 +968,7 @@ const QuestionSetupForm = ({
                                     const newOptions = latestOptions.filter(
                                       (_, i) => i !== index,
                                     )
-                                    handleConfigChange(
-                                      question.id,
-                                      newOptions,
-                                    )
+                                    handleConfigChange(question.id, newOptions)
                                   }}
                                   className="text-xs text-red-600 hover:text-red-700"
                                 >
@@ -954,11 +990,9 @@ const QuestionSetupForm = ({
                           <button
                             type="button"
                             onClick={() => {
-                              const latestOptions =
-                                (setupConfig[question.id] as string[]) || [
-                                  "",
-                                  "",
-                                ]
+                              const latestOptions = (setupConfig[
+                                question.id
+                              ] as string[]) || ["", ""]
                               handleConfigChange(question.id, [
                                 ...latestOptions,
                                 "",
@@ -1071,16 +1105,22 @@ const QuestionSetupForm = ({
                 {(() => {
                   const currentOptions =
                     (setupConfig.currency_options as string[]) || ["", ""]
-                  const validOptions = currentOptions.filter((opt) => opt !== "")
+                  const validOptions = currentOptions.filter(
+                    (opt) => opt !== "",
+                  )
                   const needsMore = validOptions.length < 2
 
                   return (
                     <>
                       {currentOptions.map((currency, index) => {
                         // Always read from latest setupConfig to avoid closure issues
-                        const latestOptions = (setupConfig.currency_options as string[]) || ["", ""]
+                        const latestOptions =
+                          (setupConfig.currency_options as string[]) || ["", ""]
                         return (
-                          <div key={`currency-${index}-${currency || "empty"}`} className="flex items-center gap-2">
+                          <div
+                            key={`currency-${index}-${currency || "empty"}`}
+                            className="flex items-center gap-2"
+                          >
                             <span className="w-32 text-xs font-medium text-gray-700">
                               Currency Option {index + 1}:
                             </span>
@@ -1089,23 +1129,54 @@ const QuestionSetupForm = ({
                               value={currency || ""}
                               onValueChange={(value) => {
                                 // Read fresh from setupConfig to avoid stale closure
-                                const freshOptions = (setupConfig.currency_options as string[]) || ["", ""]
+                                const freshOptions =
+                                  (setupConfig.currency_options as string[]) || [
+                                    "",
+                                    "",
+                                  ]
                                 const newOptions = [...freshOptions]
                                 newOptions[index] = value
-                                handleConfigChange("currency_options", newOptions)
+                                handleConfigChange(
+                                  "currency_options",
+                                  newOptions,
+                                )
                               }}
                             >
                               <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Select Currency" />
                               </SelectTrigger>
                               <SelectContent className="max-h-[300px]">
-                                {Object.entries(currencyNames).map(
-                                  ([code, name]) => (
-                                    <SelectItem key={code} value={code}>
-                                      {code} - {name}
-                                    </SelectItem>
-                                  ),
-                                )}
+                                {(() => {
+                                  // Get all currently selected currencies (excluding the current one)
+                                  const latestOptions =
+                                    (setupConfig.currency_options as string[]) || [
+                                      "",
+                                      "",
+                                    ]
+                                  const selectedCurrencies = latestOptions
+                                    .map((opt, idx) =>
+                                      idx === index ? null : opt,
+                                    )
+                                    .filter(
+                                      (opt) => opt && opt !== "",
+                                    ) as string[]
+
+                                  // Filter out already selected currencies
+                                  return Object.entries(currencyNames)
+                                    .filter(([code]) => {
+                                      // Allow the currently selected value for this dropdown
+                                      if (code === currency) {
+                                        return true
+                                      }
+                                      // Filter out if it's already selected in another dropdown
+                                      return !selectedCurrencies.includes(code)
+                                    })
+                                    .map(([code, name]) => (
+                                      <SelectItem key={code} value={code}>
+                                        {code} - {name}
+                                      </SelectItem>
+                                    ))
+                                })()}
                               </SelectContent>
                             </Select>
                             {latestOptions.length > 2 && (
@@ -1115,7 +1186,10 @@ const QuestionSetupForm = ({
                                   const newOptions = latestOptions.filter(
                                     (_, i) => i !== index,
                                   )
-                                  handleConfigChange("currency_options", newOptions)
+                                  handleConfigChange(
+                                    "currency_options",
+                                    newOptions,
+                                  )
                                 }}
                                 className="text-xs text-red-600 hover:text-red-700"
                               >
@@ -1128,24 +1202,25 @@ const QuestionSetupForm = ({
 
                       {needsMore && (
                         <p className="text-xs text-amber-600">
-                          Please select at least 2 currencies for buyers to choose
-                          from.
+                          Please select at least 2 currencies for buyers to
+                          choose from.
                         </p>
                       )}
 
                       <button
                         type="button"
                         onClick={() => {
-                          const latestOptions = (setupConfig.currency_options as string[]) || [
-                            "",
-                            "",
-                          ]
+                          const latestOptions =
+                            (setupConfig.currency_options as string[]) || [
+                              "",
+                              "",
+                            ]
                           handleConfigChange("currency_options", [
                             ...latestOptions,
                             "",
                           ])
                         }}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                        className="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-700"
                       >
                         + Add another Currency
                       </button>
