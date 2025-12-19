@@ -1916,7 +1916,6 @@ const SmartQuestionSetup = ({
                     <Button
                       type="button"
                       onClick={() => setShowDueDateModal(true)}
-                      className="bg-green-600 text-white hover:bg-green-700"
                     >
                       {!answers.due_date_config ||
                       Object.keys(answers.due_date_config).length === 0 ||
@@ -1953,7 +1952,6 @@ const SmartQuestionSetup = ({
                     <Button
                       type="button"
                       onClick={() => setShowLoanDueDateModal(true)}
-                      className="bg-green-600 text-white hover:bg-green-700"
                     >
                       {!answers.loan_due_date_config ||
                       Object.keys(answers.loan_due_date_config).length === 0 ||
@@ -1990,7 +1988,6 @@ const SmartQuestionSetup = ({
                     <Button
                       type="button"
                       onClick={() => setShowDueDateModal(true)}
-                      className="bg-green-600 text-white hover:bg-green-700"
                     >
                       {!answers.settlement_date_config ||
                       Object.keys(answers.settlement_date_config).length ===
@@ -2049,7 +2046,7 @@ const SmartQuestionSetup = ({
             <Button
               onClick={handleSave}
               disabled={!canProceed()}
-              className="bg-green-600 px-6 hover:bg-green-700"
+              className="px-6"
             >
               Add Question
             </Button>

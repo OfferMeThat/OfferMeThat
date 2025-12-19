@@ -116,9 +116,11 @@ const DepositDueDateModal = ({
     field: keyof DepositConfig,
     value: string[],
   ) => {
+    // Remove duplicates to prevent state issues
+    const uniqueValues = Array.from(new Set(value))
     setConfig((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: uniqueValues,
     }))
   }
 
@@ -142,11 +144,17 @@ const DepositDueDateModal = ({
         [addModalField]: [...prev[addModalField], newOption],
       }))
 
-      // Add to selected options (ticked by default)
-      setConfig((prev) => ({
-        ...prev,
-        [addModalField]: [...prev[addModalField], newOption.value],
-      }))
+      // Add to selected options (ticked by default) - prevent duplicates
+      setConfig((prev) => {
+        const currentValues = Array.from(new Set(prev[addModalField]))
+        if (!currentValues.includes(newOption.value)) {
+          return {
+            ...prev,
+            [addModalField]: [...currentValues, newOption.value],
+          }
+        }
+        return prev
+      })
 
       // Close modal and clear state
       setShowAddModal(false)
@@ -163,6 +171,7 @@ const DepositDueDateModal = ({
 
   const canSave = () => {
     // Check if all 5 dropdowns have at least one selection
+    // Also ensure arrays don't have duplicates or empty strings
     const fields: (keyof DepositConfig)[] = [
       "timeConstraint",
       "number",
@@ -170,7 +179,14 @@ const DepositDueDateModal = ({
       "action",
       "trigger",
     ]
-    return fields.every((field) => config[field].length > 0)
+    return fields.every((field) => {
+      const values = config[field]
+      return (
+        Array.isArray(values) &&
+        values.length > 0 &&
+        values.every((v) => v && v.trim() !== "")
+      )
+    })
   }
 
   const handleSave = () => {
@@ -185,40 +201,67 @@ const DepositDueDateModal = ({
     options: Option[],
     label: string,
   ) => {
-    const selectedCount = config[field].length
+    const selectedValues = config[field]
+    const selectedCount = selectedValues.length
 
     // Combine original options with custom options
     const allOptions = [...options, ...customOptions[field]]
+
+    // Get display text: if 1 selected, show the label; if multiple, show count
+    const getDisplayText = () => {
+      if (selectedCount === 0) {
+        return null
+      }
+      if (selectedCount === 1) {
+        const selectedValue = selectedValues[0]
+        const selectedOption = allOptions.find(
+          (opt) => opt.value === selectedValue,
+        )
+        return selectedOption
+          ? selectedOption.label
+          : `${selectedCount} selected`
+      }
+      return `${selectedCount} selected`
+    }
+
+    const displayText = getDisplayText()
 
     return (
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">{label}</label>
         <Select
+          value={selectedCount > 0 ? selectedValues[0] : undefined}
           onValueChange={(value) => {
-            const newValue = config[field].includes(value)
-              ? config[field].filter((v) => v !== value)
-              : [...config[field], value]
+            // Toggle selection: if already selected, remove it; otherwise add it
+            // Ensure no duplicates by filtering first
+            const currentValues = Array.from(new Set(selectedValues))
+            const newValue = currentValues.includes(value)
+              ? currentValues.filter((v) => v !== value)
+              : [...currentValues, value]
             handleSelectionChange(field, newValue)
           }}
         >
           <SelectTrigger className="w-full">
-            {selectedCount > 0 ? (
-              <span className="text-gray-700">{selectedCount} selected</span>
+            {displayText ? (
+              <span className="text-gray-700">{displayText}</span>
             ) : (
               <SelectValue placeholder="Select" />
             )}
           </SelectTrigger>
           <SelectContent>
-            {allOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                <div className="flex w-full items-center justify-between">
-                  <span>{option.label}</span>
-                  {config[field].includes(option.value) && (
-                    <Check className="ml-2 h-4 w-4 text-green-600" />
-                  )}
-                </div>
-              </SelectItem>
-            ))}
+            {allOptions.map((option) => {
+              const isSelected = selectedValues.includes(option.value)
+              return (
+                <SelectItem key={option.value} value={option.value}>
+                  <div className="flex w-full items-center justify-between">
+                    <span>{option.label}</span>
+                    {isSelected && (
+                      <Check className="ml-2 h-4 w-4 text-green-600" />
+                    )}
+                  </div>
+                </SelectItem>
+              )
+            })}
           </SelectContent>
         </Select>
 
@@ -235,7 +278,7 @@ const DepositDueDateModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] max-w-4xl! overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-5xl! overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title} - Create Your Own</DialogTitle>
         </DialogHeader>
@@ -316,7 +359,7 @@ const DepositDueDateModal = ({
             <Button
               onClick={handleSave}
               disabled={!canSave()}
-              className={`${canSave() ? "bg-green-600 hover:bg-green-700" : "cursor-not-allowed bg-gray-400"}`}
+              className={`${!canSave() && "cursor-not-allowed bg-gray-400"}`}
             >
               Save
             </Button>
@@ -376,7 +419,6 @@ const DepositDueDateModal = ({
               <Button
                 type="button"
                 onClick={handleApplyNewOption}
-                className="bg-green-600 hover:bg-green-700"
               >
                 Apply
               </Button>

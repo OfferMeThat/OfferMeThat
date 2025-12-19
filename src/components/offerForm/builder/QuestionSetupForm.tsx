@@ -659,7 +659,6 @@ const QuestionSetupForm = ({
                       <Button
                         type="button"
                         onClick={() => setShowSettlementDateModal(true)}
-                        className="bg-green-600 text-white hover:bg-green-700"
                       >
                         {!setupConfig.settlement_date_config ||
                         Object.keys(setupConfig.settlement_date_config || {})

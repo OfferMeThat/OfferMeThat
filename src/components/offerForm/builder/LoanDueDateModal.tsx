@@ -300,7 +300,6 @@ const LoanDueDateModal = ({
             <Button
               onClick={handleSave}
               disabled={!canSave()}
-              className="bg-green-600 hover:bg-green-700"
             >
               Save
             </Button>
@@ -333,7 +332,6 @@ const LoanDueDateModal = ({
               <Button
                 onClick={handleApplyNewOption}
                 disabled={!newOptionText.trim()}
-                className="bg-green-600 hover:bg-green-700"
               >
                 Apply
               </Button>
