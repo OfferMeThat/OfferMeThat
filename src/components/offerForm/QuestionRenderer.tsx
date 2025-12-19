@@ -3338,30 +3338,26 @@ export const QuestionRenderer = ({
           )}
           {dateType === "datetime" && (
             <div className="flex max-w-md gap-2">
-              <div className="relative flex-1">
-                <DatePicker
-                  style={getInputStyle()}
-                  value={formValues.settlementDate}
-                  onChange={(date) => {
-                    const newValues = { ...formValues, settlementDate: date }
-                    setFormValues(newValues)
-                    onChange?.(newValues)
-                  }}
-                  brandingConfig={brandingConfig}
-                />
-              </div>
-              <div className="relative flex-1">
-                <TimePicker
-                  style={getInputStyle()}
-                  value={formValues.settlementTime}
-                  onChange={(time) => {
-                    const newValues = { ...formValues, settlementTime: time }
-                    setFormValues(newValues)
-                    onChange?.(newValues)
-                  }}
-                  brandingConfig={brandingConfig}
-                />
-              </div>
+              <DatePicker
+                style={getInputStyle()}
+                value={formValues.settlementDate}
+                onChange={(date) => {
+                  const newValues = { ...formValues, settlementDate: date }
+                  setFormValues(newValues)
+                  onChange?.(newValues)
+                }}
+                brandingConfig={brandingConfig}
+              />
+              <TimePicker
+                style={getInputStyle()}
+                value={formValues.settlementTime}
+                onChange={(time) => {
+                  const newValues = { ...formValues, settlementTime: time }
+                  setFormValues(newValues)
+                  onChange?.(newValues)
+                }}
+                brandingConfig={brandingConfig}
+              />
             </div>
           )}
           {dateType === "buyer_text" && (

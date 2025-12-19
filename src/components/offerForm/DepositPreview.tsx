@@ -29,13 +29,13 @@ interface DepositQuestion {
   placeholder?: string
   required?: boolean
   currency_field?: {
-    type?: "select" | "display"
+    type?: "select" | "display" | "multi_select"
     placeholder?: string
     options?: Array<{ value: string; label: string }>
     value?: string
   }
   conditional_currency?: {
-    type?: "select" | "display"
+    type?: "select" | "display" | "multi_select"
     placeholder?: string
     options?: Array<{ value: string; label: string }>
     value?: string
@@ -44,6 +44,8 @@ interface DepositQuestion {
   custom_config?: any
   config?: any
   value?: string
+  select_options?: Array<{ value: string; label: string }>
+  suffix?: string
 }
 
 interface Question {
@@ -128,6 +130,47 @@ const DepositForm = ({
     // No state updates needed here, just dependency tracking
   }, [question.uiConfig, question.sub_questions, question.question_text])
 
+  // CRITICAL: Re-render when question prop changes to pick up updated text
+  useEffect(() => {
+    // This ensures the component re-renders when uiConfig, sub_questions, or question_text changes
+    // No state updates needed here, just dependency tracking
+  }, [question.uiConfig, question.sub_questions, question.question_text])
+
+  // Initialize currency pairs for multi-select mode
+  useEffect(() => {
+    if (question.deposit_questions) {
+      question.deposit_questions.forEach((depositQuestion) => {
+        if (
+          depositQuestion.currency_field?.type === "multi_select" &&
+          depositQuestion.currency_field.options &&
+          depositQuestion.currency_field.options.length >= 2
+        ) {
+          const pairsKey = `${depositQuestion.id}_pairs`
+          const currentPairs = localFormData[pairsKey]
+          if (
+            !currentPairs ||
+            !Array.isArray(currentPairs) ||
+            currentPairs.length === 0
+          ) {
+            // Initialize with 2 pairs
+            const initialPairs = [
+              {
+                amount: "",
+                currency: depositQuestion.currency_field.options[0].value,
+              },
+              {
+                amount: "",
+                currency: depositQuestion.currency_field.options[1].value,
+              },
+            ]
+            handleFieldChange(pairsKey, initialPairs)
+          }
+        }
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.deposit_questions])
+
   const handleFieldChange = (fieldId: string, value: any) => {
     const newFormData = {
       ...localFormData,
@@ -141,7 +184,7 @@ const DepositForm = ({
   const generateCurrencyField = (
     instalmentNumber?: number,
   ): {
-    type?: "select" | "display"
+    type?: "select" | "display" | "multi_select"
     placeholder?: string
     options?: Array<{ value: string; label: string }>
     value?: string
@@ -165,15 +208,29 @@ const DepositForm = ({
         ],
       }
     } else if (currencyStipulation === "options") {
+      // Collect all currency options (not just 2)
       const currencyOptions = []
-      for (let i = 1; i <= 2; i++) {
+      let i = 1
+      while (true) {
         const currencyValue =
           setupAnswers[`currency_options_${i}${suffix}`] ||
           setupAnswers[`currency_options_${i}`]
         if (currencyValue) {
           currencyOptions.push({ value: currencyValue, label: currencyValue })
+          i++
+        } else {
+          break
         }
       }
+      // Ensure at least 2 options for multi-select mode
+      if (currencyOptions.length >= 2) {
+        return {
+          type: "multi_select",
+          placeholder: "Select currency",
+          options: currencyOptions,
+        }
+      }
+      // Fallback to single select if less than 2 options
       return {
         type: "select",
         placeholder: "Select currency",
@@ -776,80 +833,234 @@ const DepositForm = ({
               <div className="space-y-1 pt-1.5">
                 {/* Check if this question has a currency field */}
                 {depositQuestion.currency_field ? (
-                  <div className="flex items-center gap-3">
-                    <div className="relative max-w-md flex-1">
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder={currentPlaceholder || "Enter value"}
-                        value={localFormData[id] || ""}
-                        onChange={(e) => handleFieldChange(id, e.target.value)}
-                        disabled={false}
-                        className={cn(
-                          editingMode ? "cursor-not-allowed" : "",
-                          "w-full",
-                        )}
-                        style={getInputStyle()}
-                      />
-                      {editingMode && (
-                        <div
-                          className="absolute inset-0 cursor-pointer bg-transparent"
-                          onClick={() => {
-                            if (onEditPlaceholder) {
-                              // Use the question ID directly
-                              // The handler will detect it's a sub-question and save to uiConfig.subQuestions
-                              onEditPlaceholder(id, currentPlaceholder)
-                            }
-                          }}
-                          title="Click to edit placeholder text"
+                  <div className="space-y-2">
+                    {/* Amount input with currency */}
+                    <div className="flex items-center gap-3">
+                      <div className="relative max-w-md flex-1">
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder={currentPlaceholder || "Enter value"}
+                          value={localFormData[id] || ""}
+                          onChange={(e) =>
+                            handleFieldChange(id, e.target.value)
+                          }
+                          disabled={false}
+                          className={cn(
+                            editingMode ? "cursor-not-allowed" : "",
+                            "w-full",
+                            depositQuestion.currency_field.type === "display" &&
+                              "pr-12", // Add padding for currency decorator
+                          )}
+                          style={getInputStyle()}
                         />
+                        {/* Currency decorator for fixed mode (like offerAmount) */}
+                        {depositQuestion.currency_field.type === "display" && (
+                          <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
+                            {depositQuestion.currency_field.value || "N/A"}
+                          </div>
+                        )}
+                        {/* Edit overlay - adjust right padding for fixed currency mode */}
+                        {editingMode &&
+                        depositQuestion.currency_field.type === "display" &&
+                        onEditPlaceholder ? (
+                          <div
+                            className="absolute inset-0 right-12 z-20 cursor-pointer bg-transparent"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (onEditPlaceholder) {
+                                onEditPlaceholder(id, currentPlaceholder)
+                              }
+                            }}
+                            title="Click to edit placeholder text"
+                          />
+                        ) : editingMode ? (
+                          <div
+                            className="absolute inset-0 cursor-pointer bg-transparent"
+                            onClick={() => {
+                              if (onEditPlaceholder) {
+                                onEditPlaceholder(id, currentPlaceholder)
+                              }
+                            }}
+                            title="Click to edit placeholder text"
+                          />
+                        ) : null}
+                      </div>
+                      {/* Single currency dropdown (for "any" mode) */}
+                      {depositQuestion.currency_field.type === "select" && (
+                        <Select
+                          value={localFormData[`${id}_currency`] || ""}
+                          onValueChange={(value) =>
+                            handleFieldChange(`${id}_currency`, value)
+                          }
+                          disabled={false}
+                        >
+                          <SelectTrigger
+                            className="w-full max-w-xs"
+                            style={getSelectStyle()}
+                          >
+                            <SelectValue
+                              placeholder={
+                                depositQuestion.currency_field.placeholder ||
+                                "Currency"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {depositQuestion.currency_field.options?.map(
+                              (option: { value: string; label: string }) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ),
+                            )}
+                          </SelectContent>
+                        </Select>
                       )}
                     </div>
-                    {/* Render currency field based on type */}
-                    {depositQuestion.currency_field.type === "display" ? (
-                      // Fixed currency - display as text (using consistent styling)
-                      <div
-                        className="flex max-w-xs items-center rounded-md border px-3 py-2"
-                        style={getInputStyle()}
-                      >
-                        <span className="text-sm font-medium text-gray-700">
-                          {depositQuestion.currency_field.value || "N/A"}
-                        </span>
-                      </div>
-                    ) : (
-                      // Selectable currency - render as Select
-                      <Select
-                        value={localFormData[`${id}_currency`] || ""}
-                        onValueChange={(value) =>
-                          handleFieldChange(`${id}_currency`, value)
-                        }
-                        disabled={false}
-                      >
-                        <SelectTrigger
-                          className="w-full max-w-xs"
-                          style={getSelectStyle()}
-                        >
-                          <SelectValue
-                            placeholder={
-                              depositQuestion.currency_field.placeholder ||
-                              "Currency"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {depositQuestion.currency_field.options?.map(
-                            (option: { value: string; label: string }) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
+                    {/* Multiple currency/amount pairs (for "options" mode with 2+ currencies) */}
+                    {depositQuestion.currency_field.type === "multi_select" &&
+                      depositQuestion.currency_field.options &&
+                      depositQuestion.currency_field.options.length >= 2 && (
+                        <div className="space-y-3">
+                          {(
+                            localFormData[`${id}_pairs`] || [
+                              {
+                                amount: "",
+                                currency:
+                                  depositQuestion.currency_field.options[0]
+                                    .value,
+                              },
+                              {
+                                amount: "",
+                                currency:
+                                  depositQuestion.currency_field.options[1]
+                                    .value,
+                              },
+                            ]
+                          ).map(
+                            (
+                              pair: { amount: string; currency: string },
+                              index: number,
+                            ) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2"
                               >
-                                {option.label}
-                              </SelectItem>
+                                {/* Currency Selector */}
+                                <Select
+                                  value={pair.currency || ""}
+                                  onValueChange={(value) => {
+                                    const currentPairs =
+                                      localFormData[`${id}_pairs`] || []
+                                    const newPairs = [...currentPairs]
+                                    newPairs[index] = {
+                                      ...newPairs[index],
+                                      currency: value,
+                                    }
+                                    handleFieldChange(`${id}_pairs`, newPairs)
+                                  }}
+                                  disabled={false}
+                                >
+                                  <SelectTrigger
+                                    className="w-full max-w-xs"
+                                    style={getSelectStyle()}
+                                  >
+                                    <SelectValue placeholder="Currency" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {depositQuestion.currency_field?.options?.map(
+                                      (opt: {
+                                        value: string
+                                        label: string
+                                      }) => (
+                                        <SelectItem
+                                          key={opt.value}
+                                          value={opt.value}
+                                        >
+                                          {opt.label}
+                                        </SelectItem>
+                                      ),
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                                {/* Amount Input */}
+                                <div className="relative max-w-md flex-1">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder={
+                                      currentPlaceholder || "Enter amount"
+                                    }
+                                    value={pair.amount || ""}
+                                    onChange={(e) => {
+                                      const currentPairs =
+                                        localFormData[`${id}_pairs`] || []
+                                      const newPairs = [...currentPairs]
+                                      newPairs[index] = {
+                                        ...newPairs[index],
+                                        amount: e.target.value,
+                                      }
+                                      handleFieldChange(`${id}_pairs`, newPairs)
+                                    }}
+                                    disabled={false}
+                                    className="w-full"
+                                    style={getInputStyle()}
+                                  />
+                                </div>
+                                {/* Remove button (only show if more than 2 pairs) */}
+                                {(() => {
+                                  const currentPairs =
+                                    localFormData[`${id}_pairs`] || []
+                                  return (
+                                    currentPairs.length > 2 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const currentPairs =
+                                            localFormData[`${id}_pairs`] || []
+                                          const newPairs = currentPairs.filter(
+                                            (_: any, i: number) => i !== index,
+                                          )
+                                          handleFieldChange(
+                                            `${id}_pairs`,
+                                            newPairs,
+                                          )
+                                        }}
+                                        className="text-sm text-red-600 hover:text-red-700"
+                                      >
+                                        Remove
+                                      </button>
+                                    )
+                                  )
+                                })()}
+                              </div>
                             ),
                           )}
-                        </SelectContent>
-                      </Select>
-                    )}
+                          {/* Add Another Currency button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentPairs =
+                                localFormData[`${id}_pairs`] || []
+                              const defaultCurrency =
+                                depositQuestion.currency_field?.options?.[0]
+                                  ?.value || "USD"
+                              const newPairs = [
+                                ...currentPairs,
+                                { amount: "", currency: defaultCurrency },
+                              ]
+                              handleFieldChange(`${id}_pairs`, newPairs)
+                            }}
+                            className="text-xs text-green-600 hover:text-green-700"
+                          >
+                            + Add another Currency
+                          </button>
+                        </div>
+                      )}
                   </div>
                 ) : (
                   <div className="relative max-w-md">
@@ -964,87 +1175,199 @@ const DepositForm = ({
                   id === "deposit_type_instalment_3") &&
                   localFormData[id] === "amount" &&
                   depositQuestion.conditional_currency && (
-                    <div className="flex items-center gap-3">
-                      <div className="relative max-w-xs flex-1">
-                        <Input
-                          placeholder="Enter amount"
-                          value={
-                            localFormData[
-                              id === "deposit_type"
-                                ? "deposit_amount"
-                                : `deposit_amount_${id.replace(
-                                    "deposit_type_instalment_",
-                                    "",
-                                  )}`
-                            ] || ""
-                          }
-                          onChange={(e) =>
-                            handleFieldChange(
-                              id === "deposit_type"
-                                ? "deposit_amount"
-                                : `deposit_amount_${id.replace(
-                                    "deposit_type_instalment_",
-                                    "",
-                                  )}`,
-                              e.target.value,
-                            )
-                          }
-                          disabled={false}
-                          className={cn(
-                            editingMode ? "cursor-not-allowed" : "",
-                            "w-full",
-                          )}
-                          style={getInputStyle()}
-                        />
-                      </div>
-                      <Select
-                        value={
-                          localFormData[
-                            id === "deposit_type"
-                              ? "deposit_amount_currency"
-                              : `deposit_amount_${id.replace(
-                                  "deposit_type_instalment_",
-                                  "",
-                                )}_currency`
-                          ] || ""
-                        }
-                        onValueChange={(value) =>
-                          handleFieldChange(
-                            id === "deposit_type"
-                              ? "deposit_amount_currency"
-                              : `deposit_amount_${id.replace(
-                                  "deposit_type_instalment_",
-                                  "",
-                                )}_currency`,
-                            value,
-                          )
-                        }
-                        disabled={false}
-                      >
-                        <SelectTrigger
-                          className="w-full max-w-xs"
-                          style={getSelectStyle()}
-                        >
-                          <SelectValue
-                            placeholder={
-                              depositQuestion.conditional_currency
-                                .placeholder || "Currency"
+                    <div className="space-y-2">
+                      {/* Amount input with currency */}
+                      <div className="flex items-center gap-3">
+                        <div className="relative max-w-xs flex-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="Enter amount"
+                            value={
+                              localFormData[
+                                id === "deposit_type"
+                                  ? "deposit_amount"
+                                  : `deposit_amount_${id.replace(
+                                      "deposit_type_instalment_",
+                                      "",
+                                    )}`
+                              ] || ""
                             }
+                            onChange={(e) =>
+                              handleFieldChange(
+                                id === "deposit_type"
+                                  ? "deposit_amount"
+                                  : `deposit_amount_${id.replace(
+                                      "deposit_type_instalment_",
+                                      "",
+                                    )}`,
+                                e.target.value,
+                              )
+                            }
+                            disabled={false}
+                            className={cn(
+                              editingMode ? "cursor-not-allowed" : "",
+                              "w-full",
+                              depositQuestion.conditional_currency.type ===
+                                "display" && "pr-12", // Add padding for currency decorator
+                            )}
+                            style={getInputStyle()}
                           />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {depositQuestion.conditional_currency.options?.map(
-                            (option: { value: string; label: string }) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ),
+                          {/* Currency decorator for fixed mode (like offerAmount) */}
+                          {depositQuestion.conditional_currency.type ===
+                            "display" && (
+                            <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
+                              {depositQuestion.conditional_currency.value ||
+                                "N/A"}
+                            </div>
                           )}
-                        </SelectContent>
-                      </Select>
+                        </div>
+                        {/* Single currency dropdown (for "any" mode) */}
+                        {depositQuestion.conditional_currency.type ===
+                          "select" && (
+                          <Select
+                            value={
+                              localFormData[
+                                id === "deposit_type"
+                                  ? "deposit_amount_currency"
+                                  : `deposit_amount_${id.replace(
+                                      "deposit_type_instalment_",
+                                      "",
+                                    )}_currency`
+                              ] || ""
+                            }
+                            onValueChange={(value) =>
+                              handleFieldChange(
+                                id === "deposit_type"
+                                  ? "deposit_amount_currency"
+                                  : `deposit_amount_${id.replace(
+                                      "deposit_type_instalment_",
+                                      "",
+                                    )}_currency`,
+                                value,
+                              )
+                            }
+                            disabled={false}
+                          >
+                            <SelectTrigger
+                              className="w-full max-w-xs"
+                              style={getSelectStyle()}
+                            >
+                              <SelectValue
+                                placeholder={
+                                  depositQuestion.conditional_currency
+                                    .placeholder || "Currency"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {depositQuestion.conditional_currency.options?.map(
+                                (option: { value: string; label: string }) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ),
+                              )}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                      {/* Multiple currency dropdowns (for "options" mode) */}
+                      {depositQuestion.conditional_currency.type ===
+                        "multi_select" &&
+                        depositQuestion.conditional_currency.options &&
+                        depositQuestion.conditional_currency.options.length >=
+                          2 && (
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {depositQuestion.conditional_currency.options.map(
+                                (
+                                  option: { value: string; label: string },
+                                  index: number,
+                                ) => (
+                                  <div
+                                    key={option.value}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Select
+                                      value={
+                                        localFormData[
+                                          id === "deposit_type"
+                                            ? `deposit_amount_currency_${index}`
+                                            : `deposit_amount_${id.replace(
+                                                "deposit_type_instalment_",
+                                                "",
+                                              )}_currency_${index}`
+                                        ] || ""
+                                      }
+                                      onValueChange={(value) =>
+                                        handleFieldChange(
+                                          id === "deposit_type"
+                                            ? `deposit_amount_currency_${index}`
+                                            : `deposit_amount_${id.replace(
+                                                "deposit_type_instalment_",
+                                                "",
+                                              )}_currency_${index}`,
+                                          value,
+                                        )
+                                      }
+                                      disabled={false}
+                                    >
+                                      <SelectTrigger
+                                        className="w-full max-w-xs"
+                                        style={getSelectStyle()}
+                                      >
+                                        <SelectValue
+                                          placeholder={
+                                            depositQuestion.conditional_currency
+                                              ?.placeholder || "Currency"
+                                          }
+                                        />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {depositQuestion.conditional_currency?.options?.map(
+                                          (opt: {
+                                            value: string
+                                            label: string
+                                          }) => (
+                                            <SelectItem
+                                              key={opt.value}
+                                              value={opt.value}
+                                            >
+                                              {opt.label}
+                                            </SelectItem>
+                                          ),
+                                        )}
+                                      </SelectContent>
+                                    </Select>
+                                    {index <
+                                      (depositQuestion.conditional_currency
+                                        ?.options?.length || 0) -
+                                        1 && (
+                                      <span className="text-sm text-gray-500">
+                                        or
+                                      </span>
+                                    )}
+                                  </div>
+                                ),
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Add another currency option
+                                // This would need to be handled by the parent component
+                                // For now, we'll just show the button
+                              }}
+                              className="text-xs text-green-600 hover:text-green-700"
+                            >
+                              + Add another Currency
+                            </button>
+                          </div>
+                        )}
                     </div>
                   )}
 
@@ -1148,18 +1471,102 @@ const DepositForm = ({
               </div>
             )}
 
-            {question_type === "display" && (
-              <div className="rounded bg-gray-50 p-3 text-sm text-gray-600">
-                {depositQuestion.value || "Display value"}
-              </div>
-            )}
+            {question_type === "display" &&
+              // Skip rendering display value for instalment headers (duplicate of the label above)
+              !(
+                id?.includes("instalment") ||
+                depositQuestion.value?.includes("Instalment")
+              ) && (
+                <div className="rounded bg-gray-50 p-3 text-sm text-gray-600">
+                  {depositQuestion.value || "Display value"}
+                </div>
+              )}
 
             {question_type === "custom_due_date" && (
-              <div className="space-y-2">
+              <div className="space-y-2 pl-4">
                 {(depositQuestion.custom_config || depositQuestion.config) &&
                   renderCustomDueDate(
                     depositQuestion.custom_config || depositQuestion.config,
                   )}
+              </div>
+            )}
+
+            {question_type === "select_with_text" && (
+              <div className="space-y-1 pt-1.5">
+                <div className="flex max-w-md flex-wrap items-center gap-2">
+                  <div className="relative w-1/2">
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder={currentPlaceholder || "Enter number"}
+                      value={localFormData[id] || ""}
+                      onChange={(e) => handleFieldChange(id, e.target.value)}
+                      disabled={false}
+                      className={cn(
+                        editingMode ? "cursor-not-allowed" : "",
+                        "w-full",
+                      )}
+                      style={{
+                        ...getInputStyle(),
+                        position: "relative",
+                        zIndex: 1,
+                      }}
+                    />
+                    {editingMode && (
+                      <div
+                        className="absolute inset-0 cursor-pointer bg-transparent"
+                        style={{
+                          zIndex: 2,
+                        }}
+                        onClick={() => {
+                          if (onEditPlaceholder) {
+                            onEditPlaceholder(id, currentPlaceholder)
+                          }
+                        }}
+                        title="Click to edit placeholder text"
+                      />
+                    )}
+                  </div>
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    {depositQuestion.select_options &&
+                      depositQuestion.select_options.length > 0 && (
+                        <Select
+                          value={
+                            localFormData[`${id}_unit`] ||
+                            depositQuestion.select_options[0].value
+                          }
+                          onValueChange={(value) =>
+                            handleFieldChange(`${id}_unit`, value)
+                          }
+                          disabled={false}
+                        >
+                          <SelectTrigger
+                            className="w-auto min-w-fit"
+                            style={getSelectStyle()}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {depositQuestion.select_options.map(
+                              (option: { value: string; label: string }) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ),
+                            )}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    {depositQuestion.suffix && (
+                      <span className="text-sm whitespace-nowrap text-gray-600">
+                        {depositQuestion.suffix}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

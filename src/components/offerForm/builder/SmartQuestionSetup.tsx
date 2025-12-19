@@ -877,6 +877,35 @@ const SmartQuestionSetup = ({
       // Special handling for other_conditions: increment condition number when "Add another condition" button is clicked
       // This will be handled by a separate function for the button click
 
+      // Special handling: Clear currency options when switching deposit_management to buyer_percentage
+      if (
+        questionId === "deposit_management" ||
+        questionId === "deposit_management_instalment_1" ||
+        questionId === "deposit_management_instalment_2"
+      ) {
+        // Determine suffix based on which deposit_management was changed
+        let suffix = ""
+        if (questionId === "deposit_management_instalment_1") {
+          suffix = "_instalment_1"
+        } else if (questionId === "deposit_management_instalment_2") {
+          suffix = "_instalment_2"
+        }
+
+        // If switching to buyer_percentage, clear all currency-related fields
+        if (value === "buyer_percentage") {
+          // Clear currency_stipulation
+          delete newAnswers[`currency_stipulation${suffix}`]
+          // Clear all currency_options (currency_options_1, currency_options_2, etc.)
+          // Check up to index 10 to catch all dynamically added options
+          for (let i = 1; i <= 10; i++) {
+            const currencyOptionId = `currency_options_${i}${suffix}`
+            if (currencyOptionId in newAnswers) {
+              delete newAnswers[currencyOptionId]
+            }
+          }
+        }
+      }
+
       // Special handling for currency stipulation changes
       if (
         questionId === "currency_stipulation" ||
@@ -1191,7 +1220,7 @@ const SmartQuestionSetup = ({
   }, [answers, currentConditionNumber]) // Dependencies that affect canProceed
 
   return (
-    <div className="mx-auto max-w-2xl rounded-lg bg-white p-6">
+    <div className="mx-auto w-full rounded-lg bg-white p-6">
       <div className="mb-6">
         <h2 className="mb-2 text-2xl font-bold text-gray-900">
           Question Setup: {smartQuestion.title}
@@ -1756,152 +1785,217 @@ const SmartQuestionSetup = ({
               {/* Special rendering for currency options */}
               {isCurrencyOptions && (
                 <div className="space-y-3">
-                  {/* Always show first currency option */}
                   {(() => {
-                    let currencyOptionId: string = ""
+                    // Determine the base prefix for currency option IDs
+                    let basePrefix = ""
                     if (question.id === "currency_stipulation") {
-                      currencyOptionId = `currency_options_1`
+                      basePrefix = "currency_options_"
                     } else if (
                       question.id === "currency_stipulation_instalment_1"
                     ) {
-                      currencyOptionId = `currency_options_1_instalment_1`
+                      basePrefix = "currency_options_"
                     } else if (
                       question.id === "currency_stipulation_instalment_2"
                     ) {
-                      currencyOptionId = `currency_options_1_instalment_2`
+                      basePrefix = "currency_options_"
                     }
 
-                    const currencyQuestion = setupQuestions.find(
-                      (q) => q.id === currencyOptionId,
-                    )
+                    // Determine the suffix for instalment-specific options
+                    let suffix = ""
+                    if (question.id === "currency_stipulation_instalment_1") {
+                      suffix = "_instalment_1"
+                    } else if (
+                      question.id === "currency_stipulation_instalment_2"
+                    ) {
+                      suffix = "_instalment_2"
+                    }
 
-                    if (!currencyQuestion) return null
+                    // Count how many currency options should be shown
+                    // Always show at least 2, but show more if they have values or have been added
+                    let optionsToShow = 2
+                    let index = 1
+                    // First, count options that exist in setupQuestions (currency_options_1, currency_options_2)
+                    while (true) {
+                      const optionId = `${basePrefix}${index}${suffix}`
+                      const existsInSetup = setupQuestions.some(
+                        (q) => q.id === optionId,
+                      )
+                      if (existsInSetup) {
+                        optionsToShow = Math.max(optionsToShow, index)
+                        index++
+                      } else {
+                        break
+                      }
+                    }
+                    // Then, check if there are any answers for higher indices (dynamically added options)
+                    // Check up to index 10 to find the highest index with an answer (even if empty)
+                    for (let i = index; i <= 10; i++) {
+                      const optionId = `${basePrefix}${i}${suffix}`
+                      // Check if this option exists in answers (even if empty string)
+                      if (answers.hasOwnProperty(optionId)) {
+                        // If this option exists in answers (even if empty), show it
+                        optionsToShow = Math.max(optionsToShow, i)
+                      }
+                    }
+
+                    // Get all available currency options from the first currency question
+                    const firstCurrencyQuestion = setupQuestions.find(
+                      (q) => q.id === `${basePrefix}1${suffix}`,
+                    )
+                    const allCurrencyOptions =
+                      firstCurrencyQuestion?.options || []
 
                     return (
-                      <div
-                        key={currencyOptionId}
-                        className="flex items-center space-x-3"
-                      >
-                        <Label className="min-w-[120px] text-sm font-medium text-gray-900">
-                          {currencyQuestion.question}:
-                        </Label>
-                        <Select
-                          value={
-                            typeof answers[currencyOptionId] === "string"
-                              ? answers[currencyOptionId]
-                              : ""
+                      <>
+                        {/* Render currency option dropdowns */}
+                        {Array.from({ length: optionsToShow }).map((_, idx) => {
+                          const optionIndex = idx + 1
+                          const currencyOptionId = `${basePrefix}${optionIndex}${suffix}`
+                          const currencyQuestion = setupQuestions.find(
+                            (q) => q.id === currencyOptionId,
+                          )
+
+                          // If question doesn't exist in setupQuestions, create a dynamic one
+                          const displayQuestion = currencyQuestion || {
+                            id: currencyOptionId,
+                            question: `Select Currency ${optionIndex}`,
+                            options: allCurrencyOptions,
                           }
-                          onValueChange={(value) =>
-                            handleAnswerChange(currencyOptionId, value)
-                          }
-                        >
-                          <SelectTrigger className="min-w-52">
-                            <SelectValue placeholder="Select currency" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {currencyQuestion.options?.map((option) => (
-                              <SelectItem
-                                key={
-                                  typeof option.value === "string"
-                                    ? option.value
-                                    : option.value
-                                }
+
+                          return (
+                            <div
+                              key={currencyOptionId}
+                              className="flex items-center space-x-3"
+                            >
+                              <Label className="min-w-[120px] text-sm font-medium text-gray-900">
+                                {displayQuestion.question}:
+                              </Label>
+                              <Select
                                 value={
-                                  typeof option.value === "string"
-                                    ? option.value
-                                    : option.value
+                                  typeof answers[currencyOptionId] === "string"
+                                    ? answers[currencyOptionId]
+                                    : ""
+                                }
+                                onValueChange={(value) =>
+                                  handleAnswerChange(currencyOptionId, value)
                                 }
                               >
-                                {typeof option.label === "string"
-                                  ? option.label
-                                  : getCurrencyDisplayName(option.value)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )
-                  })()}
+                                <SelectTrigger className="min-w-52">
+                                  <SelectValue placeholder="Select currency" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(() => {
+                                    // Get all currently selected currencies (excluding the current one)
+                                    const selectedCurrencies = Array.from({
+                                      length: optionsToShow,
+                                    })
+                                      .map((_, idx) => {
+                                        const otherOptionId = `${basePrefix}${idx + 1}${suffix}`
+                                        // Skip the current option
+                                        if (
+                                          otherOptionId === currencyOptionId
+                                        ) {
+                                          return null
+                                        }
+                                        return answers[otherOptionId]
+                                      })
+                                      .filter(
+                                        (val) => val && val !== "",
+                                      ) as string[]
 
-                  {/* Show second currency option only if first is selected */}
-                  {(() => {
-                    let firstCurrencyId: string = ""
-                    if (question.id === "currency_stipulation") {
-                      firstCurrencyId = `currency_options_1`
-                    } else if (
-                      question.id === "currency_stipulation_instalment_1"
-                    ) {
-                      firstCurrencyId = `currency_options_1_instalment_1`
-                    } else if (
-                      question.id === "currency_stipulation_instalment_2"
-                    ) {
-                      firstCurrencyId = `currency_options_1_instalment_2`
-                    }
+                                    // Filter out already selected currencies
+                                    return allCurrencyOptions
+                                      .filter((option) => {
+                                        const optionValue =
+                                          typeof option.value === "string"
+                                            ? option.value
+                                            : option.value
+                                        // Allow the currently selected value for this dropdown
+                                        const currentValue =
+                                          answers[currencyOptionId]
+                                        if (optionValue === currentValue) {
+                                          return true
+                                        }
+                                        // Filter out if it's already selected in another dropdown
+                                        return !selectedCurrencies.includes(
+                                          optionValue,
+                                        )
+                                      })
+                                      .map((option) => (
+                                        <SelectItem
+                                          key={
+                                            typeof option.value === "string"
+                                              ? option.value
+                                              : option.value
+                                          }
+                                          value={
+                                            typeof option.value === "string"
+                                              ? option.value
+                                              : option.value
+                                          }
+                                        >
+                                          {typeof option.label === "string"
+                                            ? option.label
+                                            : getCurrencyDisplayName(
+                                                option.value,
+                                              )}
+                                        </SelectItem>
+                                      ))
+                                  })()}
+                                </SelectContent>
+                              </Select>
+                              {/* Show remove button if more than 2 options */}
+                              {optionsToShow > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    // Remove this currency option
+                                    const newAnswers = { ...answers }
+                                    delete newAnswers[currencyOptionId]
+                                    // Shift remaining options down
+                                    for (
+                                      let i = optionIndex;
+                                      i < optionsToShow;
+                                      i++
+                                    ) {
+                                      const currentId = `${basePrefix}${i}${suffix}`
+                                      const nextId = `${basePrefix}${i + 1}${suffix}`
+                                      if (answers[nextId]) {
+                                        newAnswers[currentId] = answers[nextId]
+                                        delete newAnswers[nextId]
+                                      } else {
+                                        delete newAnswers[currentId]
+                                      }
+                                    }
+                                    setAnswers(newAnswers)
+                                  }}
+                                  className="text-xs text-red-600 hover:text-red-700"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
 
-                    if (!answers[firstCurrencyId]) return null
-
-                    let currencyOptionId: string = ""
-                    if (question.id === "currency_stipulation") {
-                      currencyOptionId = `currency_options_2`
-                    } else if (
-                      question.id === "currency_stipulation_instalment_1"
-                    ) {
-                      currencyOptionId = `currency_options_2_instalment_1`
-                    } else if (
-                      question.id === "currency_stipulation_instalment_2"
-                    ) {
-                      currencyOptionId = `currency_options_2_instalment_2`
-                    }
-
-                    const currencyQuestion = setupQuestions.find(
-                      (q) => q.id === currencyOptionId,
-                    )
-
-                    if (!currencyQuestion) return null
-
-                    return (
-                      <div
-                        key={currencyOptionId}
-                        className="flex items-center space-x-3"
-                      >
-                        <Label className="min-w-[120px] text-sm font-medium text-gray-900">
-                          {currencyQuestion.question}:
-                        </Label>
-                        <Select
-                          value={
-                            typeof answers[currencyOptionId] === "string"
-                              ? answers[currencyOptionId]
-                              : ""
-                          }
-                          onValueChange={(value) =>
-                            handleAnswerChange(currencyOptionId, value)
-                          }
+                        {/* Add Another Currency button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextIndex = optionsToShow + 1
+                            const nextCurrencyOptionId = `${basePrefix}${nextIndex}${suffix}`
+                            // Initialize with empty value - this will trigger a re-render
+                            // and the optionsToShow calculation will pick it up
+                            setAnswers((prev) => ({
+                              ...prev,
+                              [nextCurrencyOptionId]: "",
+                            }))
+                          }}
+                          className="cursor-pointer text-sm font-medium text-green-600 hover:text-green-700"
                         >
-                          <SelectTrigger className="min-w-52">
-                            <SelectValue placeholder="Select currency" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {currencyQuestion.options?.map((option) => (
-                              <SelectItem
-                                key={
-                                  typeof option.value === "string"
-                                    ? option.value
-                                    : option.value
-                                }
-                                value={
-                                  typeof option.value === "string"
-                                    ? option.value
-                                    : option.value
-                                }
-                              >
-                                {typeof option.label === "string"
-                                  ? option.label
-                                  : getCurrencyDisplayName(option.value)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                          + Add another Currency
+                        </button>
+                      </>
                     )
                   })()}
                 </div>
@@ -1916,7 +2010,6 @@ const SmartQuestionSetup = ({
                     <Button
                       type="button"
                       onClick={() => setShowDueDateModal(true)}
-                      className="bg-green-600 text-white hover:bg-green-700"
                     >
                       {!answers.due_date_config ||
                       Object.keys(answers.due_date_config).length === 0 ||
@@ -1953,7 +2046,6 @@ const SmartQuestionSetup = ({
                     <Button
                       type="button"
                       onClick={() => setShowLoanDueDateModal(true)}
-                      className="bg-green-600 text-white hover:bg-green-700"
                     >
                       {!answers.loan_due_date_config ||
                       Object.keys(answers.loan_due_date_config).length === 0 ||
@@ -1990,7 +2082,6 @@ const SmartQuestionSetup = ({
                     <Button
                       type="button"
                       onClick={() => setShowDueDateModal(true)}
-                      className="bg-green-600 text-white hover:bg-green-700"
                     >
                       {!answers.settlement_date_config ||
                       Object.keys(answers.settlement_date_config).length ===
@@ -2049,7 +2140,7 @@ const SmartQuestionSetup = ({
             <Button
               onClick={handleSave}
               disabled={!canProceed()}
-              className="bg-green-600 px-6 hover:bg-green-700"
+              className="px-6"
             >
               Add Question
             </Button>

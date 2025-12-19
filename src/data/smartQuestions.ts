@@ -1509,11 +1509,7 @@ export const smartQuestionsConfig = {
       } else if (currentDepositManagement === "buyer_percentage") {
         question.placeholder = "Enter percentage"
         question.suffix = "% of purchase price"
-        question.currency_field = this.generateCurrencyField(
-          currentCurrencyStipulation,
-          setupAnswers,
-          "",
-        )
+        // No currency field for percentage - it's always a percentage of purchase price
       } else if (currentDepositManagement === "buyer_choice") {
         question.placeholder = "Enter amount or percentage"
         question.conditional_currency = this.generateCurrencyField(
@@ -1763,7 +1759,7 @@ export const smartQuestionsConfig = {
           id: `instalment_${i}_header`,
           question_text: `Instalment ${i}`,
           question_type: "display",
-          value: `Complete the following questions for Instalment ${i}:`,
+          value: `Instalment ${i}`,
         })
 
         // Generate questions for this instalment
@@ -1823,7 +1819,10 @@ export const smartQuestionsConfig = {
       // Question: Deposit to be held
       const depositHolding =
         setupAnswers[`deposit_holding${suffix}`] || setupAnswers.deposit_holding
-      if (depositHolding !== "no_ascertain") {
+      if (
+        depositHolding !== "not_ascertain" &&
+        depositHolding !== "no_ascertain"
+      ) {
         const depositHoldingQuestion =
           this.generateDepositHoldingQuestionForInstalment(
             setupAnswers,
@@ -2013,7 +2012,10 @@ export const smartQuestionsConfig = {
         questions.push(depositDueQuestion)
 
         // Question 4: Deposit to be held
-        if (setupAnswers.deposit_holding !== "no_ascertain") {
+        if (
+          setupAnswers.deposit_holding !== "not_ascertain" &&
+          setupAnswers.deposit_holding !== "no_ascertain"
+        ) {
           const depositHoldingQuestion =
             this.generateDepositHoldingQuestion(setupAnswers)
           questions.push(depositHoldingQuestion)

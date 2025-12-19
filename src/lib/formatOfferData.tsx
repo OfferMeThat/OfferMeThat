@@ -37,6 +37,34 @@ export function formatDepositData(data: DepositData): React.JSX.Element | null {
     instalmentData,
   } = data
 
+  // Helper function to format deposit due date
+  const formatDepositDue = (dueData: any, unitField?: string) => {
+    // Check for structured format (depositDueWithin)
+    if (dueData?.depositDueWithin) {
+      return `Within ${dueData.depositDueWithin.number} ${
+        dueData.depositDueWithin.unit?.replace(/_/g, " ") || "days"
+      } of Offer Acceptance`
+    }
+
+    // Check for flat format (separate number and unit fields)
+    if (typeof dueData === "object" && dueData !== null) {
+      const number = dueData.number || dueData
+      const unit = unitField || dueData.unit
+      if (number && unit) {
+        return `Within ${number} ${unit.replace(/_/g, " ")} of Offer Acceptance`
+      }
+    }
+
+    // Standard date/string format
+    if (typeof dueData === "string") {
+      return dueData
+    }
+    if (dueData instanceof Date) {
+      return dueData.toLocaleDateString()
+    }
+    return String(dueData)
+  }
+
   return (
     <div className="space-y-3">
       {depositType && (
@@ -55,15 +83,22 @@ export function formatDepositData(data: DepositData): React.JSX.Element | null {
         </div>
       )}
 
-      {depositDue && (
+      {(depositDue ||
+        data.depositDueWithin ||
+        (data.deposit_due && typeof data.deposit_due === "string")) && (
         <div>
-          <p className="text-sm font-medium text-gray-500">Deposit Due</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">Deposit Due</p>
           <p className="text-base text-gray-900">
-            {typeof depositDue === "string"
-              ? depositDue
-              : depositDue instanceof Date
-                ? depositDue.toLocaleDateString()
-                : String(depositDue)}
+            {data.depositDueWithin
+              ? `Within ${data.depositDueWithin.number} ${
+                  data.depositDueWithin.unit?.replace(/_/g, " ") || "days"
+                } of Offer Acceptance`
+              : data.deposit_due && data.deposit_due_unit
+                ? `Within ${data.deposit_due} ${data.deposit_due_unit.replace(
+                    /_/g,
+                    " ",
+                  )} of Offer Acceptance`
+                : formatDepositDue(depositDue)}
           </p>
         </div>
       )}
@@ -98,9 +133,36 @@ export function formatDepositData(data: DepositData): React.JSX.Element | null {
                   )}
                   {instalment.due && (
                     <p className="text-sm text-gray-600">
-                      Due: {instalment.due}
+                      Due:{" "}
+                      {typeof instalment.due === "string"
+                        ? instalment.due
+                        : instalment.due instanceof Date
+                          ? instalment.due.toLocaleDateString()
+                          : String(instalment.due)}
                     </p>
                   )}
+                  {instalment.depositDueWithin && (
+                    <p className="text-sm text-gray-600">
+                      Due: Within {instalment.depositDueWithin.number}{" "}
+                      {instalment.depositDueWithin.unit?.replace(/_/g, " ") ||
+                        "days"}{" "}
+                      of Offer Acceptance
+                    </p>
+                  )}
+                  {/* Check for flat format instalment due fields */}
+                  {data[`deposit_due_instalment_${index + 1}`] &&
+                    typeof data[`deposit_due_instalment_${index + 1}`] ===
+                      "string" && (
+                      <p className="text-sm text-gray-600">
+                        Due:{" "}
+                        {data[`deposit_due_instalment_${index + 1}_unit`]
+                          ? `Within ${data[`deposit_due_instalment_${index + 1}`]} ${data[`deposit_due_instalment_${index + 1}_unit`].replace(
+                              /_/g,
+                              " ",
+                            )} of Offer Acceptance`
+                          : data[`deposit_due_instalment_${index + 1}`]}
+                      </p>
+                    )}
                   {instalment.holding && (
                     <p className="text-sm text-gray-600">
                       Holding: {instalment.holding}
