@@ -44,6 +44,8 @@ interface DepositQuestion {
   custom_config?: any
   config?: any
   value?: string
+  select_options?: Array<{ value: string; label: string }>
+  suffix?: string
 }
 
 interface Question {
@@ -1160,6 +1162,85 @@ const DepositForm = ({
                   renderCustomDueDate(
                     depositQuestion.custom_config || depositQuestion.config,
                   )}
+              </div>
+            )}
+
+            {question_type === "select_with_text" && (
+              <div className="space-y-1 pt-1.5">
+                <div className="flex flex-wrap items-center gap-2 max-w-md">
+                  <div className="relative w-1/2">
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder={currentPlaceholder || "Enter number"}
+                      value={localFormData[id] || ""}
+                      onChange={(e) => handleFieldChange(id, e.target.value)}
+                      disabled={false}
+                      className={cn(
+                        editingMode ? "cursor-not-allowed" : "",
+                        "w-full",
+                      )}
+                      style={{
+                        ...getInputStyle(),
+                        position: "relative",
+                        zIndex: 1,
+                      }}
+                    />
+                    {editingMode && (
+                      <div
+                        className="absolute inset-0 cursor-pointer bg-transparent"
+                        style={{
+                          zIndex: 2,
+                        }}
+                        onClick={() => {
+                          if (onEditPlaceholder) {
+                            onEditPlaceholder(id, currentPlaceholder)
+                          }
+                        }}
+                        title="Click to edit placeholder text"
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {depositQuestion.select_options &&
+                      depositQuestion.select_options.length > 0 && (
+                        <Select
+                          value={
+                            localFormData[`${id}_unit`] ||
+                            depositQuestion.select_options[0].value
+                          }
+                          onValueChange={(value) =>
+                            handleFieldChange(`${id}_unit`, value)
+                          }
+                          disabled={false}
+                        >
+                          <SelectTrigger
+                            className="w-auto min-w-fit"
+                            style={getSelectStyle()}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {depositQuestion.select_options.map(
+                              (option: { value: string; label: string }) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ),
+                            )}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    {depositQuestion.suffix && (
+                      <span className="text-sm text-gray-600 whitespace-nowrap">
+                        {depositQuestion.suffix}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

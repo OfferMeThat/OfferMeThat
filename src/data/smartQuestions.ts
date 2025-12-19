@@ -1823,7 +1823,7 @@ export const smartQuestionsConfig = {
       // Question: Deposit to be held
       const depositHolding =
         setupAnswers[`deposit_holding${suffix}`] || setupAnswers.deposit_holding
-      if (depositHolding !== "no_ascertain") {
+      if (depositHolding !== "not_ascertain" && depositHolding !== "no_ascertain") {
         const depositHoldingQuestion =
           this.generateDepositHoldingQuestionForInstalment(
             setupAnswers,
@@ -2013,7 +2013,7 @@ export const smartQuestionsConfig = {
         questions.push(depositDueQuestion)
 
         // Question 4: Deposit to be held
-        if (setupAnswers.deposit_holding !== "no_ascertain") {
+        if (setupAnswers.deposit_holding !== "not_ascertain" && setupAnswers.deposit_holding !== "no_ascertain") {
           const depositHoldingQuestion =
             this.generateDepositHoldingQuestion(setupAnswers)
           questions.push(depositHoldingQuestion)
