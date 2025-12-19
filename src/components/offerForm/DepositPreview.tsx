@@ -972,7 +972,7 @@ const DepositForm = ({
                                     <SelectValue placeholder="Currency" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {depositQuestion.currency_field.options?.map(
+                                    {depositQuestion.currency_field?.options?.map(
                                       (opt: {
                                         value: string
                                         label: string
@@ -1047,7 +1047,7 @@ const DepositForm = ({
                               const currentPairs =
                                 localFormData[`${id}_pairs`] || []
                               const defaultCurrency =
-                                depositQuestion.currency_field.options?.[0]
+                                depositQuestion.currency_field?.options?.[0]
                                   ?.value || "USD"
                               const newPairs = [
                                 ...currentPairs,
@@ -1323,12 +1323,12 @@ const DepositForm = ({
                                         <SelectValue
                                           placeholder={
                                             depositQuestion.conditional_currency
-                                              .placeholder || "Currency"
+                                              ?.placeholder || "Currency"
                                           }
                                         />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {depositQuestion.conditional_currency.options?.map(
+                                        {depositQuestion.conditional_currency?.options?.map(
                                           (opt: {
                                             value: string
                                             label: string
@@ -1344,8 +1344,8 @@ const DepositForm = ({
                                       </SelectContent>
                                     </Select>
                                     {index <
-                                      depositQuestion.conditional_currency
-                                        .options.length -
+                                      (depositQuestion.conditional_currency
+                                        ?.options?.length || 0) -
                                         1 && (
                                       <span className="text-sm text-gray-500">
                                         or
