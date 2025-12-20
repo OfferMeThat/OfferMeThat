@@ -9,7 +9,6 @@ import {
   REQUIRED_QUESTION_TYPES as OFFER_REQUIRED_QUESTION_TYPES,
 } from "@/constants/offerFormQuestions"
 import {
-  getSubQuestionLabel,
   parseUIConfig,
   updateSubQuestionLabel,
   updateSubQuestionPlaceholder,
@@ -349,12 +348,12 @@ const QuestionCard = ({
       setEssentialQuestionModal({ isOpen: true, action: "makeOptional" })
       return
     }
-    
+
     // For statement questions, sync required status with tickbox mode
     if (isStatementQuestion) {
       const newRequired = !question.required
       const currentTickboxMode = setupConfig.add_tickbox || "no"
-      
+
       // If making required, set tickbox to "required"
       // If making not required, set tickbox to "optional" (if it was "required")
       let newTickboxMode = currentTickboxMode
@@ -366,7 +365,7 @@ const QuestionCard = ({
       } else if (!newRequired && currentTickboxMode === "required") {
         newTickboxMode = "optional"
       }
-      
+
       onUpdateQuestion(question.id, {
         required: newRequired,
         setupConfig: {
@@ -404,9 +403,6 @@ const QuestionCard = ({
 
   return (
     <>
-      {/* Decorative divider (not shown for first question) */}
-      {!isFirst && <div className="my-4 border-t border-gray-200" />}
-
       <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
         {/* Mobile: Top row with question number and actions */}
         <div className="flex items-center justify-between gap-4 md:hidden">
@@ -490,52 +486,59 @@ const QuestionCard = ({
               )}
             </div>
           )}
-          <div className="flex flex-1 flex-col gap-2 py-4">
-            {!isSubmitButton && (
-              <p
-                className="cursor-pointer text-base font-medium text-gray-900 transition-colors hover:text-cyan-600"
-                onClick={() => handleLabelEdit()}
-                title="Click to edit question text"
-              >
-                {labelText}
-                {question.required && <span className="text-red-500"> *</span>}
-              </p>
-            )}
-
-            {/* Render appropriate input based on question type and setup */}
-            <QuestionRenderer
-              question={question}
-              disabled={false}
-              editingMode={true}
-              value={formValues[question.id]}
-              onChange={(value) => {
-                setFormValues((prev) => ({
-                  ...prev,
-                  [question.id]: value,
-                }))
-              }}
-              onUpdateQuestion={onUpdateQuestion}
-              onEditPlaceholder={handlePlaceholderEdit}
-              onEditLabel={handleLabelEdit}
-              formId={question.formId}
-            />
-          </div>
-
-          {/* Mobile: Required field checkbox and Edit button - Hidden for submit button */}
-          {!isSubmitButton && (
-            <div className="flex items-center justify-between gap-4 md:hidden">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={question.required}
-                  onCheckedChange={handleRequiredToggle}
-                />
-                <span className="text-sm text-gray-700">Required field</span>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleEditQuestion}>
-                Edit Question
-              </Button>
+          <div className="rounded-lg border border-gray-200 bg-white p-6">
+            <div className="flex flex-1 flex-col gap-2">
+              {!isSubmitButton && (
+                <p
+                  className="cursor-pointer text-base font-medium text-gray-900 transition-colors hover:text-cyan-600"
+                  onClick={() => handleLabelEdit()}
+                  title="Click to edit question text"
+                >
+                  {labelText}
+                  {question.required && (
+                    <span className="text-red-500"> *</span>
+                  )}
+                </p>
+              )}
+              {/* Render appropriate input based on question type and setup */}
+              <QuestionRenderer
+                question={question}
+                disabled={false}
+                editingMode={true}
+                value={formValues[question.id]}
+                onChange={(value) => {
+                  setFormValues((prev) => ({
+                    ...prev,
+                    [question.id]: value,
+                  }))
+                }}
+                onUpdateQuestion={onUpdateQuestion}
+                onEditPlaceholder={handlePlaceholderEdit}
+                onEditLabel={handleLabelEdit}
+                formId={question.formId}
+              />
             </div>
-          )}
+
+            {/* Mobile: Required field checkbox and Edit button - Hidden for submit button */}
+            {!isSubmitButton && (
+              <div className="flex items-center justify-between gap-4 md:hidden">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={question.required}
+                    onCheckedChange={handleRequiredToggle}
+                  />
+                  <span className="text-sm text-gray-700">Required field</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEditQuestion}
+                >
+                  Edit Question
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Desktop: Right - Actions - Hidden for submit button */}
@@ -570,45 +573,45 @@ const QuestionCard = ({
             </Button>
           </div>
         )}
-
-        {/* Edit Text Modal */}
-        {editingField && (
-          <EditTextModal
-            isOpen={editModalOpen}
-            onClose={() => {
-              setEditModalOpen(false)
-              setEditingField(null)
-            }}
-            title={
-              editingField.type === "label"
-                ? "Edit Question Text"
-                : "Edit Placeholder"
-            }
-            currentText={editingField.text}
-            onSave={handleSaveEdit}
-            fieldType={editingField.type}
-          />
-        )}
-
-        {/* Edit Question Setup Modal */}
-        <EditQuestionModal
-          open={editQuestionModalOpen}
-          onOpenChange={setEditQuestionModalOpen}
-          question={question}
-          onUpdateQuestion={onUpdateQuestion}
-          questionDefinitions={questionDefinitions}
-        />
-
-        {/* Essential Question Modal */}
-        <EssentialQuestionModal
-          isOpen={essentialQuestionModal.isOpen}
-          onClose={() =>
-            setEssentialQuestionModal({ isOpen: false, action: "delete" })
-          }
-          action={essentialQuestionModal.action}
-          questionType={questionTypeToLabel[question.type] || question.type}
-        />
       </div>
+
+      {/* Edit Text Modal */}
+      {editingField && (
+        <EditTextModal
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false)
+            setEditingField(null)
+          }}
+          title={
+            editingField.type === "label"
+              ? "Edit Question Text"
+              : "Edit Placeholder"
+          }
+          currentText={editingField.text}
+          onSave={handleSaveEdit}
+          fieldType={editingField.type}
+        />
+      )}
+
+      {/* Edit Question Setup Modal */}
+      <EditQuestionModal
+        open={editQuestionModalOpen}
+        onOpenChange={setEditQuestionModalOpen}
+        question={question}
+        onUpdateQuestion={onUpdateQuestion}
+        questionDefinitions={questionDefinitions}
+      />
+
+      {/* Essential Question Modal */}
+      <EssentialQuestionModal
+        isOpen={essentialQuestionModal.isOpen}
+        onClose={() =>
+          setEssentialQuestionModal({ isOpen: false, action: "delete" })
+        }
+        action={essentialQuestionModal.action}
+        questionType={questionTypeToLabel[question.type] || question.type}
+      />
     </>
   )
 }
