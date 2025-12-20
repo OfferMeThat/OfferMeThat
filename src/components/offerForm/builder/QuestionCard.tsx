@@ -9,6 +9,7 @@ import {
   REQUIRED_QUESTION_TYPES as OFFER_REQUIRED_QUESTION_TYPES,
 } from "@/constants/offerFormQuestions"
 import {
+  getSubQuestionLabel,
   parseUIConfig,
   updateSubQuestionLabel,
   updateSubQuestionPlaceholder,
@@ -192,6 +193,9 @@ const QuestionCard = ({
           subQuestionId.startsWith("deposit_") ||
           subQuestionId.startsWith("loan_") ||
           subQuestionId.startsWith("settlement_") ||
+          subQuestionId === "loanApprovalQuestionLabel" ||
+          subQuestionId === "supportingDocumentsLabel" ||
+          subQuestionId === "loanApprovalDueLabel" ||
           subQuestionId === "loanAmountLabel" ||
           subQuestionId === "companyNameLabel" ||
           subQuestionId === "contactNameLabel" ||
@@ -205,6 +209,7 @@ const QuestionCard = ({
           subQuestionId === "idUploadLabel" ||
           subQuestionId === "corporationNameLabel" ||
           subQuestionId === "corporationRepresentativeLabel" ||
+          subQuestionId === "loanApprovalDuePlaceholder" ||
           subQuestionId === "loanAmountPlaceholder" ||
           subQuestionId === "companyNamePlaceholder" ||
           subQuestionId === "contactNamePlaceholder" ||
@@ -344,9 +349,36 @@ const QuestionCard = ({
       setEssentialQuestionModal({ isOpen: true, action: "makeOptional" })
       return
     }
-    onUpdateQuestion(question.id, {
-      required: !question.required,
-    })
+    
+    // For statement questions, sync required status with tickbox mode
+    if (isStatementQuestion) {
+      const newRequired = !question.required
+      const currentTickboxMode = setupConfig.add_tickbox || "no"
+      
+      // If making required, set tickbox to "required"
+      // If making not required, set tickbox to "optional" (if it was "required")
+      let newTickboxMode = currentTickboxMode
+      if (newRequired && currentTickboxMode !== "required") {
+        // Only change to required if tickbox is enabled
+        if (currentTickboxMode === "optional") {
+          newTickboxMode = "required"
+        }
+      } else if (!newRequired && currentTickboxMode === "required") {
+        newTickboxMode = "optional"
+      }
+      
+      onUpdateQuestion(question.id, {
+        required: newRequired,
+        setupConfig: {
+          ...setupConfig,
+          add_tickbox: newTickboxMode,
+        },
+      })
+    } else {
+      onUpdateQuestion(question.id, {
+        required: !question.required,
+      })
+    }
   }
 
   const handleDelete = () => {
