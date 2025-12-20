@@ -47,6 +47,12 @@ export function getQuestionRequiredFromSetup(
     if (configAny.evidence_of_funds === "optional" || configAny.evidence_of_funds === "not_required") return false
   }
 
+  // Custom Statement question - check add_tickbox
+  if (questionType === "custom" && config.answer_type === "statement") {
+    if (config.add_tickbox === "required") return true
+    if (config.add_tickbox === "optional" || config.add_tickbox === "no") return false
+  }
+
   // Return null if no setup-based requirement logic applies
   // This means the question uses default required logic
   return null
@@ -120,6 +126,19 @@ export function syncSetupConfigFromRequired(
     if (configAny.evidence_of_funds === "required" || configAny.evidence_of_funds === "optional") {
       config.evidence_of_funds = required ? "required" : "optional"
     }
+  }
+
+  // Custom Statement question - sync add_tickbox
+  if (questionType === "custom" && config.answer_type === "statement") {
+    // If required is false and tickbox is "required", change it to "optional"
+    if (!required && config.add_tickbox === "required") {
+      config.add_tickbox = "optional"
+    }
+    // If required is true and tickbox is "optional", change it to "required"
+    if (required && config.add_tickbox === "optional") {
+      config.add_tickbox = "required"
+    }
+    // Don't change if add_tickbox is "no" (user explicitly doesn't want tickbox)
   }
 
   return config

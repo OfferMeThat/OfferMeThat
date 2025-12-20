@@ -809,7 +809,7 @@ const DepositForm = ({
         // Use helper functions to get the current text (including any edits)
         const currentQuestionText = getQuestionText(id, question_text)
         const currentPlaceholder = getPlaceholderText(id, placeholder as string)
-
+        
         return (
           <div key={id || index} className="space-y-2">
             <Label

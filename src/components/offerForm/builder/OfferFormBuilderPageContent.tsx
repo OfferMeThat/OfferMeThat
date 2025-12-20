@@ -629,7 +629,7 @@ const OfferFormBuilderPageContent = () => {
         </div>
       ) : (
         <div className="p-4">
-          <div className="space-y-6 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-xl">
+          <div className="mx-auto max-w-7xl space-y-6 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-xl">
             {(() => {
               // Separate submit button from regular questions
               const regularQuestions = questions

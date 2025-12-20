@@ -1050,7 +1050,11 @@ export const QuestionRenderer = ({
           <div className="relative flex-1">
             <Input
               type="text"
-              placeholder={uiConfig.firstNamePlaceholder || "First Name"}
+              placeholder={getSubQuestionPlaceholder(
+                uiConfig,
+                "firstNamePlaceholder",
+                "First Name",
+              )}
               disabled={disabled}
               className={cn(editingMode && "cursor-not-allowed", "w-full")}
               style={getInputStyle()}
@@ -1065,13 +1069,21 @@ export const QuestionRenderer = ({
             />
             {renderEditOverlay(
               "firstNamePlaceholder",
-              uiConfig.firstNamePlaceholder || "First Name",
+              getSubQuestionPlaceholder(
+                uiConfig,
+                "firstNamePlaceholder",
+                "First Name",
+              ),
             )}
           </div>
           <div className="relative flex-1">
             <Input
               type="text"
-              placeholder={uiConfig.lastNamePlaceholder || "Last Name"}
+              placeholder={getSubQuestionPlaceholder(
+                uiConfig,
+                "lastNamePlaceholder",
+                "Last Name",
+              )}
               disabled={disabled}
               className={cn(editingMode && "cursor-not-allowed", "w-full")}
               style={getInputStyle()}
@@ -1086,7 +1098,11 @@ export const QuestionRenderer = ({
             />
             {renderEditOverlay(
               "lastNamePlaceholder",
-              uiConfig.lastNamePlaceholder || "Last Name",
+              getSubQuestionPlaceholder(
+                uiConfig,
+                "lastNamePlaceholder",
+                "Last Name",
+              ),
             )}
           </div>
         </div>
@@ -2324,12 +2340,20 @@ export const QuestionRenderer = ({
         <div>
           <div className="relative inline-block">
             <Label className="mb-2 block text-sm font-medium">
-              Is your Offer subject to Loan Approval?
+              {getSubQuestionLabel(
+                uiConfig,
+                "loanApprovalQuestionLabel",
+                "Is your Offer subject to Loan Approval?",
+              )}
               <span className="font-bold text-red-500"> *</span>
             </Label>
             {renderLabelOverlay(
               "loanApprovalQuestionLabel",
-              "Is your Offer subject to Loan Approval?",
+              getSubQuestionLabel(
+                uiConfig,
+                "loanApprovalQuestionLabel",
+                "Is your Offer subject to Loan Approval?",
+              ),
             )}
           </div>
           <Select
@@ -2655,14 +2679,22 @@ export const QuestionRenderer = ({
               <div>
                 <div className="relative inline-block">
                   <Label className="mb-2 block text-sm font-medium">
-                    Supporting Documents:
+                    {getSubQuestionLabel(
+                      uiConfig,
+                      "supportingDocumentsLabel",
+                      "Supporting Documents:",
+                    )}
                     {question.required && isSubjectToLoan && (
                       <span className="ml-1 text-red-500">*</span>
                     )}
                   </Label>
                   {renderLabelOverlay(
                     "supportingDocumentsLabel",
-                    "Supporting Documents:",
+                    getSubQuestionLabel(
+                      uiConfig,
+                      "supportingDocumentsLabel",
+                      "Supporting Documents:",
+                    ),
                   )}
                 </div>
                 <div className="space-y-2">
@@ -2809,18 +2841,30 @@ export const QuestionRenderer = ({
               <div>
                 <div className="relative inline-block">
                   <Label className="mb-2 block text-sm font-medium">
-                    Loan Approval Due:{" "}
+                    {getSubQuestionLabel(
+                      uiConfig,
+                      "loanApprovalDueLabel",
+                      "Loan Approval Due:",
+                    )}{" "}
                     <span className="font-bold text-red-500">*</span>
                   </Label>
                   {renderLabelOverlay(
                     "loanApprovalDueLabel",
-                    "Loan Approval Due:",
+                    getSubQuestionLabel(
+                      uiConfig,
+                      "loanApprovalDueLabel",
+                      "Loan Approval Due:",
+                    ),
                   )}
                 </div>
-                <div className="max-w-md">
+                <div className="relative max-w-md">
                   <Input
                     type="text"
-                    placeholder="Enter due date details"
+                    placeholder={getSubQuestionPlaceholder(
+                      uiConfig,
+                      "loanApprovalDuePlaceholder",
+                      "Enter due date details",
+                    )}
                     disabled={disabled}
                     className="w-full"
                     style={getInputStyle()}
@@ -2834,6 +2878,14 @@ export const QuestionRenderer = ({
                       }
                     }}
                   />
+                  {renderEditOverlay(
+                    "loanApprovalDuePlaceholder",
+                    getSubQuestionPlaceholder(
+                      uiConfig,
+                      "loanApprovalDuePlaceholder",
+                      "Enter due date details",
+                    ),
+                  )}
                 </div>
               </div>
             )}
@@ -4100,7 +4152,11 @@ export const QuestionRenderer = ({
           <div className="relative max-w-md">
             <Input
               type="text"
-              placeholder={uiConfig.placeholder || "Enter text..."}
+              placeholder={getSubQuestionPlaceholder(
+                uiConfig,
+                "placeholder",
+                "Enter text...",
+              )}
               disabled={disabled}
               className={cn("w-full", editingMode && "cursor-not-allowed")}
               style={getInputStyle()}
@@ -4115,7 +4171,11 @@ export const QuestionRenderer = ({
             />
             {renderEditOverlay(
               "placeholder",
-              uiConfig.placeholder || "Enter your answer",
+              getSubQuestionPlaceholder(
+                uiConfig,
+                "placeholder",
+                "Enter text...",
+              ),
             )}
           </div>
           {renderError(error)}
@@ -4457,7 +4517,11 @@ export const QuestionRenderer = ({
                       type="number"
                       min="0"
                       step="any"
-                      placeholder={uiConfig.amountPlaceholder || "Enter amount"}
+                      placeholder={getSubQuestionPlaceholder(
+                        uiConfig,
+                        "amountPlaceholder",
+                        "Enter amount",
+                      )}
                       disabled={disabled || editingMode}
                       className={cn(
                         editingMode && "cursor-not-allowed",
@@ -4490,7 +4554,11 @@ export const QuestionRenderer = ({
                       onEditPlaceholder &&
                       renderEditOverlay(
                         "amountPlaceholder",
-                        uiConfig.amountPlaceholder || "Enter amount",
+                        getSubQuestionPlaceholder(
+                          uiConfig,
+                          "amountPlaceholder",
+                          "Enter amount",
+                        ),
                       )}
                   </div>
 
@@ -4571,7 +4639,11 @@ export const QuestionRenderer = ({
                   type="number"
                   min="0"
                   step="any"
-                  placeholder={uiConfig.amountPlaceholder || "Enter amount"}
+                  placeholder={getSubQuestionPlaceholder(
+                    uiConfig,
+                    "amountPlaceholder",
+                    "Enter amount",
+                  )}
                   disabled={disabled}
                   className={cn(
                     editingMode && "cursor-not-allowed",
@@ -4617,7 +4689,11 @@ export const QuestionRenderer = ({
                       e.stopPropagation()
                       onEditPlaceholder(
                         "amountPlaceholder",
-                        uiConfig.amountPlaceholder || "Enter amount",
+                        getSubQuestionPlaceholder(
+                          uiConfig,
+                          "amountPlaceholder",
+                          "Enter amount",
+                        ),
                       )
                     }}
                     title="Click to edit placeholder"
@@ -4625,7 +4701,11 @@ export const QuestionRenderer = ({
                 ) : (
                   renderEditOverlay(
                     "amountPlaceholder",
-                    uiConfig.amountPlaceholder || "Enter amount",
+                    getSubQuestionPlaceholder(
+                      uiConfig,
+                      "amountPlaceholder",
+                      "Enter amount",
+                    ),
                   )
                 )}
               </div>
@@ -4968,12 +5048,15 @@ export const QuestionRenderer = ({
         tickboxMode === "required" || tickboxMode === "optional"
       // Only disable checkbox in editing mode, not in form preview/user-facing form
       const tickboxDisabled = editingMode || !showTickbox
-      const isRequired = tickboxMode === "required"
-      const isOptional = tickboxMode === "optional"
+      // Determine if checkbox is required based on tickbox mode and question required status
+      // If question is not required, make tickbox optional even if it was set to required
+      const isRequired =
+        tickboxMode === "required" && question.required !== false
+      const isOptional = tickboxMode === "optional" || !question.required
 
       return (
         <div className="space-y-2">
-          {/* Statement text is now shown as the main label in OfferFormInteractiveView */}
+          {/* Statement text is shown as the main label in QuestionCard when no tickbox */}
           {/* Only show tickbox here */}
           {showTickbox && (
             <div className="flex items-center gap-2">
@@ -5006,17 +5089,7 @@ export const QuestionRenderer = ({
               </div>
             </div>
           )}
-          {!showTickbox && (
-            <div className="relative inline-block">
-              <p className="text-sm text-gray-700">
-                {setupConfig.question_text}
-              </p>
-              {renderLabelOverlay(
-                "statementText",
-                setupConfig.question_text || "Statement text",
-              )}
-            </div>
-          )}
+          {/* When no tickbox, statement text is shown as main label in QuestionCard, so nothing to render here */}
         </div>
       )
     } else if (answerType === "phone") {
