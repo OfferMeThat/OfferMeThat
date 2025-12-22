@@ -37,11 +37,24 @@ export function transformFormDataToOffer(
     isTest: isTest,
   }
 
+  // Build formData with question type identifiers
+  // This will store all form data with question types for later identification
+  const formDataWithTypes: Record<string, any> = {}
+
   // Process each question's data
   questions.forEach((question) => {
     const value = formData[question.id]
     if (value === null || value === undefined || value === "") {
       return // Skip empty values
+    }
+
+    // Add to formData with question type identifier (except for deposit which goes to depositData)
+    if (question.type !== "deposit") {
+      formDataWithTypes[question.id] = {
+        questionType: question.type,
+        questionId: question.id,
+        value: value,
+      }
     }
 
     switch (question.type) {
@@ -173,25 +186,44 @@ export function transformFormDataToOffer(
 
       case "deposit":
         // Transform raw deposit form data into structured format
-        // Value can be the raw form data object or already structured
+        // Extract all deposit-related fields from formData
+        const depositFormData: Record<string, any> = {}
+
+        // Collect all deposit-related fields from the original formData
+        Object.keys(formData).forEach((key) => {
+          if (
+            key.startsWith("deposit_") ||
+            key.startsWith("instalment_") ||
+            key === "deposit_instalments"
+          ) {
+            depositFormData[key] = formData[key]
+          }
+        })
+
+        // If value is an object (the main deposit question data), merge it
         if (value && typeof value === "object") {
+          Object.assign(depositFormData, value)
+        }
+
+        // Transform the collected deposit form data
+        if (Object.keys(depositFormData).length > 0) {
           // Check if it's already in structured format (has instalment_1, instalment_2, etc.)
           if (
-            value.instalment_1 ||
-            value.instalment_2 ||
-            value.instalment_3 ||
-            (value.instalments && value.numInstalments)
+            depositFormData.instalment_1 ||
+            depositFormData.instalment_2 ||
+            depositFormData.instalment_3 ||
+            (depositFormData.instalments && depositFormData.numInstalments)
           ) {
             // Already structured, use as-is
-            offer.depositData = value as any
+            offer.depositData = depositFormData as any
           } else {
             // Raw form data, transform it
-            const transformed = transformDepositFormData(value)
+            const transformed = transformDepositFormData(depositFormData)
             if (transformed) {
               offer.depositData = transformed
             }
           }
-        } else {
+        } else if (value) {
           // Fallback: store as-is (for backward compatibility)
           offer.depositData = value as any
         }
@@ -326,8 +358,50 @@ export function transformFormDataToOffer(
     }
   })
 
-  // Store complete form data as backup
-  offer.formData = formData as any
+  // Store form data with question type identifiers
+  // Exclude deposit-related fields since they're stored in depositData
+  const cleanedFormData: Record<string, any> = {}
+
+  Object.keys(formDataWithTypes).forEach((key) => {
+    // Skip deposit-related fields - they're in depositData
+    if (
+      !key.startsWith("deposit_") &&
+      !key.startsWith("instalment_") &&
+      key !== "deposit_instalments"
+    ) {
+      cleanedFormData[key] = formDataWithTypes[key]
+    }
+  })
+
+  // Also include any other fields from original formData that might not be in questions
+  // (for backward compatibility and any custom fields)
+  Object.keys(formData).forEach((key) => {
+    if (
+      !cleanedFormData.hasOwnProperty(key) &&
+      !key.startsWith("deposit_") &&
+      !key.startsWith("instalment_") &&
+      key !== "deposit_instalments"
+    ) {
+      // Try to find the question type for this field
+      const question = questions.find((q) => q.id === key)
+      if (question) {
+        cleanedFormData[key] = {
+          questionType: question.type,
+          questionId: question.id,
+          value: formData[key],
+        }
+      } else {
+        // Unknown field, store as-is with a generic identifier
+        cleanedFormData[key] = {
+          questionType: "unknown",
+          questionId: key,
+          value: formData[key],
+        }
+      }
+    }
+  })
+
+  offer.formData = cleanedFormData as any
 
   // Ensure required fields are present (they should be set by processing questions)
   // Provide defaults if somehow missing (shouldn't happen in normal flow)
