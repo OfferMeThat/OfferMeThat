@@ -115,20 +115,46 @@ const getPurchaserNames = (offer: OfferWithListing): string => {
 
 /**
  * Gets deposit amount from depositData
+ * Handles both structured format (instalment_1, instalment_2, etc.) and raw form data format
  */
 const getDepositAmount = (offer: OfferWithListing): string => {
   if (!offer.depositData) return "N/A"
 
   const data = offer.depositData as any
 
-  // Check for multiple instalments
+  // Check for multiple instalments in structured format
   if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
     return "Multiple instalments"
   }
 
-  // Single instalment - amount
+  // Check for multiple instalments in raw form data format
+  if (
+    data.deposit_amount_1 ||
+    data.deposit_amount_2 ||
+    data.deposit_amount_3 ||
+    data.deposit_percentage_1 ||
+    data.deposit_percentage_2 ||
+    data.deposit_percentage_3
+  ) {
+    // Count how many instalments have data
+    let instalmentCount = 0
+    for (let i = 1; i <= 3; i++) {
+      if (
+        data[`deposit_amount_${i}`] ||
+        data[`deposit_percentage_${i}`] ||
+        data[`deposit_type_instalment_${i}`]
+      ) {
+        instalmentCount++
+      }
+    }
+    if (instalmentCount > 1) {
+      return "Multiple instalments"
+    }
+  }
+
+  // Single instalment - structured format
   if (data.depositType === "amount" || data.amount) {
-    return formatCurrency(data.amount)
+    return formatCurrency(data.amount, data.currency || "USD")
   }
 
   // Single instalment - percentage
@@ -136,22 +162,55 @@ const getDepositAmount = (offer: OfferWithListing): string => {
     return `${data.percentage}% of purchase price`
   }
 
+  // Single instalment - raw form data format (deposit_amount or deposit_amount_1)
+  const amount = data.deposit_amount || data.deposit_amount_1
+  const percentage = data.deposit_percentage || data.deposit_percentage_1
+  const currency = data.deposit_amount_currency || data.deposit_amount_1_currency || "USD"
+
+  if (amount !== undefined && amount !== null && amount !== "") {
+    const parsedAmount = typeof amount === "number" ? amount : parseFloat(String(amount))
+    if (!isNaN(parsedAmount)) {
+      return formatCurrency(parsedAmount, currency)
+    }
+  }
+
+  if (percentage !== undefined && percentage !== null && percentage !== "") {
+    const parsedPercentage = typeof percentage === "number" ? percentage : parseFloat(String(percentage))
+    if (!isNaN(parsedPercentage)) {
+      return `${parsedPercentage}% of purchase price`
+    }
+  }
+
   return "N/A"
 }
 
 /**
  * Gets deposit due date from depositData
+ * Handles both structured format and raw form data format
  */
 const getDepositDue = (offer: OfferWithListing): string => {
   if (!offer.depositData) return "N/A"
 
   const data = offer.depositData as any
 
-  // Check for multiple instalments
+  // Check for multiple instalments in structured format
   if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
     return "See deposit details"
   }
 
+  // Check for multiple instalments in raw form data format
+  if (
+    data.deposit_due_1 ||
+    data.deposit_due_2 ||
+    data.deposit_due_3 ||
+    data.deposit_due_instalment_1 ||
+    data.deposit_due_instalment_2 ||
+    data.deposit_due_instalment_3
+  ) {
+    return "See deposit details"
+  }
+
+  // Single instalment - structured format
   // Text description
   if (data.depositDueText) {
     return data.depositDueText
@@ -166,6 +225,31 @@ const getDepositDue = (offer: OfferWithListing): string => {
   if (data.depositDueWithin) {
     const { number, unit } = data.depositDueWithin
     return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
+  }
+
+  // Single instalment - raw form data format
+  // Check for deposit_due or deposit_due_1
+  const due = data.deposit_due || data.deposit_due_1
+  if (due) {
+    if (typeof due === "string" && due.trim() !== "") {
+      // Try to parse as date
+      const date = new Date(due)
+      if (!isNaN(date.getTime())) {
+        return formatDate(due)
+      }
+      // Otherwise return as text
+      return due
+    }
+  }
+
+  // Check for "within X days" format in raw form data
+  const dueNumber = data.deposit_due || data.deposit_due_1
+  const dueUnit = data.deposit_due_unit || data.deposit_due_1_unit
+  if (dueNumber && dueUnit) {
+    const parsedNumber = typeof dueNumber === "number" ? dueNumber : parseFloat(String(dueNumber))
+    if (!isNaN(parsedNumber)) {
+      return `Within ${parsedNumber} ${dueUnit.replace(/_/g, " ")} of offer acceptance`
+    }
   }
 
   return "N/A"

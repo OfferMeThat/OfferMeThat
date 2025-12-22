@@ -27,6 +27,81 @@ function formatCurrency(amount: number, currency: string = "USD"): string {
 export function formatDepositData(data: DepositData): React.JSX.Element | null {
   if (!data) return null
 
+  // Helper to normalize instalment data from both formats
+  const normalizeInstalmentData = (): any[] => {
+    const instalments: any[] = []
+
+    // Check structured format first (instalment_1, instalment_2, instalment_3)
+    if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
+      for (let i = 1; i <= 3; i++) {
+        const instalment = (data as any)[`instalment_${i}`]
+        if (instalment) {
+          instalments.push(instalment)
+        }
+      }
+      return instalments
+    }
+
+    // Check raw form data format (deposit_amount_1, deposit_amount_2, etc.)
+    const hasMultipleInstalments =
+      data.deposit_amount_1 ||
+      data.deposit_amount_2 ||
+      data.deposit_amount_3 ||
+      data.deposit_percentage_1 ||
+      data.deposit_percentage_2 ||
+      data.deposit_percentage_3 ||
+      (data as any).deposit_type_instalment_1 ||
+      (data as any).deposit_type_instalment_2 ||
+      (data as any).deposit_type_instalment_3
+
+    if (hasMultipleInstalments) {
+      for (let i = 1; i <= 3; i++) {
+        const instalment: any = {}
+        const amount = (data as any)[`deposit_amount_${i}`]
+        const percentage = (data as any)[`deposit_percentage_${i}`]
+        const depositType =
+          (data as any)[`deposit_type_instalment_${i}`] ||
+          (amount ? "amount" : percentage ? "percentage" : null)
+        const currency =
+          (data as any)[`deposit_amount_${i}_currency`] ||
+          (data as any)[`deposit_amount_currency_${i}`]
+        const due = (data as any)[`deposit_due_${i}`] || (data as any)[`deposit_due_instalment_${i}`]
+        const dueUnit = (data as any)[`deposit_due_${i}_unit`] || (data as any)[`deposit_due_instalment_${i}_unit`]
+        const holding = (data as any)[`deposit_holding_${i}`] || (data as any)[`deposit_holding_instalment_${i}`]
+
+        if (amount || percentage || depositType) {
+          if (depositType) instalment.depositType = depositType
+          if (amount !== undefined && amount !== null && amount !== "") {
+            instalment.amount = typeof amount === "number" ? amount : parseFloat(String(amount))
+          }
+          if (percentage !== undefined && percentage !== null && percentage !== "") {
+            instalment.percentage = typeof percentage === "number" ? percentage : parseFloat(String(percentage))
+          }
+          if (currency) instalment.currency = currency
+          if (due) {
+            if (dueUnit) {
+              instalment.depositDueWithin = {
+                number: typeof due === "number" ? due : parseFloat(String(due)),
+                unit: dueUnit.replace(/_/g, " ") as any,
+              }
+            } else {
+              instalment.depositDue = due
+            }
+          }
+          if (holding) instalment.depositHolding = holding
+          instalments.push(instalment)
+        }
+      }
+      return instalments
+    }
+
+    return []
+  }
+
+  const instalmentData = normalizeInstalmentData()
+  const hasMultipleInstalments = instalmentData.length > 1
+
+  // Extract single instalment data (for backward compatibility)
   const {
     depositType,
     depositAmount,
@@ -34,7 +109,6 @@ export function formatDepositData(data: DepositData): React.JSX.Element | null {
     depositDue,
     depositHolding,
     instalments,
-    instalmentData,
   } = data
 
   // Helper function to format deposit due date
@@ -110,11 +184,7 @@ export function formatDepositData(data: DepositData): React.JSX.Element | null {
         </div>
       )}
 
-      {instalments &&
-        (typeof instalments === "number"
-          ? instalments > 1
-          : Number(instalments) > 1) &&
-        instalmentData && (
+      {hasMultipleInstalments && instalmentData && instalmentData.length > 0 && (
           <div>
             <p className="text-sm font-medium text-gray-500">
               Instalment Details

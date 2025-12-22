@@ -127,10 +127,32 @@ export async function deleteListings(listingIds: string[]): Promise<{ success: b
   const supabase = await createClient()
 
   try {
-    const { error } = await supabase
+    // Get the current user to ensure we only delete their listings
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return {
+        success: false,
+        error: "User not authenticated",
+      }
+    }
+
+    if (!listingIds || listingIds.length === 0) {
+      return {
+        success: false,
+        error: "No listings selected",
+      }
+    }
+
+    // Delete listings that belong to the current user
+    const { data, error } = await supabase
       .from("listings")
       .delete()
       .in("id", listingIds)
+      .eq("createdBy", user.id)
+      .select()
 
     if (error) {
       console.error("Error deleting listings:", error)
@@ -138,6 +160,20 @@ export async function deleteListings(listingIds: string[]): Promise<{ success: b
         success: false,
         error: error.message || "Failed to delete listings",
       }
+    }
+
+    // Verify that listings were actually deleted
+    const deletedCount = data?.length || 0
+    if (deletedCount === 0) {
+      console.error("No listings were deleted. Possible reasons: listings don't exist, user doesn't own them, or RLS policy blocked deletion.")
+      return {
+        success: false,
+        error: "No listings were deleted. Please ensure you own the selected listings.",
+      }
+    }
+
+    if (deletedCount < listingIds.length) {
+      console.warn(`Only ${deletedCount} out of ${listingIds.length} listings were deleted.`)
     }
 
     return { success: true }
@@ -157,10 +193,32 @@ export async function updateListingsStatus(
   const supabase = await createClient()
 
   try {
-    const { error } = await supabase
+    // Get the current user to ensure we only update their listings
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return {
+        success: false,
+        error: "User not authenticated",
+      }
+    }
+
+    if (!listingIds || listingIds.length === 0) {
+      return {
+        success: false,
+        error: "No listings selected",
+      }
+    }
+
+    // Update listings that belong to the current user
+    const { data, error } = await supabase
       .from("listings")
       .update({ status: status as any })
       .in("id", listingIds)
+      .eq("createdBy", user.id)
+      .select()
 
     if (error) {
       console.error("Error updating listing status:", error)
@@ -168,6 +226,20 @@ export async function updateListingsStatus(
         success: false,
         error: error.message || "Failed to update listing status",
       }
+    }
+
+    // Verify that listings were actually updated
+    const updatedCount = data?.length || 0
+    if (updatedCount === 0) {
+      console.error("No listings were updated. Possible reasons: listings don't exist, user doesn't own them, or RLS policy blocked update.")
+      return {
+        success: false,
+        error: "No listings were updated. Please ensure you own the selected listings.",
+      }
+    }
+
+    if (updatedCount < listingIds.length) {
+      console.warn(`Only ${updatedCount} out of ${listingIds.length} listings were updated.`)
     }
 
     return { success: true }

@@ -19,15 +19,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { LISTING_STATUSES } from "@/constants/listings"
-import {
-  downloadCsv,
-  generateListingReport,
-  generateReportFilename,
-} from "@/lib/generateListingReport"
+import { generateListingReportPDF } from "@/lib/generateListingReportPDF"
 import { ListingWithOfferCounts } from "@/types/listing"
 import { REPORT_FIELDS, ReportFieldKey } from "@/types/reportTypes"
+import { createClient } from "@/lib/supabase/client"
 import { FileDown } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 type ReportGenerationModalProps = {
@@ -44,6 +41,8 @@ const ReportGenerationModal = ({
   const [selectedFields, setSelectedFields] = useState<Set<ReportFieldKey>>(
     new Set(REPORT_FIELDS.map((f) => f.key)),
   )
+  const [userName, setUserName] = useState<string | undefined>(undefined)
+  const [isLoadingUser, setIsLoadingUser] = useState(false)
 
   const handleToggleField = (fieldKey: ReportFieldKey) => {
     setSelectedFields((prev) => {
@@ -65,20 +64,45 @@ const ReportGenerationModal = ({
     }
   }
 
+  // Fetch user name when modal opens
+  useEffect(() => {
+    if (open) {
+      const fetchUserName = async () => {
+        setIsLoadingUser(true)
+        try {
+          const supabase = createClient()
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+          if (user) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("username")
+              .eq("id", user.id)
+              .single()
+            if (profile?.username) {
+              setUserName(profile.username)
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching user name:", error)
+        } finally {
+          setIsLoadingUser(false)
+        }
+      }
+      fetchUserName()
+    }
+  }, [open])
+
   const handleDownload = () => {
     if (selectedFields.size === 0) {
       toast.error("Please select at least one field to include in the report")
       return
     }
 
-    const csvContent = generateListingReport(
-      listings,
-      Array.from(selectedFields),
-    )
-    const filename = generateReportFilename()
-    downloadCsv(csvContent, filename)
+    generateListingReportPDF(listings, Array.from(selectedFields), userName)
 
-    toast.success(`Report downloaded successfully: ${filename}`)
+    toast.success("PDF report downloaded successfully")
     onOpenChange(false)
   }
 
@@ -106,7 +130,7 @@ const ReportGenerationModal = ({
           <DialogTitle>Generate Listings Report</DialogTitle>
           <DialogDescription>
             Select the fields you want to include in your report, preview the
-            data, and download as CSV.
+            data, and download as PDF.
           </DialogDescription>
         </DialogHeader>
 
@@ -226,11 +250,11 @@ const ReportGenerationModal = ({
           </Button>
           <Button
             onClick={handleDownload}
-            disabled={selectedFields.size === 0}
+            disabled={selectedFields.size === 0 || isLoadingUser}
             className="gap-2"
           >
             <FileDown size={16} />
-            Download CSV
+            Download PDF
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,5 @@
 import { Database } from "@/types/supabase"
+import { transformDepositFormData } from "./transformDepositData"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 
@@ -87,10 +88,15 @@ export function transformFormDataToOffer(
 
       case "submitterPhone":
         // Handle both object format (new) and string format (legacy)
-        if (typeof value === "object" && value !== null && "countryCode" in value) {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "countryCode" in value
+        ) {
           // Combine country code and number for database storage
           const phoneObj = value as { countryCode: string; number: string }
-          offer.submitterPhone = (phoneObj.countryCode || "") + (phoneObj.number || "")
+          offer.submitterPhone =
+            (phoneObj.countryCode || "") + (phoneObj.number || "")
         } else {
           // Legacy string format
           offer.submitterPhone = value as string
@@ -166,8 +172,29 @@ export function transformFormDataToOffer(
         break
 
       case "deposit":
-        // Complex deposit data
-        offer.depositData = value as any
+        // Transform raw deposit form data into structured format
+        // Value can be the raw form data object or already structured
+        if (value && typeof value === "object") {
+          // Check if it's already in structured format (has instalment_1, instalment_2, etc.)
+          if (
+            value.instalment_1 ||
+            value.instalment_2 ||
+            value.instalment_3 ||
+            (value.instalments && value.numInstalments)
+          ) {
+            // Already structured, use as-is
+            offer.depositData = value as any
+          } else {
+            // Raw form data, transform it
+            const transformed = transformDepositFormData(value)
+            if (transformed) {
+              offer.depositData = transformed
+            }
+          }
+        } else {
+          // Fallback: store as-is (for backward compatibility)
+          offer.depositData = value as any
+        }
         break
 
       case "subjectToLoanApproval":
@@ -196,7 +223,10 @@ export function transformFormDataToOffer(
           // Single File (will be uploaded in offers.ts)
           // Store as-is for now, will be converted to URL in offers.ts
           ;(offer as any).purchaseAgreementFiles = [value]
-        } else if (Array.isArray(value) && value.some((v) => v instanceof File)) {
+        } else if (
+          Array.isArray(value) &&
+          value.some((v) => v instanceof File)
+        ) {
           // Array of Files (will be uploaded in offers.ts)
           ;(offer as any).purchaseAgreementFiles = value.filter(
             (v) => v instanceof File,
@@ -240,7 +270,11 @@ export function transformFormDataToOffer(
         let transformedValue = value
         if (answerType === "number" || answerType === "number_amount") {
           const numberType = setupConfig.number_type
-          if (numberType === "money" && typeof value === "object" && value !== null) {
+          if (
+            numberType === "money" &&
+            typeof value === "object" &&
+            value !== null
+          ) {
             // Money type: { amount: string|number, currency: string }
             const amountValue = (value as any).amount
             if (typeof amountValue === "string") {
@@ -319,7 +353,8 @@ export function transformFormDataToOffer(
     amount: offer.amount!,
     buyerType: offer.buyerType!,
     listingId:
-      offer.listingId || (offer.status === "unassigned" || isTest ? null : undefined),
+      offer.listingId ||
+      (offer.status === "unassigned" || isTest ? null : undefined),
   } as any as Database["public"]["Tables"]["offers"]["Insert"] & {
     isTest?: boolean
   }
