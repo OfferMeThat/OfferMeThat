@@ -62,9 +62,15 @@ export const buildQuestionValidation = (
               .required(required ? "This number is invalid" : undefined),
             number: yup
               .string()
+              .test("is-valid-string", "This number is invalid", (numValue) => {
+                if (!numValue || numValue === "") return !required
+                // Ensure it's a string, not NaN or other invalid value
+                if (typeof numValue !== "string") return false
+                return true
+              })
               .matches(/^[0-9\s\-\(\)]+$/, "This number is invalid")
               .test("min-digits", "This number is invalid", (numValue) => {
-                if (!numValue) return !required
+                if (!numValue || numValue === "") return !required
                 // Count only digits (excluding formatting characters)
                 const digits = numValue.replace(/\D/g, "")
                 // Minimum 4 digits (shortest valid phone numbers globally)
@@ -93,12 +99,21 @@ export const buildQuestionValidation = (
     case "offerAmount":
       // offerAmount can be a number (legacy) or an object { amount: number, currency: string }
       schema = yup.lazy((value) => {
-        if (typeof value === "object" && value !== null) {
+        if (typeof value === "object" && value !== null && !Array.isArray(value)) {
           const objectSchema = yup.object().shape({
             amount: yup
-              .number()
-              .typeError("Please enter a valid number")
-              .positive("Amount must be positive")
+              .mixed()
+              .transform((val) => {
+                if (val === "" || val === null || val === undefined) return undefined
+                const num = typeof val === "string" ? parseFloat(val) : val
+                return isNaN(num) ? val : num
+              })
+              .test("is-number", "Please enter a valid number", (val) => {
+                return val === undefined || (typeof val === "number" && !isNaN(val))
+              })
+              .test("is-positive", "Amount must be positive", (val) => {
+                return val === undefined || (typeof val === "number" && val > 0)
+              })
               .required(required ? "Amount is required" : undefined),
             currency: yup
               .string()
@@ -117,9 +132,18 @@ export const buildQuestionValidation = (
               .object()
               .shape({
                 amount: yup
-                  .number()
-                  .typeError("Please enter a valid number")
-                  .positive("Amount must be positive")
+                  .mixed()
+                  .transform((val) => {
+                    if (val === "" || val === null || val === undefined) return undefined
+                    const num = typeof val === "string" ? parseFloat(val) : val
+                    return isNaN(num) ? val : num
+                  })
+                  .test("is-number", "Please enter a valid number", (val) => {
+                    return val === undefined || (typeof val === "number" && !isNaN(val))
+                  })
+                  .test("is-positive", "Amount must be positive", (val) => {
+                    return val === undefined || (typeof val === "number" && val > 0)
+                  })
                   .required("Amount is required"),
                 currency: yup
                   .string()
@@ -132,9 +156,18 @@ export const buildQuestionValidation = (
         }
         // Legacy: number format
         const numberSchema = yup
-          .number()
-          .typeError("Please enter a valid number")
-          .positive("Amount must be positive")
+          .mixed()
+          .transform((val) => {
+            if (val === "" || val === null || val === undefined) return undefined
+            const num = typeof val === "string" ? parseFloat(val) : val
+            return isNaN(num) ? val : num
+          })
+          .test("is-number", "Please enter a valid number", (val) => {
+            return val === undefined || (typeof val === "number" && !isNaN(val))
+          })
+          .test("is-positive", "Amount must be positive", (val) => {
+            return val === undefined || (typeof val === "number" && val > 0)
+          })
         return required
           ? numberSchema.required("This field is required")
           : numberSchema
@@ -359,10 +392,108 @@ export const buildQuestionValidation = (
         schema = yup.string().max(150, "Maximum 150 characters allowed")
       } else if (answerType === "number" || answerType === "number_amount") {
         // Number inputs should be non-negative (>= 0, no negative values)
-        schema = yup
-          .number()
-          .typeError("Please enter a valid number")
-          .min(0, "Number cannot be negative")
+        // Handle both number and money types - for money, it's an object { amount, currency }
+        const setupConfig = (question.setupConfig as Record<string, any>) || {}
+        const numberType = setupConfig.number_type
+        
+        if (numberType === "money") {
+          // Money type is an object with amount and currency
+          schema = yup.lazy((value) => {
+            // If it's already an object, validate as object
+            if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+              // Check if it's a phone number object (should be transformed before validation, but handle it here as safety)
+              if ("countryCode" in value && "number" in value && !("amount" in value)) {
+                // This is a phone number object - should have been transformed, but if not, return a schema that will fail gracefully
+                // The data transformation should handle this, so this is just a safety check
+                return yup.mixed().test("phone-to-money", "Invalid format", () => false)
+              }
+              
+              // Normal money object with amount and currency
+              return yup.object().shape({
+                amount: yup
+                  .mixed()
+                  .transform((val) => {
+                    if (val === "" || val === null || val === undefined) return undefined
+                    if (typeof val === "string") {
+                      const trimmed = val.trim()
+                      if (trimmed === "") return undefined
+                      const num = parseFloat(trimmed)
+                      return isNaN(num) ? undefined : num
+                    }
+                    const num = typeof val === "number" ? val : parseFloat(String(val))
+                    return isNaN(num) ? undefined : num
+                  })
+                  .test("is-number", "Please enter a valid number", (val) => {
+                    return val === undefined || (typeof val === "number" && !isNaN(val))
+                  })
+                  .test("is-non-negative", "Number cannot be negative", (val) => {
+                    return val === undefined || (typeof val === "number" && val >= 0)
+                  }),
+                currency: yup.string().default("USD"),
+              })
+            }
+            // If it's undefined/null and required, return object schema
+            if ((value === undefined || value === null) && required) {
+              return yup.object().shape({
+                amount: yup
+                  .mixed()
+                  .transform((val) => {
+                    if (val === "" || val === null || val === undefined) return undefined
+                    if (typeof val === "string") {
+                      const trimmed = val.trim()
+                      if (trimmed === "") return undefined
+                      const num = parseFloat(trimmed)
+                      return isNaN(num) ? undefined : num
+                    }
+                    const num = typeof val === "number" ? val : parseFloat(String(val))
+                    return isNaN(num) ? undefined : num
+                  })
+                  .test("is-number", "Please enter a valid number", (val) => {
+                    return val === undefined || (typeof val === "number" && !isNaN(val))
+                  })
+                  .test("is-non-negative", "Number cannot be negative", (val) => {
+                    return val === undefined || (typeof val === "number" && val >= 0)
+                  })
+                  .required("Amount is required"),
+                currency: yup.string().default("USD").required("Currency is required"),
+              }).required("This field is required")
+            }
+            // Otherwise, allow null/undefined
+            return yup.mixed().nullable().optional()
+          }) as unknown as yup.AnySchema
+        } else {
+          // Regular number type
+          schema = yup
+            .mixed()
+            .transform((val) => {
+              if (val === "" || val === null || val === undefined) return undefined
+              
+              // Handle phone number objects that might be incorrectly passed
+              if (typeof val === "object" && val !== null && "number" in val && "countryCode" in val) {
+                // This is a phone number object, extract the number part
+                const phoneObj = val as { countryCode: string; number: string }
+                const numberStr = phoneObj.number?.trim() || ""
+                if (numberStr === "") return undefined
+                const num = parseFloat(numberStr)
+                return isNaN(num) ? undefined : num
+              }
+              
+              if (typeof val === "string") {
+                const trimmed = val.trim()
+                if (trimmed === "") return undefined
+                const num = parseFloat(trimmed)
+                return isNaN(num) ? undefined : num
+              }
+              const num = typeof val === "number" ? val : parseFloat(String(val))
+              return isNaN(num) ? undefined : num
+            })
+            .test("is-number", "Please enter a valid number", (val) => {
+              return val === undefined || (typeof val === "number" && !isNaN(val))
+            })
+            .test("is-non-negative", "Number cannot be negative", (val) => {
+              return val === undefined || (typeof val === "number" && val >= 0)
+            })
+        }
       } else if (answerType === "textarea") {
         schema = yup.string().max(1000, "Maximum 1000 characters allowed")
       } else if (answerType === "statement") {
@@ -896,22 +1027,50 @@ export const buildQuestionValidation = (
 
   // Add required validation if needed
   // Skip adding .required() to lazy schemas as they handle it internally
-  if (required && schema && !(schema as any)._isLazy) {
-    schema = schema.required("This field is required")
-  } else if (schema && !required && !(schema as any)._isLazy) {
+  // Also check if schema is actually a yup schema instance
+  const isLazySchema = (schema as any)?._isLazy === true
+  const isYupSchema = schema && typeof schema === "object" && "validate" in schema
+  
+  if (required && schema && !isLazySchema && isYupSchema) {
+    // Check if schema has required method before calling it
+    try {
+      if (typeof (schema as any).required === "function") {
+        schema = schema.required("This field is required")
+      }
+    } catch (error) {
+      console.warn("Error adding required to schema:", error)
+    }
+  } else if (schema && !required && !isLazySchema && isYupSchema) {
     // For optional fields, allow empty strings, null, and undefined
     // Use transform to normalize empty values
-    if (schema instanceof yup.StringSchema) {
-      schema = schema
-        .nullable()
-        .optional()
-        .transform((value) => {
-          // Convert empty strings to undefined for optional string fields
-          if (value === "" || value === null) return undefined
-          return value
-        })
-    } else {
-      schema = schema.nullable().optional()
+    try {
+      // Check if schema supports nullable/optional methods
+      const hasNullable = typeof (schema as any).nullable === "function"
+      const hasOptional = typeof (schema as any).optional === "function"
+      
+      if (hasNullable && hasOptional) {
+        if (schema instanceof yup.StringSchema) {
+          schema = schema
+            .nullable()
+            .optional()
+            .transform((value) => {
+              // Convert empty strings to undefined for optional string fields
+              if (value === "" || value === null) return undefined
+              return value
+            })
+        } else {
+          schema = schema.nullable().optional()
+        }
+      }
+      // If schema doesn't support nullable/optional, leave it as-is
+      // The validation will still work, just won't explicitly allow null/undefined
+    } catch (error) {
+      console.warn("Error adding nullable/optional to schema:", error, {
+        schemaType: schema?.constructor?.name,
+        hasNullable: typeof (schema as any).nullable === "function",
+        hasOptional: typeof (schema as any).optional === "function",
+      })
+      // If we can't add nullable/optional, just return the schema as-is
     }
   }
 

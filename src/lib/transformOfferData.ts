@@ -99,15 +99,31 @@ export function transformFormDataToOffer(
 
       case "offerAmount":
         if (typeof value === "object" && value !== null) {
-          offer.amount = Number(value.amount) || 0
+          // Handle object format { amount: number|string, currency: string }
+          const amountValue = value.amount
+          if (typeof amountValue === "string") {
+            const parsed = parseFloat(amountValue.trim())
+            offer.amount = isNaN(parsed) ? 0 : parsed
+          } else if (typeof amountValue === "number") {
+            offer.amount = amountValue
+          } else {
+            offer.amount = 0
+          }
           // Store currency in customQuestionsData for easy access
           if (!offer.customQuestionsData) {
             offer.customQuestionsData = {} as any
           }
-          ;(offer.customQuestionsData as any).currency = value.currency
+          ;(offer.customQuestionsData as any).currency = value.currency || "USD"
         } else {
-          offer.amount =
-            typeof value === "number" ? value : parseFloat(value) || 0
+          // Legacy format: number or string
+          if (typeof value === "string") {
+            const parsed = parseFloat(value.trim())
+            offer.amount = isNaN(parsed) ? 0 : parsed
+          } else if (typeof value === "number") {
+            offer.amount = value
+          } else {
+            offer.amount = 0
+          }
         }
         break
 
@@ -220,10 +236,40 @@ export function transformFormDataToOffer(
           setupConfig.question_text || uiConfig.label || "Custom Question"
         const answerType = setupConfig.answer_type
 
+        // Transform value based on answer type
+        let transformedValue = value
+        if (answerType === "number" || answerType === "number_amount") {
+          const numberType = setupConfig.number_type
+          if (numberType === "money" && typeof value === "object" && value !== null) {
+            // Money type: { amount: string|number, currency: string }
+            const amountValue = (value as any).amount
+            if (typeof amountValue === "string") {
+              const parsed = parseFloat(amountValue.trim())
+              transformedValue = {
+                ...value,
+                amount: isNaN(parsed) ? 0 : parsed,
+                currency: (value as any).currency || "USD",
+              }
+            } else if (typeof amountValue === "number") {
+              transformedValue = {
+                ...value,
+                amount: amountValue,
+                currency: (value as any).currency || "USD",
+              }
+            }
+          } else if (typeof value === "string") {
+            // Regular number type: convert string to number
+            const parsed = parseFloat(value.trim())
+            transformedValue = isNaN(parsed) ? null : parsed
+          } else if (typeof value === "number") {
+            transformedValue = value
+          }
+        }
+
         ;(offer.customQuestionsData as any)[question.id] = {
           questionText,
           answerType,
-          value,
+          value: transformedValue,
         }
         break
 
