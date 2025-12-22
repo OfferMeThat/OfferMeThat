@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { CURRENCY_OPTIONS } from "@/constants/offerFormQuestions"
 import { getSmartQuestion } from "@/data/smartQuestions"
 import { cn } from "@/lib/utils"
 import { BrandingConfig } from "@/types/branding"
@@ -199,13 +200,7 @@ const DepositForm = ({
       return {
         type: "select",
         placeholder: "Select currency",
-        options: [
-          { value: "USD", label: "USD - US Dollar" },
-          { value: "EUR", label: "EUR - Euro" },
-          { value: "GBP", label: "GBP - British Pound" },
-          { value: "CAD", label: "CAD - Canadian Dollar" },
-          { value: "AUD", label: "AUD - Australian Dollar" },
-        ],
+        options: CURRENCY_OPTIONS,
       }
     } else if (currencyStipulation === "options") {
       // Collect all currency options (not just 2)
@@ -776,22 +771,12 @@ const DepositForm = ({
             modifiedSetupAnswers,
             instalmentsValue,
           )
-        // Filter out the instalments selector since we're generating the actual questions
-        allQuestions = [
-          ...originalQuestions.filter(
-            (q: DepositQuestion) => q.id !== "deposit_instalments",
-          ),
-          ...generatedQuestions,
-        ]
+        // Keep the instalments selector visible and add generated questions
+        allQuestions = [...originalQuestions, ...generatedQuestions]
       } else {
         // Fallback to generateAdditionalQuestions if smartQuestions method not available
         const additionalQuestions = generateAdditionalQuestions()
-        allQuestions = [
-          ...originalQuestions.filter(
-            (q: DepositQuestion) => q.id !== "deposit_instalments",
-          ),
-          ...additionalQuestions,
-        ]
+        allQuestions = [...originalQuestions, ...additionalQuestions]
       }
     }
     // For two_always, use the questions directly from originalQuestions (already generated)
@@ -809,7 +794,7 @@ const DepositForm = ({
         // Use helper functions to get the current text (including any edits)
         const currentQuestionText = getQuestionText(id, question_text)
         const currentPlaceholder = getPlaceholderText(id, placeholder as string)
-        
+
         return (
           <div key={id || index} className="space-y-2">
             <Label

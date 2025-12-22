@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { CURRENCY_OPTIONS } from "@/constants/offerFormQuestions"
 import { getSmartQuestion } from "@/data/smartQuestions"
 import { useCallback, useEffect, useRef, useState } from "react"
 import DepositDueDateModal from "./DepositDueDateModal"
@@ -1221,12 +1222,6 @@ const SmartQuestionSetup = ({
 
   return (
     <div className="mx-auto w-full rounded-lg bg-white p-6">
-      <div className="mb-6">
-        <h2 className="mb-2 text-2xl font-bold text-gray-900">
-          Question Setup: {smartQuestion.title}
-        </h2>
-      </div>
-
       <div className="space-y-6">
         {visibleQuestions.map((question) => {
           // Check if this is a fixed amount question and if there's a corresponding currency field
@@ -1580,102 +1575,8 @@ const SmartQuestionSetup = ({
                       )
                       const needsMore = validOptions.length < 2
 
-                      // Currency options from the smartQuestions.js file
-                      const allCurrencies = [
-                        { value: "USD", label: "USD - US Dollar" },
-                        { value: "EUR", label: "EUR - Euro" },
-                        { value: "GBP", label: "GBP - British Pound" },
-                        { value: "CAD", label: "CAD - Canadian Dollar" },
-                        { value: "AUD", label: "AUD - Australian Dollar" },
-                        { value: "JPY", label: "JPY - Japanese Yen" },
-                        { value: "CHF", label: "CHF - Swiss Franc" },
-                        { value: "CNY", label: "CNY - Chinese Yuan" },
-                        { value: "SEK", label: "SEK - Swedish Krona" },
-                        { value: "NOK", label: "NOK - Norwegian Krone" },
-                        { value: "DKK", label: "DKK - Danish Krone" },
-                        { value: "PLN", label: "PLN - Polish Zloty" },
-                        { value: "CZK", label: "CZK - Czech Koruna" },
-                        { value: "HUF", label: "HUF - Hungarian Forint" },
-                        { value: "RON", label: "RON - Romanian Leu" },
-                        { value: "BGN", label: "BGN - Bulgarian Lev" },
-                        { value: "HRK", label: "HRK - Croatian Kuna" },
-                        { value: "RSD", label: "RSD - Serbian Dinar" },
-                        { value: "MKD", label: "MKD - Macedonian Denar" },
-                        { value: "ALL", label: "ALL - Albanian Lek" },
-                        {
-                          value: "BAM",
-                          label: "BAM - Bosnia-Herzegovina Mark",
-                        },
-                        { value: "ISK", label: "ISK - Icelandic Krona" },
-                        { value: "MDL", label: "MDL - Moldovan Leu" },
-                        { value: "UAH", label: "UAH - Ukrainian Hryvnia" },
-                        { value: "BYN", label: "BYN - Belarusian Ruble" },
-                        { value: "RUB", label: "RUB - Russian Ruble" },
-                        { value: "TRY", label: "TRY - Turkish Lira" },
-                        { value: "ILS", label: "ILS - Israeli Shekel" },
-                        { value: "AED", label: "AED - UAE Dirham" },
-                        { value: "SAR", label: "SAR - Saudi Riyal" },
-                        { value: "QAR", label: "QAR - Qatari Riyal" },
-                        { value: "KWD", label: "KWD - Kuwaiti Dinar" },
-                        { value: "BHD", label: "BHD - Bahraini Dinar" },
-                        { value: "OMR", label: "OMR - Omani Rial" },
-                        { value: "JOD", label: "JOD - Jordanian Dinar" },
-                        { value: "LBP", label: "LBP - Lebanese Pound" },
-                        { value: "EGP", label: "EGP - Egyptian Pound" },
-                        { value: "MAD", label: "MAD - Moroccan Dirham" },
-                        { value: "TND", label: "TND - Tunisian Dinar" },
-                        { value: "DZD", label: "DZD - Algerian Dinar" },
-                        { value: "LYD", label: "LYD - Libyan Dinar" },
-                        { value: "ETB", label: "ETB - Ethiopian Birr" },
-                        { value: "KES", label: "KES - Kenyan Shilling" },
-                        { value: "UGX", label: "UGX - Ugandan Shilling" },
-                        { value: "TZS", label: "TZS - Tanzanian Shilling" },
-                        { value: "ZAR", label: "ZAR - South African Rand" },
-                        { value: "NGN", label: "NGN - Nigerian Naira" },
-                        { value: "GHS", label: "GHS - Ghanaian Cedi" },
-                        { value: "XOF", label: "XOF - West African CFA Franc" },
-                        {
-                          value: "XAF",
-                          label: "XAF - Central African CFA Franc",
-                        },
-                        { value: "BRL", label: "BRL - Brazilian Real" },
-                        { value: "ARS", label: "ARS - Argentine Peso" },
-                        { value: "CLP", label: "CLP - Chilean Peso" },
-                        { value: "COP", label: "COP - Colombian Peso" },
-                        { value: "MXN", label: "MXN - Mexican Peso" },
-                        { value: "PEN", label: "PEN - Peruvian Sol" },
-                        { value: "UYU", label: "UYU - Uruguayan Peso" },
-                        { value: "VES", label: "VES - Venezuelan Bolívar" },
-                        { value: "INR", label: "INR - Indian Rupee" },
-                        { value: "PKR", label: "PKR - Pakistani Rupee" },
-                        { value: "BDT", label: "BDT - Bangladeshi Taka" },
-                        { value: "LKR", label: "LKR - Sri Lankan Rupee" },
-                        { value: "NPR", label: "NPR - Nepalese Rupee" },
-                        { value: "AFN", label: "AFN - Afghan Afghani" },
-                        { value: "KZT", label: "KZT - Kazakhstani Tenge" },
-                        { value: "UZS", label: "UZS - Uzbekistani Som" },
-                        { value: "KGS", label: "KGS - Kyrgyzstani Som" },
-                        { value: "TJS", label: "TJS - Tajikistani Somoni" },
-                        { value: "TMT", label: "TMT - Turkmenistani Manat" },
-                        { value: "MNT", label: "MNT - Mongolian Tugrik" },
-                        { value: "KRW", label: "KRW - South Korean Won" },
-                        { value: "THB", label: "THB - Thai Baht" },
-                        { value: "VND", label: "VND - Vietnamese Dong" },
-                        { value: "IDR", label: "IDR - Indonesian Rupiah" },
-                        { value: "MYR", label: "MYR - Malaysian Ringgit" },
-                        { value: "SGD", label: "SGD - Singapore Dollar" },
-                        { value: "PHP", label: "PHP - Philippine Peso" },
-                        { value: "HKD", label: "HKD - Hong Kong Dollar" },
-                        { value: "TWD", label: "TWD - Taiwan Dollar" },
-                        { value: "NZD", label: "NZD - New Zealand Dollar" },
-                        { value: "FJD", label: "FJD - Fijian Dollar" },
-                        { value: "PGK", label: "PGK - Papua New Guinea Kina" },
-                        { value: "SBD", label: "SBD - Solomon Islands Dollar" },
-                        { value: "VUV", label: "VUV - Vanuatu Vatu" },
-                        { value: "WST", label: "WST - Samoan Tala" },
-                        { value: "TOP", label: "TOP - Tongan Paʻanga" },
-                        { value: "KID", label: "KID - Kiribati Dollar" },
-                      ]
+                      // Currency options from the constants
+                      const allCurrencies = CURRENCY_OPTIONS
 
                       return (
                         <>
