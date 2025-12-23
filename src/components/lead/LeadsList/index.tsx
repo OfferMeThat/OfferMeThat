@@ -11,6 +11,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import SelectionActionBar from "../../shared/SelectionActionBar"
 import { Button } from "../../ui/button"
+import LeadReportGenerationModal from "../LeadReportGenerationModal"
 import LeadsListTableView from "./LeadsListTableView"
 import LeadsListTileView from "./LeadsListTileView"
 
@@ -28,6 +29,7 @@ const LeadsList = ({
   const router = useRouter()
   const [viewStyle, setViewStyle] = useState<"table" | "tile">("table")
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set())
+  const [reportModalOpen, setReportModalOpen] = useState(false)
 
   const handleViewChange = (mode: "table" | "tile") => {
     setViewStyle(mode)
@@ -147,6 +149,13 @@ const LeadsList = ({
         showMessageButton={false}
         onAssignToListing={handleAssignToListing}
         listings={listings || []}
+        onGenerateReport={() => setReportModalOpen(true)}
+      />
+
+      <LeadReportGenerationModal
+        open={reportModalOpen}
+        onOpenChange={setReportModalOpen}
+        leads={leads || []}
       />
     </>
   )

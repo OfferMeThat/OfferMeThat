@@ -97,3 +97,51 @@ export type OfferReportGenerationProps = {
   offers: OfferWithListing[]
   selectedFields: OfferReportFieldKey[]
 }
+
+// Lead Report Types
+export type LeadReportFieldKey =
+  | "received"
+  | "listingAddress"
+  | "submitterName"
+  | "submitterEmail"
+  | "submitterPhone"
+  | "submitterRole"
+  | "areYouInterested"
+  | "financeInterest"
+  | "followAllListings"
+  | "opinionOfSalePrice"
+  | "buyerAgentName"
+  | "buyerAgentEmail"
+  | "buyerAgentCompany"
+  | "agentCompany"
+  | "messageToAgent"
+  | "customQuestions"
+
+export type LeadReportField = {
+  key: LeadReportFieldKey
+  label: string
+}
+
+export const LEAD_REPORT_FIELDS: LeadReportField[] = [
+  { key: "received", label: "Received" },
+  { key: "listingAddress", label: "Listing" },
+  { key: "submitterName", label: "Submitter Name" },
+  { key: "submitterEmail", label: "Submitter Email" },
+  { key: "submitterPhone", label: "Submitter Phone" },
+  { key: "submitterRole", label: "Submitter Role" },
+  { key: "areYouInterested", label: "Interested" },
+  { key: "financeInterest", label: "Finance Interest" },
+  { key: "followAllListings", label: "Follow All Listings" },
+  { key: "opinionOfSalePrice", label: "Opinion of Sale Price" },
+  { key: "buyerAgentName", label: "Buyer Agent Name" },
+  { key: "buyerAgentEmail", label: "Buyer Agent Email" },
+  { key: "buyerAgentCompany", label: "Buyer Agent Company" },
+  { key: "agentCompany", label: "Agent Company" },
+  { key: "messageToAgent", label: "Message to Agent" },
+  { key: "customQuestions", label: "Custom Questions" },
+]
+
+export type LeadReportGenerationProps = {
+  leads: import("./lead").LeadWithListing[]
+  selectedFields: LeadReportFieldKey[]
+}
