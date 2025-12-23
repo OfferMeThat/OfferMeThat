@@ -2311,6 +2311,11 @@ export const QuestionRenderer = ({
         question={previewQuestion}
         setupAnswers={setupConfig}
         editingMode={editingMode}
+        onChange={(depositFormData) => {
+          // DepositPreview calls onChange with all deposit fields
+          // We need to pass this to the parent's onChange so it gets stored under question.id
+          onChange?.(depositFormData)
+        }}
         onEditQuestion={(id, text) => {
           if (onEditLabel) {
             onEditLabel(id, text)

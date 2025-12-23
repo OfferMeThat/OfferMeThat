@@ -7,6 +7,11 @@ import {
 } from "@/types/offerData"
 import { FileText } from "lucide-react"
 import { extractFileName } from "./fileHelpers"
+import {
+  normalizeDepositData,
+  formatDepositAmount,
+  formatDepositDue,
+} from "./depositDataHelpers"
 
 /**
  * Utilities for formatting offer additional data for display
@@ -28,222 +33,123 @@ function formatCurrency(amount: number, currency: string = "USD"): string {
 export function formatDepositData(data: DepositData): React.JSX.Element | null {
   if (!data) return null
 
-  // Helper to normalize instalment data from both formats
-  const normalizeInstalmentData = (): any[] => {
-    const instalments: any[] = []
-
-    // Check structured format first (instalment_1, instalment_2, instalment_3)
-    if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
-      for (let i = 1; i <= 3; i++) {
-        const instalment = (data as any)[`instalment_${i}`]
-        if (instalment) {
-          instalments.push(instalment)
-        }
-      }
-      return instalments
-    }
-
-    // Check raw form data format (deposit_amount_1, deposit_amount_2, etc.)
-    const hasMultipleInstalments =
-      data.deposit_amount_1 ||
-      data.deposit_amount_2 ||
-      data.deposit_amount_3 ||
-      data.deposit_percentage_1 ||
-      data.deposit_percentage_2 ||
-      data.deposit_percentage_3 ||
-      (data as any).deposit_type_instalment_1 ||
-      (data as any).deposit_type_instalment_2 ||
-      (data as any).deposit_type_instalment_3
-
-    if (hasMultipleInstalments) {
-      for (let i = 1; i <= 3; i++) {
-        const instalment: any = {}
-        const amount = (data as any)[`deposit_amount_${i}`]
-        const percentage = (data as any)[`deposit_percentage_${i}`]
-        const depositType =
-          (data as any)[`deposit_type_instalment_${i}`] ||
-          (amount ? "amount" : percentage ? "percentage" : null)
-        const currency =
-          (data as any)[`deposit_amount_${i}_currency`] ||
-          (data as any)[`deposit_amount_currency_${i}`]
-        const due = (data as any)[`deposit_due_${i}`] || (data as any)[`deposit_due_instalment_${i}`]
-        const dueUnit = (data as any)[`deposit_due_${i}_unit`] || (data as any)[`deposit_due_instalment_${i}_unit`]
-        const holding = (data as any)[`deposit_holding_${i}`] || (data as any)[`deposit_holding_instalment_${i}`]
-
-        if (amount || percentage || depositType) {
-          if (depositType) instalment.depositType = depositType
-          if (amount !== undefined && amount !== null && amount !== "") {
-            instalment.amount = typeof amount === "number" ? amount : parseFloat(String(amount))
-          }
-          if (percentage !== undefined && percentage !== null && percentage !== "") {
-            instalment.percentage = typeof percentage === "number" ? percentage : parseFloat(String(percentage))
-          }
-          if (currency) instalment.currency = currency
-          if (due) {
-            if (dueUnit) {
-              instalment.depositDueWithin = {
-                number: typeof due === "number" ? due : parseFloat(String(due)),
-                unit: dueUnit.replace(/_/g, " ") as any,
-              }
-            } else {
-              instalment.depositDue = due
-            }
-          }
-          if (holding) instalment.depositHolding = holding
-          instalments.push(instalment)
-        }
-      }
-      return instalments
-    }
-
-    return []
+  // Normalize deposit data using the helper function
+  const normalized = normalizeDepositData(data)
+  if (!normalized || normalized.instalments.length === 0) {
+    return null
   }
 
-  const instalmentData = normalizeInstalmentData()
-  const hasMultipleInstalments = instalmentData.length > 1
-
-  // Extract single instalment data (for backward compatibility)
-  const {
-    depositType,
-    depositAmount,
-    depositCurrency,
-    depositDue,
-    depositHolding,
-    instalments,
-  } = data
-
-  // Helper function to format deposit due date
-  const formatDepositDue = (dueData: any, unitField?: string) => {
-    // Check for structured format (depositDueWithin)
-    if (dueData?.depositDueWithin) {
-      return `Within ${dueData.depositDueWithin.number} ${
-        dueData.depositDueWithin.unit?.replace(/_/g, " ") || "days"
-      } of Offer Acceptance`
-    }
-
-    // Check for flat format (separate number and unit fields)
-    if (typeof dueData === "object" && dueData !== null) {
-      const number = dueData.number || dueData
-      const unit = unitField || dueData.unit
-      if (number && unit) {
-        return `Within ${number} ${unit.replace(/_/g, " ")} of Offer Acceptance`
-      }
-    }
-
-    // Standard date/string format
-    if (typeof dueData === "string") {
-      return dueData
-    }
-    if (dueData instanceof Date) {
-      return dueData.toLocaleDateString()
-    }
-    return String(dueData)
-  }
+  const { instalments, numInstalments } = normalized
+  const hasMultipleInstalments = numInstalments > 1
 
   return (
     <div className="space-y-3">
-      {depositType && (
+      {hasMultipleInstalments ? (
+        // Multiple instalments display
         <div>
-          <p className="text-sm font-medium text-gray-500">Deposit Type</p>
-          <p className="text-base text-gray-900">{depositType}</p>
-        </div>
-      )}
-
-      {depositAmount && (
-        <div>
-          <p className="text-sm font-medium text-gray-500">Deposit Amount</p>
-          <p className="text-base text-gray-900">
-            {formatCurrency(depositAmount, depositCurrency || "USD")}
+          <p className="text-sm font-medium text-gray-500 mb-2">
+            Deposit Information ({numInstalments} instalment
+            {numInstalments !== 1 ? "s" : ""})
           </p>
-        </div>
-      )}
-
-      {(depositDue ||
-        data.depositDueWithin ||
-        (data.deposit_due && typeof data.deposit_due === "string")) && (
-        <div>
-          <p className="text-sm font-medium text-gray-500 mb-1">Deposit Due</p>
-          <p className="text-base text-gray-900">
-            {data.depositDueWithin
-              ? `Within ${data.depositDueWithin.number} ${
-                  data.depositDueWithin.unit?.replace(/_/g, " ") || "days"
-                } of Offer Acceptance`
-              : data.deposit_due && data.deposit_due_unit
-                ? `Within ${data.deposit_due} ${data.deposit_due_unit.replace(
-                    /_/g,
-                    " ",
-                  )} of Offer Acceptance`
-                : formatDepositDue(depositDue)}
-          </p>
-        </div>
-      )}
-
-      {depositHolding && (
-        <div>
-          <p className="text-sm font-medium text-gray-500">Deposit Holding</p>
-          <p className="text-base text-gray-900">{depositHolding}</p>
-        </div>
-      )}
-
-      {hasMultipleInstalments && instalmentData && instalmentData.length > 0 && (
-          <div>
-            <p className="text-sm font-medium text-gray-500">
-              Instalment Details
-            </p>
-            <div className="mt-2 space-y-2">
-              {instalmentData.map((instalment: any, index: number) => (
-                <div key={index} className="rounded-md border p-3">
-                  <p className="text-sm font-medium text-gray-700">
-                    Instalment {index + 1}
-                  </p>
-                  {instalment.amount && (
-                    <p className="text-sm text-gray-600">
-                      Amount:{" "}
-                      {formatCurrency(instalment.amount, instalment.currency)}
-                    </p>
-                  )}
-                  {instalment.due && (
-                    <p className="text-sm text-gray-600">
-                      Due:{" "}
-                      {typeof instalment.due === "string"
-                        ? instalment.due
-                        : instalment.due instanceof Date
-                          ? instalment.due.toLocaleDateString()
-                          : String(instalment.due)}
-                    </p>
-                  )}
-                  {instalment.depositDueWithin && (
-                    <p className="text-sm text-gray-600">
-                      Due: Within {instalment.depositDueWithin.number}{" "}
-                      {instalment.depositDueWithin.unit?.replace(/_/g, " ") ||
-                        "days"}{" "}
-                      of Offer Acceptance
-                    </p>
-                  )}
-                  {/* Check for flat format instalment due fields */}
-                  {data[`deposit_due_instalment_${index + 1}`] &&
-                    typeof data[`deposit_due_instalment_${index + 1}`] ===
-                      "string" && (
-                      <p className="text-sm text-gray-600">
-                        Due:{" "}
-                        {data[`deposit_due_instalment_${index + 1}_unit`]
-                          ? `Within ${data[`deposit_due_instalment_${index + 1}`]} ${data[`deposit_due_instalment_${index + 1}_unit`].replace(
-                              /_/g,
-                              " ",
-                            )} of Offer Acceptance`
-                          : data[`deposit_due_instalment_${index + 1}`]}
+          <div className="mt-2 space-y-3">
+            {instalments.map((instalment, index) => (
+              <div key={index} className="rounded-md border border-gray-200 p-4">
+                <p className="text-sm font-semibold text-gray-700 mb-2">
+                  Instalment {index + 1}
+                </p>
+                <div className="space-y-2 pl-4">
+                  {instalment.depositType && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">
+                        Deposit Type
                       </p>
-                    )}
-                  {instalment.holding && (
-                    <p className="text-sm text-gray-600">
-                      Holding: {instalment.holding}
-                    </p>
+                      <p className="text-sm text-gray-900 capitalize">
+                        {instalment.depositType}
+                      </p>
+                    </div>
+                  )}
+                  {(instalment.amount !== undefined ||
+                    instalment.percentage !== undefined) && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">
+                        Amount
+                      </p>
+                      <p className="text-sm text-gray-900">
+                        {formatDepositAmount(instalment)}
+                      </p>
+                    </div>
+                  )}
+                  {(instalment.depositDue !== undefined ||
+                    instalment.depositDueText ||
+                    instalment.depositDueWithin) && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">
+                        Deposit Due
+                      </p>
+                      <p className="text-sm text-gray-900">
+                        {formatDepositDue(instalment)}
+                      </p>
+                    </div>
+                  )}
+                  {instalment.depositHolding && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">
+                        Deposit Holding
+                      </p>
+                      <p className="text-sm text-gray-900">
+                        {instalment.depositHolding}
+                      </p>
+                    </div>
                   )}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+      ) : (
+        // Single instalment display
+        <div className="space-y-2">
+          {instalments[0]?.depositType && (
+            <div>
+              <p className="text-xs font-medium text-gray-500">Deposit Type</p>
+              <p className="text-sm text-gray-900 capitalize">
+                {instalments[0].depositType}
+              </p>
+            </div>
+          )}
+          {(instalments[0]?.amount !== undefined ||
+            instalments[0]?.percentage !== undefined) && (
+            <div>
+              <p className="text-xs font-medium text-gray-500">
+                Deposit Amount
+              </p>
+              <p className="text-sm text-gray-900">
+                {formatDepositAmount(instalments[0])}
+              </p>
+            </div>
+          )}
+          {(instalments[0]?.depositDue !== undefined ||
+            instalments[0]?.depositDueText ||
+            instalments[0]?.depositDueWithin) && (
+            <div>
+              <p className="text-xs font-medium text-gray-500">Deposit Due</p>
+              <p className="text-sm text-gray-900">
+                {formatDepositDue(instalments[0])}
+              </p>
+            </div>
+          )}
+          {instalments[0]?.depositHolding && (
+            <div>
+              <p className="text-xs font-medium text-gray-500">
+                Deposit Holding
+              </p>
+              <p className="text-sm text-gray-900">
+                {instalments[0].depositHolding}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

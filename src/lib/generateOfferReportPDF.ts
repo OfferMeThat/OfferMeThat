@@ -2,6 +2,18 @@ import { OFFER_STATUSES } from "@/constants/offers"
 import { OfferWithListing } from "@/types/offer"
 import { OfferReportFieldKey } from "@/types/reportTypes"
 import { jsPDF } from "jspdf"
+import {
+  formatCustomQuestions,
+  getAllDepositInfo,
+  getAllMessageToAgentInfo,
+  getAllSettlementInfo,
+  getAllSpecialConditionsInfo,
+  getAllSubjectToLoanInfo,
+  getCustomQuestionsFromOffer,
+  getPurchaseAgreementUrls,
+  getPurchaserNamesFromData,
+  getSubmitterRoleFromData,
+} from "./parseOfferDataForReports"
 
 // Teal color: #14b8a6 (tailwind teal-500)
 const TEAL_COLOR = [20, 184, 166]
@@ -109,17 +121,39 @@ const getFieldValue = (
       return offer.submitterEmail || "N/A"
     case "submitterPhone":
       return offer.submitterPhone || "N/A"
+    case "submitterRole":
+      return getSubmitterRoleFromData(offer)
     case "offerAmount":
-      return formatCurrency(
-        offer.amount,
-        (offer.customQuestionsData as any)?.currency || "USD",
-      )
+      // Parse customQuestionsData if it's a JSON string
+      let customQuestionsData = offer.customQuestionsData
+      if (typeof customQuestionsData === "string") {
+        try {
+          customQuestionsData = JSON.parse(customQuestionsData)
+        } catch {
+          customQuestionsData = null
+        }
+      }
+      const currency = (customQuestionsData as any)?.currency || "USD"
+      return formatCurrency(offer.amount, currency)
     case "buyerType":
       return formatBuyerType(offer.buyerType)
     case "paymentWay":
       return formatPaymentWay(offer.paymentWay)
     case "conditional":
-      return formatYesNo(offer.conditional)
+      // Check if offer has special conditions or subject to loan approval
+      const specialConditions = getAllSpecialConditionsInfo(
+        offer.specialConditions,
+      )
+      const subjectToLoan = getAllSubjectToLoanInfo(offer.subjectToLoanApproval)
+      const isConditional =
+        (specialConditions &&
+          specialConditions !== "N/A" &&
+          specialConditions !== "No") ||
+        (subjectToLoan &&
+          subjectToLoan !== "N/A" &&
+          subjectToLoan.startsWith("Yes")) ||
+        offer.conditional === true
+      return formatYesNo(isConditional)
     case "expires":
       if (!offer.expires) return "N/A"
       const dateStr = formatDate(offer.expires)
@@ -127,237 +161,23 @@ const getFieldValue = (
       return timeStr ? `${dateStr} ${timeStr}` : dateStr
     case "updatedAt":
       return offer.updatedAt ? formatDateTime(offer.updatedAt) : "N/A"
-    case "hasPurchaseAgreement":
-      const parsePurchaseAgreementUrls = (
-        value: string | null | undefined,
-      ): string[] => {
-        if (!value) return []
-        try {
-          const parsed = JSON.parse(value)
-          if (Array.isArray(parsed)) {
-            return parsed.filter((url) => typeof url === "string")
-          }
-        } catch {
-          // Not JSON, treat as single URL string
-        }
-        return [value]
-      }
-      const purchaseAgreementUrls = parsePurchaseAgreementUrls(
-        offer.purchaseAgreementFileUrl,
-      )
-      return formatYesNo(purchaseAgreementUrls.length > 0)
+    case "purchaseAgreement":
+      return getPurchaseAgreementUrls(offer)
     case "purchaserName":
-      if (!offer.purchaserData) return "N/A"
-      const data = offer.purchaserData as any
-      if (data.method === "single_field" && data.name) {
-        return data.name
-      }
-      if (data.method === "individual_names" && data.nameFields) {
-        const names = Object.values(data.nameFields).map((nameData: any) => {
-          return [nameData.firstName, nameData.middleName, nameData.lastName]
-            .filter(Boolean)
-            .join(" ")
-        })
-        return names.join(", ")
-      }
-      return "N/A"
-    case "depositAmount":
-      if (!offer.depositData) return "N/A"
-      const depositData = offer.depositData as any
-
-      // Check for multiple instalments in structured format
-      if (
-        depositData.instalment_1 ||
-        depositData.instalment_2 ||
-        depositData.instalment_3
-      ) {
-        return "Multiple instalments"
-      }
-
-      // Check for multiple instalments in raw form data format
-      if (
-        depositData.deposit_amount_1 ||
-        depositData.deposit_amount_2 ||
-        depositData.deposit_amount_3 ||
-        depositData.deposit_percentage_1 ||
-        depositData.deposit_percentage_2 ||
-        depositData.deposit_percentage_3
-      ) {
-        // Count how many instalments have data
-        let instalmentCount = 0
-        for (let i = 1; i <= 3; i++) {
-          if (
-            depositData[`deposit_amount_${i}`] ||
-            depositData[`deposit_percentage_${i}`] ||
-            depositData[`deposit_type_instalment_${i}`]
-          ) {
-            instalmentCount++
-          }
-        }
-        if (instalmentCount > 1) {
-          return "Multiple instalments"
-        }
-      }
-
-      // Single instalment - structured format
-      if (depositData.depositType === "amount" || depositData.amount) {
-        return formatCurrency(depositData.amount, depositData.currency || "USD")
-      }
-      if (depositData.depositType === "percentage" || depositData.percentage) {
-        return `${depositData.percentage}% of purchase price`
-      }
-
-      // Single instalment - raw form data format
-      const amount = depositData.deposit_amount || depositData.deposit_amount_1
-      const percentage =
-        depositData.deposit_percentage || depositData.deposit_percentage_1
-      const currency =
-        depositData.deposit_amount_currency ||
-        depositData.deposit_amount_1_currency ||
-        "USD"
-
-      if (amount !== undefined && amount !== null && amount !== "") {
-        const parsedAmount =
-          typeof amount === "number" ? amount : parseFloat(String(amount))
-        if (!isNaN(parsedAmount)) {
-          return formatCurrency(parsedAmount, currency)
-        }
-      }
-
-      if (
-        percentage !== undefined &&
-        percentage !== null &&
-        percentage !== ""
-      ) {
-        const parsedPercentage =
-          typeof percentage === "number"
-            ? percentage
-            : parseFloat(String(percentage))
-        if (!isNaN(parsedPercentage)) {
-          return `${parsedPercentage}% of purchase price`
-        }
-      }
-
-      return "N/A"
-    case "depositDue":
-      if (!offer.depositData) return "N/A"
-      const depositDueData = offer.depositData as any
-
-      // Check for multiple instalments in structured format
-      if (
-        depositDueData.instalment_1 ||
-        depositDueData.instalment_2 ||
-        depositDueData.instalment_3
-      ) {
-        return "See deposit details"
-      }
-
-      // Check for multiple instalments in raw form data format
-      if (
-        depositDueData.deposit_due_1 ||
-        depositDueData.deposit_due_2 ||
-        depositDueData.deposit_due_3 ||
-        depositDueData.deposit_due_instalment_1 ||
-        depositDueData.deposit_due_instalment_2 ||
-        depositDueData.deposit_due_instalment_3
-      ) {
-        return "See deposit details"
-      }
-
-      // Single instalment - structured format
-      if (depositDueData.depositDueText) {
-        return depositDueData.depositDueText
-      }
-      if (depositDueData.depositDue) {
-        return formatDate(depositDueData.depositDue)
-      }
-      if (depositDueData.depositDueWithin) {
-        const { number, unit } = depositDueData.depositDueWithin
-        return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
-      }
-
-      // Single instalment - raw form data format
-      const due = depositDueData.deposit_due || depositDueData.deposit_due_1
-      if (due) {
-        if (typeof due === "string" && due.trim() !== "") {
-          // Try to parse as date
-          const date = new Date(due)
-          if (!isNaN(date.getTime())) {
-            return formatDate(due)
-          }
-          // Otherwise return as text
-          return due
-        }
-      }
-
-      // Check for "within X days" format in raw form data
-      const dueNumber =
-        depositDueData.deposit_due || depositDueData.deposit_due_1
-      const dueUnit =
-        depositDueData.deposit_due_unit || depositDueData.deposit_due_1_unit
-      if (dueNumber && dueUnit) {
-        const parsedNumber =
-          typeof dueNumber === "number"
-            ? dueNumber
-            : parseFloat(String(dueNumber))
-        if (!isNaN(parsedNumber)) {
-          return `Within ${parsedNumber} ${dueUnit.replace(/_/g, " ")} of offer acceptance`
-        }
-      }
-
-      return "N/A"
+      return getPurchaserNamesFromData(offer.purchaserData)
+    case "deposit":
+      return getAllDepositInfo(offer.depositData, offer)
     case "settlementDate":
-      if (!offer.settlementDateData) return "N/A"
-      const settlementData = offer.settlementDateData as any
-      if (settlementData.settlementDateText) {
-        return settlementData.settlementDateText
-      }
-      if (settlementData.settlementDateTime) {
-        return formatDate(settlementData.settlementDateTime)
-      }
-      if (settlementData.settlementDate) {
-        const dateStr = formatDate(settlementData.settlementDate)
-        return settlementData.settlementTime
-          ? `${dateStr} at ${settlementData.settlementTime}`
-          : dateStr
-      }
-      if (settlementData.settlementDateWithin) {
-        const { number, unit } = settlementData.settlementDateWithin
-        return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
-      }
-      return "N/A"
+      return getAllSettlementInfo(offer.settlementDateData)
     case "subjectToLoan":
-      if (!offer.subjectToLoanApproval) return "N/A"
-      const loanData = offer.subjectToLoanApproval as any
-      const isSubjectToLoan =
-        loanData.subjectToLoanApproval === "yes" ||
-        loanData.subjectToLoanApproval === true
-      return isSubjectToLoan ? "Yes" : "No"
+      return getAllSubjectToLoanInfo(offer.subjectToLoanApproval)
     case "specialConditions":
-      if (!offer.specialConditions) return "N/A"
-      // Check if specialConditions has any content (could be string or object)
-      if (typeof offer.specialConditions === "string") {
-        return offer.specialConditions.trim() ? "Yes" : "N/A"
-      }
-      // If it's an object, check if it has any meaningful data
-      const conditionsData = offer.specialConditions as any
-      if (
-        (conditionsData.selectedConditions &&
-          conditionsData.selectedConditions.length > 0) ||
-        (conditionsData.conditionAttachmentUrls &&
-          Object.keys(conditionsData.conditionAttachmentUrls).length > 0) ||
-        (conditionsData.text && conditionsData.text.trim())
-      ) {
-        return "Yes"
-      }
-      return "N/A"
+      return getAllSpecialConditionsInfo(offer.specialConditions)
     case "messageToAgent":
-      if (!offer.messageToAgent) return "N/A"
-      if (typeof offer.messageToAgent === "string") {
-        return offer.messageToAgent
-      }
-      const messageData = offer.messageToAgent as any
-      return messageData.message || messageData.text || "N/A"
+      return getAllMessageToAgentInfo(offer.messageToAgent)
+    case "customQuestions":
+      const customQuestions = getCustomQuestionsFromOffer(offer)
+      return formatCustomQuestions(customQuestions)
     default:
       return "N/A"
   }
@@ -374,20 +194,21 @@ const getFieldLabel = (fieldKey: OfferReportFieldKey): string => {
     submitterName: "Submitter Name",
     submitterEmail: "Submitter Email",
     submitterPhone: "Submitter Phone",
+    submitterRole: "Submitter Role",
     offerAmount: "Offer Amount",
     buyerType: "Buyer Type",
     paymentWay: "Payment Way",
     conditional: "Conditional",
     expires: "Offer Expires",
     updatedAt: "Last Updated",
-    hasPurchaseAgreement: "Purchase Agreement",
+    purchaseAgreement: "Purchase Agreement",
     purchaserName: "Purchaser Name(s)",
-    depositAmount: "Deposit Amount",
-    depositDue: "Deposit Due",
+    deposit: "Deposit",
     settlementDate: "Settlement Date",
     subjectToLoan: "Subject to Loan",
     specialConditions: "Special Conditions",
     messageToAgent: "Message to Agent",
+    customQuestions: "Custom Questions",
   }
   return labels[fieldKey] || fieldKey
 }
@@ -538,19 +359,33 @@ export const generateOfferReportPDF = (
   const contentStartY = 20
 
   // Calculate card dimensions
-  // Adjust card height based on number of fields (minimum 70mm, add 5mm per field)
-  const baseCardHeight = 70
-  const heightPerField = 5
-  const estimatedCardHeight =
-    baseCardHeight + selectedFields.length * heightPerField
-  // Cap at reasonable maximum to ensure cards fit on page, but allow more space
-  const cardHeight = Math.min(estimatedCardHeight, 120)
+  // If there are many fields, use full page per offer (1 card per page)
+  // Otherwise, use multiple cards per page
+  const hasManyFields = selectedFields.length > 15
 
-  // Use fewer cards per row if there are many fields to give each card more space
-  const cardsPerRow = selectedFields.length > 10 ? 2 : 3
+  let cardHeight: number
+  let cardsPerRow: number
+  let cardWidth: number
   const cardSpacing = 5
-  const cardWidth =
-    (contentWidth - (cardsPerRow - 1) * cardSpacing) / cardsPerRow
+
+  if (hasManyFields) {
+    // Full page per offer - use almost entire page height
+    cardHeight = pageHeight - contentStartY - margin - 10
+    cardsPerRow = 1
+    cardWidth = contentWidth
+  } else {
+    // Adjust card height based on number of fields
+    const baseCardHeight = 70
+    const heightPerField = 5
+    const estimatedCardHeight =
+      baseCardHeight + selectedFields.length * heightPerField
+    // Cap at reasonable maximum but allow more space
+    cardHeight = Math.min(estimatedCardHeight, 150)
+
+    // Use fewer cards per row if there are many fields
+    cardsPerRow = selectedFields.length > 10 ? 2 : 3
+    cardWidth = (contentWidth - (cardsPerRow - 1) * cardSpacing) / cardsPerRow
+  }
 
   let currentY = contentStartY
   let currentRow = 0

@@ -129,7 +129,6 @@ export const OfferFormInteractiveView = ({
   const isFirstPage = currentPageIndex === 0
   const isLastPage = currentPageIndex === totalPages - 1
 
-
   const validateCurrentPage = async (): Promise<boolean> => {
     if (!currentPage) return true
 
@@ -184,10 +183,19 @@ export const OfferFormInteractiveView = ({
 
         // For submitterPhone, ensure it's in the correct format
         if (question.type === "submitterPhone") {
-          if (typeof value === "object" && value !== null && "countryCode" in value && "number" in value) {
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            "countryCode" in value &&
+            "number" in value
+          ) {
             // Ensure both countryCode and number are strings (not empty)
             const phoneObj = value as { countryCode: string; number: string }
-            if (!phoneObj.countryCode || !phoneObj.number || phoneObj.number.trim() === "") {
+            if (
+              !phoneObj.countryCode ||
+              !phoneObj.number ||
+              phoneObj.number.trim() === ""
+            ) {
               // If phone is incomplete, set to undefined so validation can catch it
               value = undefined
             }
@@ -199,7 +207,8 @@ export const OfferFormInteractiveView = ({
 
         // For custom number_amount fields, ensure proper format
         if (question.type === "custom") {
-          const setupConfig = (question.setupConfig as Record<string, any>) || {}
+          const setupConfig =
+            (question.setupConfig as Record<string, any>) || {}
           const answerType = setupConfig.answer_type
           const numberType = setupConfig.number_type
 
@@ -229,7 +238,11 @@ export const OfferFormInteractiveView = ({
                   value = undefined
                 }
               }
-            } else if (numberType === "money" && typeof value === "object" && value !== null) {
+            } else if (
+              numberType === "money" &&
+              typeof value === "object" &&
+              value !== null
+            ) {
               // Money type: ensure amount is a number
               if (typeof value.amount === "string") {
                 if (value.amount.trim() === "") {
@@ -264,7 +277,11 @@ export const OfferFormInteractiveView = ({
         }
 
         // For offerAmount, handle empty strings
-        if (question.type === "offerAmount" && typeof value === "object" && value !== null) {
+        if (
+          question.type === "offerAmount" &&
+          typeof value === "object" &&
+          value !== null
+        ) {
           if (typeof value.amount === "string" && value.amount.trim() === "") {
             // Empty amount should be undefined
             value = undefined
@@ -275,15 +292,13 @@ export const OfferFormInteractiveView = ({
         currentPageData[question.id] = value
       })
 
-
       // Validate current page
       // Don't use stripUnknown - we want to validate all fields we're passing
       // stripUnknown can cause issues with required field validation
-      await pageSchema.validate(currentPageData, { 
+      await pageSchema.validate(currentPageData, {
         abortEarly: false,
         strict: false, // Allow type coercion
       })
-
 
       // Clear errors for current page
       const newErrors = { ...validationErrors }
@@ -438,9 +453,27 @@ export const OfferFormInteractiveView = ({
 
       // Process form data and upload files
       for (const [questionId, value] of Object.entries(processedFormData)) {
-        if (!value) continue
-
+        // For deposit questions, allow empty objects (they might contain deposit fields)
         const question = questions.find((q) => q.id === questionId)
+        if (question?.type === "deposit") {
+          // For deposit questions, check if value is an object with deposit fields
+          if (value && typeof value === "object" && !Array.isArray(value)) {
+            const hasDepositFields = Object.keys(value).some(
+              (key) =>
+                key.startsWith("deposit_") ||
+                key.startsWith("instalment_") ||
+                key === "deposit_instalments",
+            )
+            if (!hasDepositFields && Object.keys(value).length === 0) {
+              continue // Skip truly empty objects
+            }
+          } else if (!value) {
+            continue // Skip null/undefined/empty string
+          }
+        } else if (!value) {
+          continue // Skip empty values for other question types
+        }
+
         if (!question) continue
 
         // Handle purchase agreement (single or multiple files)

@@ -49,21 +49,18 @@ export function transformDepositFormData(
     const instalment: any = {}
 
     // Get deposit type for this instalment
-    const depositTypeKey =
-      instalmentNum === 1
-        ? formData.deposit_type || formData.deposit_type_instalment_1
-        : `deposit_type_instalment_${instalmentNum}`
-    const depositType = formData[depositTypeKey]
+    const depositTypeKey1 = instalmentNum === 1 ? "deposit_type" : `deposit_type_instalment_${instalmentNum}`
+    const depositTypeKey2 = instalmentNum === 1 ? "deposit_type_instalment_1" : undefined
+    const depositType = formData[depositTypeKey1] || (depositTypeKey2 ? formData[depositTypeKey2] : undefined)
 
-    // Get amount/percentage
-    const amountKey =
-      instalmentNum === 1
-        ? formData.deposit_amount || formData.deposit_amount_1
-        : `deposit_amount_${instalmentNum}`
-    const percentageKey =
-      instalmentNum === 1
-        ? formData.deposit_percentage || formData.deposit_percentage_1
-        : `deposit_percentage_${instalmentNum}`
+    // Get amount/percentage - check which key exists in formData
+    const amountKey1 = instalmentNum === 1 ? "deposit_amount" : `deposit_amount_${instalmentNum}`
+    const amountKey2 = instalmentNum === 1 ? "deposit_amount_1" : undefined
+    const amountKey = formData[amountKey1] !== undefined ? amountKey1 : (amountKey2 && formData[amountKey2] !== undefined ? amountKey2 : amountKey1)
+    
+    const percentageKey1 = instalmentNum === 1 ? "deposit_percentage" : `deposit_percentage_${instalmentNum}`
+    const percentageKey2 = instalmentNum === 1 ? "deposit_percentage_1" : undefined
+    const percentageKey = formData[percentageKey1] !== undefined ? percentageKey1 : (percentageKey2 && formData[percentageKey2] !== undefined ? percentageKey2 : percentageKey1)
 
     const amount = parseAmount(formData[amountKey])
     const percentage = parseAmount(formData[percentageKey])
@@ -85,64 +82,98 @@ export function transformDepositFormData(
       instalment.percentage = percentage
     }
 
-    // Get currency
-    const currencyKey =
-      instalmentNum === 1
-        ? formData.deposit_amount_currency ||
-          formData.deposit_amount_1_currency ||
-          formData.deposit_amount_currency_1
-        : `deposit_amount_${instalmentNum}_currency` ||
-          `deposit_amount_currency_${instalmentNum}`
-    const currency = formData[currencyKey]
+    // Get currency - check which key exists in formData
+    const currencyKey1 = instalmentNum === 1 ? "deposit_amount_currency" : `deposit_amount_${instalmentNum}_currency`
+    const currencyKey2 = instalmentNum === 1 ? "deposit_amount_1_currency" : undefined
+    const currencyKey3 = instalmentNum === 1 ? "deposit_amount_currency_1" : `deposit_amount_currency_${instalmentNum}`
+    
+    let currency = formData[currencyKey1]
+    if (!currency && currencyKey2) {
+      currency = formData[currencyKey2]
+    }
+    if (!currency) {
+      currency = formData[currencyKey3]
+    }
     if (currency) {
       instalment.currency = currency
     }
 
-    // Get due date
-    const dueKey =
-      instalmentNum === 1
-        ? formData.deposit_due || formData.deposit_due_1
-        : `deposit_due_${instalmentNum}`
-    const due = parseDate(formData[dueKey])
-    if (due) {
-      instalment.depositDue = due
+    // Get due date - check which key exists in formData
+    // For instalment 1, check: deposit_due, deposit_due_1, deposit_due_instalment_1
+    // For other instalments, check: deposit_due_${instalmentNum}, deposit_due_instalment_${instalmentNum}
+    // But skip if it's a number (that would be for "within X days" format)
+    const dueKeys = instalmentNum === 1
+      ? ["deposit_due", "deposit_due_1", "deposit_due_instalment_1"]
+      : [`deposit_due_${instalmentNum}`, `deposit_due_instalment_${instalmentNum}`]
+    
+    let due: string | Date | undefined
+    for (const key of dueKeys) {
+      const value = formData[key]
+      if (value !== undefined) {
+        // Check if it's a number (for "within X days" format) - skip it, it will be handled by depositDueWithin
+        if (typeof value === "number" || (typeof value === "string" && /^\d+$/.test(value.trim()))) {
+          continue
+        }
+        due = parseDate(value)
+        if (due) {
+          instalment.depositDue = due
+          break
+        }
+      }
     }
 
-    // Get due date text (for seller-specified text)
-    const dueTextKey =
-      instalmentNum === 1
-        ? formData.deposit_due_text || formData.deposit_due_1_text
-        : `deposit_due_${instalmentNum}_text`
+    // Get due date text (for seller-specified text) - check which key exists
+    const dueTextKey1 = instalmentNum === 1 ? "deposit_due_text" : `deposit_due_${instalmentNum}_text`
+    const dueTextKey2 = instalmentNum === 1 ? "deposit_due_1_text" : undefined
+    const dueTextKey = formData[dueTextKey1] !== undefined ? dueTextKey1 : (dueTextKey2 && formData[dueTextKey2] !== undefined ? dueTextKey2 : dueTextKey1)
     const dueText = formData[dueTextKey]
     if (dueText) {
       instalment.depositDueText = dueText
     }
 
-    // Get due date within (for "within X days" format)
-    const dueWithinNumberKey =
-      instalmentNum === 1
-        ? formData.deposit_due || formData.deposit_due_1
-        : `deposit_due_${instalmentNum}`
-    const dueWithinUnitKey =
-      instalmentNum === 1
-        ? formData.deposit_due_unit || formData.deposit_due_1_unit
-        : `deposit_due_${instalmentNum}_unit`
+    // Get due date within (for "within X days" format) - check which key exists
+    // For instalment 1, check: deposit_due, deposit_due_1, deposit_due_instalment_1
+    // For other instalments, check: deposit_due_${instalmentNum}, deposit_due_instalment_${instalmentNum}
+    const dueWithinNumberKeys = instalmentNum === 1
+      ? ["deposit_due", "deposit_due_1", "deposit_due_instalment_1"]
+      : [`deposit_due_${instalmentNum}`, `deposit_due_instalment_${instalmentNum}`]
+    
+    const dueWithinUnitKeys = instalmentNum === 1
+      ? ["deposit_due_unit", "deposit_due_1_unit", "deposit_due_instalment_1_unit"]
+      : [`deposit_due_${instalmentNum}_unit`, `deposit_due_instalment_${instalmentNum}_unit`]
 
-    const dueWithinNumber = parseAmount(formData[dueWithinNumberKey])
-    const dueWithinUnit = formData[dueWithinUnitKey]
+    let dueWithinNumber: number | undefined
+    let dueWithinUnit: string | undefined
+
+    // Find the number key that exists
+    for (const key of dueWithinNumberKeys) {
+      if (formData[key] !== undefined) {
+        dueWithinNumber = parseAmount(formData[key])
+        break
+      }
+    }
+
+    // Find the unit key that exists
+    for (const key of dueWithinUnitKeys) {
+      if (formData[key] !== undefined) {
+        dueWithinUnit = formData[key]
+        break
+      }
+    }
 
     if (dueWithinNumber !== undefined && dueWithinUnit) {
       instalment.depositDueWithin = {
         number: dueWithinNumber,
         unit: dueWithinUnit.replace(/_/g, " ") as any,
       }
+      // Clear depositDue if we have depositDueWithin
+      delete instalment.depositDue
     }
 
-    // Get holding
-    const holdingKey =
-      instalmentNum === 1
-        ? formData.deposit_holding || formData.deposit_holding_1
-        : `deposit_holding_${instalmentNum}`
+    // Get holding - check which key exists
+    const holdingKey1 = instalmentNum === 1 ? "deposit_holding" : `deposit_holding_${instalmentNum}`
+    const holdingKey2 = instalmentNum === 1 ? "deposit_holding_1" : undefined
+    const holdingKey = formData[holdingKey1] !== undefined ? holdingKey1 : (holdingKey2 && formData[holdingKey2] !== undefined ? holdingKey2 : holdingKey1)
     const holding = formData[holdingKey]
     if (holding) {
       instalment.depositHolding = holding

@@ -32,49 +32,209 @@ export type PurchaserData = SingleFieldPurchaser | IndividualNamesPurchaser
 
 // ==================== Deposit Data ====================
 
+/**
+ * Time unit for "within X days" format
+ */
+export type DepositTimeUnit =
+  | "business_days"
+  | "calendar_days"
+  | "days"
+  | "weeks"
+  | "months"
+  | "hours"
+
+/**
+ * Deposit type (amount or percentage)
+ */
+export type DepositType = "amount" | "percentage"
+
+/**
+ * Instalment configuration type
+ */
+export type InstalmentConfig = "single" | "two_always" | "one_or_two" | "three_plus"
+
+/**
+ * Deposit due date information
+ * Can be a specific date, text description, or "within X time" format
+ */
+export interface DepositDueInfo {
+  // Specific date/time
+  depositDue?: string | Date
+
+  // Seller-specified text description
+  depositDueText?: string
+
+  // "Within X time" format
+  depositDueWithin?: {
+    number: number
+    unit: DepositTimeUnit
+    // Optional trigger event (e.g., "offer_acceptance", "contract_signing")
+    trigger?: string
+    // Optional action word (e.g., "of", "from", "after")
+    action?: string
+  }
+}
+
+/**
+ * Single deposit instalment data
+ * Represents one instalment of a deposit payment
+ */
 export interface DepositInstalment {
+  // Deposit type (for buyer_choice scenario)
+  depositType?: DepositType
+
   // Amount information
-  depositType?: "amount" | "percentage" // For buyer_choice scenario
   amount?: number
   percentage?: number
   currency?: string
 
   // Due date information
   depositDue?: string | Date
-  depositDueText?: string // For seller-specified text
-  depositDueWithin?: {
-    number: number
-    unit: "business_days" | "days"
-  }
-
-  // Holding information
-  depositHolding?: string
-}
-
-export interface DepositData {
-  // Instalment configuration
-  instalments?: "single" | "two_always" | "one_or_two" | "three_plus"
-  numInstalments?: number
-
-  // Single instalment data
-  depositType?: "amount" | "percentage"
-  amount?: number
-  percentage?: number
-  currency?: string
-  depositDue?: string | Date
   depositDueText?: string
   depositDueWithin?: {
     number: number
-    unit: "business_days" | "days"
+    unit: DepositTimeUnit
+    trigger?: string
+    action?: string
   }
+
+  // Holding information (where deposit will be held)
+  depositHolding?: string
+}
+
+/**
+ * Comprehensive Deposit Data Schema
+ * Handles all variants: single instalment, multiple instalments, and legacy formats
+ */
+export interface DepositData {
+  // ========== Instalment Configuration ==========
+  /**
+   * Type of instalment configuration
+   * - "single": One deposit payment
+   * - "two_always": Always two instalments
+   * - "one_or_two": Buyer chooses 1 or 2 instalments
+   * - "three_plus": Three or more instalments
+   */
+  instalments?: InstalmentConfig
+  numInstalments?: number
+
+  // ========== Single Instalment Data (when instalments === "single" or numInstalments === 1) ==========
+  /**
+   * Deposit type for single instalment (when buyer_choice is enabled)
+   */
+  depositType?: DepositType
+
+  /**
+   * Amount for single instalment
+   */
+  amount?: number
+
+  /**
+   * Percentage for single instalment (percentage of purchase price)
+   */
+  percentage?: number
+
+  /**
+   * Currency code for single instalment (e.g., "USD", "EUR")
+   */
+  currency?: string
+
+  /**
+   * Due date for single instalment
+   */
+  depositDue?: string | Date
+
+  /**
+   * Due date text for single instalment (seller-specified)
+   */
+  depositDueText?: string
+
+  /**
+   * Due date "within X time" format for single instalment
+   */
+  depositDueWithin?: {
+    number: number
+    unit: DepositTimeUnit
+    trigger?: string
+    action?: string
+  }
+
+  /**
+   * Holding information for single instalment
+   */
   depositHolding?: string
 
-  // Multiple instalments data (indexed by instalment number)
+  // ========== Multiple Instalments Data (when numInstalments > 1) ==========
+  /**
+   * First instalment data
+   */
   instalment_1?: DepositInstalment
+
+  /**
+   * Second instalment data
+   */
   instalment_2?: DepositInstalment
+
+  /**
+   * Third instalment data
+   */
   instalment_3?: DepositInstalment
 
-  // Additional fields that might be present
+  // ========== Legacy/Raw Format Support ==========
+  /**
+   * Legacy field names for backward compatibility
+   * These may exist in older data or raw form submissions
+   */
+  deposit_amount?: number | string
+  deposit_amount_1?: number | string
+  deposit_amount_2?: number | string
+  deposit_amount_3?: number | string
+  deposit_percentage?: number | string
+  deposit_percentage_1?: number | string
+  deposit_percentage_2?: number | string
+  deposit_percentage_3?: number | string
+  deposit_amount_currency?: string
+  deposit_amount_1_currency?: string
+  deposit_amount_2_currency?: string
+  deposit_amount_3_currency?: string
+  deposit_amount_currency_1?: string
+  deposit_amount_currency_2?: string
+  deposit_amount_currency_3?: string
+  deposit_type?: DepositType
+  deposit_type_instalment_1?: DepositType
+  deposit_type_instalment_2?: DepositType
+  deposit_type_instalment_3?: DepositType
+  deposit_due?: string | Date | number
+  deposit_due_1?: string | Date | number
+  deposit_due_2?: string | Date | number
+  deposit_due_3?: string | Date | number
+  deposit_due_instalment_1?: string | Date | number
+  deposit_due_instalment_2?: string | Date | number
+  deposit_due_instalment_3?: string | Date | number
+  deposit_due_text?: string
+  deposit_due_1_text?: string
+  deposit_due_2_text?: string
+  deposit_due_3_text?: string
+  deposit_due_unit?: string
+  deposit_due_1_unit?: string
+  deposit_due_2_unit?: string
+  deposit_due_3_unit?: string
+  deposit_due_instalment_1_unit?: string
+  deposit_due_instalment_2_unit?: string
+  deposit_due_instalment_3_unit?: string
+  deposit_holding?: string
+  deposit_holding_1?: string
+  deposit_holding_2?: string
+  deposit_holding_3?: string
+  deposit_holding_instalment_1?: string
+  deposit_holding_instalment_2?: string
+  deposit_holding_instalment_3?: string
+  deposit_instalments?: number | string
+
+  // ========== Additional Fields ==========
+  /**
+   * Allow additional fields for flexibility
+   */
   [key: string]: any
 }
 

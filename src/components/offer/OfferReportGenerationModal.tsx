@@ -20,9 +20,21 @@ import {
 } from "@/components/ui/table"
 import { OFFER_STATUSES } from "@/constants/offers"
 import { generateOfferReportPDF } from "@/lib/generateOfferReportPDF"
+import {
+  formatCustomQuestions,
+  getAllDepositInfo,
+  getAllMessageToAgentInfo,
+  getAllSettlementInfo,
+  getAllSpecialConditionsInfo,
+  getAllSubjectToLoanInfo,
+  getCustomQuestionsFromOffer,
+  getPurchaserNamesFromData,
+  getPurchaseAgreementUrls,
+  getSubmitterRoleFromData,
+} from "@/lib/parseOfferDataForReports"
+import { createClient } from "@/lib/supabase/client"
 import { OfferWithListing } from "@/types/offer"
 import { OFFER_REPORT_FIELDS, OfferReportFieldKey } from "@/types/reportTypes"
-import { createClient } from "@/lib/supabase/client"
 import { FileDown } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -40,7 +52,7 @@ const OfferReportGenerationModal = ({
 }: OfferReportGenerationModalProps) => {
   const [selectedFields, setSelectedFields] = useState<
     Set<OfferReportFieldKey>
-  >(new Set(OFFER_REPORT_FIELDS.map((f) => f.key)))
+  >(new Set(OFFER_REPORT_FIELDS.map((f) => f.key))) // All fields selected by default
   const [userName, setUserName] = useState<string | undefined>(undefined)
   const [isLoadingUser, setIsLoadingUser] = useState(false)
 
@@ -103,11 +115,15 @@ const OfferReportGenerationModal = ({
     // Get listing address if all offers are for the same listing
     let listingAddress: string | undefined = undefined
     if (offers.length > 0) {
-      const firstListingAddress = offers[0].listing?.address || offers[0].customListingAddress
-      if (firstListingAddress && offers.every(offer => {
-        const addr = offer.listing?.address || offer.customListingAddress
-        return addr === firstListingAddress
-      })) {
+      const firstListingAddress =
+        offers[0].listing?.address || offers[0].customListingAddress
+      if (
+        firstListingAddress &&
+        offers.every((offer) => {
+          const addr = offer.listing?.address || offer.customListingAddress
+          return addr === firstListingAddress
+        })
+      ) {
         listingAddress = firstListingAddress
       }
     }
@@ -194,134 +210,7 @@ const OfferReportGenerationModal = ({
 
   // Get purchaser names
   const getPurchaserNames = (offer: OfferWithListing): string => {
-    if (!offer.purchaserData) return "N/A"
-
-    const data = offer.purchaserData as any
-
-    if (data.method === "single_field" && data.name) {
-      return data.name
-    }
-
-    if (data.method === "individual_names" && data.nameFields) {
-      const names = Object.values(data.nameFields).map((nameData: any) => {
-        return [nameData.firstName, nameData.middleName, nameData.lastName]
-          .filter(Boolean)
-          .join(" ")
-      })
-      return names.join(", ")
-    }
-
-    return "N/A"
-  }
-
-  // Get deposit amount
-  const getDepositAmount = (offer: OfferWithListing): string => {
-    if (!offer.depositData) return "N/A"
-
-    const data = offer.depositData as any
-
-    if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
-      return "Multiple instalments"
-    }
-
-    if (data.depositType === "amount" || data.amount) {
-      return formatCurrency(data.amount)
-    }
-
-    if (data.depositType === "percentage" || data.percentage) {
-      return `${data.percentage}% of purchase price`
-    }
-
-    return "N/A"
-  }
-
-  // Get deposit due
-  const getDepositDue = (offer: OfferWithListing): string => {
-    if (!offer.depositData) return "N/A"
-
-    const data = offer.depositData as any
-
-    if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
-      return "See deposit details"
-    }
-
-    if (data.depositDueText) {
-      return data.depositDueText
-    }
-
-    if (data.depositDue) {
-      return formatDate(data.depositDue)
-    }
-
-    if (data.depositDueWithin) {
-      const { number, unit } = data.depositDueWithin
-      return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
-    }
-
-    return "N/A"
-  }
-
-  // Get settlement date
-  const getSettlementDate = (offer: OfferWithListing): string => {
-    if (!offer.settlementDateData) return "N/A"
-
-    const data = offer.settlementDateData as any
-
-    if (data.settlementDateText) {
-      return data.settlementDateText
-    }
-
-    if (data.settlementDateTime) {
-      return formatDate(data.settlementDateTime)
-    }
-
-    if (data.settlementDate) {
-      const dateStr = formatDate(data.settlementDate)
-      return data.settlementTime
-        ? `${dateStr} at ${data.settlementTime}`
-        : dateStr
-    }
-
-    if (data.settlementDateWithin) {
-      const { number, unit } = data.settlementDateWithin
-      return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
-    }
-
-    return "N/A"
-  }
-
-  // Get subject to loan
-  const getSubjectToLoan = (offer: OfferWithListing): string => {
-    if (!offer.subjectToLoanApproval) return "N/A"
-
-    const data = offer.subjectToLoanApproval as any
-    const isSubjectToLoan =
-      data.subjectToLoanApproval === "yes" ||
-      data.subjectToLoanApproval === true
-
-    return isSubjectToLoan ? "Yes" : "No"
-  }
-
-  // Get special conditions (truncated for preview)
-  const getSpecialConditions = (offer: OfferWithListing): string => {
-    if (!offer.specialConditions) return "N/A"
-    const text = offer.specialConditions
-    return text.length > 100 ? text.substring(0, 100) + "..." : text
-  }
-
-  // Get message to agent (truncated for preview)
-  const getMessageToAgent = (offer: OfferWithListing): string => {
-    if (!offer.messageToAgent) return "N/A"
-
-    let text = ""
-    if (typeof offer.messageToAgent === "string") {
-      text = offer.messageToAgent
-    } else {
-      const data = offer.messageToAgent as any
-      text = data.message || data.text || "N/A"
-    }
-
-    return text.length > 100 ? text.substring(0, 100) + "..." : text
+    return getPurchaserNamesFromData(offer.purchaserData)
   }
 
   // Get preview data (first 5 offers)
@@ -395,7 +284,7 @@ const OfferReportGenerationModal = ({
                   <TableHeader>
                     <TableRow>
                       {OFFER_REPORT_FIELDS.filter((field) =>
-                        selectedFields.has(field.key),
+                        selectedFields.has(field.key) && field.key !== "customQuestions",
                       ).map((field) => (
                         <TableHead key={field.key} className="font-medium">
                           {field.label}
@@ -407,7 +296,7 @@ const OfferReportGenerationModal = ({
                     {previewOffers.map((offer) => (
                       <TableRow key={offer.id}>
                         {OFFER_REPORT_FIELDS.filter((field) =>
-                          selectedFields.has(field.key),
+                          selectedFields.has(field.key) && field.key !== "customQuestions",
                         ).map((field) => {
                           const fieldKey = field.key
                           let cellContent: React.ReactNode = ""
@@ -432,10 +321,22 @@ const OfferReportGenerationModal = ({
                               cellContent = offer.submitterPhone || "N/A"
                               break
                             case "offerAmount":
+                              // Parse customQuestionsData if it's a JSON string
+                              let customQuestionsData =
+                                offer.customQuestionsData
+                              if (typeof customQuestionsData === "string") {
+                                try {
+                                  customQuestionsData =
+                                    JSON.parse(customQuestionsData)
+                                } catch {
+                                  customQuestionsData = null
+                                }
+                              }
+                              const currency =
+                                (customQuestionsData as any)?.currency || "USD"
                               cellContent = formatCurrency(
                                 offer.amount,
-                                (offer.customQuestionsData as any)?.currency ||
-                                  "USD",
+                                currency,
                               )
                               break
                             case "buyerType":
@@ -445,7 +346,16 @@ const OfferReportGenerationModal = ({
                               cellContent = formatPaymentWay(offer.paymentWay)
                               break
                             case "conditional":
-                              cellContent = formatYesNo(offer.conditional)
+                              // Check if offer has special conditions or subject to loan approval
+                              const specialConditionsInfo = getAllSpecialConditionsInfo(offer.specialConditions)
+                              const subjectToLoanInfo = getAllSubjectToLoanInfo(offer.subjectToLoanApproval)
+                              const isConditional =
+                                (specialConditionsInfo &&
+                                  specialConditionsInfo !== "N/A" &&
+                                  specialConditionsInfo !== "No") ||
+                                (subjectToLoanInfo && subjectToLoanInfo !== "N/A" && subjectToLoanInfo.startsWith("Yes")) ||
+                                offer.conditional === true
+                              cellContent = formatYesNo(isConditional)
                               break
                             case "expires":
                               cellContent = formatExpiry(offer)
@@ -455,54 +365,33 @@ const OfferReportGenerationModal = ({
                                 ? formatDate(offer.updatedAt)
                                 : "N/A"
                               break
-                            case "hasPurchaseAgreement":
-                              cellContent = formatYesNo(
-                                (() => {
-                                  // Helper to parse purchaseAgreementFileUrl (can be single URL string or JSON array)
-                                  const parsePurchaseAgreementUrls = (
-                                    value: string | null | undefined,
-                                  ): string[] => {
-                                    if (!value) return []
-                                    try {
-                                      const parsed = JSON.parse(value)
-                                      if (Array.isArray(parsed)) {
-                                        return parsed.filter(
-                                          (url) => typeof url === "string",
-                                        )
-                                      }
-                                    } catch {
-                                      // Not JSON, treat as single URL string
-                                    }
-                                    return [value]
-                                  }
-                                  const purchaseAgreementUrls =
-                                    parsePurchaseAgreementUrls(
-                                      offer.purchaseAgreementFileUrl,
-                                    )
-                                  return purchaseAgreementUrls.length > 0
-                                })(),
-                              )
+                            case "submitterRole":
+                              cellContent = getSubmitterRoleFromData(offer)
+                              break
+                            case "purchaseAgreement":
+                              cellContent = getPurchaseAgreementUrls(offer)
                               break
                             case "purchaserName":
                               cellContent = getPurchaserNames(offer)
                               break
-                            case "depositAmount":
-                              cellContent = getDepositAmount(offer)
-                              break
-                            case "depositDue":
-                              cellContent = getDepositDue(offer)
+                            case "deposit":
+                              cellContent = getAllDepositInfo(offer.depositData, offer)
                               break
                             case "settlementDate":
-                              cellContent = getSettlementDate(offer)
+                              cellContent = getAllSettlementInfo(offer.settlementDateData)
                               break
                             case "subjectToLoan":
-                              cellContent = getSubjectToLoan(offer)
+                              cellContent = getAllSubjectToLoanInfo(offer.subjectToLoanApproval)
                               break
                             case "specialConditions":
-                              cellContent = getSpecialConditions(offer)
+                              cellContent = getAllSpecialConditionsInfo(offer.specialConditions)
                               break
                             case "messageToAgent":
-                              cellContent = getMessageToAgent(offer)
+                              cellContent = getAllMessageToAgentInfo(offer.messageToAgent)
+                              break
+                            case "customQuestions":
+                              // Skip customQuestions in preview
+                              cellContent = ""
                               break
                           }
 

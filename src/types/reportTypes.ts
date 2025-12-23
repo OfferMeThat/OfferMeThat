@@ -48,20 +48,21 @@ export type OfferReportFieldKey =
   | "submitterName"
   | "submitterEmail"
   | "submitterPhone"
+  | "submitterRole"
   | "offerAmount"
   | "buyerType"
   | "paymentWay"
   | "conditional"
   | "expires"
   | "updatedAt"
-  | "hasPurchaseAgreement"
+  | "purchaseAgreement"
   | "purchaserName"
-  | "depositAmount"
-  | "depositDue"
+  | "deposit"
   | "settlementDate"
   | "subjectToLoan"
   | "specialConditions"
   | "messageToAgent"
+  | "customQuestions"
 
 export type OfferReportField = {
   key: OfferReportFieldKey
@@ -75,20 +76,21 @@ export const OFFER_REPORT_FIELDS: OfferReportField[] = [
   { key: "submitterName", label: "Submitter Name" },
   { key: "submitterEmail", label: "Submitter Email" },
   { key: "submitterPhone", label: "Submitter Phone" },
+  { key: "submitterRole", label: "Submitter Role" },
   { key: "offerAmount", label: "Offer Amount" },
   { key: "buyerType", label: "Buyer Type" },
   { key: "paymentWay", label: "Payment Way" },
   { key: "conditional", label: "Conditional" },
   { key: "expires", label: "Offer Expires" },
   { key: "updatedAt", label: "Last Updated" },
-  { key: "hasPurchaseAgreement", label: "Purchase Agreement" },
+  { key: "purchaseAgreement", label: "Purchase Agreement" },
   { key: "purchaserName", label: "Purchaser Name(s)" },
-  { key: "depositAmount", label: "Deposit Amount" },
-  { key: "depositDue", label: "Deposit Due" },
+  { key: "deposit", label: "Deposit" },
   { key: "settlementDate", label: "Settlement Date" },
   { key: "subjectToLoan", label: "Subject to Loan" },
   { key: "specialConditions", label: "Special Conditions" },
   { key: "messageToAgent", label: "Message to Agent" },
+  { key: "customQuestions", label: "Custom Questions" },
 ]
 
 export type OfferReportGenerationProps = {

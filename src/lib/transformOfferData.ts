@@ -44,8 +44,25 @@ export function transformFormDataToOffer(
   // Process each question's data
   questions.forEach((question) => {
     const value = formData[question.id]
-    if (value === null || value === undefined || value === "") {
-      return // Skip empty values
+
+    // For deposit questions, allow empty objects to be processed (they might contain deposit fields)
+    if (question.type === "deposit") {
+      // Check if value is an object with deposit fields
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        const hasDepositFields = Object.keys(value).some(
+          (key) =>
+            key.startsWith("deposit_") ||
+            key.startsWith("instalment_") ||
+            key === "deposit_instalments",
+        )
+        if (!hasDepositFields && Object.keys(value).length === 0) {
+          return // Skip truly empty objects
+        }
+      } else if (value === null || value === undefined || value === "") {
+        return // Skip empty values
+      }
+    } else if (value === null || value === undefined || value === "") {
+      return // Skip empty values for other question types
     }
 
     // Add to formData with question type identifier (except for deposit which goes to depositData)
@@ -189,21 +206,37 @@ export function transformFormDataToOffer(
         // Extract all deposit-related fields from formData
         const depositFormData: Record<string, any> = {}
 
-        // Collect all deposit-related fields from the original formData
+        // First, if value is an object (the main deposit question data from DepositPreview), use it
+        // DepositPreview passes all deposit fields as an object under question.id
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+          // Check if this object contains deposit fields
+          const hasDepositFields = Object.keys(value).some(
+            (key) =>
+              key.startsWith("deposit_") ||
+              key.startsWith("instalment_") ||
+              key === "deposit_instalments",
+          )
+
+          if (hasDepositFields) {
+            // This is the deposit form data object, use it directly
+            Object.assign(depositFormData, value)
+          }
+        }
+
+        // Also collect deposit-related fields from the top-level formData (for backward compatibility)
+        // This handles cases where deposit fields might be stored at the top level
         Object.keys(formData).forEach((key) => {
           if (
             key.startsWith("deposit_") ||
             key.startsWith("instalment_") ||
             key === "deposit_instalments"
           ) {
-            depositFormData[key] = formData[key]
+            // Only add if not already in depositFormData (value takes precedence)
+            if (!depositFormData.hasOwnProperty(key)) {
+              depositFormData[key] = formData[key]
+            }
           }
         })
-
-        // If value is an object (the main deposit question data), merge it
-        if (value && typeof value === "object") {
-          Object.assign(depositFormData, value)
-        }
 
         // Transform the collected deposit form data
         if (Object.keys(depositFormData).length > 0) {
@@ -221,11 +254,31 @@ export function transformFormDataToOffer(
             const transformed = transformDepositFormData(depositFormData)
             if (transformed) {
               offer.depositData = transformed
+            } else {
+              // If transformation returned null, still save the raw data
+              // This ensures deposit data is never lost
+              offer.depositData = depositFormData as any
             }
           }
-        } else if (value) {
+        } else if (
+          value &&
+          typeof value === "object" &&
+          Object.keys(value).length > 0
+        ) {
           // Fallback: store as-is (for backward compatibility)
+          // Only if the object is not empty
           offer.depositData = value as any
+        }
+
+        // Debug logging (remove in production)
+        if (process.env.NODE_ENV === "development") {
+          console.log("[Deposit Transform] Question ID:", question.id)
+          console.log("[Deposit Transform] Value:", value)
+          console.log("[Deposit Transform] Deposit Form Data:", depositFormData)
+          console.log(
+            "[Deposit Transform] Final depositData:",
+            offer.depositData,
+          )
         }
         break
 
