@@ -1,9 +1,10 @@
 import { getFormOwnerListings } from "@/app/actions/offerForm"
 import DepositPreview from "@/components/offerForm/DepositPreview"
+import { FileUploadInput } from "@/components/shared/FileUploadInput"
 import DatePicker from "@/components/shared/forms/DatePicker"
+import DateTimePicker from "@/components/shared/forms/DateTimePicker"
 import PhoneInput from "@/components/shared/forms/PhoneInput"
 import TimePicker from "@/components/shared/forms/TimePicker"
-import { FileUploadInput } from "@/components/shared/FileUploadInput"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -31,7 +32,7 @@ import {
   QuestionUIConfig,
 } from "@/types/questionUIConfig"
 import { Database } from "@/types/supabase"
-import { FileText, Paperclip, X } from "lucide-react"
+import { X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
@@ -1484,7 +1485,9 @@ export const QuestionRenderer = ({
                     onChange={(file) => {
                       const fileKey = `${question.id}_single_id_upload`
                       const fileObj = Array.isArray(file) ? file[0] : file
-                      const fileError = fileObj ? validateFileSize(fileObj) : null
+                      const fileError = fileObj
+                        ? validateFileSize(fileObj)
+                        : null
                       setFileUploads((prev) => ({
                         ...prev,
                         [fileKey]: {
@@ -1498,7 +1501,9 @@ export const QuestionRenderer = ({
                         const currentName =
                           typeof value === "string" ? value : value?.name || ""
                         onChange?.(
-                          currentName ? { name: currentName, idFile: fileObj } : fileObj,
+                          currentName
+                            ? { name: currentName, idFile: fileObj }
+                            : fileObj,
                         )
                       }
                     }}
@@ -2050,7 +2055,11 @@ export const QuestionRenderer = ({
           maxFiles={3}
           maxSize={10 * 1024 * 1024}
           onChange={(files) => {
-            const fileArray = Array.isArray(files) ? files : files ? [files] : []
+            const fileArray = Array.isArray(files)
+              ? files
+              : files
+                ? [files]
+                : []
             const fileKey = `${question.id}_purchase_agreement`
             const fileError = validateMultipleFiles(
               fileArray,
@@ -2152,35 +2161,22 @@ export const QuestionRenderer = ({
 
         {/* Show date/time pickers only when "Yes" is selected */}
         {hasExpiry && (
-          <div className="flex max-w-md gap-2">
-            <div className="min-w-0 flex-1">
-              <DatePicker
-                label={uiConfig.dateLabel || "Select date"}
-                value={expiryValue.expiryDate}
-                onChange={(date) => {
-                  // Allow selection in form builder too
-                  onChange?.({ ...expiryValue, expiryDate: date })
-                }}
-                disabled={disabled}
-                brandingConfig={brandingConfig}
-                data-field-id={question.id}
-                btnClassName="w-full"
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <TimePicker
-                label={uiConfig.timeLabel || "Select time"}
-                value={expiryValue.expiryTime}
-                onChange={(time) => {
-                  // Allow selection in form builder too
-                  onChange?.({ ...expiryValue, expiryTime: time })
-                }}
-                disabled={disabled}
-                brandingConfig={brandingConfig}
-                data-field-id={question.id}
-                btnClassName="w-full"
-              />
-            </div>
+          <div className="max-w-md">
+            <DateTimePicker
+              dateValue={expiryValue.expiryDate}
+              timeValue={expiryValue.expiryTime}
+              onDateChange={(date) => {
+                // Allow selection in form builder too
+                onChange?.({ ...expiryValue, expiryDate: date })
+              }}
+              onTimeChange={(time) => {
+                // Allow selection in form builder too
+                onChange?.({ ...expiryValue, expiryTime: time })
+              }}
+              datePlaceholder={uiConfig.dateLabel || "Select date"}
+              timePlaceholder={uiConfig.timeLabel || "Select time"}
+              brandingConfig={brandingConfig}
+            />
           </div>
         )}
         {renderError(error)}
@@ -2649,7 +2645,10 @@ export const QuestionRenderer = ({
                         }))
                         if (!fileError && fileArray.length > 0) {
                           // Store files in the loanValue object for validation
-                          onChange?.({ ...loanValue, supportingDocs: fileArray })
+                          onChange?.({
+                            ...loanValue,
+                            supportingDocs: fileArray,
+                          })
                         } else if (fileArray.length === 0) {
                           onChange?.({ ...loanValue, supportingDocs: null })
                         }
@@ -2700,8 +2699,8 @@ export const QuestionRenderer = ({
                       }}
                     >
                       <span className="text-xs text-gray-500">
-                        Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max
-                        3 files, 10MB total)
+                        Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3
+                        files, 10MB total)
                       </span>
                     </FileUploadInput>
                   )
@@ -3249,25 +3248,21 @@ export const QuestionRenderer = ({
             </div>
           )}
           {dateType === "datetime" && (
-            <div className="flex max-w-md gap-2">
-              <DatePicker
-                style={getInputStyle()}
-                value={formValues.settlementDate}
-                onChange={(date) => {
+            <div className="max-w-md">
+              <DateTimePicker
+                dateValue={formValues.settlementDate}
+                timeValue={formValues.settlementTime}
+                onDateChange={(date) => {
                   const newValues = { ...formValues, settlementDate: date }
                   setFormValues(newValues)
                   onChange?.(newValues)
                 }}
-                brandingConfig={brandingConfig}
-              />
-              <TimePicker
-                style={getInputStyle()}
-                value={formValues.settlementTime}
-                onChange={(time) => {
+                onTimeChange={(time) => {
                   const newValues = { ...formValues, settlementTime: time }
                   setFormValues(newValues)
                   onChange?.(newValues)
                 }}
+                style={getInputStyle()}
                 brandingConfig={brandingConfig}
               />
             </div>
@@ -4058,7 +4053,7 @@ export const QuestionRenderer = ({
 
     if (answerType === "date") {
       return (
-        <div className="relative max-w-md">
+        <div className="relative w-1/4">
           <DatePicker
             style={getInputStyle()}
             value={formValues[`${question.id}_date`]}
@@ -4076,7 +4071,7 @@ export const QuestionRenderer = ({
 
     if (answerType === "time") {
       return (
-        <div className="relative max-w-md">
+        <div className="relative w-1/4">
           <TimePicker
             style={getInputStyle()}
             value={formValues[`${question.id}_time`]}
@@ -4685,7 +4680,7 @@ export const QuestionRenderer = ({
             }}
             data-field-id={question.id}
           />
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2">
             <label
               htmlFor={`${question.id}_file_input`}
               className={cn(
@@ -4758,7 +4753,7 @@ export const QuestionRenderer = ({
       const timeType = setupConfig.time_date_type
       if (timeType === "date") {
         return (
-          <div className="max-w-md">
+          <div className="w-1/4">
             <DatePicker
               style={getInputStyle()}
               value={formValues[`${question.id}_date`]}
@@ -4774,29 +4769,7 @@ export const QuestionRenderer = ({
         )
       } else if (timeType === "time") {
         return (
-          <div className="max-w-md">
-            <Input
-              type="time"
-              disabled={disabled}
-              className="w-full"
-              style={getInputStyle()}
-            />
-          </div>
-        )
-      } else if (timeType === "datetime") {
-        return (
-          <div className="flex max-w-md items-center gap-3">
-            <DatePicker
-              style={getInputStyle()}
-              value={formValues[`${question.id}_date`]}
-              onChange={(date) =>
-                setFormValues((prev) => ({
-                  ...prev,
-                  [`${question.id}_date`]: date,
-                }))
-              }
-              brandingConfig={brandingConfig}
-            />
+          <div className="w-1/4">
             <TimePicker
               style={getInputStyle()}
               value={formValues[`${question.id}_time`]}
@@ -4806,6 +4779,29 @@ export const QuestionRenderer = ({
                   [`${question.id}_time`]: time,
                 }))
               }
+              brandingConfig={brandingConfig}
+            />
+          </div>
+        )
+      } else if (timeType === "datetime") {
+        return (
+          <div className="max-w-md">
+            <DateTimePicker
+              dateValue={formValues[`${question.id}_date`]}
+              timeValue={formValues[`${question.id}_time`]}
+              onDateChange={(date) =>
+                setFormValues((prev) => ({
+                  ...prev,
+                  [`${question.id}_date`]: date,
+                }))
+              }
+              onTimeChange={(time) =>
+                setFormValues((prev) => ({
+                  ...prev,
+                  [`${question.id}_time`]: time,
+                }))
+              }
+              style={getInputStyle()}
               brandingConfig={brandingConfig}
             />
           </div>

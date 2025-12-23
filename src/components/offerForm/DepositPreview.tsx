@@ -2,6 +2,7 @@
 /* eslint-disable react/prop-types */
 
 import DatePicker from "@/components/shared/forms/DatePicker"
+import DateTimePicker from "@/components/shared/forms/DateTimePicker"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -1441,17 +1442,150 @@ const DepositForm = ({
             {question_type === "datetime" && (
               <div className="space-y-1">
                 <div className="relative max-w-md">
-                  <Input
-                    type="datetime-local"
-                    value={localFormData[id] || ""}
-                    onChange={(e) => handleFieldChange(id, e.target.value)}
-                    disabled={false}
-                    className={cn(
-                      editingMode ? "cursor-not-allowed" : "",
-                      "w-full",
-                    )}
-                    style={getInputStyle()}
-                  />
+                  {(() => {
+                    // Parse datetime-local string to Date and time string
+                    const datetimeValue = localFormData[id]
+                    let dateValue: Date | undefined
+                    let timeValue: string | undefined
+
+                    if (datetimeValue) {
+                      try {
+                        const date = new Date(datetimeValue)
+                        if (!isNaN(date.getTime())) {
+                          dateValue = date
+                          // Extract time in HH:MM format
+                          const hours = date
+                            .getHours()
+                            .toString()
+                            .padStart(2, "0")
+                          const minutes = date
+                            .getMinutes()
+                            .toString()
+                            .padStart(2, "0")
+                          timeValue = `${hours}:${minutes}`
+                        }
+                      } catch (e) {
+                        // If parsing fails, try to parse as datetime-local format
+                        const match = datetimeValue.match(
+                          /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/,
+                        )
+                        if (match) {
+                          dateValue = new Date(match[1])
+                          timeValue = match[2]
+                        }
+                      }
+                    }
+
+                    return (
+                      <DateTimePicker
+                        dateValue={dateValue}
+                        timeValue={timeValue}
+                        onDateChange={(date) => {
+                          // Combine date and time back to datetime-local format
+                          if (date && timeValue) {
+                            const [hours, minutes] = timeValue.split(":")
+                            const combinedDate = new Date(date)
+                            combinedDate.setHours(parseInt(hours || "0", 10))
+                            combinedDate.setMinutes(
+                              parseInt(minutes || "0", 10),
+                            )
+                            // Format as YYYY-MM-DDTHH:mm
+                            const year = combinedDate.getFullYear()
+                            const month = (combinedDate.getMonth() + 1)
+                              .toString()
+                              .padStart(2, "0")
+                            const day = combinedDate
+                              .getDate()
+                              .toString()
+                              .padStart(2, "0")
+                            const formattedTime = `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}`
+                            handleFieldChange(
+                              id,
+                              `${year}-${month}-${day}T${formattedTime}`,
+                            )
+                          } else if (date) {
+                            // Only date, no time
+                            const year = date.getFullYear()
+                            const month = (date.getMonth() + 1)
+                              .toString()
+                              .padStart(2, "0")
+                            const day = date
+                              .getDate()
+                              .toString()
+                              .padStart(2, "0")
+                            handleFieldChange(
+                              id,
+                              `${year}-${month}-${day}T00:00`,
+                            )
+                          } else {
+                            handleFieldChange(id, null)
+                          }
+                        }}
+                        onTimeChange={(time) => {
+                          // Combine date and time back to datetime-local format
+                          if (dateValue && time) {
+                            const [hours, minutes] = time.split(":")
+                            const combinedDate = new Date(dateValue)
+                            combinedDate.setHours(parseInt(hours || "0", 10))
+                            combinedDate.setMinutes(
+                              parseInt(minutes || "0", 10),
+                            )
+                            // Format as YYYY-MM-DDTHH:mm
+                            const year = combinedDate.getFullYear()
+                            const month = (combinedDate.getMonth() + 1)
+                              .toString()
+                              .padStart(2, "0")
+                            const day = combinedDate
+                              .getDate()
+                              .toString()
+                              .padStart(2, "0")
+                            const formattedTime = `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}`
+                            handleFieldChange(
+                              id,
+                              `${year}-${month}-${day}T${formattedTime}`,
+                            )
+                          } else if (time) {
+                            // Only time, use today's date
+                            const today = new Date()
+                            const [hours, minutes] = time.split(":")
+                            const year = today.getFullYear()
+                            const month = (today.getMonth() + 1)
+                              .toString()
+                              .padStart(2, "0")
+                            const day = today
+                              .getDate()
+                              .toString()
+                              .padStart(2, "0")
+                            const formattedTime = `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}`
+                            handleFieldChange(
+                              id,
+                              `${year}-${month}-${day}T${formattedTime}`,
+                            )
+                          } else {
+                            // Clear time but keep date if exists
+                            if (dateValue) {
+                              const year = dateValue.getFullYear()
+                              const month = (dateValue.getMonth() + 1)
+                                .toString()
+                                .padStart(2, "0")
+                              const day = dateValue
+                                .getDate()
+                                .toString()
+                                .padStart(2, "0")
+                              handleFieldChange(
+                                id,
+                                `${year}-${month}-${day}T00:00`,
+                              )
+                            } else {
+                              handleFieldChange(id, null)
+                            }
+                          }
+                        }}
+                        style={getInputStyle()}
+                        brandingConfig={brandingConfig}
+                      />
+                    )
+                  })()}
                 </div>
               </div>
             )}

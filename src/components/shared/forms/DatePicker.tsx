@@ -3,7 +3,7 @@
 import { CalendarIcon } from "lucide-react"
 import * as React from "react"
 
-import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
 import {
   Popover,
@@ -53,31 +53,30 @@ const DatePicker = ({
         ...style,
       }
     }
-    // Don't override border color - let border-input class handle it
-    // Only set background to ensure consistency
-    return {
-      backgroundColor: "#ffffff",
-      ...style,
-    }
+    // Use default transparent background like other inputs
+    return style || {}
   }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild className="cursor-pointer">
-        <Button
-          variant="outline"
-          id="date"
-          disabled={disabled}
-          className={cn(
-            "shrink justify-between font-normal",
-            !value && "text-gray-500",
-            btnClassName,
-          )}
-          style={getFieldStyle()}
-        >
-          <CalendarIcon />
-          {value ? value.toLocaleDateString() : label || "Select date"}
-        </Button>
+      <PopoverTrigger asChild>
+        <div className="relative">
+          <CalendarIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            type="text"
+            readOnly
+            value={value ? value.toLocaleDateString() : ""}
+            placeholder={label || "Select date"}
+            disabled={disabled}
+            className={cn(
+              "w-full pl-10 cursor-pointer",
+              !value && "text-gray-500",
+              btnClassName,
+            )}
+            style={getFieldStyle()}
+            onClick={() => !disabled && setOpen(true)}
+          />
+        </div>
       </PopoverTrigger>
       <PopoverContent
         className="w-auto overflow-hidden p-0"

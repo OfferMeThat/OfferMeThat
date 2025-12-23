@@ -124,9 +124,9 @@ export function FileUploadInput({
           <label
             htmlFor={id}
             className={cn(
-              "cursor-pointer rounded-md border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-900 transition-colors",
+              "border-input cursor-pointer rounded-md border bg-transparent px-3 py-1.5 text-sm font-medium text-gray-900 shadow-2xs transition-colors",
               disabled && "cursor-not-allowed opacity-50",
-              !disabled && "hover:bg-gray-200",
+              !disabled && "hover:bg-gray-50",
             )}
           >
             Choose file
