@@ -1,5 +1,6 @@
 import { getFormOwnerListings } from "@/app/actions/offerForm"
 import DepositPreview from "@/components/offerForm/DepositPreview"
+import { CurrencySelect } from "@/components/shared/CurrencySelect"
 import { FileUploadInput } from "@/components/shared/FileUploadInput"
 import DatePicker from "@/components/shared/forms/DatePicker"
 import DateTimePicker from "@/components/shared/forms/DateTimePicker"
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getSmartQuestion } from "@/data/smartQuestions"
+import { getCurrencyPlaceholder } from "@/lib/currencyUtils"
 import {
   validateFileSize,
   validateMultipleFiles,
@@ -1163,20 +1165,6 @@ export const QuestionRenderer = ({
       : []
     const fixedCurrency = setupConfig.fixed_currency || "USD"
 
-    // Standard currencies for "any" mode
-    const STANDARD_CURRENCIES = [
-      "USD",
-      "EUR",
-      "GBP",
-      "CAD",
-      "AUD",
-      "NZD",
-      "SGD",
-      "JPY",
-      "CNY",
-      "CHF",
-    ]
-
     // Parse current value - use formValues for builder preview, value prop for actual form
     let currentAmount: string | number = ""
     let currentCurrency = "USD" // Default to USD
@@ -1225,6 +1213,12 @@ export const QuestionRenderer = ({
       currentCurrency = "USD"
     }
 
+    // Get currency placeholder based on selected currency
+    // For fixed mode, always use fixedCurrency for placeholder
+    const currencyForPlaceholder =
+      currencyMode === "fixed" ? fixedCurrency : currentCurrency
+    const currencyPlaceholder = getCurrencyPlaceholder(currencyForPlaceholder)
+
     const handleAmountChange = (val: string) => {
       const num = val === "" ? "" : Number(val)
       // Ensure currency is always set (use currentCurrency or default to USD)
@@ -1270,34 +1264,20 @@ export const QuestionRenderer = ({
         <div className="flex gap-2">
           {/* Currency Selector */}
           {(currencyMode === "options" || currencyMode === "any") && (
-            <Select
+            <CurrencySelect
               value={currentCurrency}
               onValueChange={(val) => {
                 // Allow currency changes even in editing mode (for builder preview)
                 handleCurrencyChange(val)
               }}
               disabled={disabled}
-            >
-              <SelectTrigger
-                className="w-full max-w-xs"
-                style={getSelectStyle()}
-              >
-                <SelectValue placeholder="Curr" />
-              </SelectTrigger>
-              <SelectContent>
-                {currencyMode === "options"
-                  ? currencyOptions.map((c: string) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))
-                  : STANDARD_CURRENCIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select currency"
+              className="max-w-xs"
+              style={getSelectStyle()}
+              allowedCurrencies={
+                currencyMode === "options" ? currencyOptions : undefined
+              }
+            />
           )}
 
           {/* Amount Input */}
@@ -1306,7 +1286,11 @@ export const QuestionRenderer = ({
               type="number"
               min="0"
               step="any"
-              placeholder={uiConfig.placeholder || "Enter offer amount"}
+              placeholder={
+                uiConfig.placeholder ||
+                currencyPlaceholder ||
+                "Enter offer amount"
+              }
               disabled={disabled}
               className={cn(
                 editingMode && "cursor-not-allowed",
@@ -4113,20 +4097,6 @@ export const QuestionRenderer = ({
         }
         const fixedCurrency = setupConfig.currency_fixed || "USD"
 
-        // Standard currencies for "any" mode
-        const STANDARD_CURRENCIES = [
-          "USD",
-          "EUR",
-          "GBP",
-          "CAD",
-          "AUD",
-          "NZD",
-          "SGD",
-          "JPY",
-          "CNY",
-          "CHF",
-        ]
-
         // Check if we should show multiple currency/amount pairs (when options mode with 2+ currencies)
         // Disable multiple pairs mode for custom questions - they should show single currency selector
         const showMultiplePairs = false
@@ -4222,6 +4192,14 @@ export const QuestionRenderer = ({
             currentCurrency = "USD"
           }
         }
+
+        // Get currency placeholder based on selected currency
+        // For fixed mode, always use fixedCurrency for placeholder
+        const currencyForPlaceholder =
+          currencyStip === "fixed" ? fixedCurrency : currentCurrency
+        const currencyPlaceholder = getCurrencyPlaceholder(
+          currencyForPlaceholder,
+        )
 
         const handleAmountChange = (val: string, index?: number) => {
           if (showMultiplePairs && index !== undefined) {
@@ -4323,7 +4301,7 @@ export const QuestionRenderer = ({
               {amountsArray.map((pair, index) => (
                 <div key={index} className="flex gap-2">
                   {/* Currency Selector */}
-                  <Select
+                  <CurrencySelect
                     value={pair.currency}
                     onValueChange={(val) => {
                       if (!editingMode) {
@@ -4331,21 +4309,11 @@ export const QuestionRenderer = ({
                       }
                     }}
                     disabled={disabled || editingMode}
-                  >
-                    <SelectTrigger
-                      className="w-full max-w-xs"
-                      style={getSelectStyle()}
-                    >
-                      <SelectValue placeholder="Curr" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {currencyOptions.map((c: string) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Select currency"
+                    className="max-w-xs"
+                    style={getSelectStyle()}
+                    allowedCurrencies={currencyOptions}
+                  />
 
                   {/* Amount Input */}
                   <div className="relative max-w-md flex-1">
@@ -4353,11 +4321,13 @@ export const QuestionRenderer = ({
                       type="number"
                       min="0"
                       step="any"
-                      placeholder={getSubQuestionPlaceholder(
-                        uiConfig,
-                        "amountPlaceholder",
-                        "Enter amount",
-                      )}
+                      placeholder={
+                        getSubQuestionPlaceholder(
+                          uiConfig,
+                          "amountPlaceholder",
+                          getCurrencyPlaceholder(pair.currency),
+                        ) || getCurrencyPlaceholder(pair.currency)
+                      }
                       disabled={disabled || editingMode}
                       className={cn(
                         editingMode && "cursor-not-allowed",
@@ -4439,34 +4409,20 @@ export const QuestionRenderer = ({
             <div className="flex gap-2">
               {/* Currency Selector */}
               {(currencyStip === "options" || currencyStip === "any") && (
-                <Select
+                <CurrencySelect
                   value={currentCurrency}
                   onValueChange={(val) => {
                     // Allow currency changes even in editing mode (for builder preview)
                     handleCurrencyChange(val)
                   }}
                   disabled={disabled}
-                >
-                  <SelectTrigger
-                    className="w-full max-w-xs"
-                    style={getSelectStyle()}
-                  >
-                    <SelectValue placeholder="Curr" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currencyStip === "options"
-                      ? currencyOptions.map((c: string) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))
-                      : STANDARD_CURRENCIES.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select currency"
+                  className="max-w-xs"
+                  style={getSelectStyle()}
+                  allowedCurrencies={
+                    currencyStip === "options" ? currencyOptions : undefined
+                  }
+                />
               )}
 
               {/* Amount Input */}
@@ -4475,11 +4431,15 @@ export const QuestionRenderer = ({
                   type="number"
                   min="0"
                   step="any"
-                  placeholder={getSubQuestionPlaceholder(
-                    uiConfig,
-                    "amountPlaceholder",
-                    "Enter amount",
-                  )}
+                  placeholder={
+                    getSubQuestionPlaceholder(
+                      uiConfig,
+                      "amountPlaceholder",
+                      currencyPlaceholder || "Enter amount",
+                    ) ||
+                    currencyPlaceholder ||
+                    "Enter amount"
+                  }
                   disabled={disabled}
                   className={cn(
                     editingMode && "cursor-not-allowed",

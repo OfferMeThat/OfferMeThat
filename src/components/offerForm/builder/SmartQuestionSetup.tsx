@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { CurrencySelect } from "@/components/shared/CurrencySelect"
 import { FileUploadInput } from "@/components/shared/FileUploadInput"
 import { CURRENCY_OPTIONS } from "@/constants/offerFormQuestions"
 import { getSmartQuestion } from "@/data/smartQuestions"
@@ -1355,7 +1356,7 @@ const SmartQuestionSetup = ({
                     }
                   />
                   {isFixedAmount && hasCurrencyField && (
-                    <Select
+                    <CurrencySelect
                       value={
                         typeof answers[currencyFieldId] === "string"
                           ? answers[currencyFieldId]
@@ -1364,33 +1365,9 @@ const SmartQuestionSetup = ({
                       onValueChange={(value) =>
                         handleAnswerChange(currencyFieldId, value)
                       }
-                    >
-                      <SelectTrigger className="w-1/4">
-                        <SelectValue placeholder="Currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {visibleQuestions
-                          .find((q) => q.id === currencyFieldId)
-                          ?.options?.map((option) => (
-                            <SelectItem
-                              key={
-                                typeof option.value === "string"
-                                  ? option.value
-                                  : JSON.stringify(option.value)
-                              }
-                              value={
-                                typeof option.value === "string"
-                                  ? option.value
-                                  : JSON.stringify(option.value)
-                              }
-                            >
-                              {typeof option.label === "string"
-                                ? option.label
-                                : getCurrencyDisplayName(option.value)}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select currency"
+                      className="w-1/4"
+                    />
                   )}
                 </div>
               ) : question.type === "text_area" ? (

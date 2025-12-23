@@ -1,6 +1,7 @@
 "use client"
 /* eslint-disable react/prop-types */
 
+import { CurrencySelect } from "@/components/shared/CurrencySelect"
 import DatePicker from "@/components/shared/forms/DatePicker"
 import DateTimePicker from "@/components/shared/forms/DateTimePicker"
 import { Input } from "@/components/ui/input"
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/select"
 import { CURRENCY_OPTIONS } from "@/constants/offerFormQuestions"
 import { getSmartQuestion } from "@/data/smartQuestions"
+import { getCurrencyPlaceholder } from "@/lib/currencyUtils"
 import { cn } from "@/lib/utils"
 import { BrandingConfig } from "@/types/branding"
 import {
@@ -796,6 +798,15 @@ const DepositForm = ({
         const currentQuestionText = getQuestionText(id, question_text)
         const currentPlaceholder = getPlaceholderText(id, placeholder as string)
 
+        // Get currency placeholder if currency field is fixed (display type)
+        const currencyPlaceholder =
+          depositQuestion.currency_field?.type === "display" &&
+          depositQuestion.currency_field.value
+            ? getCurrencyPlaceholder(depositQuestion.currency_field.value)
+            : depositQuestion.currency_field?.type === "select"
+              ? getCurrencyPlaceholder(localFormData[`${id}_currency`] || "USD")
+              : null
+
         return (
           <div key={id || index} className="space-y-2">
             <Label
@@ -826,7 +837,11 @@ const DepositForm = ({
                         <Input
                           type="number"
                           min="0"
-                          placeholder={currentPlaceholder || "Enter value"}
+                          placeholder={
+                            currentPlaceholder ||
+                            currencyPlaceholder ||
+                            "Enter value"
+                          }
                           value={localFormData[id] || ""}
                           onChange={(e) =>
                             handleFieldChange(id, e.target.value)
@@ -874,37 +889,22 @@ const DepositForm = ({
                       </div>
                       {/* Single currency dropdown (for "any" mode) */}
                       {depositQuestion.currency_field.type === "select" && (
-                        <Select
+                        <CurrencySelect
                           value={localFormData[`${id}_currency`] || ""}
                           onValueChange={(value) =>
                             handleFieldChange(`${id}_currency`, value)
                           }
                           disabled={false}
-                        >
-                          <SelectTrigger
-                            className="w-full max-w-xs"
-                            style={getSelectStyle()}
-                          >
-                            <SelectValue
-                              placeholder={
-                                depositQuestion.currency_field.placeholder ||
-                                "Currency"
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {depositQuestion.currency_field.options?.map(
-                              (option: { value: string; label: string }) => (
-                                <SelectItem
-                                  key={option.value}
-                                  value={option.value}
-                                >
-                                  {option.label}
-                                </SelectItem>
-                              ),
-                            )}
-                          </SelectContent>
-                        </Select>
+                          placeholder={
+                            depositQuestion.currency_field.placeholder ||
+                            "Select currency"
+                          }
+                          className="max-w-xs"
+                          style={getSelectStyle()}
+                          allowedCurrencies={depositQuestion.currency_field.options?.map(
+                            (opt: { value: string }) => opt.value,
+                          )}
+                        />
                       )}
                     </div>
                     {/* Multiple currency/amount pairs (for "options" mode with 2+ currencies) */}
@@ -937,7 +937,7 @@ const DepositForm = ({
                                 className="flex items-center gap-2"
                               >
                                 {/* Currency Selector */}
-                                <Select
+                                <CurrencySelect
                                   value={pair.currency || ""}
                                   onValueChange={(value) => {
                                     const currentPairs =
@@ -950,36 +950,22 @@ const DepositForm = ({
                                     handleFieldChange(`${id}_pairs`, newPairs)
                                   }}
                                   disabled={false}
-                                >
-                                  <SelectTrigger
-                                    className="w-full max-w-xs"
-                                    style={getSelectStyle()}
-                                  >
-                                    <SelectValue placeholder="Currency" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {depositQuestion.currency_field?.options?.map(
-                                      (opt: {
-                                        value: string
-                                        label: string
-                                      }) => (
-                                        <SelectItem
-                                          key={opt.value}
-                                          value={opt.value}
-                                        >
-                                          {opt.label}
-                                        </SelectItem>
-                                      ),
-                                    )}
-                                  </SelectContent>
-                                </Select>
+                                  placeholder="Select currency"
+                                  className="max-w-xs"
+                                  style={getSelectStyle()}
+                                  allowedCurrencies={depositQuestion.currency_field?.options?.map(
+                                    (opt: { value: string }) => opt.value,
+                                  )}
+                                />
                                 {/* Amount Input */}
                                 <div className="relative max-w-md flex-1">
                                   <Input
                                     type="number"
                                     min="0"
                                     placeholder={
-                                      currentPlaceholder || "Enter amount"
+                                      currentPlaceholder ||
+                                      getCurrencyPlaceholder(pair.currency) ||
+                                      "Enter amount"
                                     }
                                     value={pair.amount || ""}
                                     onChange={(e) => {
