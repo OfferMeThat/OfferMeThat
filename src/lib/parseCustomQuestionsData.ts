@@ -3,6 +3,8 @@
  * Handles all question types: text, numbers, files, dates, yes/no, selects, statements
  */
 
+import { extractFileName } from "./fileHelpers"
+
 export type ParsedQuestion = {
   questionText: string
   answerType: string
@@ -119,9 +121,42 @@ export function parseCustomQuestion(
       break
 
     case "number_amount": {
-      // Check if it's money, phone, or percentage based on setupConfig
-      // For now, we'll try to infer from the value
-      if (typeof value === "number") {
+      // Handle object format (e.g., {amount: 22, currency: "USD"} or {number: "610388666", countryCode: "+34"})
+      if (typeof value === "object" && value !== null) {
+        // Check if it's a money object (has amount and currency)
+        if ("amount" in value && (typeof value.amount === "number" || typeof value.amount === "string")) {
+          const amount = typeof value.amount === "number" ? value.amount : parseFloat(String(value.amount))
+          const currency = value.currency || "USD"
+          if (!isNaN(amount)) {
+            formattedValue = formatCurrency(amount, currency)
+          } else {
+            formattedValue = String(value)
+          }
+        }
+        // Check if it's a phone number object (has number and countryCode)
+        else if ("number" in value && "countryCode" in value) {
+          const phoneNumber = String(value.number || "")
+          const countryCode = String(value.countryCode || "")
+          if (phoneNumber) {
+            formattedValue = countryCode ? `${countryCode} ${phoneNumber}` : phoneNumber
+          } else {
+            formattedValue = String(value)
+          }
+        }
+        // Check if it's a percentage object
+        else if ("percentage" in value) {
+          const percentage = typeof value.percentage === "number" ? value.percentage : parseFloat(String(value.percentage))
+          if (!isNaN(percentage)) {
+            formattedValue = formatPercentage(percentage)
+          } else {
+            formattedValue = String(value)
+          }
+        }
+        // Unknown object format - try to stringify nicely
+        else {
+          formattedValue = JSON.stringify(value, null, 2)
+        }
+      } else if (typeof value === "number") {
         // Could be money or percentage - default to money
         formattedValue = formatCurrency(value)
       } else if (typeof value === "string") {
@@ -177,18 +212,22 @@ export function parseCustomQuestion(
         formattedValue = value
           .map((file, idx) => {
             const url = typeof file === "string" ? file : file.url || file.path || String(file)
-            const name = typeof file === "object" && file.name ? file.name : `File ${idx + 1}`
+            const name =
+              typeof file === "object" && file.name
+                ? file.name
+                : extractFileName(url) || `File ${idx + 1}`
             return { url, name }
           })
           .map((file) => `[${file.name}](${file.url})`)
           .join(", ")
       } else if (typeof value === "string") {
         // Single file URL
-        formattedValue = `[View File](${value})`
+        const fileName = extractFileName(value)
+        formattedValue = `[${fileName}](${value})`
       } else if (typeof value === "object" && value !== null) {
         // File object
         const url = value.url || value.path || ""
-        const name = value.name || "File"
+        const name = value.name || extractFileName(url) || "File"
         formattedValue = `[${name}](${url})`
       } else {
         formattedValue = String(value)
@@ -297,7 +336,8 @@ export function parseCustomQuestion(
 
     case "attachPurchaseAgreement": {
       if (typeof value === "string") {
-        formattedValue = `[View Purchase Agreement](${value})`
+        const fileName = extractFileName(value)
+        formattedValue = `[${fileName}](${value})`
       } else {
         formattedValue = String(value)
       }
@@ -307,7 +347,35 @@ export function parseCustomQuestion(
     default:
       // For unknown types, try to format nicely
       if (typeof value === "object" && value !== null) {
-        formattedValue = JSON.stringify(value, null, 2)
+        // Check if it's a money-like object
+        if ("amount" in value && (typeof value.amount === "number" || typeof value.amount === "string")) {
+          const amount = typeof value.amount === "number" ? value.amount : parseFloat(String(value.amount))
+          const currency = value.currency || "USD"
+          if (!isNaN(amount)) {
+            formattedValue = formatCurrency(amount, currency)
+          } else {
+            formattedValue = JSON.stringify(value, null, 2)
+          }
+        }
+        // Check if it's a phone-like object
+        else if ("number" in value && "countryCode" in value) {
+          const phoneNumber = String(value.number || "")
+          const countryCode = String(value.countryCode || "")
+          formattedValue = countryCode ? `${countryCode} ${phoneNumber}` : phoneNumber
+        }
+        // Check if it's an array
+        else if (Array.isArray(value)) {
+          formattedValue = value.map((item) => {
+            if (typeof item === "object" && item !== null) {
+              return JSON.stringify(item)
+            }
+            return String(item)
+          }).join(", ")
+        }
+        // Otherwise stringify
+        else {
+          formattedValue = JSON.stringify(value, null, 2)
+        }
       } else {
         formattedValue = String(value)
       }

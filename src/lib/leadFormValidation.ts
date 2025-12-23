@@ -156,8 +156,15 @@ export const buildQuestionValidation = (
           break
         case "number":
           schema = yup
-            .number()
-            .typeError("Please enter a valid number")
+            .mixed()
+            .transform((val) => {
+              if (val === "" || val === null || val === undefined) return null
+              const num = typeof val === "string" ? parseFloat(val) : val
+              return isNaN(num) ? val : num
+            })
+            .test("is-number", "Please enter a valid number", (val) => {
+              return val === null || val === undefined || (typeof val === "number" && !isNaN(val))
+            })
             .nullable()
           break
         case "yes_no":

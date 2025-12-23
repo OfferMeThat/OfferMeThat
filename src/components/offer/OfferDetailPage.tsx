@@ -10,6 +10,7 @@ import {
   formatSubjectToLoanApproval,
 } from "@/lib/formatOfferData"
 import { parseAllCustomQuestions } from "@/lib/parseCustomQuestionsData"
+import { extractFileName } from "@/lib/fileHelpers"
 import { OfferWithListing } from "@/types/offer"
 import {
   ArrowLeft,
@@ -90,10 +91,30 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
   const statusBadgeVariant = OFFER_TO_BADGE_MAP[offer.status]
   const statusLabel = OFFER_STATUSES[offer.status]
 
+  // Helper to parse JSON strings if needed
+  const parseJsonField = (field: any): any => {
+    if (!field) return null
+    if (typeof field === "string") {
+      try {
+        return JSON.parse(field)
+      } catch {
+        return field
+      }
+    }
+    return field
+  }
+
+  // Parse and normalize data fields (handle JSON strings)
+  const purchaserData = parseJsonField(offer.purchaserData)
+  const depositData = parseJsonField(offer.depositData)
+  const settlementDateData = parseJsonField(offer.settlementDateData)
+  const messageToAgent = parseJsonField(offer.messageToAgent)
+  const subjectToLoanApproval = parseJsonField(offer.subjectToLoanApproval)
+  const specialConditions = parseJsonField(offer.specialConditions)
+  const customQuestionsData = parseJsonField(offer.customQuestionsData)
+
   // Parse custom questions data
-  const parsedCustomQuestions = parseAllCustomQuestions(
-    offer.customQuestionsData as any,
-  )
+  const parsedCustomQuestions = parseAllCustomQuestions(customQuestionsData)
 
   return (
     <main className="px-6 py-8">
@@ -313,7 +334,7 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
         {/* Additional Information */}
         {(() => {
           // Check if there's any actual content to display
-          const hasSpecialConditions = !!offer.specialConditions
+          const hasSpecialConditions = !!specialConditions
           // Helper to parse purchaseAgreementFileUrl (can be single URL string or JSON array)
           const parsePurchaseAgreementUrls = (
             value: string | null | undefined,
@@ -336,19 +357,17 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
           )
           const hasPurchaseAgreement = purchaseAgreementUrls.length > 0
           const hasMessageToAgent =
-            offer.messageToAgent &&
-            formatMessageToAgent(offer.messageToAgent as any)
+            messageToAgent && formatMessageToAgent(messageToAgent as any)
           const hasPurchaserData =
-            offer.purchaserData &&
-            formatPurchaserData(offer.purchaserData as any)
+            purchaserData && formatPurchaserData(purchaserData as any)
           const hasDepositData =
-            offer.depositData && formatDepositData(offer.depositData as any)
+            depositData && formatDepositData(depositData as any)
           const hasSettlementDateData =
-            offer.settlementDateData &&
-            formatSettlementDateData(offer.settlementDateData as any)
+            settlementDateData &&
+            formatSettlementDateData(settlementDateData as any)
           const hasSubjectToLoanApproval =
-            offer.subjectToLoanApproval &&
-            formatSubjectToLoanApproval(offer.subjectToLoanApproval as any)
+            subjectToLoanApproval &&
+            formatSubjectToLoanApproval(subjectToLoanApproval as any)
           const hasCustomQuestions = parsedCustomQuestions.length > 0
 
           const hasAnyContent =
@@ -365,147 +384,138 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
 
           return (
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-md md:col-span-2">
-              <Heading as="h2" size="medium" weight="bold" className="mb-4">
+              <Heading as="h2" size="medium" weight="bold" className="mb-6">
                 Additional Information
               </Heading>
-              <div className="space-y-4">
-                {offer.specialConditions && (
-                  <div>
-                    <p className="mb-2 text-sm font-medium text-gray-500">
+              <div className="space-y-6">
+                {specialConditions && (
+                  <div className="space-y-3">
+                    <p className="text-base font-semibold text-gray-900">
                       Special Conditions
                     </p>
-                    {(() => {
-                      // Parse specialConditions if it's a JSON string
-                      let specialConditionsData = offer.specialConditions
-                      if (typeof specialConditionsData === "string") {
-                        try {
-                          specialConditionsData = JSON.parse(
-                            specialConditionsData,
-                          )
-                        } catch {
-                          // If parsing fails, treat as legacy string format
-                        }
-                      }
-                      const setupConfig = (offer as any)
-                        .specialConditionsSetupConfig
+                    <div className="pl-4">
+                      {(() => {
+                        const setupConfig = (offer as any)
+                          .specialConditionsSetupConfig
 
-                      return formatSpecialConditions(
-                        specialConditionsData,
-                        setupConfig,
-                      )
-                    })()}
-                  </div>
-                )}
-
-                {purchaseAgreementUrls.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-sm font-medium text-gray-500">
-                      Purchase Agreement
-                      {purchaseAgreementUrls.length > 1 &&
-                        ` (${purchaseAgreementUrls.length} files)`}
-                    </p>
-                    <div className="flex flex-col gap-1">
-                      {purchaseAgreementUrls.map((url, index) => (
-                        <a
-                          key={index}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 hover:underline"
-                        >
-                          <FileText size={16} />
-                          {purchaseAgreementUrls.length > 1
-                            ? `View Purchase Agreement ${index + 1}`
-                            : "View Purchase Agreement"}
-                        </a>
-                      ))}
+                        return formatSpecialConditions(
+                          specialConditions,
+                          setupConfig,
+                        )
+                      })()}
                     </div>
                   </div>
                 )}
 
-                {offer.messageToAgent &&
+                {purchaseAgreementUrls.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-base font-semibold text-gray-900">
+                      Purchase Agreement
+                      {purchaseAgreementUrls.length > 1 &&
+                        ` (${purchaseAgreementUrls.length} files)`}
+                    </p>
+                    <div className="flex flex-col gap-1 pl-4">
+                      {purchaseAgreementUrls.map((url, index) => {
+                        const fileName = extractFileName(url)
+                        return (
+                          <a
+                            key={index}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                          >
+                            <FileText size={16} />
+                            {purchaseAgreementUrls.length > 1
+                              ? `${fileName} (File ${index + 1})`
+                              : fileName}
+                          </a>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {messageToAgent &&
                   (() => {
                     const formatted = formatMessageToAgent(
-                      offer.messageToAgent as any,
+                      messageToAgent as any,
                     )
                     return formatted ? (
-                      <div>
-                        <p className="mb-2 text-sm font-medium text-gray-500">
+                      <div className="space-y-3">
+                        <p className="text-base font-semibold text-gray-900">
                           Message to Agent
                         </p>
-                        <div className="text-base">{formatted}</div>
+                        <div className="pl-4 text-base">{formatted}</div>
                       </div>
                     ) : null
                   })()}
 
-                {offer.purchaserData &&
+                {purchaserData &&
                   (() => {
-                    const formatted = formatPurchaserData(
-                      offer.purchaserData as any,
-                    )
+                    const formatted = formatPurchaserData(purchaserData as any)
                     return formatted ? (
-                      <div>
-                        <p className="mb-2 text-sm font-medium text-gray-500">
-                          Purchaser Data
+                      <div className="space-y-3">
+                        <p className="text-base font-semibold text-gray-900">
+                          Purchaser Information
                         </p>
-                        <div className="text-base">{formatted}</div>
+                        <div className="pl-4 text-base">{formatted}</div>
                       </div>
                     ) : null
                   })()}
 
-                {offer.depositData &&
+                {depositData &&
                   (() => {
-                    const formatted = formatDepositData(
-                      offer.depositData as any,
-                    )
+                    const formatted = formatDepositData(depositData as any)
                     return formatted ? (
-                      <div>
-                        <p className="mb-2 text-sm font-medium text-gray-500">
+                      <div className="space-y-3">
+                        <p className="text-base font-semibold text-gray-900">
                           Deposit Information
                         </p>
-                        <div className="text-base">{formatted}</div>
+                        <div className="pl-4 text-base">{formatted}</div>
                       </div>
                     ) : null
                   })()}
 
-                {offer.settlementDateData &&
+                {settlementDateData &&
                   (() => {
                     const formatted = formatSettlementDateData(
-                      offer.settlementDateData as any,
+                      settlementDateData as any,
                     )
                     return formatted ? (
-                      <div>
-                        <p className="mb-2 text-sm font-medium text-gray-500">
-                          Settlement Date Information
+                      <div className="space-y-3">
+                        <p className="text-base font-semibold text-gray-900">
+                          Settlement Date
                         </p>
-                        <div className="text-base">{formatted}</div>
+                        <div className="pl-4 text-base">{formatted}</div>
                       </div>
                     ) : null
                   })()}
 
-                {offer.subjectToLoanApproval &&
+                {subjectToLoanApproval &&
                   (() => {
                     const formatted = formatSubjectToLoanApproval(
-                      offer.subjectToLoanApproval as any,
+                      subjectToLoanApproval as any,
                     )
-                    // formatSubjectToLoanApproval already includes the label, so just render it
                     return formatted ? (
-                      <div className="text-base">{formatted}</div>
+                      <div className="space-y-3">
+                        <p className="text-base font-semibold text-gray-900">
+                          Subject to Loan Approval
+                        </p>
+                        <div className="pl-4 text-base">{formatted}</div>
+                      </div>
                     ) : null
                   })()}
 
                 {parsedCustomQuestions.length > 0 && (
-                  <div>
-                    <p className="mb-3 text-sm font-medium text-gray-500">
+                  <div className="space-y-3">
+                    <p className="text-base font-semibold text-gray-900">
                       Custom Questions
                     </p>
-                    <div className="space-y-4">
+                    <div className="space-y-4 pl-4">
                       {parsedCustomQuestions.map((question, index) => (
-                        <div
-                          key={index}
-                          className="border-b border-gray-100 pb-4 last:border-b-0 last:pb-0"
-                        >
-                          <p className="mb-1 text-sm font-semibold text-gray-700">
+                        <div key={index} className="space-y-1">
+                          <p className="text-sm font-medium text-gray-700">
                             {question.questionText}
                           </p>
                           <div className="text-base text-gray-900">

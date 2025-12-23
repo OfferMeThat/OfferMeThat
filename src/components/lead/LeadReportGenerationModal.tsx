@@ -18,33 +18,45 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { LISTING_STATUSES } from "@/constants/listings"
-import { generateListingReportPDF } from "@/lib/generateListingReportPDF"
-import { ListingWithOfferCounts } from "@/types/listing"
-import { REPORT_FIELDS, ReportFieldKey } from "@/types/reportTypes"
+import { generateLeadReportPDF } from "@/lib/generateLeadReportPDF"
+import {
+  formatAreYouInterested,
+  formatFinanceInterest,
+  formatFollowAllListings,
+  formatSubmitterRole,
+} from "@/lib/formatLeadData"
+import {
+  getAllMessageToAgentInfo,
+  getCustomQuestionsFromLead,
+  getListingAddress,
+  getSubmitterName,
+} from "@/lib/parseLeadDataForReports"
+import { formatCustomQuestions } from "@/lib/parseLeadDataForReports"
 import { createClient } from "@/lib/supabase/client"
+import { LeadWithListing } from "@/types/lead"
+import { LEAD_REPORT_FIELDS, LeadReportFieldKey } from "@/types/reportTypes"
 import { FileDown } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
-type ReportGenerationModalProps = {
+type LeadReportGenerationModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  listings: ListingWithOfferCounts[]
+  leads: LeadWithListing[]
 }
 
-const ReportGenerationModal = ({
+const LeadReportGenerationModal = ({
   open,
   onOpenChange,
-  listings,
-}: ReportGenerationModalProps) => {
-  const [selectedFields, setSelectedFields] = useState<Set<ReportFieldKey>>(
-    new Set(REPORT_FIELDS.map((f) => f.key)),
-  )
+  leads,
+}: LeadReportGenerationModalProps) => {
+  const [selectedFields, setSelectedFields] = useState<
+    Set<LeadReportFieldKey>
+  >(new Set(LEAD_REPORT_FIELDS.map((f) => f.key))) // All fields selected by default
   const [userName, setUserName] = useState<string | undefined>(undefined)
   const [isLoadingUser, setIsLoadingUser] = useState(false)
 
-  const handleToggleField = (fieldKey: ReportFieldKey) => {
+  const handleToggleField = (fieldKey: LeadReportFieldKey) => {
     setSelectedFields((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(fieldKey)) {
@@ -58,7 +70,7 @@ const ReportGenerationModal = ({
 
   const handleToggleAll = (checked: boolean) => {
     if (checked) {
-      setSelectedFields(new Set(REPORT_FIELDS.map((f) => f.key)))
+      setSelectedFields(new Set(LEAD_REPORT_FIELDS.map((f) => f.key)))
     } else {
       setSelectedFields(new Set())
     }
@@ -100,7 +112,7 @@ const ReportGenerationModal = ({
       return
     }
 
-    generateListingReportPDF(listings, Array.from(selectedFields), userName)
+    generateLeadReportPDF(leads, Array.from(selectedFields), userName)
 
     toast.success("PDF report downloaded successfully")
     onOpenChange(false)
@@ -116,18 +128,18 @@ const ReportGenerationModal = ({
     })
   }
 
-  // Get preview data (first 5 listings)
-  const previewListings = listings.slice(0, 5)
+  // Get preview data (first 5 leads)
+  const previewLeads = leads.slice(0, 5)
 
-  const allSelected = selectedFields.size === REPORT_FIELDS.length
+  const allSelected = selectedFields.size === LEAD_REPORT_FIELDS.length
   const someSelected =
-    selectedFields.size > 0 && selectedFields.size < REPORT_FIELDS.length
+    selectedFields.size > 0 && selectedFields.size < LEAD_REPORT_FIELDS.length
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-4xl!">
         <DialogHeader>
-          <DialogTitle>Generate Listings Report</DialogTitle>
+          <DialogTitle>Generate Leads Report</DialogTitle>
           <DialogDescription>
             Select the fields you want to include in your report, preview the
             data, and download as PDF.
@@ -156,7 +168,7 @@ const ReportGenerationModal = ({
                 </label>
               </div>
               <div className="grid grid-cols-2 gap-2 pt-2">
-                {REPORT_FIELDS.map((field) => (
+                {LEAD_REPORT_FIELDS.map((field) => (
                   <div key={field.key} className="flex items-center space-x-2">
                     <Checkbox
                       id={field.key}
@@ -179,59 +191,100 @@ const ReportGenerationModal = ({
           {selectedFields.size > 0 && (
             <div>
               <h3 className="mb-3 text-sm font-semibold">
-                Preview ({listings.length} listing
-                {listings.length !== 1 ? "s" : ""} total, showing first{" "}
-                {Math.min(5, listings.length)})
+                Preview ({leads.length} lead{leads.length !== 1 ? "s" : ""}{" "}
+                total, showing first {Math.min(5, leads.length)})
               </h3>
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {Array.from(selectedFields).map((fieldKey) => {
-                        const field = REPORT_FIELDS.find(
-                          (f) => f.key === fieldKey,
-                        )
-                        return (
-                          <TableHead key={fieldKey} className="font-medium">
-                            {field?.label}
-                          </TableHead>
-                        )
-                      })}
+                      {LEAD_REPORT_FIELDS.filter(
+                        (field) =>
+                          selectedFields.has(field.key) &&
+                          field.key !== "customQuestions",
+                      ).map((field) => (
+                        <TableHead key={field.key} className="font-medium">
+                          {field.label}
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {previewListings.map((listing) => (
-                      <TableRow key={listing.id}>
-                        {Array.from(selectedFields).map((fieldKey) => {
+                    {previewLeads.map((lead) => (
+                      <TableRow key={lead.id}>
+                        {LEAD_REPORT_FIELDS.filter(
+                          (field) =>
+                            selectedFields.has(field.key) &&
+                            field.key !== "customQuestions",
+                        ).map((field) => {
+                          const fieldKey = field.key
                           let cellContent: React.ReactNode = ""
 
                           switch (fieldKey) {
-                            case "address":
-                              cellContent = listing.address
+                            case "received":
+                              cellContent = formatDate(lead.createdAt)
                               break
-                            case "dateListed":
-                              cellContent = formatDate(listing.createdAt)
+                            case "listingAddress":
+                              cellContent = getListingAddress(lead)
                               break
-                            case "status":
-                              cellContent = LISTING_STATUSES[listing.status]
+                            case "submitterName":
+                              cellContent = getSubmitterName(lead)
                               break
-                            case "pendingOffers":
-                              cellContent = listing.pendingOffers
+                            case "submitterEmail":
+                              cellContent = lead.submitterEmail || "N/A"
                               break
-                            case "activeOffers":
-                              cellContent = listing.activeOffers
+                            case "submitterPhone":
+                              cellContent = lead.submitterPhone || "N/A"
                               break
-                            case "totalOffers":
-                              cellContent = listing.totalOffers
+                            case "submitterRole":
+                              cellContent = formatSubmitterRole(lead.submitterRole)
                               break
-                            case "numberOfLeads":
-                              cellContent = 1
+                            case "areYouInterested":
+                              cellContent = formatAreYouInterested(
+                                lead.areYouInterested,
+                              )
                               break
+                            case "financeInterest":
+                              cellContent = formatFinanceInterest(
+                                lead.financeInterest,
+                              )
+                              break
+                            case "followAllListings":
+                              cellContent = formatFollowAllListings(
+                                lead.followAllListings,
+                              )
+                              break
+                            case "opinionOfSalePrice":
+                              cellContent = lead.opinionOfSalePrice || "N/A"
+                              break
+                            case "buyerAgentName":
+                              cellContent = lead.buyerAgentName || "N/A"
+                              break
+                            case "buyerAgentEmail":
+                              cellContent = lead.buyerAgentEmail || "N/A"
+                              break
+                            case "buyerAgentCompany":
+                              cellContent = lead.buyerAgentCompany || "N/A"
+                              break
+                            case "agentCompany":
+                              cellContent = lead.agentCompany || "N/A"
+                              break
+                            case "messageToAgent":
+                              cellContent = getAllMessageToAgentInfo(
+                                lead.messageToAgent,
+                              )
+                              break
+                            case "customQuestions":
+                              // Skip customQuestions in preview
+                              cellContent = ""
+                              break
+                            default:
+                              cellContent = "N/A"
                           }
 
                           return (
-                            <TableCell key={`${listing.id}-${fieldKey}`}>
-                              {cellContent}
+                            <TableCell key={field.key} className="max-w-48">
+                              <div className="truncate">{cellContent}</div>
                             </TableCell>
                           )
                         })}
@@ -248,12 +301,8 @@ const ReportGenerationModal = ({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleDownload}
-            disabled={selectedFields.size === 0 || isLoadingUser}
-            className="gap-2"
-          >
-            <FileDown size={16} />
+          <Button onClick={handleDownload} disabled={isLoadingUser}>
+            <FileDown className="mr-2 h-4 w-4" />
             Download PDF
           </Button>
         </DialogFooter>
@@ -262,4 +311,5 @@ const ReportGenerationModal = ({
   )
 }
 
-export default ReportGenerationModal
+export default LeadReportGenerationModal
+

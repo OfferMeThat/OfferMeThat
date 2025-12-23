@@ -1,6 +1,18 @@
 import { OFFER_STATUSES } from "@/constants/offers"
 import { OfferWithListing } from "@/types/offer"
 import { OFFER_REPORT_FIELDS, OfferReportFieldKey } from "@/types/reportTypes"
+import {
+  formatCustomQuestions,
+  getAllDepositInfo,
+  getAllMessageToAgentInfo,
+  getAllSettlementInfo,
+  getAllSpecialConditionsInfo,
+  getAllSubjectToLoanInfo,
+  getCustomQuestionsFromOffer,
+  getPurchaseAgreementUrls,
+  getPurchaserNamesFromData,
+  getSubmitterRoleFromData,
+} from "./parseOfferDataForReports"
 
 /**
  * Formats a date string to a human-readable format
@@ -57,6 +69,34 @@ const formatYesNo = (value: boolean): string => {
 }
 
 /**
+ * Determines if offer is conditional based on special conditions or subject to loan approval
+ */
+const isConditional = (offer: OfferWithListing): boolean => {
+  // Check if offer has special conditions
+  const specialConditions = getAllSpecialConditionsInfo(offer.specialConditions)
+  if (
+    specialConditions &&
+    specialConditions !== "N/A" &&
+    specialConditions !== "No"
+  ) {
+    return true
+  }
+
+  // Check if offer is subject to loan approval
+  const subjectToLoan = getAllSubjectToLoanInfo(offer.subjectToLoanApproval)
+  if (
+    subjectToLoan &&
+    subjectToLoan !== "N/A" &&
+    subjectToLoan.startsWith("Yes")
+  ) {
+    return true
+  }
+
+  // Fallback to direct conditional field
+  return offer.conditional === true
+}
+
+/**
  * Formats expiry date and time
  */
 const formatExpiry = (offer: OfferWithListing): string => {
@@ -91,155 +131,7 @@ const getListingAddress = (offer: OfferWithListing): string => {
  * Gets purchaser names from purchaserData
  */
 const getPurchaserNames = (offer: OfferWithListing): string => {
-  if (!offer.purchaserData) return "N/A"
-
-  const data = offer.purchaserData as any
-
-  // Single field method
-  if (data.method === "single_field" && data.name) {
-    return data.name
-  }
-
-  // Individual names method
-  if (data.method === "individual_names" && data.nameFields) {
-    const names = Object.values(data.nameFields).map((nameData: any) => {
-      return [nameData.firstName, nameData.middleName, nameData.lastName]
-        .filter(Boolean)
-        .join(" ")
-    })
-    return names.join(", ")
-  }
-
-  return "N/A"
-}
-
-/**
- * Gets deposit amount from depositData
- */
-const getDepositAmount = (offer: OfferWithListing): string => {
-  if (!offer.depositData) return "N/A"
-
-  const data = offer.depositData as any
-
-  // Check for multiple instalments
-  if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
-    return "Multiple instalments"
-  }
-
-  // Single instalment - amount
-  if (data.depositType === "amount" || data.amount) {
-    return formatCurrency(data.amount)
-  }
-
-  // Single instalment - percentage
-  if (data.depositType === "percentage" || data.percentage) {
-    return `${data.percentage}% of purchase price`
-  }
-
-  return "N/A"
-}
-
-/**
- * Gets deposit due date from depositData
- */
-const getDepositDue = (offer: OfferWithListing): string => {
-  if (!offer.depositData) return "N/A"
-
-  const data = offer.depositData as any
-
-  // Check for multiple instalments
-  if (data.instalment_1 || data.instalment_2 || data.instalment_3) {
-    return "See deposit details"
-  }
-
-  // Text description
-  if (data.depositDueText) {
-    return data.depositDueText
-  }
-
-  // Specific date
-  if (data.depositDue) {
-    return formatDate(data.depositDue)
-  }
-
-  // Within X days
-  if (data.depositDueWithin) {
-    const { number, unit } = data.depositDueWithin
-    return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
-  }
-
-  return "N/A"
-}
-
-/**
- * Gets settlement date from settlementDateData
- */
-const getSettlementDate = (offer: OfferWithListing): string => {
-  if (!offer.settlementDateData) return "N/A"
-
-  const data = offer.settlementDateData as any
-
-  // Text description
-  if (data.settlementDateText) {
-    return data.settlementDateText
-  }
-
-  // Date and time
-  if (data.settlementDateTime) {
-    return formatDate(data.settlementDateTime)
-  }
-
-  // Date with optional time
-  if (data.settlementDate) {
-    const dateStr = formatDate(data.settlementDate)
-    return data.settlementTime
-      ? `${dateStr} at ${data.settlementTime}`
-      : dateStr
-  }
-
-  // Within X days
-  if (data.settlementDateWithin) {
-    const { number, unit } = data.settlementDateWithin
-    return `Within ${number} ${unit.replace(/_/g, " ")} of offer acceptance`
-  }
-
-  return "N/A"
-}
-
-/**
- * Gets subject to loan approval status
- */
-const getSubjectToLoan = (offer: OfferWithListing): string => {
-  if (!offer.subjectToLoanApproval) return "N/A"
-
-  const data = offer.subjectToLoanApproval as any
-  const isSubjectToLoan =
-    data.subjectToLoanApproval === "yes" || data.subjectToLoanApproval === true
-
-  return isSubjectToLoan ? "Yes" : "No"
-}
-
-/**
- * Gets special conditions text
- */
-const getSpecialConditions = (offer: OfferWithListing): string => {
-  return offer.specialConditions || "N/A"
-}
-
-/**
- * Gets message to agent text
- */
-const getMessageToAgent = (offer: OfferWithListing): string => {
-  if (!offer.messageToAgent) return "N/A"
-
-  // Handle string message
-  if (typeof offer.messageToAgent === "string") {
-    return offer.messageToAgent
-  }
-
-  // Handle object message
-  const data = offer.messageToAgent as any
-  return data.message || data.text || "N/A"
+  return getPurchaserNamesFromData(offer.purchaserData)
 }
 
 /**
@@ -301,61 +193,53 @@ export const generateOfferReport = (
           return escapeCsvField(offer.submitterEmail || "N/A")
         case "submitterPhone":
           return escapeCsvField(offer.submitterPhone || "N/A")
+        case "submitterRole":
+          return escapeCsvField(getSubmitterRoleFromData(offer))
         case "offerAmount":
-          return escapeCsvField(
-            formatCurrency(
-              offer.amount,
-              (offer.customQuestionsData as any)?.currency || "USD",
-            ),
-          )
+          // Parse customQuestionsData if it's a JSON string
+          let customQuestionsData = offer.customQuestionsData
+          if (typeof customQuestionsData === "string") {
+            try {
+              customQuestionsData = JSON.parse(customQuestionsData)
+            } catch {
+              customQuestionsData = null
+            }
+          }
+          const currency = (customQuestionsData as any)?.currency || "USD"
+          return escapeCsvField(formatCurrency(offer.amount, currency))
         case "buyerType":
           return escapeCsvField(formatBuyerType(offer.buyerType))
         case "paymentWay":
           return escapeCsvField(formatPaymentWay(offer.paymentWay))
         case "conditional":
-          return escapeCsvField(formatYesNo(offer.conditional))
+          return escapeCsvField(formatYesNo(isConditional(offer)))
         case "expires":
           return escapeCsvField(formatExpiry(offer))
         case "updatedAt":
           return escapeCsvField(
             offer.updatedAt ? formatDate(offer.updatedAt) : "N/A",
           )
-        case "hasPurchaseAgreement":
-          // Helper to parse purchaseAgreementFileUrl (can be single URL string or JSON array)
-          const parsePurchaseAgreementUrls = (
-            value: string | null | undefined,
-          ): string[] => {
-            if (!value) return []
-            try {
-              const parsed = JSON.parse(value)
-              if (Array.isArray(parsed)) {
-                return parsed.filter((url) => typeof url === "string")
-              }
-            } catch {
-              // Not JSON, treat as single URL string
-            }
-            return [value]
-          }
-          const purchaseAgreementUrls = parsePurchaseAgreementUrls(
-            offer.purchaseAgreementFileUrl,
-          )
-          return escapeCsvField(
-            formatYesNo(purchaseAgreementUrls.length > 0),
-          )
+        case "purchaseAgreement":
+          return escapeCsvField(getPurchaseAgreementUrls(offer))
         case "purchaserName":
           return escapeCsvField(getPurchaserNames(offer))
-        case "depositAmount":
-          return escapeCsvField(getDepositAmount(offer))
-        case "depositDue":
-          return escapeCsvField(getDepositDue(offer))
+        case "deposit":
+          return escapeCsvField(getAllDepositInfo(offer.depositData, offer))
         case "settlementDate":
-          return escapeCsvField(getSettlementDate(offer))
+          return escapeCsvField(getAllSettlementInfo(offer.settlementDateData))
         case "subjectToLoan":
-          return escapeCsvField(getSubjectToLoan(offer))
+          return escapeCsvField(
+            getAllSubjectToLoanInfo(offer.subjectToLoanApproval),
+          )
         case "specialConditions":
-          return escapeCsvField(getSpecialConditions(offer))
+          return escapeCsvField(
+            getAllSpecialConditionsInfo(offer.specialConditions),
+          )
         case "messageToAgent":
-          return escapeCsvField(getMessageToAgent(offer))
+          return escapeCsvField(getAllMessageToAgentInfo(offer.messageToAgent))
+        case "customQuestions":
+          const customQuestions = getCustomQuestionsFromOffer(offer)
+          return escapeCsvField(formatCustomQuestions(customQuestions))
         default:
           return ""
       }

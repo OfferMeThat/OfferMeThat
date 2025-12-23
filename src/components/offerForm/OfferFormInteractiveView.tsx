@@ -145,8 +145,19 @@ export const OfferFormInteractiveView = ({
       const currentPageData: Record<string, any> = {}
 
       // Collect data for current page questions
+      // IMPORTANT: Always include ALL questions in validation data, even if undefined
+      // This ensures required field validation works correctly
       currentPageQuestions.forEach((question) => {
         let value = formData[question.id]
+
+        // If value is undefined, still include it in validation data
+        // Yup will check if it's required and fail validation if needed
+        if (value === undefined) {
+          // For required fields, yup needs the field to be present (even if undefined)
+          // For optional fields, we can omit them, but including undefined is safer
+          currentPageData[question.id] = undefined
+          return
+        }
 
         // For offerAmount questions, ensure currency is set if amount is present
         if (
@@ -161,22 +172,142 @@ export const OfferFormInteractiveView = ({
           ) {
             value = { ...value, currency: "USD" }
           }
+          // Ensure amount is properly formatted (convert string to number if needed)
+          if (typeof value.amount === "string" && value.amount.trim() !== "") {
+            const parsed = parseFloat(value.amount.trim())
+            if (!isNaN(parsed)) {
+              value = { ...value, amount: parsed }
+            }
+          }
         }
 
-        // Preserve the actual value - don't convert to null/undefined
-        // Empty strings should be preserved so validation can work correctly
+        // For submitterPhone, ensure it's in the correct format
+        if (question.type === "submitterPhone") {
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            "countryCode" in value &&
+            "number" in value
+          ) {
+            // Ensure both countryCode and number are strings (not empty)
+            const phoneObj = value as { countryCode: string; number: string }
+            if (
+              !phoneObj.countryCode ||
+              !phoneObj.number ||
+              phoneObj.number.trim() === ""
+            ) {
+              // If phone is incomplete, set to undefined so validation can catch it
+              value = undefined
+            }
+          } else if (typeof value === "string" && value.trim() === "") {
+            // Empty string phone should be undefined for validation
+            value = undefined
+          }
+        }
+
+        // For custom number_amount fields, ensure proper format
+        if (question.type === "custom") {
+          const setupConfig =
+            (question.setupConfig as Record<string, any>) || {}
+          const answerType = setupConfig.answer_type
+          const numberType = setupConfig.number_type
+
+          if (answerType === "number_amount" || answerType === "number") {
+            // Handle phone number objects that might be incorrectly passed
+            if (
+              typeof value === "object" &&
+              value !== null &&
+              "countryCode" in value &&
+              "number" in value &&
+              !("amount" in value)
+            ) {
+              // This is a phone number object, extract the number
+              const phoneObj = value as { countryCode: string; number: string }
+              const numberStr = phoneObj.number?.trim() || ""
+              if (numberStr === "") {
+                value = undefined
+              } else {
+                const parsed = parseFloat(numberStr)
+                if (!isNaN(parsed)) {
+                  if (numberType === "money") {
+                    value = { amount: parsed, currency: "USD" }
+                  } else {
+                    value = parsed
+                  }
+                } else {
+                  value = undefined
+                }
+              }
+            } else if (
+              numberType === "money" &&
+              typeof value === "object" &&
+              value !== null
+            ) {
+              // Money type: ensure amount is a number
+              if (typeof value.amount === "string") {
+                if (value.amount.trim() === "") {
+                  // Empty string should be undefined for validation
+                  value = undefined
+                } else {
+                  const parsed = parseFloat(value.amount.trim())
+                  if (!isNaN(parsed)) {
+                    value = { ...value, amount: parsed }
+                  } else {
+                    // Invalid number, set to undefined
+                    value = undefined
+                  }
+                }
+              }
+            } else if (typeof value === "string") {
+              if (value.trim() === "") {
+                // Empty string should be undefined for validation
+                value = undefined
+              } else {
+                // Regular number: convert string to number
+                const parsed = parseFloat(value.trim())
+                if (!isNaN(parsed)) {
+                  value = parsed
+                } else {
+                  // Invalid number, set to undefined
+                  value = undefined
+                }
+              }
+            }
+          }
+        }
+
+        // For offerAmount, handle empty strings
+        if (
+          question.type === "offerAmount" &&
+          typeof value === "object" &&
+          value !== null
+        ) {
+          if (typeof value.amount === "string" && value.amount.trim() === "") {
+            // Empty amount should be undefined
+            value = undefined
+          }
+        }
+
+        // Include the value (even if it's null or empty string - validation will handle it)
         currentPageData[question.id] = value
       })
 
       // Validate current page
-      await pageSchema.validate(currentPageData, { abortEarly: false })
+      // Don't use stripUnknown - we want to validate all fields we're passing
+      // stripUnknown can cause issues with required field validation
+      await pageSchema.validate(currentPageData, {
+        abortEarly: false,
+        strict: false, // Allow type coercion
+      })
 
       // Clear errors for current page
       const newErrors = { ...validationErrors }
-      currentPage.questions.forEach((question) => {
-        if (question.type === "submitButton") return
-        delete newErrors[question.id]
-      })
+      if (currentPage?.questions) {
+        currentPage.questions.forEach((question) => {
+          if (question.type === "submitButton") return
+          delete newErrors[question.id]
+        })
+      }
       setValidationErrors(newErrors)
 
       return true
@@ -184,7 +315,7 @@ export const OfferFormInteractiveView = ({
       if (error instanceof yup.ValidationError) {
         console.log(
           "Validation errors:",
-          error.inner.map((e) => ({
+          (error.inner || []).map((e) => ({
             path: e.path,
             message: e.message,
             value: e.value,
@@ -192,19 +323,23 @@ export const OfferFormInteractiveView = ({
         )
 
         const newErrors: Record<string, string> = { ...validationErrors }
-        error.inner.forEach((err) => {
-          if (err.path) {
-            newErrors[err.path] = err.message
-          }
-        })
+        if (error.inner && Array.isArray(error.inner)) {
+          error.inner.forEach((err) => {
+            if (err.path) {
+              newErrors[err.path] = err.message
+            }
+          })
+        }
         setValidationErrors(newErrors)
 
         // Mark all fields on current page as touched
         const newTouched = new Set(touchedFields)
-        currentPage.questions.forEach((question) => {
-          if (question.type === "submitButton") return
-          newTouched.add(question.id)
-        })
+        if (currentPage?.questions) {
+          currentPage.questions.forEach((question) => {
+            if (question.type === "submitButton") return
+            newTouched.add(question.id)
+          })
+        }
         setTouchedFields(newTouched)
 
         // Scroll to first error
@@ -219,17 +354,25 @@ export const OfferFormInteractiveView = ({
         toast.error("Fill all of the required fields to proceed")
         return false
       }
+      // Handle other types of errors
+      console.error("Non-validation error in validateCurrentPage:", error)
+      toast.error("An error occurred while validating the form")
       return false
     }
   }
 
   const handleNext = async () => {
     if (!isLastPage) {
-      const isValid = await validateCurrentPage()
-      if (isValid) {
-        setCurrentPageIndex((prev) => prev + 1)
-        // Scroll to top when changing pages
-        window.scrollTo({ top: 0, behavior: "smooth" })
+      try {
+        const isValid = await validateCurrentPage()
+        if (isValid) {
+          setCurrentPageIndex((prev) => prev + 1)
+          // Scroll to top when changing pages
+          window.scrollTo({ top: 0, behavior: "smooth" })
+        }
+      } catch (error) {
+        console.error("Error in handleNext:", error)
+        toast.error("An error occurred while validating the form")
       }
     }
   }
@@ -310,9 +453,27 @@ export const OfferFormInteractiveView = ({
 
       // Process form data and upload files
       for (const [questionId, value] of Object.entries(processedFormData)) {
-        if (!value) continue
-
+        // For deposit questions, allow empty objects (they might contain deposit fields)
         const question = questions.find((q) => q.id === questionId)
+        if (question?.type === "deposit") {
+          // For deposit questions, check if value is an object with deposit fields
+          if (value && typeof value === "object" && !Array.isArray(value)) {
+            const hasDepositFields = Object.keys(value).some(
+              (key) =>
+                key.startsWith("deposit_") ||
+                key.startsWith("instalment_") ||
+                key === "deposit_instalments",
+            )
+            if (!hasDepositFields && Object.keys(value).length === 0) {
+              continue // Skip truly empty objects
+            }
+          } else if (!value) {
+            continue // Skip null/undefined/empty string
+          }
+        } else if (!value) {
+          continue // Skip empty values for other question types
+        }
+
         if (!question) continue
 
         // Handle purchase agreement (single or multiple files)
@@ -916,7 +1077,12 @@ export const OfferFormInteractiveView = ({
       <div className="mt-8 flex items-center justify-between gap-4">
         {!isLastPage ? (
           <Button
-            onClick={handleNext}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              handleNext()
+            }}
             className="mx-auto w-1/2 gap-2"
             style={{
               backgroundColor: brandingConfig?.buttonColor || undefined,

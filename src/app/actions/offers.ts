@@ -440,7 +440,47 @@ export async function deleteOffers(
   const supabase = await createClient()
 
   try {
-    const { error } = await supabase.from("offers").delete().in("id", offerIds)
+    // Get the current user to ensure we only delete their offers
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return {
+        success: false,
+        error: "User not authenticated",
+      }
+    }
+
+    if (!offerIds || offerIds.length === 0) {
+      return {
+        success: false,
+        error: "No offers selected",
+      }
+    }
+
+    // Get user's offer form(s) to verify ownership
+    const { data: userForms, error: formsError } = await supabase
+      .from("offerForms")
+      .select("id")
+      .eq("ownerId", user.id)
+
+    if (formsError || !userForms || userForms.length === 0) {
+      return {
+        success: false,
+        error: "No offer forms found for user",
+      }
+    }
+
+    const userFormIds = userForms.map((form) => form.id)
+
+    // Delete offers that belong to the user's forms
+    const { data, error } = await supabase
+      .from("offers")
+      .delete()
+      .in("id", offerIds)
+      .in("formId", userFormIds)
+      .select()
 
     if (error) {
       console.error("Error deleting offers:", error)
@@ -448,6 +488,20 @@ export async function deleteOffers(
         success: false,
         error: error.message || "Failed to delete offers",
       }
+    }
+
+    // Verify that offers were actually deleted
+    const deletedCount = data?.length || 0
+    if (deletedCount === 0) {
+      console.error("No offers were deleted. Possible reasons: offers don't exist, user doesn't own them, or RLS policy blocked deletion.")
+      return {
+        success: false,
+        error: "No offers were deleted. Please ensure you own the selected offers.",
+      }
+    }
+
+    if (deletedCount < offerIds.length) {
+      console.warn(`Only ${deletedCount} out of ${offerIds.length} offers were deleted.`)
     }
 
     return { success: true }
@@ -467,10 +521,47 @@ export async function updateOffersStatus(
   const supabase = await createClient()
 
   try {
-    const { error } = await supabase
+    // Get the current user to ensure we only update their offers
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return {
+        success: false,
+        error: "User not authenticated",
+      }
+    }
+
+    if (!offerIds || offerIds.length === 0) {
+      return {
+        success: false,
+        error: "No offers selected",
+      }
+    }
+
+    // Get user's offer form(s) to verify ownership
+    const { data: userForms, error: formsError } = await supabase
+      .from("offerForms")
+      .select("id")
+      .eq("ownerId", user.id)
+
+    if (formsError || !userForms || userForms.length === 0) {
+      return {
+        success: false,
+        error: "No offer forms found for user",
+      }
+    }
+
+    const userFormIds = userForms.map((form) => form.id)
+
+    // Update offers that belong to the user's forms
+    const { data, error } = await supabase
       .from("offers")
       .update({ status: status as any })
       .in("id", offerIds)
+      .in("formId", userFormIds)
+      .select()
 
     if (error) {
       console.error("Error updating offer status:", error)
@@ -478,6 +569,20 @@ export async function updateOffersStatus(
         success: false,
         error: error.message || "Failed to update offer status",
       }
+    }
+
+    // Verify that offers were actually updated
+    const updatedCount = data?.length || 0
+    if (updatedCount === 0) {
+      console.error("No offers were updated. Possible reasons: offers don't exist, user doesn't own them, or RLS policy blocked update.")
+      return {
+        success: false,
+        error: "No offers were updated. Please ensure you own the selected offers.",
+      }
+    }
+
+    if (updatedCount < offerIds.length) {
+      console.warn(`Only ${updatedCount} out of ${offerIds.length} offers were updated.`)
     }
 
     return { success: true }

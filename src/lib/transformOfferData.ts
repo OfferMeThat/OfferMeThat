@@ -1,4 +1,5 @@
 import { Database } from "@/types/supabase"
+import { transformDepositFormData } from "./transformDepositData"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 
@@ -36,11 +37,41 @@ export function transformFormDataToOffer(
     isTest: isTest,
   }
 
+  // Build formData with question type identifiers
+  // This will store all form data with question types for later identification
+  const formDataWithTypes: Record<string, any> = {}
+
   // Process each question's data
   questions.forEach((question) => {
     const value = formData[question.id]
-    if (value === null || value === undefined || value === "") {
-      return // Skip empty values
+
+    // For deposit questions, allow empty objects to be processed (they might contain deposit fields)
+    if (question.type === "deposit") {
+      // Check if value is an object with deposit fields
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        const hasDepositFields = Object.keys(value).some(
+          (key) =>
+            key.startsWith("deposit_") ||
+            key.startsWith("instalment_") ||
+            key === "deposit_instalments",
+        )
+        if (!hasDepositFields && Object.keys(value).length === 0) {
+          return // Skip truly empty objects
+        }
+      } else if (value === null || value === undefined || value === "") {
+        return // Skip empty values
+      }
+    } else if (value === null || value === undefined || value === "") {
+      return // Skip empty values for other question types
+    }
+
+    // Add to formData with question type identifier (except for deposit which goes to depositData)
+    if (question.type !== "deposit") {
+      formDataWithTypes[question.id] = {
+        questionType: question.type,
+        questionId: question.id,
+        value: value,
+      }
     }
 
     switch (question.type) {
@@ -87,10 +118,15 @@ export function transformFormDataToOffer(
 
       case "submitterPhone":
         // Handle both object format (new) and string format (legacy)
-        if (typeof value === "object" && value !== null && "countryCode" in value) {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "countryCode" in value
+        ) {
           // Combine country code and number for database storage
           const phoneObj = value as { countryCode: string; number: string }
-          offer.submitterPhone = (phoneObj.countryCode || "") + (phoneObj.number || "")
+          offer.submitterPhone =
+            (phoneObj.countryCode || "") + (phoneObj.number || "")
         } else {
           // Legacy string format
           offer.submitterPhone = value as string
@@ -99,15 +135,31 @@ export function transformFormDataToOffer(
 
       case "offerAmount":
         if (typeof value === "object" && value !== null) {
-          offer.amount = Number(value.amount) || 0
+          // Handle object format { amount: number|string, currency: string }
+          const amountValue = value.amount
+          if (typeof amountValue === "string") {
+            const parsed = parseFloat(amountValue.trim())
+            offer.amount = isNaN(parsed) ? 0 : parsed
+          } else if (typeof amountValue === "number") {
+            offer.amount = amountValue
+          } else {
+            offer.amount = 0
+          }
           // Store currency in customQuestionsData for easy access
           if (!offer.customQuestionsData) {
             offer.customQuestionsData = {} as any
           }
-          ;(offer.customQuestionsData as any).currency = value.currency
+          ;(offer.customQuestionsData as any).currency = value.currency || "USD"
         } else {
-          offer.amount =
-            typeof value === "number" ? value : parseFloat(value) || 0
+          // Legacy format: number or string
+          if (typeof value === "string") {
+            const parsed = parseFloat(value.trim())
+            offer.amount = isNaN(parsed) ? 0 : parsed
+          } else if (typeof value === "number") {
+            offer.amount = value
+          } else {
+            offer.amount = 0
+          }
         }
         break
 
@@ -150,8 +202,84 @@ export function transformFormDataToOffer(
         break
 
       case "deposit":
-        // Complex deposit data
-        offer.depositData = value as any
+        // Transform raw deposit form data into structured format
+        // Extract all deposit-related fields from formData
+        const depositFormData: Record<string, any> = {}
+
+        // First, if value is an object (the main deposit question data from DepositPreview), use it
+        // DepositPreview passes all deposit fields as an object under question.id
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+          // Check if this object contains deposit fields
+          const hasDepositFields = Object.keys(value).some(
+            (key) =>
+              key.startsWith("deposit_") ||
+              key.startsWith("instalment_") ||
+              key === "deposit_instalments",
+          )
+
+          if (hasDepositFields) {
+            // This is the deposit form data object, use it directly
+            Object.assign(depositFormData, value)
+          }
+        }
+
+        // Also collect deposit-related fields from the top-level formData (for backward compatibility)
+        // This handles cases where deposit fields might be stored at the top level
+        Object.keys(formData).forEach((key) => {
+          if (
+            key.startsWith("deposit_") ||
+            key.startsWith("instalment_") ||
+            key === "deposit_instalments"
+          ) {
+            // Only add if not already in depositFormData (value takes precedence)
+            if (!depositFormData.hasOwnProperty(key)) {
+              depositFormData[key] = formData[key]
+            }
+          }
+        })
+
+        // Transform the collected deposit form data
+        if (Object.keys(depositFormData).length > 0) {
+          // Check if it's already in structured format (has instalment_1, instalment_2, etc.)
+          if (
+            depositFormData.instalment_1 ||
+            depositFormData.instalment_2 ||
+            depositFormData.instalment_3 ||
+            (depositFormData.instalments && depositFormData.numInstalments)
+          ) {
+            // Already structured, use as-is
+            offer.depositData = depositFormData as any
+          } else {
+            // Raw form data, transform it
+            const transformed = transformDepositFormData(depositFormData)
+            if (transformed) {
+              offer.depositData = transformed
+            } else {
+              // If transformation returned null, still save the raw data
+              // This ensures deposit data is never lost
+              offer.depositData = depositFormData as any
+            }
+          }
+        } else if (
+          value &&
+          typeof value === "object" &&
+          Object.keys(value).length > 0
+        ) {
+          // Fallback: store as-is (for backward compatibility)
+          // Only if the object is not empty
+          offer.depositData = value as any
+        }
+
+        // Debug logging (remove in production)
+        if (process.env.NODE_ENV === "development") {
+          console.log("[Deposit Transform] Question ID:", question.id)
+          console.log("[Deposit Transform] Value:", value)
+          console.log("[Deposit Transform] Deposit Form Data:", depositFormData)
+          console.log(
+            "[Deposit Transform] Final depositData:",
+            offer.depositData,
+          )
+        }
         break
 
       case "subjectToLoanApproval":
@@ -180,7 +308,10 @@ export function transformFormDataToOffer(
           // Single File (will be uploaded in offers.ts)
           // Store as-is for now, will be converted to URL in offers.ts
           ;(offer as any).purchaseAgreementFiles = [value]
-        } else if (Array.isArray(value) && value.some((v) => v instanceof File)) {
+        } else if (
+          Array.isArray(value) &&
+          value.some((v) => v instanceof File)
+        ) {
           // Array of Files (will be uploaded in offers.ts)
           ;(offer as any).purchaseAgreementFiles = value.filter(
             (v) => v instanceof File,
@@ -220,10 +351,44 @@ export function transformFormDataToOffer(
           setupConfig.question_text || uiConfig.label || "Custom Question"
         const answerType = setupConfig.answer_type
 
+        // Transform value based on answer type
+        let transformedValue = value
+        if (answerType === "number" || answerType === "number_amount") {
+          const numberType = setupConfig.number_type
+          if (
+            numberType === "money" &&
+            typeof value === "object" &&
+            value !== null
+          ) {
+            // Money type: { amount: string|number, currency: string }
+            const amountValue = (value as any).amount
+            if (typeof amountValue === "string") {
+              const parsed = parseFloat(amountValue.trim())
+              transformedValue = {
+                ...value,
+                amount: isNaN(parsed) ? 0 : parsed,
+                currency: (value as any).currency || "USD",
+              }
+            } else if (typeof amountValue === "number") {
+              transformedValue = {
+                ...value,
+                amount: amountValue,
+                currency: (value as any).currency || "USD",
+              }
+            }
+          } else if (typeof value === "string") {
+            // Regular number type: convert string to number
+            const parsed = parseFloat(value.trim())
+            transformedValue = isNaN(parsed) ? null : parsed
+          } else if (typeof value === "number") {
+            transformedValue = value
+          }
+        }
+
         ;(offer.customQuestionsData as any)[question.id] = {
           questionText,
           answerType,
-          value,
+          value: transformedValue,
         }
         break
 
@@ -246,8 +411,50 @@ export function transformFormDataToOffer(
     }
   })
 
-  // Store complete form data as backup
-  offer.formData = formData as any
+  // Store form data with question type identifiers
+  // Exclude deposit-related fields since they're stored in depositData
+  const cleanedFormData: Record<string, any> = {}
+
+  Object.keys(formDataWithTypes).forEach((key) => {
+    // Skip deposit-related fields - they're in depositData
+    if (
+      !key.startsWith("deposit_") &&
+      !key.startsWith("instalment_") &&
+      key !== "deposit_instalments"
+    ) {
+      cleanedFormData[key] = formDataWithTypes[key]
+    }
+  })
+
+  // Also include any other fields from original formData that might not be in questions
+  // (for backward compatibility and any custom fields)
+  Object.keys(formData).forEach((key) => {
+    if (
+      !cleanedFormData.hasOwnProperty(key) &&
+      !key.startsWith("deposit_") &&
+      !key.startsWith("instalment_") &&
+      key !== "deposit_instalments"
+    ) {
+      // Try to find the question type for this field
+      const question = questions.find((q) => q.id === key)
+      if (question) {
+        cleanedFormData[key] = {
+          questionType: question.type,
+          questionId: question.id,
+          value: formData[key],
+        }
+      } else {
+        // Unknown field, store as-is with a generic identifier
+        cleanedFormData[key] = {
+          questionType: "unknown",
+          questionId: key,
+          value: formData[key],
+        }
+      }
+    }
+  })
+
+  offer.formData = cleanedFormData as any
 
   // Ensure required fields are present (they should be set by processing questions)
   // Provide defaults if somehow missing (shouldn't happen in normal flow)
@@ -273,7 +480,8 @@ export function transformFormDataToOffer(
     amount: offer.amount!,
     buyerType: offer.buyerType!,
     listingId:
-      offer.listingId || (offer.status === "unassigned" || isTest ? null : undefined),
+      offer.listingId ||
+      (offer.status === "unassigned" || isTest ? null : undefined),
   } as any as Database["public"]["Tables"]["offers"]["Insert"] & {
     isTest?: boolean
   }

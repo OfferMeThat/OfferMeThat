@@ -114,10 +114,22 @@ export function transformFormDataToLead(
           lead.customQuestionsData = {}
         }
 
+        // Transform value based on answer type
+        let transformedValue = value
+        if (answerType === "number" || answerType === "number_amount") {
+          if (typeof value === "string") {
+            // Convert string to number
+            const parsed = parseFloat(value.trim())
+            transformedValue = isNaN(parsed) ? null : parsed
+          } else if (typeof value === "number") {
+            transformedValue = value
+          }
+        }
+
         const customData = lead.customQuestionsData as Record<string, any>
         customData[question.id] = {
           answerType,
-          value,
+          value: transformedValue,
         }
         break
 

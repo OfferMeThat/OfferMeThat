@@ -136,7 +136,7 @@ const EditQuestionModal = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex max-h-[80vh] min-h-[400px] w-full max-w-4xl! flex-col gap-0 p-0">
+      <DialogContent className="flex max-h-[85vh] min-h-[500px] w-full max-w-4xl! flex-col gap-0 p-0">
         <DialogHeader className="border-b px-6 pt-6 pb-4">
           <DialogTitle className="text-xl font-semibold">
             Edit Question: {definition?.label || question.type}
