@@ -11,9 +11,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { FileUploadInput } from "@/components/shared/FileUploadInput"
 import { CURRENCY_OPTIONS } from "@/constants/offerFormQuestions"
 import { getSmartQuestion } from "@/data/smartQuestions"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Paperclip } from "lucide-react"
+import { cn } from "@/lib/utils"
 import DepositDueDateModal from "./DepositDueDateModal"
 import LoanDueDateModal from "./LoanDueDateModal"
 
@@ -1402,80 +1405,81 @@ const SmartQuestionSetup = ({
                   />
                 </div>
               ) : question.type === "file_upload" ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-2"
-                      onClick={() =>
-                        document
-                          .getElementById(`file-input-${question.id}`)
-                          ?.click()
-                      }
-                    >
-                      <span>📎</span>
-                      Choose files (multiple allowed)
-                    </Button>
-                    <input
-                      id={`file-input-${question.id}`}
-                      type="file"
-                      multiple
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                      onChange={(e) => handleFileUpload(question.id, e)}
-                      className="hidden"
-                    />
-                  </div>
-
-                  {/* Display uploaded files */}
-                  {answers[question.id] && answers[question.id].length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-600">
-                          Uploaded files ({answers[question.id].length}):
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setAnswers((prev) => ({
-                              ...prev,
-                              [question.id]: [],
-                            }))
-                          }
-                          className="text-xs"
-                        >
-                          Clear All
-                        </Button>
-                      </div>
-                      {answers[question.id].map((file: File, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between rounded-md bg-gray-50 p-2"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-700">
-                              {file.name}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                            </span>
-                          </div>
+                <div className="space-y-2">
+                  <input
+                    id={`file-input-${question.id}`}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                    onChange={(e) => handleFileUpload(question.id, e)}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor={`file-input-${question.id}`}
+                    className={cn(
+                      "flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-white px-4 py-8 text-center transition-colors",
+                      "hover:border-gray-400 hover:bg-gray-50",
+                    )}
+                  >
+                    <Paperclip className="mb-2 h-6 w-6 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-900">
+                      Upload files
+                    </span>
+                  </label>
+                  {answers[question.id] &&
+                    answers[question.id].length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-gray-600">
+                            Uploaded files ({answers[question.id].length}):
+                          </p>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => handleRemoveFile(question.id, index)}
-                            className="text-xs text-red-600 hover:text-red-700"
+                            onClick={() =>
+                              setAnswers((prev) => ({
+                                ...prev,
+                                [question.id]: [],
+                              }))
+                            }
+                            className="text-xs"
                           >
-                            Remove
+                            Clear All
                           </Button>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        {answers[question.id].map(
+                          (file: File, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between rounded-md bg-gray-50 p-2"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-700">
+                                  {file.name}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                                </span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRemoveFile(question.id, index)}
+                                className="text-xs text-red-600 hover:text-red-700"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    )}
+                  <span className="text-xs text-gray-500">
+                    Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3
+                    files, 10MB total)
+                  </span>
                 </div>
               ) : question.type === "option_list" ? (
                 <div className="space-y-3">

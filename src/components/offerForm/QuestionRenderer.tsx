@@ -3,6 +3,7 @@ import DepositPreview from "@/components/offerForm/DepositPreview"
 import DatePicker from "@/components/shared/forms/DatePicker"
 import PhoneInput from "@/components/shared/forms/PhoneInput"
 import TimePicker from "@/components/shared/forms/TimePicker"
+import { FileUploadInput } from "@/components/shared/FileUploadInput"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -30,7 +31,7 @@ import {
   QuestionUIConfig,
 } from "@/types/questionUIConfig"
 import { Database } from "@/types/supabase"
-import { FileText, X } from "lucide-react"
+import { FileText, Paperclip, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
@@ -424,85 +425,50 @@ const PersonNameFields = ({
       {collectId && collectId !== "no" && (
         <div>
           <div className="relative inline-block">
-            <Label className="mb-1 block text-sm">
-              {getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload")}{" "}
-              {collectId === "mandatory" && questionRequired && (
-                <span className="text-red-500">*</span>
-              )}
-            </Label>
             {renderLabelOverlay(
               "idUploadLabel",
               getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload"),
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              id={`${questionId}_${prefix}_id_file`}
-              className="hidden"
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              disabled={editingMode}
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null
-                const fileKey = `${questionId}_${prefix}_id`
-                const fileError = file ? validateFileSize(file) : null
-                setFileUploads((prev) => ({
-                  ...prev,
-                  [fileKey]: {
-                    file,
-                    fileName: file ? file.name : "",
-                    error: fileError || undefined,
-                  },
-                }))
-              }}
-            />
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor={`${questionId}_${prefix}_id_file`}
-                className={cn(
-                  "cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-1 hover:bg-gray-200",
-                  "text-sm transition-colors",
-                )}
-              >
-                Choose file
-              </label>
-              <span className="text-sm text-gray-500">
-                {fileData.fileName || "No file chosen"}
-              </span>
-            </div>
-            {fileData.fileName && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setFileUploads((prev) => ({
-                    ...prev,
-                    [`${questionId}_${prefix}_id`]: {
-                      file: null,
-                      fileName: "",
-                      error: undefined,
-                    },
-                  }))
-                  const fileInput = document.getElementById(
-                    `${questionId}_${prefix}_id_file`,
-                  ) as HTMLInputElement
-                  if (fileInput) {
-                    fileInput.value = ""
-                  }
-                }}
-                className="h-6 w-6 p-0"
-                disabled={editingMode}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            )}
-            {fileData.error && (
-              <p className="mt-1 text-sm text-red-500" role="alert">
-                {fileData.error}
-              </p>
-            )}
-          </div>
+          <FileUploadInput
+            id={`${questionId}_${prefix}_id_file`}
+            label={getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload")}
+            required={collectId === "mandatory" && questionRequired}
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            disabled={editingMode}
+            value={fileData.file}
+            fileNames={fileData.fileName ? [fileData.fileName] : []}
+            error={fileData.error}
+            onChange={(file) => {
+              const fileKey = `${questionId}_${prefix}_id`
+              const fileObj = Array.isArray(file) ? file[0] : file
+              const fileError = fileObj ? validateFileSize(fileObj) : null
+              setFileUploads((prev) => ({
+                ...prev,
+                [fileKey]: {
+                  file: fileObj,
+                  fileName: fileObj ? fileObj.name : "",
+                  error: fileError || undefined,
+                },
+              }))
+            }}
+            onRemove={() => {
+              setFileUploads((prev) => ({
+                ...prev,
+                [`${questionId}_${prefix}_id`]: {
+                  file: null,
+                  fileName: "",
+                  error: undefined,
+                },
+              }))
+              const fileInput = document.getElementById(
+                `${questionId}_${prefix}_id_file`,
+              ) as HTMLInputElement
+              if (fileInput) {
+                fileInput.value = ""
+              }
+            }}
+          />
         </div>
       )}
     </div>
@@ -1491,49 +1457,7 @@ export const QuestionRenderer = ({
             )}
           </div>
           {collectId && collectId !== "no" && (
-            <div className="mt-3 space-y-2">
-              <input
-                type="file"
-                id={`${question.id}_single_id_upload`}
-                className="hidden"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                disabled={disabled}
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null
-                  const fileKey = `${question.id}_single_id_upload`
-                  const fileError = file ? validateFileSize(file) : null
-                  setFileUploads((prev) => ({
-                    ...prev,
-                    [fileKey]: {
-                      file,
-                      fileName: file ? file.name : "",
-                      error: fileError || undefined,
-                    },
-                  }))
-                  if (!fileError && file) {
-                    // Store file with name
-                    const currentName =
-                      typeof value === "string" ? value : value?.name || ""
-                    onChange?.(
-                      currentName ? { name: currentName, idFile: file } : file,
-                    )
-                  }
-                }}
-              />
-              <div className="flex max-w-md items-center gap-2">
-                <label
-                  htmlFor={`${question.id}_single_id_upload`}
-                  className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
-                >
-                  <p className="text-sm text-gray-500">
-                    📎 Upload Identification{" "}
-                    {collectId === "optional" && "(Optional)"}
-                    {collectId === "mandatory" && question.required && (
-                      <span className="text-red-500"> *</span>
-                    )}
-                  </p>
-                </label>
-              </div>
+            <div className="mt-3">
               {(() => {
                 const fileDataRaw =
                   fileUploads[`${question.id}_single_id_upload`]
@@ -1548,51 +1472,57 @@ export const QuestionRenderer = ({
                         }
                       : { file: null, fileName: "", error: undefined }
                 return (
-                  <>
-                    {fileData.fileName && (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setFileUploads((prev) => ({
-                              ...prev,
-                              [`${question.id}_single_id_upload`]: {
-                                file: null,
-                                fileName: "",
-                                error: undefined,
-                              },
-                            }))
-                            // Clear file but keep name
-                            const currentName =
-                              typeof value === "string"
-                                ? value
-                                : value?.name || ""
-                            onChange?.(currentName || null)
-                            const fileInput = document.getElementById(
-                              `${question.id}_single_id_upload`,
-                            ) as HTMLInputElement
-                            if (fileInput) {
-                              fileInput.value = ""
-                            }
-                          }}
-                          className="h-8 w-8 p-0"
-                          disabled={disabled}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                        <p className="text-xs text-gray-600">
-                          {fileData.fileName}
-                        </p>
-                      </div>
-                    )}
-                    {fileData.error && (
-                      <p className="mt-1 text-sm text-red-500" role="alert">
-                        {fileData.error}
-                      </p>
-                    )}
-                  </>
+                  <FileUploadInput
+                    id={`${question.id}_single_id_upload`}
+                    label="ID Upload"
+                    required={collectId === "mandatory" && question.required}
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    disabled={disabled}
+                    value={fileData.file}
+                    fileNames={fileData.fileName ? [fileData.fileName] : []}
+                    error={fileData.error}
+                    onChange={(file) => {
+                      const fileKey = `${question.id}_single_id_upload`
+                      const fileObj = Array.isArray(file) ? file[0] : file
+                      const fileError = fileObj ? validateFileSize(fileObj) : null
+                      setFileUploads((prev) => ({
+                        ...prev,
+                        [fileKey]: {
+                          file: fileObj,
+                          fileName: fileObj ? fileObj.name : "",
+                          error: fileError || undefined,
+                        },
+                      }))
+                      if (!fileError && fileObj) {
+                        // Store file with name
+                        const currentName =
+                          typeof value === "string" ? value : value?.name || ""
+                        onChange?.(
+                          currentName ? { name: currentName, idFile: fileObj } : fileObj,
+                        )
+                      }
+                    }}
+                    onRemove={() => {
+                      setFileUploads((prev) => ({
+                        ...prev,
+                        [`${question.id}_single_id_upload`]: {
+                          file: null,
+                          fileName: "",
+                          error: undefined,
+                        },
+                      }))
+                      // Clear file but keep name
+                      const currentName =
+                        typeof value === "string" ? value : value?.name || ""
+                      onChange?.(currentName || null)
+                      const fileInput = document.getElementById(
+                        `${question.id}_single_id_upload`,
+                      ) as HTMLInputElement
+                      if (fileInput) {
+                        fileInput.value = ""
+                      }
+                    }}
+                  />
                 )
               })()}
             </div>
@@ -2107,107 +2037,84 @@ export const QuestionRenderer = ({
 
     return (
       <div>
-        <div className="space-y-2">
-          <input
-            type="file"
-            id={`${question.id}_purchase_agreement_file`}
-            className="hidden"
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-            disabled={disabled}
-            multiple
-            onChange={(e) => {
-              const files = Array.from(e.target.files || [])
-              const fileKey = `${question.id}_purchase_agreement`
-              const fileError = validateMultipleFiles(
-                files,
-                3,
-                10 * 1024 * 1024,
-              )
-              setFileUploads((prev) => ({
-                ...prev,
-                [fileKey]: {
-                  files,
-                  fileNames: files.map((f) => f.name),
-                  error: fileError || undefined,
-                },
-              }))
-              if (!fileError && files.length > 0) {
-                onChange?.(files.length === 1 ? files[0] : files)
-              } else if (files.length === 0) {
-                onChange?.(null)
+        <FileUploadInput
+          id={`${question.id}_purchase_agreement_file`}
+          label="Purchase Agreement"
+          required={isRequired}
+          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+          multiple
+          disabled={disabled}
+          value={fileData.files}
+          fileNames={fileData.fileNames}
+          error={fileData.error || error}
+          maxFiles={3}
+          maxSize={10 * 1024 * 1024}
+          onChange={(files) => {
+            const fileArray = Array.isArray(files) ? files : files ? [files] : []
+            const fileKey = `${question.id}_purchase_agreement`
+            const fileError = validateMultipleFiles(
+              fileArray,
+              3,
+              10 * 1024 * 1024,
+            )
+            setFileUploads((prev) => ({
+              ...prev,
+              [fileKey]: {
+                files: fileArray,
+                fileNames: fileArray.map((f) => f.name),
+                error: fileError || undefined,
+              },
+            }))
+            if (!fileError && fileArray.length > 0) {
+              onChange?.(fileArray.length === 1 ? fileArray[0] : fileArray)
+            } else if (fileArray.length === 0) {
+              onChange?.(null)
+            }
+          }}
+          onRemove={(index) => {
+            const newFiles = [...fileData.files]
+            const newFileNames = [...fileData.fileNames]
+            if (index !== undefined) {
+              newFiles.splice(index, 1)
+              newFileNames.splice(index, 1)
+            } else {
+              newFiles.length = 0
+              newFileNames.length = 0
+            }
+            const fileKey = `${question.id}_purchase_agreement`
+            setFileUploads((prev) => ({
+              ...prev,
+              [fileKey]:
+                newFiles.length > 0
+                  ? {
+                      files: newFiles,
+                      fileNames: newFileNames,
+                      error: undefined,
+                    }
+                  : {
+                      files: [],
+                      fileNames: [],
+                      error: undefined,
+                    },
+            }))
+            if (newFiles.length > 0) {
+              onChange?.(newFiles.length === 1 ? newFiles[0] : newFiles)
+            } else {
+              onChange?.(null)
+              const fileInput = document.getElementById(
+                `${question.id}_purchase_agreement_file`,
+              ) as HTMLInputElement
+              if (fileInput) {
+                fileInput.value = ""
               }
-            }}
-            data-field-id={question.id}
-          />
-          <div className="flex max-w-md items-center gap-2">
-            <label
-              htmlFor={`${question.id}_purchase_agreement_file`}
-              className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center"
-            >
-              <p className="text-sm text-gray-500">
-                📎 Upload Purchase Agreement {!isRequired && "(Optional)"}
-              </p>
-            </label>
-          </div>
-          {fileData.fileNames.length > 0 && (
-            <div className="space-y-2">
-              {fileData.fileNames.map((fileName, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const newFiles = [...fileData.files]
-                      const newFileNames = [...fileData.fileNames]
-                      newFiles.splice(index, 1)
-                      newFileNames.splice(index, 1)
-                      const fileKey = `${question.id}_purchase_agreement`
-                      setFileUploads((prev) => ({
-                        ...prev,
-                        [fileKey]:
-                          newFiles.length > 0
-                            ? {
-                                files: newFiles,
-                                fileNames: newFileNames,
-                                error: undefined,
-                              }
-                            : {
-                                files: [],
-                                fileNames: [],
-                                error: undefined,
-                              },
-                      }))
-                      if (newFiles.length > 0) {
-                        onChange?.(
-                          newFiles.length === 1 ? newFiles[0] : newFiles,
-                        )
-                      } else {
-                        onChange?.(null)
-                        const fileInput = document.getElementById(
-                          `${question.id}_purchase_agreement_file`,
-                        ) as HTMLInputElement
-                        if (fileInput) {
-                          fileInput.value = ""
-                        }
-                      }
-                    }}
-                    className="h-8 w-8 p-0"
-                    disabled={disabled}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <p className="text-xs text-gray-600">{fileName}</p>
-                </div>
-              ))}
-            </div>
-          )}
+            }
+          }}
+        >
           <span className="text-xs text-gray-500">
             Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files, 10MB
             total)
           </span>
-        </div>
-        {renderError(fileData.error || error)}
+        </FileUploadInput>
       </div>
     )
   }
@@ -2683,16 +2590,6 @@ export const QuestionRenderer = ({
             {attachments && attachments !== "not_required" && (
               <div>
                 <div className="relative inline-block">
-                  <Label className="mb-2 block text-sm font-medium">
-                    {getSubQuestionLabel(
-                      uiConfig,
-                      "supportingDocumentsLabel",
-                      "Supporting Documents:",
-                    )}
-                    {question.required && isSubjectToLoan && (
-                      <span className="ml-1 text-red-500">*</span>
-                    )}
-                  </Label>
                   {renderLabelOverlay(
                     "supportingDocumentsLabel",
                     getSubQuestionLabel(
@@ -2702,142 +2599,113 @@ export const QuestionRenderer = ({
                     ),
                   )}
                 </div>
-                <div className="space-y-2">
-                  <input
-                    type="file"
-                    id={`${question.id}_supporting_docs`}
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    disabled={disabled}
-                    multiple
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files || [])
-                      const fileError = validateMultipleFiles(
-                        files,
-                        3,
-                        10 * 1024 * 1024,
-                      )
-                      const fileKey = `${question.id}_supporting_docs`
-                      setFileUploads((prev) => ({
-                        ...prev,
-                        [fileKey]: {
-                          files,
-                          fileNames: files.map((f) => f.name),
-                          error: fileError || undefined,
-                        },
-                      }))
-                      if (!fileError && files.length > 0) {
-                        // Store files in the loanValue object for validation
-                        onChange?.({ ...loanValue, supportingDocs: files })
-                      } else if (files.length === 0) {
-                        onChange?.({ ...loanValue, supportingDocs: null })
-                      }
-                    }}
-                    data-field-id={question.id}
-                  />
-                  <div className="flex max-w-md items-center gap-2">
-                    <label
-                      htmlFor={`${question.id}_supporting_docs`}
-                      className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center"
+                {(() => {
+                  const fileDataRaw =
+                    fileUploads[`${question.id}_supporting_docs`]
+                  const fileData =
+                    fileDataRaw && "files" in fileDataRaw
+                      ? fileDataRaw
+                      : fileDataRaw && "file" in fileDataRaw
+                        ? {
+                            files: fileDataRaw.file ? [fileDataRaw.file] : [],
+                            fileNames: fileDataRaw.fileName
+                              ? [fileDataRaw.fileName]
+                              : [],
+                            error: fileDataRaw.error,
+                          }
+                        : { files: [], fileNames: [], error: undefined }
+                  return (
+                    <FileUploadInput
+                      id={`${question.id}_supporting_docs`}
+                      label="Loan Approval – Pre Approval"
+                      required={question.required && isSubjectToLoan}
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      multiple
+                      disabled={disabled}
+                      value={fileData.files}
+                      fileNames={fileData.fileNames}
+                      error={fileData.error || error}
+                      maxFiles={3}
+                      maxSize={10 * 1024 * 1024}
+                      onChange={(files) => {
+                        const fileArray = Array.isArray(files)
+                          ? files
+                          : files
+                            ? [files]
+                            : []
+                        const fileError = validateMultipleFiles(
+                          fileArray,
+                          3,
+                          10 * 1024 * 1024,
+                        )
+                        const fileKey = `${question.id}_supporting_docs`
+                        setFileUploads((prev) => ({
+                          ...prev,
+                          [fileKey]: {
+                            files: fileArray,
+                            fileNames: fileArray.map((f) => f.name),
+                            error: fileError || undefined,
+                          },
+                        }))
+                        if (!fileError && fileArray.length > 0) {
+                          // Store files in the loanValue object for validation
+                          onChange?.({ ...loanValue, supportingDocs: fileArray })
+                        } else if (fileArray.length === 0) {
+                          onChange?.({ ...loanValue, supportingDocs: null })
+                        }
+                      }}
+                      onRemove={(index) => {
+                        const newFiles = [...fileData.files]
+                        const newFileNames = [...fileData.fileNames]
+                        if (index !== undefined) {
+                          newFiles.splice(index, 1)
+                          newFileNames.splice(index, 1)
+                        } else {
+                          newFiles.length = 0
+                          newFileNames.length = 0
+                        }
+                        const fileKey = `${question.id}_supporting_docs`
+                        setFileUploads((prev) => ({
+                          ...prev,
+                          [fileKey]:
+                            newFiles.length > 0
+                              ? {
+                                  files: newFiles,
+                                  fileNames: newFileNames,
+                                  error: undefined,
+                                }
+                              : {
+                                  files: [],
+                                  fileNames: [],
+                                  error: undefined,
+                                },
+                        }))
+                        if (newFiles.length > 0) {
+                          onChange?.({
+                            ...loanValue,
+                            supportingDocs: newFiles,
+                          })
+                        } else {
+                          onChange?.({
+                            ...loanValue,
+                            supportingDocs: null,
+                          })
+                          const fileInput = document.getElementById(
+                            `${question.id}_supporting_docs`,
+                          ) as HTMLInputElement
+                          if (fileInput) {
+                            fileInput.value = ""
+                          }
+                        }
+                      }}
                     >
-                      <p className="text-sm text-gray-500">
-                        Upload pre-approval documents or supporting evidence
-                      </p>
-                    </label>
-                  </div>
-                  {(() => {
-                    const fileDataRaw =
-                      fileUploads[`${question.id}_supporting_docs`]
-                    const fileData =
-                      fileDataRaw && "files" in fileDataRaw
-                        ? fileDataRaw
-                        : fileDataRaw && "file" in fileDataRaw
-                          ? {
-                              files: fileDataRaw.file ? [fileDataRaw.file] : [],
-                              fileNames: fileDataRaw.fileName
-                                ? [fileDataRaw.fileName]
-                                : [],
-                              error: fileDataRaw.error,
-                            }
-                          : { files: [], fileNames: [], error: undefined }
-                    return (
-                      <>
-                        {fileData.fileNames.length > 0 && (
-                          <div className="space-y-2">
-                            {fileData.fileNames.map((fileName, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center gap-2"
-                              >
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    const newFiles = [...fileData.files]
-                                    const newFileNames = [...fileData.fileNames]
-                                    newFiles.splice(index, 1)
-                                    newFileNames.splice(index, 1)
-                                    const fileKey = `${question.id}_supporting_docs`
-                                    setFileUploads((prev) => ({
-                                      ...prev,
-                                      [fileKey]:
-                                        newFiles.length > 0
-                                          ? {
-                                              files: newFiles,
-                                              fileNames: newFileNames,
-                                              error: undefined,
-                                            }
-                                          : {
-                                              files: [],
-                                              fileNames: [],
-                                              error: undefined,
-                                            },
-                                    }))
-                                    if (newFiles.length > 0) {
-                                      onChange?.({
-                                        ...loanValue,
-                                        supportingDocs: newFiles,
-                                      })
-                                    } else {
-                                      onChange?.({
-                                        ...loanValue,
-                                        supportingDocs: null,
-                                      })
-                                      const fileInput = document.getElementById(
-                                        `${question.id}_supporting_docs`,
-                                      ) as HTMLInputElement
-                                      if (fileInput) {
-                                        fileInput.value = ""
-                                      }
-                                    }
-                                  }}
-                                  className="h-8 w-8 p-0"
-                                  disabled={disabled}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                                <p className="text-xs text-gray-600">
-                                  {fileName}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {fileData.error && (
-                          <p className="mt-1 text-sm text-red-500" role="alert">
-                            {fileData.error}
-                          </p>
-                        )}
-                        <span className="text-xs text-gray-500">
-                          Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max
-                          3 files, 10MB total)
-                        </span>
-                      </>
-                    )
-                  })()}
-                  {renderError(error)}
-                </div>
+                      <span className="text-xs text-gray-500">
+                        Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max
+                        3 files, 10MB total)
+                      </span>
+                    </FileUploadInput>
+                  )
+                })()}
               </div>
             )}
 
@@ -3123,81 +2991,68 @@ export const QuestionRenderer = ({
 
                   {/* File upload for this condition - always at the bottom (show if selected or in form builder for testing) */}
                   {(isSelected || editingMode) && (
-                    <div className="ml-7 space-y-2">
-                      <label className="mb-1 block text-xs font-medium text-gray-700">
-                        Attachments (optional, max 3 files, 10MB total)
-                      </label>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-2"
-                            onClick={() =>
-                              document
-                                .getElementById(
-                                  `${question.id}_condition_${idx}_file_input`,
-                                )
-                                ?.click()
+                    <div className="ml-7">
+                      <FileUploadInput
+                        id={`${question.id}_condition_${idx}_file_input`}
+                        label="Special Conditions"
+                        required={false}
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                        multiple
+                        disabled={disabled || editingMode}
+                        value={fileData.files}
+                        fileNames={fileData.fileNames}
+                        error={fileData.error}
+                        maxFiles={3}
+                        maxSize={10 * 1024 * 1024}
+                        onChange={(files) => {
+                          const fileArray = Array.isArray(files)
+                            ? files
+                            : files
+                              ? [files]
+                              : []
+                          if (fileArray.length === 0) return
+
+                          // Validate files (max 3, total 10MB)
+                          const fileError = validateMultipleFiles(
+                            fileArray,
+                            3,
+                            10 * 1024 * 1024,
+                          )
+
+                          const fileKey = `${question.id}_condition_${idx}_attachments`
+                          setFileUploads((prev) => ({
+                            ...prev,
+                            [fileKey]: {
+                              files: fileArray,
+                              fileNames: fileArray.map((f) => f.name),
+                              error: fileError || undefined,
+                            },
+                          }))
+
+                          if (!fileError && fileArray.length > 0) {
+                            // Ensure we only store actual File objects
+                            const validFiles = fileArray.filter(
+                              (f) => f instanceof File,
+                            )
+                            if (validFiles.length > 0) {
+                              // Update form value with files
+                              onChange?.({
+                                ...specialConditionsValue,
+                                conditionAttachments: {
+                                  ...conditionAttachments,
+                                  [idx]: validFiles,
+                                },
+                              })
                             }
-                            disabled={disabled || editingMode}
-                          >
-                            <FileText size={14} />
-                            Choose files
-                          </Button>
-                          <input
-                            id={`${question.id}_condition_${idx}_file_input`}
-                            type="file"
-                            multiple
-                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                            onChange={(e) => handleConditionFileUpload(idx, e)}
-                            className="hidden"
-                            disabled={disabled || editingMode}
-                            data-field-id={question.id}
-                          />
-                        </div>
-
-                        {/* Display uploaded files */}
-                        {hasFiles && (
-                          <div className="space-y-1">
-                            {fileData.fileNames.map((fileName, fileIdx) => (
-                              <div
-                                key={fileIdx}
-                                className="flex items-center justify-between rounded-md bg-gray-50 p-2"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <FileText
-                                    size={14}
-                                    className="text-gray-500"
-                                  />
-                                  <span className="text-xs text-gray-700">
-                                    {fileName}
-                                  </span>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleRemoveConditionFile(idx, fileIdx)
-                                  }
-                                  disabled={disabled || editingMode}
-                                  className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                                >
-                                  <X size={14} />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {fileData.error && (
-                          <p className="text-xs text-red-500" role="alert">
-                            {fileData.error}
-                          </p>
-                        )}
-                      </div>
+                          }
+                        }}
+                        onRemove={(fileIndex) => {
+                          handleRemoveConditionFile(
+                            idx,
+                            fileIndex !== undefined ? fileIndex : 0,
+                          )
+                        }}
+                      />
                     </div>
                   )}
                 </div>
@@ -3663,124 +3518,105 @@ export const QuestionRenderer = ({
           {renderError(error)}
         </div>
         {allowAttachments && (
-          <div className="space-y-2">
-            <input
-              type="file"
-              id={`${question.id}_message_attachments`}
-              className="hidden"
-              disabled={disabled}
-              multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files || [])
-                const fileError = validateMultipleFiles(
-                  files,
-                  3,
-                  10 * 1024 * 1024,
+          <FileUploadInput
+            id={`${question.id}_message_attachments`}
+            label="Message to Listing Agent"
+            required={false}
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            multiple
+            disabled={disabled}
+            value={attachmentData.files}
+            fileNames={attachmentData.fileNames}
+            error={attachmentData.error}
+            maxFiles={3}
+            maxSize={10 * 1024 * 1024}
+            onChange={(files) => {
+              const fileArray = Array.isArray(files)
+                ? files
+                : files
+                  ? [files]
+                  : []
+              const fileError = validateMultipleFiles(
+                fileArray,
+                3,
+                10 * 1024 * 1024,
+              )
+              setFileUploads((prev) => ({
+                ...prev,
+                [`${question.id}_message_attachments`]: {
+                  files: fileArray,
+                  fileNames: fileArray.map((f) => f.name),
+                  error: fileError || undefined,
+                },
+              }))
+              if (!fileError && fileArray.length > 0) {
+                // Store files separately from message text
+                const currentMessage =
+                  typeof value === "string" ? value : value?.message || ""
+                onChange?.({ message: currentMessage, attachments: fileArray })
+              } else if (fileArray.length === 0) {
+                const currentMessage =
+                  typeof value === "string" ? value : value?.message || ""
+                onChange?.(
+                  currentMessage
+                    ? currentMessage
+                    : { message: "", attachments: [] },
                 )
-                setFileUploads((prev) => ({
-                  ...prev,
-                  [`${question.id}_message_attachments`]: {
-                    files,
-                    fileNames: files.map((f) => f.name),
-                    error: fileError || undefined,
-                  },
-                }))
-                if (!fileError && files.length > 0) {
-                  // Store files separately from message text
-                  const currentMessage =
-                    typeof value === "string" ? value : value?.message || ""
-                  onChange?.({ message: currentMessage, attachments: files })
-                } else if (files.length === 0) {
-                  const currentMessage =
-                    typeof value === "string" ? value : value?.message || ""
-                  onChange?.(
-                    currentMessage
-                      ? currentMessage
-                      : { message: "", attachments: [] },
-                  )
+              }
+            }}
+            onRemove={(index) => {
+              const newFiles = [...attachmentData.files]
+              const newFileNames = [...attachmentData.fileNames]
+              if (index !== undefined) {
+                newFiles.splice(index, 1)
+                newFileNames.splice(index, 1)
+              } else {
+                newFiles.length = 0
+                newFileNames.length = 0
+              }
+              setFileUploads((prev) => ({
+                ...prev,
+                [`${question.id}_message_attachments`]:
+                  newFiles.length > 0
+                    ? {
+                        files: newFiles,
+                        fileNames: newFileNames,
+                        error: undefined,
+                      }
+                    : {
+                        files: [],
+                        fileNames: [],
+                        error: undefined,
+                      },
+              }))
+              // Update attachments in value
+              const currentMessage =
+                typeof value === "string" ? value : value?.message || ""
+              if (newFiles.length > 0) {
+                onChange?.({
+                  message: currentMessage,
+                  attachments: newFiles,
+                })
+              } else {
+                onChange?.(
+                  currentMessage
+                    ? currentMessage
+                    : { message: "", attachments: [] },
+                )
+                const fileInput = document.getElementById(
+                  `${question.id}_message_attachments`,
+                ) as HTMLInputElement
+                if (fileInput) {
+                  fileInput.value = ""
                 }
-              }}
-            />
-            <div className="flex max-w-md items-center gap-2">
-              <label
-                htmlFor={`${question.id}_message_attachments`}
-                className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center transition-colors hover:bg-gray-200"
-              >
-                <p className="text-sm">📎 Attach files (Optional)</p>
-              </label>
-            </div>
-            {attachmentData.fileNames.length > 0 && (
-              <div className="space-y-2">
-                {attachmentData.fileNames.map((fileName, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const newFiles = [...attachmentData.files]
-                        const newFileNames = [...attachmentData.fileNames]
-                        newFiles.splice(index, 1)
-                        newFileNames.splice(index, 1)
-                        setFileUploads((prev) => ({
-                          ...prev,
-                          [`${question.id}_message_attachments`]:
-                            newFiles.length > 0
-                              ? {
-                                  files: newFiles,
-                                  fileNames: newFileNames,
-                                  error: undefined,
-                                }
-                              : {
-                                  files: [],
-                                  fileNames: [],
-                                  error: undefined,
-                                },
-                        }))
-                        // Update attachments in value
-                        const currentMessage =
-                          typeof value === "string"
-                            ? value
-                            : value?.message || ""
-                        if (newFiles.length > 0) {
-                          onChange?.({
-                            message: currentMessage,
-                            attachments: newFiles,
-                          })
-                        } else {
-                          onChange?.(
-                            currentMessage
-                              ? currentMessage
-                              : { message: "", attachments: [] },
-                          )
-                          const fileInput = document.getElementById(
-                            `${question.id}_message_attachments`,
-                          ) as HTMLInputElement
-                          if (fileInput) {
-                            fileInput.value = ""
-                          }
-                        }
-                      }}
-                      className="h-8 w-8 p-0"
-                      disabled={disabled}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                    <p className="text-xs text-gray-600">{fileName}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-            {attachmentData.error && (
-              <p className="mt-1 text-sm text-red-500" role="alert">
-                {attachmentData.error}
-              </p>
-            )}
+              }
+            }}
+          >
             <span className="text-xs text-gray-500">
               Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files,
               10MB total)
             </span>
-          </div>
+          </FileUploadInput>
         )}
       </div>
     )
@@ -4849,17 +4685,19 @@ export const QuestionRenderer = ({
             }}
             data-field-id={question.id}
           />
-          <div className="flex max-w-md items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <label
               htmlFor={`${question.id}_file_input`}
-              className="flex-1 cursor-pointer rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center transition-colors hover:bg-gray-200"
+              className={cn(
+                "cursor-pointer rounded-md border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-900 transition-colors",
+                disabled && "cursor-not-allowed opacity-50",
+                !disabled && "hover:bg-gray-200",
+              )}
             >
-              <p className="text-sm">📎 Upload files</p>
+              Choose file
             </label>
-          </div>
-          {fileData.fileNames.length > 0 && (
-            <div className="space-y-2">
-              {fileData.fileNames.map((fileName, index) => (
+            {fileData.fileNames.length > 0 &&
+              fileData.fileNames.map((fileName, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <Button
                     type="button"
@@ -4908,8 +4746,7 @@ export const QuestionRenderer = ({
                   <p className="text-xs text-gray-600">{fileName}</p>
                 </div>
               ))}
-            </div>
-          )}
+          </div>
           <span className="text-xs text-gray-500">
             Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files, 10MB
             total)
