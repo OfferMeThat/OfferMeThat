@@ -123,7 +123,9 @@ export async function getFilteredListings(
   return filteredListings
 }
 
-export async function deleteListings(listingIds: string[]): Promise<{ success: boolean; error?: string }> {
+export async function deleteListings(
+  listingIds: string[],
+): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
 
   try {
@@ -146,7 +148,62 @@ export async function deleteListings(listingIds: string[]): Promise<{ success: b
       }
     }
 
-    // Delete listings that belong to the current user
+    // First, fetch the listings to get their addresses before deletion
+    const { data: listingsToDelete, error: fetchError } = await supabase
+      .from("listings")
+      .select("id, address")
+      .in("id", listingIds)
+      .eq("createdBy", user.id)
+
+    if (fetchError) {
+      console.error("Error fetching listings:", fetchError)
+      return {
+        success: false,
+        error: fetchError.message || "Failed to fetch listings",
+      }
+    }
+
+    if (!listingsToDelete || listingsToDelete.length === 0) {
+      return {
+        success: false,
+        error:
+          "No listings were found. Please ensure you own the selected listings.",
+      }
+    }
+
+    // Create a map of listing ID to address for quick lookup
+    const listingAddressMap = new Map<string, string>()
+    listingsToDelete.forEach((listing) => {
+      listingAddressMap.set(listing.id, listing.address)
+    })
+
+    // For each listing being deleted, update all offers that reference it
+    // Set listingId to null, status to "unassigned", and store the listing address in customListingAddress
+    for (const listingId of listingIds) {
+      const listingAddress = listingAddressMap.get(listingId)
+
+      if (listingAddress) {
+        // Update all offers that reference this listing
+        const { error: updateError } = await supabase
+          .from("offers")
+          .update({
+            listingId: null,
+            customListingAddress: listingAddress,
+            status: "unassigned",
+          })
+          .eq("listingId", listingId)
+
+        if (updateError) {
+          console.error(
+            `Error updating offers for listing ${listingId}:`,
+            updateError,
+          )
+          // Continue with deletion even if update fails, but log the error
+        }
+      }
+    }
+
+    // Now delete the listings
     const { data, error } = await supabase
       .from("listings")
       .delete()
@@ -165,15 +222,20 @@ export async function deleteListings(listingIds: string[]): Promise<{ success: b
     // Verify that listings were actually deleted
     const deletedCount = data?.length || 0
     if (deletedCount === 0) {
-      console.error("No listings were deleted. Possible reasons: listings don't exist, user doesn't own them, or RLS policy blocked deletion.")
+      console.error(
+        "No listings were deleted. Possible reasons: listings don't exist, user doesn't own them, or RLS policy blocked deletion.",
+      )
       return {
         success: false,
-        error: "No listings were deleted. Please ensure you own the selected listings.",
+        error:
+          "No listings were deleted. Please ensure you own the selected listings.",
       }
     }
 
     if (deletedCount < listingIds.length) {
-      console.warn(`Only ${deletedCount} out of ${listingIds.length} listings were deleted.`)
+      console.warn(
+        `Only ${deletedCount} out of ${listingIds.length} listings were deleted.`,
+      )
     }
 
     return { success: true }
@@ -231,15 +293,20 @@ export async function updateListingsStatus(
     // Verify that listings were actually updated
     const updatedCount = data?.length || 0
     if (updatedCount === 0) {
-      console.error("No listings were updated. Possible reasons: listings don't exist, user doesn't own them, or RLS policy blocked update.")
+      console.error(
+        "No listings were updated. Possible reasons: listings don't exist, user doesn't own them, or RLS policy blocked update.",
+      )
       return {
         success: false,
-        error: "No listings were updated. Please ensure you own the selected listings.",
+        error:
+          "No listings were updated. Please ensure you own the selected listings.",
       }
     }
 
     if (updatedCount < listingIds.length) {
-      console.warn(`Only ${updatedCount} out of ${listingIds.length} listings were updated.`)
+      console.warn(
+        `Only ${updatedCount} out of ${listingIds.length} listings were updated.`,
+      )
     }
 
     return { success: true }
