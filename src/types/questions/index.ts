@@ -72,3 +72,34 @@ export {
   areAllIdFilesProvided,
 } from "./nameOfPurchaser"
 
+// Subject to Loan Approval Question Schema
+export type {
+  LoanAmountType,
+  LenderDetailsRequirement,
+  AttachmentsRequirement,
+  LoanApprovalDueDateManagement,
+  FinanceCommunications,
+  EvidenceOfFundsRequirement,
+  SubjectToLoanApprovalSetupConfig,
+  LoanAmountTypeSelection,
+  LenderDetailsData,
+  LoanApprovalDueDateData,
+  SubjectToLoanData,
+  NotSubjectToLoanData,
+  SubjectToLoanApprovalCollectedData,
+} from "./subjectToLoanApproval"
+
+export {
+  isSubjectToLoan,
+  isNotSubjectToLoan,
+  isLoanAmountRequired,
+  isLenderDetailsRequired,
+  isAttachmentsRequired,
+  isEvidenceOfFundsRequired,
+  isLoanApprovalDueRequired,
+  allowsLoanAmountChoice,
+  allowsUnknownLender,
+  getDataFieldName as getLoanDataFieldName,
+  isLenderDetailsComplete,
+} from "./subjectToLoanApproval"
+

@@ -302,6 +302,10 @@ export interface MessageToAgentData {
 
 // ==================== Subject to Loan Approval ====================
 
+/**
+ * @deprecated Use SubjectToLoanApprovalCollectedData from subjectToLoanApproval.ts instead
+ * This type is kept for backward compatibility
+ */
 export interface SubjectToLoanApprovalData {
   // Whether subject to loan approval
   subjectToLoanApproval?: "yes" | "no" | boolean
@@ -337,3 +341,20 @@ export interface SubjectToLoanApprovalData {
   // Additional fields
   [key: string]: any
 }
+
+// Re-export new schema types for convenience
+export type {
+  SubjectToLoanApprovalSetupConfig,
+  SubjectToLoanApprovalCollectedData,
+  SubjectToLoanData,
+  NotSubjectToLoanData,
+  LenderDetailsData,
+  LoanApprovalDueDateData,
+  LoanAmountType,
+  LenderDetailsRequirement,
+  AttachmentsRequirement,
+  LoanApprovalDueDateManagement,
+  FinanceCommunications,
+  EvidenceOfFundsRequirement,
+  LoanAmountTypeSelection,
+} from "./questions/subjectToLoanApproval"

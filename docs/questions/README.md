@@ -26,6 +26,17 @@ Comprehensive schema for name of purchaser questions, covering:
 
 **Schema Location**: `src/types/questions/nameOfPurchaser.ts`
 
+### [Subject to Loan Approval Question](./subjectToLoanApproval.md)
+
+Comprehensive schema for subject to loan approval questions, covering:
+
+- Setup configuration (loan amount, lender details, attachments, due dates, evidence of funds)
+- Collected data variants (subject to loan vs not subject to loan)
+- Field-level optionality/mandatory handling
+- Conditional field display based on main question answer
+
+**Schema Location**: `src/types/questions/subjectToLoanApproval.ts`
+
 ## Schema Structure
 
 Each question type schema follows a consistent structure:
@@ -60,6 +71,12 @@ import type {
   NameOfPurchaserCollectedData,
   IndividualNamesPurchaserDataVariant,
 } from "@/types/questions/nameOfPurchaser"
+
+import type {
+  SubjectToLoanApprovalSetupConfig,
+  SubjectToLoanApprovalCollectedData,
+  SubjectToLoanData,
+} from "@/types/questions/subjectToLoanApproval"
 ```
 
 ## Adding New Question Schemas

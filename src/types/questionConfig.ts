@@ -67,16 +67,12 @@ export interface DepositSetupConfig {
   inst2_holding_details?: string
 }
 
-export interface SubjectToLoanApprovalSetupConfig {
-  loan_amount_type?: "fixed_amount" | "percentage" | "amount_or_percentage" | "no_amount"
-  lender_details?: "required" | "optional" | "not_required"
-  attachments?: "optional" | "required" | "not_required"
-  loan_approval_due?: "no_due_date" | "calendar" | "datetime" | "buyer_text" | "seller_text" | "within_time" | "custom"
-  finance_approval_due_date?: string
-  finance_communications?: "referral_partner" | "self_manage" | "no_thanks"
-  lead_recipient_email?: string
-  evidence_of_funds?: "optional" | "required" | "not_required"
-}
+/**
+ * Setup configuration for Subject to Loan Approval question
+ * Uses the comprehensive schema from subjectToLoanApproval.ts
+ * All fields are optional here to allow partial updates during setup
+ */
+export type SubjectToLoanApprovalSetupConfig = import("./questions/subjectToLoanApproval").SubjectToLoanApprovalSetupConfig
 
 export interface SpecialConditionsSetupConfig {
   allow_custom_conditions?: "yes" | "no"
