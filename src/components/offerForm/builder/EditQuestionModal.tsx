@@ -46,6 +46,7 @@ const EditQuestionModal = ({
     setupConfig: QuestionSetupConfig,
     uiConfig?: QuestionUIConfig,
     requiredOverride?: boolean,
+    uiConfigUpdates?: Record<string, any>,
   ) => {
     setIsUpdating(true)
     try {
@@ -55,11 +56,23 @@ const EditQuestionModal = ({
 
       // Update uiConfig if provided
       // For custom questions, this will include the updated label from question_text
-      if (uiConfig) {
-        // Merge with existing uiConfig to preserve any fields not in the new uiConfig
+      // Also merge any field-level required updates
+      const currentUIConfig = (question.uiConfig as Record<string, any>) || {}
+      if (uiConfig || uiConfigUpdates) {
         updates.uiConfig = {
-          ...(question.uiConfig as Record<string, any>),
+          ...currentUIConfig,
           ...uiConfig,
+          ...uiConfigUpdates,
+          // Deep merge subQuestions if both exist
+          ...(uiConfig?.subQuestions || uiConfigUpdates?.subQuestions
+            ? {
+                subQuestions: {
+                  ...(currentUIConfig.subQuestions || {}),
+                  ...(uiConfig?.subQuestions || {}),
+                  ...(uiConfigUpdates?.subQuestions || {}),
+                },
+              }
+            : {}),
         }
       }
 
@@ -129,6 +142,7 @@ const EditQuestionModal = ({
           onCancel={handleClose}
           hideButtons={true}
           mode="edit"
+          currentQuestionRequired={question.required}
         />
       </div>
     )

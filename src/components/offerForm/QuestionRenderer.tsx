@@ -30,6 +30,7 @@ import { BrandingConfig } from "@/types/branding"
 import {
   getSubQuestionLabel,
   getSubQuestionPlaceholder,
+  getSubQuestionRequired,
   parseUIConfig,
   QuestionUIConfig,
 } from "@/types/questionUIConfig"
@@ -112,6 +113,7 @@ interface PersonNameFieldsProps {
     currentText: string,
   ) => React.ReactElement | null
   brandingConfig?: BrandingConfig
+  error?: string // Validation error message
 }
 
 const PersonNameFields = ({
@@ -130,6 +132,7 @@ const PersonNameFields = ({
   renderLabelOverlay,
   renderEditOverlay,
   brandingConfig,
+  error,
 }: PersonNameFieldsProps) => {
   const nameData = nameFields[prefix] || {
     firstName: "",
@@ -137,6 +140,12 @@ const PersonNameFields = ({
     lastName: "",
     skipMiddleName: false,
   }
+  
+  // Determine if ID is mandatory (check field-level required first, then setup config)
+  const isIdMandatory =
+    getSubQuestionRequired(uiConfig, "idUploadLabel") ??
+    (collectId === "mandatory" && questionRequired)
+  
   // Use top-level fileUploads state with question id prefix to avoid conflicts
   const fileDataRaw = fileUploads[`${questionId}_${prefix}_id`]
   const fileData: { file: File | null; fileName: string; error?: string } =
@@ -153,6 +162,57 @@ const PersonNameFields = ({
             fileName: "",
             error: undefined,
           }
+  
+  // Parse error message to extract field-specific errors
+  const getFieldError = (fieldName: "firstName" | "lastName" | "idFile") => {
+    if (!error || editingMode) return undefined
+    
+    // Check if error is related to name fields
+    if (fieldName === "firstName" || fieldName === "lastName") {
+      if (
+        error.includes("First name") ||
+        error.includes("Last name") ||
+        error.includes("name is required") ||
+        error.includes("name are required")
+      ) {
+        // If error mentions both names, show for both fields
+        if (error.includes("First name and last name")) {
+          return error
+        }
+        // If error is specific to first name
+        if (fieldName === "firstName" && error.includes("First name")) {
+          return error.includes("First name and last name")
+            ? error
+            : "First name is required"
+        }
+        // If error is specific to last name
+        if (fieldName === "lastName" && error.includes("Last name")) {
+          return error.includes("First name and last name")
+            ? error
+            : "Last name is required"
+        }
+        // Generic name error
+        if (error.includes("name") && !error.includes("ID")) {
+          return fieldName === "firstName"
+            ? "First name is required"
+            : "Last name is required"
+        }
+      }
+    }
+    
+    // Check if error is related to ID file
+    if (fieldName === "idFile") {
+      if (error.includes("ID") || error.includes("idFile") || error.includes("identification")) {
+        return error
+      }
+    }
+    
+    return undefined
+  }
+  
+  const firstNameError = getFieldError("firstName")
+  const lastNameError = getFieldError("lastName")
+  const idFileError = getFieldError("idFile") || fileData.error
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
@@ -226,6 +286,9 @@ const PersonNameFields = ({
         <div className="relative inline-block">
           <Label className="mb-1 block text-sm">
             {getLabel(firstNameLabelId, "firstNameLabel", "First Name:")}
+            {isIdMandatory && (
+              <span className="font-bold text-red-500"> *</span>
+            )}
           </Label>
           {renderLabelOverlay(
             firstNameLabelId,
@@ -272,6 +335,11 @@ const PersonNameFields = ({
             ),
           )}
         </div>
+        {firstNameError && !editingMode && (
+          <p className="mt-1 text-sm text-red-500" role="alert">
+            {firstNameError}
+          </p>
+        )}
       </div>
       {shouldShowMiddleName && (
         <>
@@ -283,6 +351,9 @@ const PersonNameFields = ({
                     middleNameLabelId,
                     "middleNameLabel",
                     "Middle Name:",
+                  )}
+                  {isIdMandatory && (
+                    <span className="font-bold text-red-500"> *</span>
                   )}
                 </Label>
                 {renderLabelOverlay(
@@ -379,6 +450,9 @@ const PersonNameFields = ({
         <div className="relative inline-block">
           <Label className="mb-1 block text-sm">
             {getLabel(lastNameLabelId, "lastNameLabel", "Last Name:")}
+            {isIdMandatory && (
+              <span className="font-bold text-red-500"> *</span>
+            )}
           </Label>
           {renderLabelOverlay(
             lastNameLabelId,
@@ -424,6 +498,11 @@ const PersonNameFields = ({
             ),
           )}
         </div>
+        {lastNameError && !editingMode && (
+          <p className="mt-1 text-sm text-red-500" role="alert">
+            {lastNameError}
+          </p>
+        )}
       </div>
       {collectId && collectId !== "no" && (
         <div>
@@ -436,12 +515,17 @@ const PersonNameFields = ({
           <FileUploadInput
             id={`${questionId}_${prefix}_id_file`}
             label={getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload")}
-            required={collectId === "mandatory" && questionRequired}
+            required={
+              // Check field-level required from uiConfig first
+              getSubQuestionRequired(uiConfig, "idUploadLabel") ??
+              // Fall back to setup config
+              (collectId === "mandatory" && questionRequired)
+            }
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             disabled={editingMode}
             value={fileData.file}
             fileNames={fileData.fileName ? [fileData.fileName] : []}
-            error={fileData.error}
+            error={idFileError}
             onChange={(file) => {
               const fileKey = `${questionId}_${prefix}_id`
               const fileObj = Array.isArray(file) ? file[0] : file
@@ -1460,7 +1544,12 @@ export const QuestionRenderer = ({
                   <FileUploadInput
                     id={`${question.id}_single_id_upload`}
                     label="ID Upload"
-                    required={collectId === "mandatory" && question.required}
+                    required={
+                      // Check field-level required from uiConfig first
+                      getSubQuestionRequired(uiConfig, "idUploadLabel") ??
+                      // Fall back to setup config
+                      (collectId === "mandatory" && question.required)
+                    }
                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                     disabled={disabled}
                     value={fileData.file}
@@ -1652,6 +1741,7 @@ export const QuestionRenderer = ({
               renderLabelOverlay={renderLabelOverlay}
               renderEditOverlay={renderEditOverlay}
               brandingConfig={brandingConfig}
+              error={error}
             />
           </div>
         )}
@@ -1707,6 +1797,7 @@ export const QuestionRenderer = ({
                     renderLabelOverlay={renderLabelOverlay}
                     renderEditOverlay={renderEditOverlay}
                     brandingConfig={brandingConfig}
+                    error={error}
                   />
                 </div>
               ),
@@ -1811,6 +1902,7 @@ export const QuestionRenderer = ({
                       renderLabelOverlay={renderLabelOverlay}
                       renderEditOverlay={renderEditOverlay}
                       brandingConfig={brandingConfig}
+                      error={error}
                     />
                   </div>
                 ),
@@ -1883,6 +1975,7 @@ export const QuestionRenderer = ({
                       renderLabelOverlay={renderLabelOverlay}
                       renderEditOverlay={renderEditOverlay}
                       brandingConfig={brandingConfig}
+                      error={error}
                     />
                   )}
 
@@ -1981,6 +2074,7 @@ export const QuestionRenderer = ({
                         renderLabelOverlay={renderLabelOverlay}
                         renderEditOverlay={renderEditOverlay}
                         brandingConfig={brandingConfig}
+                        error={error}
                       />
                     </div>
                   )}
@@ -2333,6 +2427,19 @@ export const QuestionRenderer = ({
                         "companyNameLabel",
                         "Company Name:",
                       )}
+                      {(() => {
+                        // Check field-level required from uiConfig first
+                        const fieldRequired = getSubQuestionRequired(
+                          uiConfig,
+                          "lenderDetails",
+                        )
+                        // Fall back to setup config
+                        const isRequired =
+                          fieldRequired ?? lenderDetails === "required"
+                        return isRequired ? (
+                          <span className="font-bold text-red-500"> *</span>
+                        ) : null
+                      })()}
                     </Label>
                     {renderLabelOverlay(
                       "companyNameLabel",
@@ -2598,7 +2705,13 @@ export const QuestionRenderer = ({
                     <FileUploadInput
                       id={`${question.id}_supporting_docs`}
                       label="Loan Approval – Pre Approval"
-                      required={question.required && isSubjectToLoan}
+                      required={
+                        // Check field-level required from uiConfig first
+                        getSubQuestionRequired(uiConfig, "loan_attachments") ??
+                        // Fall back to setup config and question required
+                        (attachments === "required" ||
+                          (question.required && isSubjectToLoan))
+                      }
                       accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                       multiple
                       disabled={disabled}
@@ -2778,6 +2891,160 @@ export const QuestionRenderer = ({
             )}
           </>
         )}
+
+        {/* Proof of Funds - shown when "No" is selected */}
+        {!isSubjectToLoan &&
+          setupConfig.evidence_of_funds &&
+          setupConfig.evidence_of_funds !== "not_required" && (
+            <div>
+              <div className="relative inline-block">
+                <Label className="mb-2 block text-sm font-medium">
+                  {getSubQuestionLabel(
+                    uiConfig,
+                    "evidenceOfFundsLabel",
+                    "Evidence of Funds:",
+                  )}
+                  {(() => {
+                    // Check field-level required from uiConfig first
+                    const fieldRequired = getSubQuestionRequired(
+                      uiConfig,
+                      "evidence_of_funds_attachment",
+                    )
+                    // Fall back to setup config
+                    const isRequired =
+                      fieldRequired ??
+                      setupConfig.evidence_of_funds === "required"
+                    return isRequired ? (
+                      <span className="font-bold text-red-500"> *</span>
+                    ) : null
+                  })()}
+                </Label>
+                {renderLabelOverlay(
+                  "evidenceOfFundsLabel",
+                  getSubQuestionLabel(
+                    uiConfig,
+                    "evidenceOfFundsLabel",
+                    "Evidence of Funds:",
+                  ),
+                )}
+              </div>
+              {(() => {
+                const fileDataRaw =
+                  fileUploads[`${question.id}_evidence_of_funds`]
+                const fileData =
+                  fileDataRaw && "files" in fileDataRaw
+                    ? fileDataRaw
+                    : fileDataRaw && "file" in fileDataRaw
+                      ? {
+                          files: fileDataRaw.file ? [fileDataRaw.file] : [],
+                          fileNames: fileDataRaw.fileName
+                            ? [fileDataRaw.fileName]
+                            : [],
+                          error: fileDataRaw.error,
+                        }
+                      : { files: [], fileNames: [], error: undefined }
+                return (
+                  <FileUploadInput
+                    id={`${question.id}_evidence_of_funds`}
+                    label="Proof of Funds"
+                    required={
+                      // Check field-level required from uiConfig first
+                      getSubQuestionRequired(
+                        uiConfig,
+                        "evidence_of_funds_attachment",
+                      ) ??
+                      // Fall back to setup config
+                      setupConfig.evidence_of_funds === "required"
+                    }
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    multiple
+                    disabled={disabled}
+                    value={fileData.files}
+                    fileNames={fileData.fileNames}
+                    error={fileData.error || error}
+                    maxFiles={3}
+                    maxSize={10 * 1024 * 1024}
+                    onChange={(files) => {
+                      const fileArray = Array.isArray(files)
+                        ? files
+                        : files
+                          ? [files]
+                          : []
+                      const fileError = validateMultipleFiles(
+                        fileArray,
+                        3,
+                        10 * 1024 * 1024,
+                      )
+                      const fileKey = `${question.id}_evidence_of_funds`
+                      setFileUploads((prev) => ({
+                        ...prev,
+                        [fileKey]: {
+                          files: fileArray,
+                          fileNames: fileArray.map((f) => f.name),
+                          error: fileError || undefined,
+                        },
+                      }))
+                      if (fileArray.length > 0) {
+                        onChange?.({
+                          ...loanValue,
+                          evidenceOfFunds: fileArray,
+                        })
+                      } else {
+                        onChange?.({
+                          ...loanValue,
+                          evidenceOfFunds: null,
+                        })
+                      }
+                    }}
+                    onRemove={(index) => {
+                      const newFiles = [...fileData.files]
+                      const newFileNames = [...fileData.fileNames]
+                      if (index !== undefined) {
+                        newFiles.splice(index, 1)
+                        newFileNames.splice(index, 1)
+                      } else {
+                        newFiles.length = 0
+                        newFileNames.length = 0
+                      }
+                      const fileKey = `${question.id}_evidence_of_funds`
+                      setFileUploads((prev) => ({
+                        ...prev,
+                        [fileKey]:
+                          newFiles.length > 0
+                            ? {
+                                files: newFiles,
+                                fileNames: newFileNames,
+                                error: undefined,
+                              }
+                            : {
+                                files: [],
+                                fileNames: [],
+                                error: undefined,
+                              },
+                      }))
+                      if (newFiles.length > 0) {
+                        onChange?.({
+                          ...loanValue,
+                          evidenceOfFunds: newFiles,
+                        })
+                      } else {
+                        onChange?.({
+                          ...loanValue,
+                          evidenceOfFunds: null,
+                        })
+                      }
+                    }}
+                  >
+                    <span className="text-xs text-gray-500">
+                      Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3
+                      files, 10MB total)
+                    </span>
+                  </FileUploadInput>
+                )
+              })()}
+            </div>
+          )}
+
         {renderError(error)}
       </div>
     )

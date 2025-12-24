@@ -30,11 +30,13 @@ interface QuestionSetupFormProps {
     setupConfig: QuestionSetupConfig,
     uiConfig?: QuestionUIConfig,
     requiredOverride?: boolean,
+    uiConfigUpdates?: Record<string, any>,
   ) => void
   onCancel: () => void
   hideButtons?: boolean
   mode?: "add" | "edit"
   questionDefinitions?: Partial<Record<QuestionType, any>>
+  currentQuestionRequired?: boolean
 }
 
 const QuestionSetupForm = ({
@@ -46,6 +48,7 @@ const QuestionSetupForm = ({
   hideButtons = false,
   mode = "add",
   questionDefinitions = OFFER_QUESTION_DEFINITIONS,
+  currentQuestionRequired,
 }: QuestionSetupFormProps) => {
   // Initialize setupConfig with defaults for offerAmount
   const initialConfig = useMemo(() => {
@@ -494,12 +497,13 @@ const QuestionSetupForm = ({
         questionId={questionType}
         initialSetupConfig={initialSetupConfig}
         initialUIConfig={initialUIConfig}
-        onComplete={(generated, answers, requiredOverride) => {
-          onComplete(answers, generated, requiredOverride)
+        onComplete={(generated, answers, requiredOverride, uiConfigUpdates) => {
+          onComplete(answers, generated, requiredOverride, uiConfigUpdates)
         }}
         onCancel={onCancel}
         hideButtons={hideButtons}
         mode={mode}
+        currentQuestionRequired={currentQuestionRequired}
       />
     )
   }

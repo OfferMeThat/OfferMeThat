@@ -159,12 +159,14 @@ interface SmartQuestionSetupProps {
     generatedProperties: any,
     answers: Record<string, any>,
     requiredOverride?: boolean,
+    uiConfigUpdates?: Record<string, any>,
   ) => void
   onCancel: () => void
   hideButtons?: boolean
   initialSetupConfig?: Record<string, any>
   initialUIConfig?: Record<string, any>
   mode?: "add" | "edit"
+  currentQuestionRequired?: boolean // Pass current question required status
 }
 
 const SmartQuestionSetup = ({
@@ -175,6 +177,7 @@ const SmartQuestionSetup = ({
   initialSetupConfig = {},
   initialUIConfig = {},
   mode = "add",
+  currentQuestionRequired,
 }: SmartQuestionSetupProps) => {
   const [answers, setAnswers] = useState<Record<string, any>>(() => {
     // Initialize with initial config in edit mode, empty otherwise
@@ -273,18 +276,44 @@ const SmartQuestionSetup = ({
 
       // Determine required status based on mandatory settings in answers
       let requiredOverride: boolean | undefined = undefined
+      let uiConfigUpdates: Record<string, any> | undefined = undefined
       const answers = answersRef.current
 
       // Check for mandatory/optional settings that should affect question required status
       // Name of Purchaser - collect_identification
       if (smartQuestion.id === "name_of_purchaser") {
         if (answers.collect_identification === "mandatory") {
+          // If ID is mandatory, question should be required
           requiredOverride = true
+          // Also set field-level required to true
+          uiConfigUpdates = {
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              idUploadLabel: {
+                ...(initialUIConfig.subQuestions?.idUploadLabel || {}),
+                required: true,
+              },
+            },
+          }
         } else if (
           answers.collect_identification === "optional" ||
           answers.collect_identification === "no"
         ) {
-          requiredOverride = false
+          // If ID is optional, only update field-level required, NOT question-level
+          // This allows the question to remain mandatory while the field is optional
+          // Always update field-level required to false, regardless of question required status
+          uiConfigUpdates = {
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              idUploadLabel: {
+                ...(initialUIConfig.subQuestions?.idUploadLabel || {}),
+                required: false,
+              },
+            },
+          }
+          // Don't set requiredOverride - keep question required status as it was
+          // The question should remain mandatory/optional based on its current state,
+          // not based on ID collection setting
         }
       }
 
@@ -315,7 +344,7 @@ const SmartQuestionSetup = ({
         }
       }
 
-      onComplete(generatedProperties, answersRef.current, requiredOverride)
+      onComplete(generatedProperties, answersRef.current, requiredOverride, uiConfigUpdates)
     } catch (error) {
       console.error("Error in handleSave:", error)
       isSavingRef.current = false

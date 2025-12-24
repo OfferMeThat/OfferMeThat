@@ -190,11 +190,14 @@ export const buildQuestionValidation = (
         (question.setupConfig as Record<string, any>) || {}
       const collectionMethod = nameOfPurchaserSetup.collection_method
       const collectIdentification = nameOfPurchaserSetup.collect_identification
-      // ID is required ONLY if BOTH:
-      // 1. collect_identification is exactly "mandatory" AND
-      // 2. The question itself is required
-      // If the question is not required (even if collect_identification is "mandatory"), ID is NOT required
-      const idRequired = collectIdentification === "mandatory" && required
+      
+      // Check field-level required from uiConfig first, then fall back to setup config
+      const uiConfigData = config as Record<string, any> | null
+      const fieldLevelRequired = uiConfigData?.subQuestions?.idUploadLabel?.required
+      const idRequired =
+        fieldLevelRequired !== undefined
+          ? fieldLevelRequired
+          : collectIdentification === "mandatory" && required
 
       if (collectionMethod === "single_field") {
         // For single field, can be string or object with name/idFile
@@ -230,12 +233,10 @@ export const buildQuestionValidation = (
                 })
               }
 
-              // Validate ID file ONLY if BOTH collect_identification is "mandatory" AND question is required
-              // If collect_identification is "optional" or "no", or if question is not required, skip this validation
+              // Validate ID file if ID is required (check field-level first, then setup config)
               // Only require ID file if name is provided (user has filled in the name)
               if (
-                collectIdentification === "mandatory" &&
-                required &&
+                idRequired &&
                 name &&
                 name.trim() &&
                 !(value as any).idFile
@@ -283,7 +284,8 @@ export const buildQuestionValidation = (
             }
 
             // Validate nameFields - at least one name must be filled
-            if (required) {
+            // If question is required OR ID is mandatory, names are required
+            if (required || idRequired) {
               const nameFields = obj.nameFields
               if (!nameFields || typeof nameFields !== "object") {
                 return this.createError({
@@ -307,15 +309,42 @@ export const buildQuestionValidation = (
               )
 
               if (!hasValidName) {
+                // If ID is mandatory, show specific message about name fields being required
+                const errorMessage = idRequired
+                  ? "First name and last name are required when ID is mandatory"
+                  : "First name and last name are required"
                 return this.createError({
-                  message: "First name and last name are required",
+                  message: errorMessage,
                 })
+              }
+              
+              // If ID is mandatory, validate that each person with a name has firstName and lastName
+              if (idRequired) {
+                const missingNames: string[] = []
+                Object.entries(nameFields).forEach(([prefix, nameData]: [string, any]) => {
+                  if (nameData && typeof nameData === "object") {
+                    const firstName = nameData.firstName
+                    const lastName = nameData.lastName
+                    // If either firstName or lastName is missing or empty, this person needs both
+                    if (
+                      (!firstName || !firstName.trim()) ||
+                      (!lastName || !lastName.trim())
+                    ) {
+                      missingNames.push(prefix)
+                    }
+                  }
+                })
+                
+                if (missingNames.length > 0) {
+                  return this.createError({
+                    message: "First name and last name are required for all purchasers when ID is mandatory",
+                  })
+                }
               }
             }
 
-            // Validate ID files ONLY if BOTH collect_identification is "mandatory" AND question is required
-            // If collect_identification is "optional" or "no", or if question is not required, skip this validation entirely
-            if (collectIdentification === "mandatory" && required) {
+            // Validate ID files if ID is required (check field-level first, then setup config)
+            if (idRequired) {
               const idFiles = obj.idFiles || {}
               const nameFields = obj.nameFields || {}
 
