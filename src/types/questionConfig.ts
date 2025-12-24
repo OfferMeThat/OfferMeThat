@@ -1,4 +1,5 @@
 import { QuestionType } from "./form"
+import type { NameOfPurchaserSetupConfig as NameOfPurchaserSetupConfigSchema } from "./questions/nameOfPurchaser"
 
 /**
  * Reusable type structures for question setup and configuration
@@ -12,11 +13,12 @@ export interface BaseUIConfig {
 }
 
 // Setup Config Types for different question types
-export interface NameOfPurchaserSetupConfig {
-  collection_method?: "single_field" | "individual_names"
-  collect_middle_names?: "yes" | "no"
-  collect_identification?: "mandatory" | "optional" | "no"
-}
+/**
+ * Setup configuration for Name of Purchaser question
+ * Uses the comprehensive schema from nameOfPurchaserQuestionSchema.ts
+ * All fields are optional here to allow partial updates during setup
+ */
+export type NameOfPurchaserSetupConfig = Partial<NameOfPurchaserSetupConfigSchema>
 
 export interface AttachPurchaseAgreementSetupConfig {
   contract_requirement?: "required" | "optional"

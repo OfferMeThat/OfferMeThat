@@ -5,12 +5,20 @@
 
 // ==================== Purchaser Data ====================
 
+/**
+ * @deprecated Use NameOfPurchaserCollectedData from nameOfPurchaserQuestionSchema.ts instead
+ * This type is kept for backward compatibility
+ */
 export interface SingleFieldPurchaser {
   method: "single_field"
   name: string
   idFileUrl?: string
 }
 
+/**
+ * @deprecated Use IndividualNamesPurchaserDataVariant from nameOfPurchaserQuestionSchema.ts instead
+ * This type is kept for backward compatibility
+ */
 export interface IndividualNamesPurchaser {
   method: "individual_names"
   scenario: string
@@ -28,7 +36,30 @@ export interface IndividualNamesPurchaser {
   idFileUrls?: Record<string, string>
 }
 
+/**
+ * @deprecated Use NameOfPurchaserCollectedData from nameOfPurchaserQuestionSchema.ts instead
+ * This type is kept for backward compatibility
+ */
 export type PurchaserData = SingleFieldPurchaser | IndividualNamesPurchaser
+
+// Re-export new schema types for convenience
+export type {
+  NameOfPurchaserSetupConfig,
+  NameOfPurchaserCollectedData,
+  SingleFieldPurchaserData,
+  IndividualNamesPurchaserDataVariant,
+  IndividualNamesPurchaserData,
+  SinglePersonPurchaserData,
+  MultiplePeoplePurchaserData,
+  CorporationPurchaserData,
+  OtherPurchaserData,
+  PersonNameData,
+  PurchaserScenario,
+  PurchaserType,
+  NameCollectionMethod,
+  CollectMiddleNames,
+  CollectIdentification,
+} from "./questions/nameOfPurchaser"
 
 // ==================== Deposit Data ====================
 

@@ -180,6 +180,7 @@ When updating the schema:
 
 ## Related Files
 
+- `src/types/questions/deposit.ts` - Schema definition
 - `src/data/smartQuestions.ts` - Question generation logic
 - `src/components/offerForm/DepositPreview.tsx` - Question rendering
 - `src/types/offerData.ts` - Data collection types
