@@ -140,12 +140,12 @@ const PersonNameFields = ({
     lastName: "",
     skipMiddleName: false,
   }
-  
+
   // Determine if ID is mandatory (check field-level required first, then setup config)
   const isIdMandatory =
     getSubQuestionRequired(uiConfig, "idUploadLabel") ??
     (collectId === "mandatory" && questionRequired)
-  
+
   // Use top-level fileUploads state with question id prefix to avoid conflicts
   const fileDataRaw = fileUploads[`${questionId}_${prefix}_id`]
   const fileData: { file: File | null; fileName: string; error?: string } =
@@ -162,13 +162,13 @@ const PersonNameFields = ({
             fileName: "",
             error: undefined,
           }
-  
+
   // Parse error message to extract field-specific errors
   const getFieldError = (fieldName: "firstName" | "lastName" | "idFile") => {
     if (!error || editingMode) return undefined
-    
+
     const lowerError = error.toLowerCase()
-    
+
     // Check if error is related to name fields
     if (fieldName === "firstName" || fieldName === "lastName") {
       // Check for specific field errors
@@ -212,14 +212,19 @@ const PersonNameFields = ({
             : "Last name is required"
         }
         // Generic name error - show for both fields if ID is mandatory
-        if (isIdMandatory && lowerError.includes("name") && !lowerError.includes("id") && !lowerError.includes("upload")) {
+        if (
+          isIdMandatory &&
+          lowerError.includes("name") &&
+          !lowerError.includes("id") &&
+          !lowerError.includes("upload")
+        ) {
           return fieldName === "firstName"
             ? "First name is required"
             : "Last name is required"
         }
       }
     }
-    
+
     // Check if error is related to ID file
     if (fieldName === "idFile") {
       // Check for various ID-related error messages
@@ -227,8 +232,12 @@ const PersonNameFields = ({
         lowerError.includes("id upload") ||
         lowerError.includes("id file") ||
         lowerError.includes("identification") ||
-        (lowerError.includes("upload") && (lowerError.includes("required") || lowerError.includes("mandatory"))) ||
-        (lowerError.includes("id") && lowerError.includes("required") && !lowerError.includes("name"))
+        (lowerError.includes("upload") &&
+          (lowerError.includes("required") ||
+            lowerError.includes("mandatory"))) ||
+        (lowerError.includes("id") &&
+          lowerError.includes("required") &&
+          !lowerError.includes("name"))
       ) {
         // Check if error mentions a specific purchaser
         if (lowerError.includes("purchaser")) {
@@ -248,35 +257,36 @@ const PersonNameFields = ({
         }
       }
     }
-    
+
     return undefined
   }
-  
+
   // Get field-specific errors from validation
   let firstNameError = getFieldError("firstName")
   let lastNameError = getFieldError("lastName")
   let idFileError = getFieldError("idFile") || fileData.error
-  
+
   // If there's a validation error and ID is mandatory, show errors for empty required fields
   // This ensures errors show even if the validation message is generic
   if (error && isIdMandatory && !editingMode) {
     const lowerError = error.toLowerCase()
-    const hasValidationError = lowerError.includes("required") || 
-                               lowerError.includes("name") || 
-                               lowerError.includes("id") ||
-                               lowerError.includes("upload") ||
-                               lowerError.includes("field")
-    
+    const hasValidationError =
+      lowerError.includes("required") ||
+      lowerError.includes("name") ||
+      lowerError.includes("id") ||
+      lowerError.includes("upload") ||
+      lowerError.includes("field")
+
     // Show firstName error if field is empty and there's a validation error
     if (!firstNameError && !nameData.firstName?.trim() && hasValidationError) {
       firstNameError = "First name is required"
     }
-    
+
     // Show lastName error if field is empty and there's a validation error
     if (!lastNameError && !nameData.lastName?.trim() && hasValidationError) {
       lastNameError = "Last name is required"
     }
-    
+
     // Show ID file error if file is missing and there's a validation error
     if (!idFileError && !fileData.file && hasValidationError) {
       // Always show ID error if there's any validation error and file is missing
@@ -838,14 +848,22 @@ export const QuestionRenderer = ({
 
       if (collectionMethod === "single_field") {
         // For single field, check if value has idFile
-        const valueObj = value && typeof value === "object" && !Array.isArray(value) ? value : null
+        const valueObj =
+          value && typeof value === "object" && !Array.isArray(value)
+            ? value
+            : null
         const idFile = valueObj?.idFile
         const fileKey = `${question.id}_single_id_upload`
-        
+
         if (idFile instanceof File) {
           // Restore file if it exists in value but not in fileUploads
           const existingFileData = fileUploads[fileKey]
-          if (!existingFileData || !existingFileData.file || existingFileData.file !== idFile) {
+          const hasFile = existingFileData && "file" in existingFileData
+          if (
+            !existingFileData ||
+            !hasFile ||
+            existingFileData.file !== idFile
+          ) {
             setFileUploads((prev) => ({
               ...prev,
               [fileKey]: {
@@ -858,26 +876,109 @@ export const QuestionRenderer = ({
         }
       } else if (collectionMethod === "individual_names") {
         // For individual names, restore all ID files from value.idFiles
-        const valueObj = value && typeof value === "object" && !Array.isArray(value) ? value : {}
+        const valueObj =
+          value && typeof value === "object" && !Array.isArray(value)
+            ? value
+            : {}
         const valueIdFiles = valueObj.idFiles || {}
-        
-        Object.entries(valueIdFiles).forEach(([prefix, idFile]: [string, any]) => {
-          if (idFile instanceof File) {
-            const fileKey = `${question.id}_${prefix}_id`
-            const existingFileData = fileUploads[fileKey]
-            // Only restore if not already in fileUploads or if file name is missing
-            if (!existingFileData || !existingFileData.file || existingFileData.file !== idFile) {
-              setFileUploads((prev) => ({
-                ...prev,
-                [fileKey]: {
-                  file: idFile,
-                  fileName: idFile.name,
-                  error: existingFileData?.error,
-                },
-              }))
+
+        Object.entries(valueIdFiles).forEach(
+          ([prefix, idFile]: [string, any]) => {
+            if (idFile instanceof File) {
+              const fileKey = `${question.id}_${prefix}_id`
+              const existingFileData = fileUploads[fileKey]
+              // Only restore if not already in fileUploads or if file name is missing
+              const hasFile = existingFileData && "file" in existingFileData
+              if (
+                !existingFileData ||
+                !hasFile ||
+                existingFileData.file !== idFile
+              ) {
+                setFileUploads((prev) => ({
+                  ...prev,
+                  [fileKey]: {
+                    file: idFile,
+                    fileName: idFile.name,
+                    error: hasFile ? existingFileData.error : undefined,
+                  },
+                }))
+              }
             }
-          }
-        })
+          },
+        )
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.type, question.id, value, editingMode])
+
+  // Restore subjectToLoanApproval files from value prop when navigating between pages
+  useEffect(() => {
+    if (question.type === "subjectToLoanApproval" && !editingMode && value) {
+      const loanValue =
+        value && typeof value === "object" && !Array.isArray(value) ? value : {}
+
+      // Restore supporting documents (when subjectToLoan === "yes")
+      if (loanValue.subjectToLoan === "yes" && loanValue.supportingDocs) {
+        const supportingDocs = Array.isArray(loanValue.supportingDocs)
+          ? loanValue.supportingDocs
+          : [loanValue.supportingDocs]
+        const fileKey = `${question.id}_supporting_docs`
+        const existingFileData = fileUploads[fileKey]
+
+        // Check if files need to be restored
+        const hasFiles = existingFileData && "files" in existingFileData
+        const needsRestore =
+          !existingFileData ||
+          !hasFiles ||
+          existingFileData.files.length === 0 ||
+          existingFileData.files.length !== supportingDocs.length
+
+        if (
+          needsRestore &&
+          supportingDocs.length > 0 &&
+          supportingDocs[0] instanceof File
+        ) {
+          setFileUploads((prev) => ({
+            ...prev,
+            [fileKey]: {
+              files: supportingDocs,
+              fileNames: supportingDocs.map((f: File) => f.name),
+              error: hasFiles ? existingFileData.error : undefined,
+            },
+          }))
+        }
+      }
+
+      // Restore evidence of funds (when subjectToLoan === "no")
+      if (loanValue.subjectToLoan === "no" && loanValue.evidenceOfFunds) {
+        const evidenceOfFunds = Array.isArray(loanValue.evidenceOfFunds)
+          ? loanValue.evidenceOfFunds
+          : [loanValue.evidenceOfFunds]
+        const fileKey = `${question.id}_evidence_of_funds`
+        const existingFileData = fileUploads[fileKey]
+
+        // Check if files need to be restored
+        const hasFiles = existingFileData && "files" in existingFileData
+        const needsRestore =
+          !existingFileData ||
+          !hasFiles ||
+          existingFileData.files.length === 0 ||
+          existingFileData.files.length !== evidenceOfFunds.length
+
+        if (
+          needsRestore &&
+          evidenceOfFunds.length > 0 &&
+          evidenceOfFunds[0] instanceof File
+        ) {
+          setFileUploads((prev) => ({
+            ...prev,
+            [fileKey]: {
+              files: evidenceOfFunds,
+              fileNames: evidenceOfFunds.map((f: File) => f.name),
+              error: hasFiles ? existingFileData.error : undefined,
+            },
+          }))
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1613,7 +1714,7 @@ export const QuestionRenderer = ({
     if (collectionMethod === "single_field") {
       const singleFieldValue =
         typeof value === "string" ? value : value?.name || ""
-      
+
       // Check if there's a validation error for the name field
       let nameError: string | undefined
       if (error && !editingMode) {
@@ -1621,12 +1722,16 @@ export const QuestionRenderer = ({
         if (
           lowerError.includes("name is required") ||
           lowerError.includes("name are required") ||
-          (lowerError.includes("required") && lowerError.includes("name") && !lowerError.includes("id"))
+          (lowerError.includes("required") &&
+            lowerError.includes("name") &&
+            !lowerError.includes("id"))
         ) {
-          nameError = error.includes("Name is required") ? error : "Name is required"
+          nameError = error.includes("Name is required")
+            ? error
+            : "Name is required"
         }
       }
-      
+
       return (
         <div className="space-y-3">
           <div className="relative max-w-md">
@@ -1683,7 +1788,7 @@ export const QuestionRenderer = ({
                           error: fileDataRaw.error,
                         }
                       : { file: null, fileName: "", error: undefined }
-                
+
                 // Check if there's a validation error for ID file
                 let idFileError = fileData.error
                 if (error && !editingMode) {
@@ -1692,12 +1797,15 @@ export const QuestionRenderer = ({
                     lowerError.includes("id upload") ||
                     lowerError.includes("id file") ||
                     lowerError.includes("identification") ||
-                    (lowerError.includes("upload") && lowerError.includes("required"))
+                    (lowerError.includes("upload") &&
+                      lowerError.includes("required"))
                   ) {
-                    idFileError = error.includes("ID upload") ? error : "ID upload is required"
+                    idFileError = error.includes("ID upload")
+                      ? error
+                      : "ID upload is required"
                   }
                 }
-                
+
                 return (
                   <FileUploadInput
                     id={`${question.id}_single_id_upload`}
@@ -2478,18 +2586,115 @@ export const QuestionRenderer = ({
     const isSubjectToLoan = loanValue.subjectToLoan === "yes"
     const knowsLenderDetails = !loanValue.unknownLender
 
+    // Parse error message to extract field-specific errors
+    const getFieldError = (fieldName: string) => {
+      if (!error || editingMode) return undefined
+      const lowerError = error.toLowerCase()
+
+      // Check for specific field errors
+      if (fieldName === "subjectToLoan") {
+        if (
+          lowerError.includes("this field is required") ||
+          lowerError.includes("required")
+        ) {
+          return error.includes("This field is required")
+            ? error
+            : "This field is required"
+        }
+      }
+      if (fieldName === "loanAmount") {
+        if (
+          lowerError.includes("loan amount") ||
+          (lowerError.includes("amount") && lowerError.includes("required"))
+        ) {
+          return error.includes("Loan amount")
+            ? error
+            : "Loan amount is required"
+        }
+      }
+      if (fieldName === "companyName") {
+        if (
+          lowerError.includes("company name") ||
+          (lowerError.includes("lender details") &&
+            lowerError.includes("required"))
+        ) {
+          return error.includes("Company name")
+            ? error
+            : "Company name is required"
+        }
+      }
+      if (fieldName === "contactName") {
+        if (lowerError.includes("contact name")) {
+          return error.includes("Contact name")
+            ? error
+            : "Contact name is required"
+        }
+      }
+      if (fieldName === "contactPhone") {
+        if (lowerError.includes("contact phone")) {
+          return error.includes("Contact phone")
+            ? error
+            : "Contact phone is required"
+        }
+      }
+      if (fieldName === "contactEmail") {
+        if (lowerError.includes("contact email")) {
+          return error.includes("Contact email")
+            ? error
+            : "Contact email is required"
+        }
+      }
+      if (fieldName === "supportingDocs") {
+        if (
+          lowerError.includes("supporting documents") ||
+          lowerError.includes("supporting docs")
+        ) {
+          return error.includes("Supporting documents")
+            ? error
+            : "Supporting documents are required"
+        }
+      }
+      if (fieldName === "loanDueDate") {
+        if (
+          lowerError.includes("loan approval due") ||
+          lowerError.includes("due date")
+        ) {
+          return error.includes("Loan approval due")
+            ? error
+            : "Loan approval due date is required"
+        }
+      }
+      if (fieldName === "evidenceOfFunds") {
+        if (lowerError.includes("evidence of funds")) {
+          return error.includes("Evidence of funds")
+            ? error
+            : "Evidence of funds is required"
+        }
+      }
+
+      return undefined
+    }
+
     return (
       <div className="space-y-4">
         {/* Main question as dropdown */}
         <div>
           <div className="relative inline-block">
-            <Label className="mb-2 block text-sm font-medium">
+            <Label
+              className={cn(
+                "mb-2 block text-sm font-medium",
+                editingMode &&
+                  "cursor-pointer transition-colors hover:text-blue-600",
+              )}
+            >
               {getSubQuestionLabel(
                 uiConfig,
                 "loanApprovalQuestionLabel",
                 "Is your Offer subject to Loan Approval?",
               )}
-              <span className="font-bold text-red-500"> *</span>
+              {question.required && (
+                <span className="font-bold text-red-500"> *</span>
+              )}
             </Label>
             {renderLabelOverlay(
               "loanApprovalQuestionLabel",
@@ -2515,6 +2720,11 @@ export const QuestionRenderer = ({
               <SelectItem value="no">No</SelectItem>
             </SelectContent>
           </Select>
+          {getFieldError("subjectToLoan") && !editingMode && (
+            <p className="mt-1 text-sm text-red-500" role="alert">
+              {getFieldError("subjectToLoan")}
+            </p>
+          )}
         </div>
 
         {/* Show fields only when "Yes" is selected */}
@@ -2522,55 +2732,197 @@ export const QuestionRenderer = ({
           <>
             {/* Loan Amount */}
             {loanAmountType && loanAmountType !== "no_amount" && (
-              <div>
-                <div className="relative inline-block">
-                  <Label className="mb-2 block text-sm font-medium">
-                    {getSubQuestionLabel(
-                      uiConfig,
-                      "loanAmountLabel",
-                      "What is your Loan Amount?",
-                    )}{" "}
-                    <span className="font-bold text-red-500">*</span>
-                  </Label>
-                  {renderLabelOverlay(
-                    "loanAmountLabel",
-                    getSubQuestionLabel(
-                      uiConfig,
-                      "loanAmountLabel",
-                      "What is your Loan Amount?",
-                    ),
-                  )}
-                </div>
-                <div className="relative max-w-md">
-                  <Input
-                    type="text"
-                    placeholder={getSubQuestionPlaceholder(
-                      uiConfig,
-                      "loanAmountPlaceholder",
-                      "Enter amount",
+              <div className="space-y-3">
+                {/* Loan Amount Type Selection (only for amount_or_percentage) */}
+                {loanAmountType === "amount_or_percentage" && (
+                  <div>
+                    <div className="relative inline-block">
+                      <Label className="mb-2 block text-sm font-medium">
+                        How would you like to specify your loan amount?{" "}
+                        <span className="font-bold text-red-500">*</span>
+                      </Label>
+                    </div>
+                    <Select
+                      value={loanValue.loanAmountType || ""}
+                      onValueChange={(val) => {
+                        if (!editingMode) {
+                          onChange?.({
+                            ...loanValue,
+                            loanAmountType: val,
+                            // Clear the other field when switching
+                            loanAmount:
+                              val === "amount"
+                                ? loanValue.loanAmount
+                                : undefined,
+                            loanPercentage:
+                              val === "percentage"
+                                ? loanValue.loanPercentage
+                                : undefined,
+                          })
+                        }
+                      }}
+                      disabled={disabled}
+                    >
+                      <SelectTrigger
+                        className="w-full max-w-md"
+                        style={getSelectStyle()}
+                      >
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="amount">A fixed amount</SelectItem>
+                        <SelectItem value="percentage">
+                          A percentage of purchase price
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Loan Amount Input (for fixed_amount or amount_or_percentage with amount selected) */}
+                {(loanAmountType === "fixed_amount" ||
+                  (loanAmountType === "amount_or_percentage" &&
+                    loanValue.loanAmountType === "amount")) && (
+                  <div>
+                    <div className="relative inline-block">
+                      <Label
+                        className={cn(
+                          "mb-2 block text-sm font-medium",
+                          editingMode &&
+                            "cursor-pointer transition-colors hover:text-blue-600",
+                        )}
+                      >
+                        {getSubQuestionLabel(
+                          uiConfig,
+                          "loanAmountLabel",
+                          "What is your Loan Amount?",
+                        )}{" "}
+                        <span className="font-bold text-red-500">*</span>
+                      </Label>
+                      {renderLabelOverlay(
+                        "loanAmountLabel",
+                        getSubQuestionLabel(
+                          uiConfig,
+                          "loanAmountLabel",
+                          "What is your Loan Amount?",
+                        ),
+                      )}
+                    </div>
+                    <div className="relative max-w-md">
+                      <Input
+                        type="text"
+                        placeholder={getSubQuestionPlaceholder(
+                          uiConfig,
+                          "loanAmountPlaceholder",
+                          "Enter amount",
+                        )}
+                        className={cn(
+                          "w-full",
+                          editingMode && "cursor-not-allowed",
+                        )}
+                        disabled={disabled}
+                        style={getInputStyle()}
+                        value={loanValue.loanAmount || ""}
+                        onChange={(e) => {
+                          if (!editingMode) {
+                            onChange?.({
+                              ...loanValue,
+                              loanAmount: e.target.value,
+                            })
+                          }
+                        }}
+                        data-field-id={`${question.id}_loanAmount`}
+                      />
+                      {renderEditOverlay(
+                        "loanAmountPlaceholder",
+                        getSubQuestionPlaceholder(
+                          uiConfig,
+                          "loanAmountPlaceholder",
+                          "Enter amount",
+                        ),
+                      )}
+                    </div>
+                    {getFieldError("loanAmount") && !editingMode && (
+                      <p className="mt-1 text-sm text-red-500" role="alert">
+                        {getFieldError("loanAmount")}
+                      </p>
                     )}
-                    className={cn(
-                      "w-full",
-                      editingMode && "cursor-not-allowed",
+                  </div>
+                )}
+
+                {/* Loan Percentage Input (for percentage or amount_or_percentage with percentage selected) */}
+                {(loanAmountType === "percentage" ||
+                  (loanAmountType === "amount_or_percentage" &&
+                    loanValue.loanAmountType === "percentage")) && (
+                  <div>
+                    <div className="relative inline-block">
+                      <Label
+                        className={cn(
+                          "mb-2 block text-sm font-medium",
+                          editingMode &&
+                            "cursor-pointer transition-colors hover:text-blue-600",
+                        )}
+                      >
+                        {getSubQuestionLabel(
+                          uiConfig,
+                          "loanAmountLabel",
+                          "What is your Loan Amount?",
+                        )}{" "}
+                        <span className="font-bold text-red-500">*</span>
+                      </Label>
+                      {renderLabelOverlay(
+                        "loanAmountLabel",
+                        getSubQuestionLabel(
+                          uiConfig,
+                          "loanAmountLabel",
+                          "What is your Loan Amount?",
+                        ),
+                      )}
+                    </div>
+                    <div className="relative max-w-md">
+                      <Input
+                        type="text"
+                        placeholder={getSubQuestionPlaceholder(
+                          uiConfig,
+                          "loanAmountPlaceholder",
+                          "Enter percentage",
+                        )}
+                        className={cn(
+                          "w-full",
+                          editingMode && "cursor-not-allowed",
+                        )}
+                        disabled={disabled}
+                        style={getInputStyle()}
+                        value={loanValue.loanPercentage || ""}
+                        onChange={(e) => {
+                          if (!editingMode) {
+                            onChange?.({
+                              ...loanValue,
+                              loanPercentage: e.target.value,
+                            })
+                          }
+                        }}
+                        data-field-id={`${question.id}_loanPercentage`}
+                      />
+                      <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
+                        %
+                      </div>
+                      {renderEditOverlay(
+                        "loanAmountPlaceholder",
+                        getSubQuestionPlaceholder(
+                          uiConfig,
+                          "loanAmountPlaceholder",
+                          "Enter percentage",
+                        ),
+                      )}
+                    </div>
+                    {getFieldError("loanAmount") && !editingMode && (
+                      <p className="mt-1 text-sm text-red-500" role="alert">
+                        {getFieldError("loanAmount")}
+                      </p>
                     )}
-                    disabled={disabled}
-                    style={getInputStyle()}
-                    value={loanValue.loanAmount || ""}
-                    onChange={(e) => {
-                      if (!editingMode) {
-                        onChange?.({ ...loanValue, loanAmount: e.target.value })
-                      }
-                    }}
-                  />
-                  {renderEditOverlay(
-                    "loanAmountPlaceholder",
-                    getSubQuestionPlaceholder(
-                      uiConfig,
-                      "loanAmountPlaceholder",
-                      "Enter amount",
-                    ),
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2579,7 +2931,13 @@ export const QuestionRenderer = ({
               <div className="space-y-2">
                 <div className="flex items-start gap-3">
                   <div className="relative inline-block">
-                    <Label className="w-32 pt-2 text-sm font-medium">
+                    <Label
+                      className={cn(
+                        "w-32 pt-2 text-sm font-medium",
+                        editingMode &&
+                          "cursor-pointer transition-colors hover:text-blue-600",
+                      )}
+                    >
                       {getSubQuestionLabel(
                         uiConfig,
                         "companyNameLabel",
@@ -2631,6 +2989,7 @@ export const QuestionRenderer = ({
                           })
                         }
                       }}
+                      data-field-id={`${question.id}_companyName`}
                     />
                     {renderEditOverlay(
                       "companyNamePlaceholder",
@@ -2642,6 +3001,13 @@ export const QuestionRenderer = ({
                     )}
                   </div>
                 </div>
+                {getFieldError("companyName") &&
+                  !editingMode &&
+                  knowsLenderDetails && (
+                    <p className="mt-1 ml-36 text-sm text-red-500" role="alert">
+                      {getFieldError("companyName")}
+                    </p>
+                  )}
                 <div className="flex items-center gap-2 pl-36">
                   <Checkbox
                     id="unknown-lender"
@@ -2670,7 +3036,13 @@ export const QuestionRenderer = ({
                   {/* Contact Name */}
                   <div className="flex items-center gap-3">
                     <div className="relative inline-block">
-                      <Label className="w-32 text-sm font-medium">
+                      <Label
+                        className={cn(
+                          "w-32 text-sm font-medium",
+                          editingMode &&
+                            "cursor-pointer transition-colors hover:text-blue-600",
+                        )}
+                      >
                         {getSubQuestionLabel(
                           uiConfig,
                           "contactNameLabel",
@@ -2709,6 +3081,7 @@ export const QuestionRenderer = ({
                             })
                           }
                         }}
+                        data-field-id={`${question.id}_contactName`}
                       />
                       {renderEditOverlay(
                         "contactNamePlaceholder",
@@ -2720,11 +3093,22 @@ export const QuestionRenderer = ({
                       )}
                     </div>
                   </div>
+                  {getFieldError("contactName") && !editingMode && (
+                    <p className="mt-1 ml-36 text-sm text-red-500" role="alert">
+                      {getFieldError("contactName")}
+                    </p>
+                  )}
 
                   {/* Contact Phone */}
                   <div className="flex items-center gap-3">
                     <div className="relative inline-block">
-                      <Label className="w-32 text-sm font-medium">
+                      <Label
+                        className={cn(
+                          "w-32 text-sm font-medium",
+                          editingMode &&
+                            "cursor-pointer transition-colors hover:text-blue-600",
+                        )}
+                      >
                         {getSubQuestionLabel(
                           uiConfig,
                           "contactPhoneLabel",
@@ -2763,6 +3147,7 @@ export const QuestionRenderer = ({
                             })
                           }
                         }}
+                        data-field-id={`${question.id}_contactPhone`}
                       />
                       {renderEditOverlay(
                         "contactPhonePlaceholder",
@@ -2774,11 +3159,22 @@ export const QuestionRenderer = ({
                       )}
                     </div>
                   </div>
+                  {getFieldError("contactPhone") && !editingMode && (
+                    <p className="mt-1 ml-36 text-sm text-red-500" role="alert">
+                      {getFieldError("contactPhone")}
+                    </p>
+                  )}
 
                   {/* Contact Email */}
                   <div className="flex items-center gap-3">
                     <div className="relative inline-block">
-                      <Label className="w-32 text-sm font-medium">
+                      <Label
+                        className={cn(
+                          "w-32 text-sm font-medium",
+                          editingMode &&
+                            "cursor-pointer transition-colors hover:text-blue-600",
+                        )}
+                      >
                         {getSubQuestionLabel(
                           uiConfig,
                           "contactEmailLabel",
@@ -2817,6 +3213,7 @@ export const QuestionRenderer = ({
                             })
                           }
                         }}
+                        data-field-id={`${question.id}_contactEmail`}
                       />
                       {renderEditOverlay(
                         "contactEmailPlaceholder",
@@ -2828,13 +3225,46 @@ export const QuestionRenderer = ({
                       )}
                     </div>
                   </div>
+                  {getFieldError("contactEmail") && !editingMode && (
+                    <p className="mt-1 ml-36 text-sm text-red-500" role="alert">
+                      {getFieldError("contactEmail")}
+                    </p>
+                  )}
                 </>
               )}
 
             {/* Supporting Documents */}
             {attachments && attachments !== "not_required" && (
               <div>
-                <div className="relative inline-block">
+                <div className="relative mb-2 inline-block">
+                  <Label
+                    className={cn(
+                      "block text-sm font-medium",
+                      editingMode &&
+                        "cursor-pointer transition-colors hover:text-blue-600",
+                    )}
+                  >
+                    {getSubQuestionLabel(
+                      uiConfig,
+                      "supportingDocumentsLabel",
+                      "Supporting Documents:",
+                    )}
+                    {(() => {
+                      // Check field-level required from uiConfig first
+                      const fieldRequired = getSubQuestionRequired(
+                        uiConfig,
+                        "loan_attachments",
+                      )
+                      // Fall back to setup config
+                      const isRequired =
+                        fieldRequired ??
+                        (attachments === "required" ||
+                          (question.required && isSubjectToLoan))
+                      return isRequired ? (
+                        <span className="font-bold text-red-500"> *</span>
+                      ) : null
+                    })()}
+                  </Label>
                   {renderLabelOverlay(
                     "supportingDocumentsLabel",
                     getSubQuestionLabel(
@@ -2967,7 +3397,13 @@ export const QuestionRenderer = ({
             {loanApprovalDue && loanApprovalDue !== "no_due_date" && (
               <div>
                 <div className="relative inline-block">
-                  <Label className="mb-2 block text-sm font-medium">
+                  <Label
+                    className={cn(
+                      "mb-2 block text-sm font-medium",
+                      editingMode &&
+                        "cursor-pointer transition-colors hover:text-blue-600",
+                    )}
+                  >
                     {getSubQuestionLabel(
                       uiConfig,
                       "loanApprovalDueLabel",
@@ -3004,6 +3440,7 @@ export const QuestionRenderer = ({
                         })
                       }
                     }}
+                    data-field-id={`${question.id}_loanDueDate`}
                   />
                   {renderEditOverlay(
                     "loanApprovalDuePlaceholder",
@@ -3014,6 +3451,11 @@ export const QuestionRenderer = ({
                     ),
                   )}
                 </div>
+                {getFieldError("loanDueDate") && !editingMode && (
+                  <p className="mt-1 text-sm text-red-500" role="alert">
+                    {getFieldError("loanDueDate")}
+                  </p>
+                )}
               </div>
             )}
 
@@ -3051,12 +3493,19 @@ export const QuestionRenderer = ({
         )}
 
         {/* Proof of Funds - shown when "No" is selected */}
+        {/* Always show if evidence_of_funds is configured (optional or required) */}
         {!isSubjectToLoan &&
-          setupConfig.evidence_of_funds &&
-          setupConfig.evidence_of_funds !== "not_required" && (
+          (setupConfig.evidence_of_funds === "optional" ||
+            setupConfig.evidence_of_funds === "required") && (
             <div>
               <div className="relative inline-block">
-                <Label className="mb-2 block text-sm font-medium">
+                <Label
+                  className={cn(
+                    "mb-2 block text-sm font-medium",
+                    editingMode &&
+                      "cursor-pointer transition-colors hover:text-blue-600",
+                  )}
+                >
                   {getSubQuestionLabel(
                     uiConfig,
                     "evidenceOfFundsLabel",
@@ -3104,7 +3553,7 @@ export const QuestionRenderer = ({
                 return (
                   <FileUploadInput
                     id={`${question.id}_evidence_of_funds`}
-                    label="Proof of Funds"
+                    label=""
                     required={
                       // Check field-level required from uiConfig first
                       getSubQuestionRequired(
@@ -3119,7 +3568,7 @@ export const QuestionRenderer = ({
                     disabled={disabled}
                     value={fileData.files}
                     fileNames={fileData.fileNames}
-                    error={fileData.error || error}
+                    error={fileData.error || getFieldError("evidenceOfFunds")}
                     maxFiles={3}
                     maxSize={10 * 1024 * 1024}
                     onChange={(files) => {

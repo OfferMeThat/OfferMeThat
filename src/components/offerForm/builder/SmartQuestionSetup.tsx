@@ -319,12 +319,84 @@ const SmartQuestionSetup = ({
 
       // Subject to Loan Approval - lender_details and attachments
       if (smartQuestion.id === "loan_approval") {
+        // Get previous values from initial setup config to detect what changed
+        const prevLenderDetails = initialSetupConfig.lender_details
+        const prevAttachments = initialSetupConfig.attachments
+        
+        // Handle lender_details field-level optionality
+        // If changed to "optional", only update field-level required, NOT question-level
+        if (answers.lender_details === "optional") {
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              lenderDetails: {
+                ...(initialUIConfig.subQuestions?.lenderDetails || {}),
+                required: false,
+              },
+            },
+          }
+          // Don't set requiredOverride - allow question to remain mandatory/optional
+          // This fixes issue: When question is Mandatory and user makes field Optional,
+          // only the field becomes optional, not the whole question
+        } else if (answers.lender_details === "required") {
+          // If lender_details is "required", make question required and field required
+          // But only if it changed from something else (to avoid updating both fields)
+          if (prevLenderDetails !== "required") {
+            requiredOverride = true
+          }
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              lenderDetails: {
+                ...(initialUIConfig.subQuestions?.lenderDetails || {}),
+                required: true,
+              },
+            },
+          }
+        }
+        
+        // Handle attachments field-level optionality
+        // If changed to "optional", only update field-level required, NOT question-level
+        if (answers.attachments === "optional") {
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              loan_attachments: {
+                ...(initialUIConfig.subQuestions?.loan_attachments || {}),
+                required: false,
+              },
+            },
+          }
+          // Don't set requiredOverride - allow question to remain mandatory/optional
+          // This fixes issue: When question is Mandatory and user makes field Optional,
+          // only the field becomes optional, not the whole question
+        } else if (answers.attachments === "required") {
+          // If attachments is "required", make question required and field required
+          // But only if it changed from something else (to avoid updating both fields)
+          if (prevAttachments !== "required") {
+            requiredOverride = true
+          }
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              loan_attachments: {
+                ...(initialUIConfig.subQuestions?.loan_attachments || {}),
+                required: true,
+              },
+            },
+          }
+        }
+        
+        // If both are "not_required", question can be optional
         if (
-          answers.lender_details === "required" ||
-          answers.attachments === "required"
-        ) {
-          requiredOverride = true
-        } else if (
           answers.lender_details === "not_required" &&
           answers.attachments === "not_required"
         ) {
@@ -333,14 +405,44 @@ const SmartQuestionSetup = ({
       }
 
       // Evidence of Funds - evidence_of_funds
-      if (smartQuestion.id === "evidence_of_funds") {
-        if (answers.evidence_of_funds === "required") {
-          requiredOverride = true
-        } else if (
-          answers.evidence_of_funds === "optional" ||
-          answers.evidence_of_funds === "not_required"
-        ) {
-          requiredOverride = false
+      // Note: This is part of Subject to Loan Approval question, not a separate question
+      // Handle it when editing Subject to Loan Approval setup
+      if (smartQuestion.id === "loan_approval" && answers.evidence_of_funds !== undefined) {
+        const prevEvidenceOfFunds = initialSetupConfig.evidence_of_funds
+        
+        if (answers.evidence_of_funds === "optional") {
+          // If evidence_of_funds is "optional", only update field-level required, NOT question-level
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              evidence_of_funds_attachment: {
+                ...(initialUIConfig.subQuestions?.evidence_of_funds_attachment || {}),
+                required: false,
+              },
+            },
+          }
+          // Don't set requiredOverride - allow question to remain mandatory/optional
+          // This fixes issue: When question is Mandatory and user makes field Optional,
+          // only the field becomes optional, not the whole question
+        } else if (answers.evidence_of_funds === "required") {
+          // If evidence_of_funds is "required", make question required and field required
+          // But only if it changed from something else
+          if (prevEvidenceOfFunds !== "required") {
+            requiredOverride = true
+          }
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              evidence_of_funds_attachment: {
+                ...(initialUIConfig.subQuestions?.evidence_of_funds_attachment || {}),
+                required: true,
+              },
+            },
+          }
         }
       }
 

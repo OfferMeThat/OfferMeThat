@@ -39,11 +39,33 @@ export function getQuestionRequiredFromSetup(
   }
 
   // Subject to Loan Approval - check lender_details and attachments
+  // IMPORTANT: Check field-level required from uiConfig first, then fall back to setup config
   if (questionType === "subjectToLoanApproval") {
+    // Get field-level required from uiConfig if available
+    const uiConfig = (config as any).uiConfig || {}
+    const lenderDetailsFieldRequired =
+      uiConfig.subQuestions?.lenderDetails?.required
+    const attachmentsFieldRequired =
+      uiConfig.subQuestions?.loan_attachments?.required
+    const evidenceOfFundsFieldRequired =
+      uiConfig.subQuestions?.evidence_of_funds_attachment?.required
+
+    // If any field-level required is true, question should be required
+    if (
+      lenderDetailsFieldRequired === true ||
+      attachmentsFieldRequired === true ||
+      evidenceOfFundsFieldRequired === true
+    ) {
+      return true
+    }
+
+    // Fall back to setup config if field-level not set
     // If lender details are required, question should be required
     if (config.lender_details === "required") return true
     // If attachments are required, question should be required
     if (config.attachments === "required") return true
+    // If evidence_of_funds is required, question should be required
+    if ((config as any).evidence_of_funds === "required") return true
     // If both are optional/not_required, question can be optional
     if (
       config.lender_details === "not_required" &&
@@ -117,7 +139,15 @@ export function syncSetupConfigFromRequired(
     // This allows field-level required to be independent
     // Exception: If both are "not_required" and question becomes required,
     // we need at least one field, so set lender_details to "required"
-    if (required) {
+    // BUT: Only do this if field-level required is not explicitly set
+    const uiConfig = (config as any).uiConfig || {}
+    const hasFieldLevelRequired =
+      uiConfig.subQuestions?.lenderDetails?.required !== undefined ||
+      uiConfig.subQuestions?.loan_attachments?.required !== undefined ||
+      uiConfig.subQuestions?.evidence_of_funds_attachment?.required !==
+        undefined
+
+    if (required && !hasFieldLevelRequired) {
       if (
         config.lender_details === "not_required" &&
         config.attachments === "not_required"

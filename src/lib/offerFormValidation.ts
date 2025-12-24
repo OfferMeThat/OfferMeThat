@@ -830,126 +830,198 @@ export const buildQuestionValidation = (
     case "subjectToLoanApproval":
       // Complex field with nested data including supporting documents
       const setupConfig = (question.setupConfig as Record<string, any>) || {}
+      const loanAmountType = setupConfig.loan_amount_type
       const attachments = setupConfig.attachments
       const lenderDetails = setupConfig.lender_details
+      const evidenceOfFunds = setupConfig.evidence_of_funds
+      const loanApprovalDue = setupConfig.loan_approval_due
 
-      // Attachments are required if attachments === "required" AND question is required
-      const attachmentsRequired = attachments === "required" && required
-      // Lender details are required if lender_details === "required" AND question is required
-      const lenderDetailsRequired = lenderDetails === "required" && required
+      // Check field-level required from uiConfig first, then fall back to setup config
+      const loanUIConfigData = config as Record<string, any> | null
+      const lenderDetailsFieldRequired =
+        loanUIConfigData?.subQuestions?.lenderDetails?.required
+      const attachmentsFieldRequired =
+        loanUIConfigData?.subQuestions?.loan_attachments?.required
+      const evidenceOfFundsFieldRequired =
+        loanUIConfigData?.subQuestions?.evidence_of_funds_attachment?.required
 
-      if (required) {
-        // Create a schema that validates the object structure
-        const baseSchema = yup.object().shape({
-          subjectToLoan: yup.string().required("This field is required"),
-        })
+      // Determine if fields are required using helper logic
+      const attachmentsRequired =
+        attachmentsFieldRequired !== undefined
+          ? attachmentsFieldRequired
+          : attachments === "required" ||
+            (attachments === "optional" && required)
+      const lenderDetailsRequired =
+        lenderDetailsFieldRequired !== undefined
+          ? lenderDetailsFieldRequired
+          : lenderDetails === "required" ||
+            (lenderDetails === "optional" && required)
+      const evidenceOfFundsRequired =
+        evidenceOfFundsFieldRequired !== undefined
+          ? evidenceOfFundsFieldRequired
+          : evidenceOfFunds === "required" ||
+            (evidenceOfFunds === "optional" && required)
 
-        // Add validation for attachments if required
-        if (attachmentsRequired) {
-          schema = baseSchema.test(
-            "supporting-docs-required",
-            "Supporting documents are required when 'Yes' is selected",
-            function (value) {
-              if (!value || value.subjectToLoan !== "yes") {
-                return true // Not required if "No" is selected
+      // Base schema - always require subjectToLoan if question is required
+      const baseSchema = yup.object().shape({
+        subjectToLoan: required
+          ? yup.string().required("This field is required")
+          : yup.string().optional(),
+      })
+
+      schema = baseSchema.test(
+        "subjectToLoanApproval-validation",
+        function (value) {
+          if (!value) {
+            if (required) {
+              return this.createError({
+                message: "This field is required",
+                path: `${this.path}.subjectToLoan`,
+              })
+            }
+            return true
+          }
+
+          const loanValue = value as any
+
+          // Validate when "Yes" is selected
+          if (loanValue.subjectToLoan === "yes") {
+            // Validate loan amount if required
+            if (loanAmountType && loanAmountType !== "no_amount") {
+              const hasLoanAmount =
+                (loanValue.loanAmountType === "amount" &&
+                  loanValue.loanAmount &&
+                  String(loanValue.loanAmount).trim()) ||
+                (loanValue.loanAmountType === "percentage" &&
+                  loanValue.loanPercentage &&
+                  String(loanValue.loanPercentage).trim()) ||
+                (loanAmountType === "fixed_amount" &&
+                  loanValue.loanAmount &&
+                  String(loanValue.loanAmount).trim()) ||
+                (loanAmountType === "percentage" &&
+                  loanValue.loanPercentage &&
+                  String(loanValue.loanPercentage).trim())
+
+              if (!hasLoanAmount) {
+                return this.createError({
+                  message: "Loan amount is required",
+                  path: `${this.path}.loanAmount`,
+                })
               }
-              // Check if supporting documents file is provided
-              const loanValue = value as any
+            }
+
+            // Validate lender details if required
+            if (lenderDetailsRequired && lenderDetails !== "not_required") {
+              // If unknownLender is true, no details needed
+              if (loanValue.unknownLender) {
+                return true
+              }
+
+              // Check if all required lender detail fields are provided
+              const hasCompanyName =
+                loanValue.companyName && String(loanValue.companyName).trim()
+              const hasContactName =
+                loanValue.contactName && String(loanValue.contactName).trim()
+              const hasContactPhone =
+                loanValue.contactPhone && String(loanValue.contactPhone).trim()
+              const hasContactEmail =
+                loanValue.contactEmail && String(loanValue.contactEmail).trim()
+
+              // If lender_details is "required" or field-level required, all fields needed
+              if (
+                lenderDetails === "required" ||
+                lenderDetailsFieldRequired === true
+              ) {
+                if (!hasCompanyName) {
+                  return this.createError({
+                    message: "Company name is required",
+                    path: `${this.path}.companyName`,
+                  })
+                }
+                if (!hasContactName) {
+                  return this.createError({
+                    message: "Contact name is required",
+                    path: `${this.path}.contactName`,
+                  })
+                }
+                if (!hasContactPhone) {
+                  return this.createError({
+                    message: "Contact phone is required",
+                    path: `${this.path}.contactPhone`,
+                  })
+                }
+                if (!hasContactEmail) {
+                  return this.createError({
+                    message: "Contact email is required",
+                    path: `${this.path}.contactEmail`,
+                  })
+                }
+              } else if (!hasCompanyName) {
+                // If optional but required, at least company name needed
+                return this.createError({
+                  message: "Company name is required",
+                  path: `${this.path}.companyName`,
+                })
+              }
+            }
+
+            // Validate supporting documents if required
+            if (attachmentsRequired && attachments !== "not_required") {
               const hasSupportingDocs =
                 loanValue.supportingDocs &&
                 (Array.isArray(loanValue.supportingDocs)
                   ? loanValue.supportingDocs.length > 0
-                  : loanValue.supportingDocs !== null)
+                  : loanValue.supportingDocs !== null &&
+                    loanValue.supportingDocs !== undefined)
               if (!hasSupportingDocs) {
                 return this.createError({
                   message: "Supporting documents are required",
                   path: `${this.path}.supportingDocs`,
                 })
               }
-              return true
-            },
-          )
-        } else {
-          schema = baseSchema
-        }
+            }
 
-        // Add validation for lender details if required
-        if (lenderDetailsRequired) {
-          schema = (schema as any).test(
-            "lender-details-required",
-            "Lender details are required when 'Yes' is selected",
-            function (this: any, value: any) {
-              if (!value || value.subjectToLoan !== "yes") {
-                return true // Not required if "No" is selected
-              }
-              // Check if lender details are provided
-              // Lender details can be in companyName (if lender_details === "required")
-              // or contactName, contactEmail, contactPhone (if lender_details === "optional" or "required")
-              const hasLenderDetails =
-                (value.companyName && String(value.companyName).trim()) ||
-                (value.contactName && String(value.contactName).trim())
-              if (!hasLenderDetails) {
+            // Validate loan approval due date if required
+            if (loanApprovalDue && loanApprovalDue !== "no_due_date") {
+              const hasDueDate =
+                loanValue.loanDueDate ||
+                loanValue.loanDueDateTime ||
+                loanValue.loanDueText ||
+                loanValue.loanDueWithin
+              if (!hasDueDate) {
                 return this.createError({
-                  message: "Lender details are required",
-                  path: `${this.path}.companyName`,
+                  message: "Loan approval due date is required",
+                  path: `${this.path}.loanDueDate`,
                 })
               }
-              return true
-            },
-          )
-        }
-      } else {
-        // Question is not required, but sub-fields might still be required
-        schema = yup
-          .mixed()
-          .test("subjectToLoanApproval-optional", function (value) {
-            if (!value) {
-              return true // Question is optional, so empty is fine
             }
+          }
 
-            // If "Yes" is selected, validate required sub-fields
-            const loanValue = value as any
-            if (loanValue.subjectToLoan === "yes") {
-              // Validate attachments if required
-              if (attachmentsRequired) {
-                const loanValue = value as any
-                const hasSupportingDocs =
-                  loanValue.supportingDocs &&
-                  (Array.isArray(loanValue.supportingDocs)
-                    ? loanValue.supportingDocs.length > 0
-                    : loanValue.supportingDocs !== null)
-                if (!hasSupportingDocs) {
-                  return this.createError({
-                    message: "Supporting documents are required",
-                    path: `${this.path}.supportingDocs`,
-                  })
-                }
-              }
-
-              // Validate lender details if required
-              if (lenderDetailsRequired) {
-                // Check if lender details are provided
-                // Lender details can be in companyName (if lender_details === "required")
-                // or contactName, contactEmail, contactPhone (if lender_details === "optional" or "required")
-                const loanValue = value as any
-                const hasLenderDetails =
-                  (loanValue.companyName &&
-                    String(loanValue.companyName).trim()) ||
-                  (loanValue.contactName &&
-                    String(loanValue.contactName).trim())
-                if (!hasLenderDetails) {
-                  return (this as any).createError({
-                    message: "Lender details are required",
-                    path: `${(this as any).path}.companyName`,
-                  })
-                }
+          // Validate when "No" is selected
+          if (loanValue.subjectToLoan === "no") {
+            // Validate evidence of funds if required
+            if (evidenceOfFundsRequired && evidenceOfFunds !== "not_required") {
+              const hasEvidenceOfFunds =
+                loanValue.evidenceOfFunds &&
+                (Array.isArray(loanValue.evidenceOfFunds)
+                  ? loanValue.evidenceOfFunds.length > 0
+                  : loanValue.evidenceOfFunds !== null &&
+                    loanValue.evidenceOfFunds !== undefined)
+              if (!hasEvidenceOfFunds) {
+                return this.createError({
+                  message: "Evidence of funds is required",
+                  path: `${this.path}.evidenceOfFunds`,
+                })
               }
             }
+          }
 
-            return true
-          })
-          .nullable()
-          .optional()
+          return true
+        },
+      )
+
+      if (!required) {
+        schema = schema.nullable().optional()
       }
       break
 
