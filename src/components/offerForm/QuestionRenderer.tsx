@@ -2994,10 +2994,26 @@ export const QuestionRenderer = ({
                           value={loanValue.loanPercentage || ""}
                           onChange={(e) => {
                             if (!editingMode) {
+                              // Remove e, E, +, - characters
+                              const sanitized = e.target.value.replace(
+                                /[eE\+\-]/g,
+                                "",
+                              )
                               onChange?.({
                                 ...loanValue,
-                                loanPercentage: e.target.value,
+                                loanPercentage: sanitized,
                               })
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            // Prevent e, E, +, - from being entered
+                            if (
+                              e.key === "e" ||
+                              e.key === "E" ||
+                              e.key === "+" ||
+                              e.key === "-"
+                            ) {
+                              e.preventDefault()
                             }
                           }}
                           data-field-id={`${question.id}_loanPercentage`}
@@ -4273,6 +4289,17 @@ export const QuestionRenderer = ({
                     "daysPlaceholder",
                     "Number of days",
                   )}
+                  onKeyDown={(e) => {
+                    // Prevent e, E, +, - from being entered
+                    if (
+                      e.key === "e" ||
+                      e.key === "E" ||
+                      e.key === "+" ||
+                      e.key === "-"
+                    ) {
+                      e.preventDefault()
+                    }
+                  }}
                   disabled={disabled}
                   className={cn(editingMode && "cursor-not-allowed", "w-full")}
                   style={getInputStyle()}

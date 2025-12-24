@@ -94,6 +94,22 @@ const DepositForm = ({
   )
   const [localFormData, setLocalFormData] = useState<Record<string, any>>({})
 
+  // Helper: Prevent invalid characters in number inputs (e, E, +, -)
+  const handleNumberInputKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    // Prevent e, E, +, - from being entered
+    if (e.key === "e" || e.key === "E" || e.key === "+" || e.key === "-") {
+      e.preventDefault()
+    }
+  }
+
+  // Helper: Filter out invalid characters from number input values (for paste protection)
+  const sanitizeNumberInput = (value: string): string => {
+    // Remove e, E, +, - characters
+    return value.replace(/[eE\+\-]/g, "")
+  }
+
   // Helper: Get input style with branding
   const getInputStyle = () => {
     if (brandingConfig?.fieldColor && brandingConfig.fieldColor !== "#ffffff") {
@@ -546,8 +562,170 @@ const DepositForm = ({
 
             {question_type === "text" && (
               <div className="space-y-1 pt-1.5">
-                {/* Check if this question has a currency field */}
-                {depositQuestion.currency_field ? (
+                {/* For buyer_choice: Check if this is deposit_amount with conditional_currency/suffix */}
+                {/* This means it should be conditional based on deposit_type selection */}
+                {depositQuestion.conditional_currency ||
+                depositQuestion.conditional_suffix ? (
+                  <div className="space-y-2">
+                    {/* Get the deposit_type selection to determine what to show */}
+                    {(() => {
+                      const depositTypeValue =
+                        localFormData[
+                          id === "deposit_amount"
+                            ? "deposit_type"
+                            : id.replace("deposit_amount", "deposit_type")
+                        ] || localFormData["deposit_type"]
+
+                      // Determine the correct field name based on deposit_type
+                      const amountFieldName =
+                        id === "deposit_amount"
+                          ? "deposit_amount"
+                          : id.replace("deposit_amount", "deposit_amount")
+                      const percentageFieldName =
+                        id === "deposit_amount"
+                          ? "deposit_percentage"
+                          : id.replace("deposit_amount", "deposit_percentage")
+
+                      // If amount is selected, show amount input with currency
+                      if (
+                        depositTypeValue === "amount" &&
+                        depositQuestion.conditional_currency
+                      ) {
+                        return (
+                          <div className="flex items-center gap-2">
+                            <div className="relative max-w-md flex-1">
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder="Enter amount"
+                                value={localFormData[amountFieldName] || ""}
+                                onChange={(e) => {
+                                  const sanitized = sanitizeNumberInput(
+                                    e.target.value,
+                                  )
+                                  handleFieldChange(amountFieldName, sanitized)
+                                }}
+                                onKeyDown={handleNumberInputKeyDown}
+                                disabled={false}
+                                className={cn(
+                                  editingMode ? "cursor-not-allowed" : "",
+                                  "w-full",
+                                  depositQuestion.conditional_currency.type ===
+                                    "display" && "pr-12",
+                                  depositQuestion.conditional_currency.type ===
+                                    "select" && "pr-0",
+                                )}
+                                style={getInputStyle()}
+                              />
+                              {/* Currency decorator for fixed mode */}
+                              {depositQuestion.conditional_currency.type ===
+                                "display" && (
+                                <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
+                                  {depositQuestion.conditional_currency.value ||
+                                    "N/A"}
+                                </div>
+                              )}
+                            </div>
+                            {/* Currency dropdown for select mode */}
+                            {depositQuestion.conditional_currency.type ===
+                              "select" && (
+                              <CurrencySelect
+                                value={
+                                  localFormData[
+                                    `${amountFieldName}_currency`
+                                  ] || ""
+                                }
+                                onValueChange={(value) =>
+                                  handleFieldChange(
+                                    `${amountFieldName}_currency`,
+                                    value,
+                                  )
+                                }
+                                disabled={false}
+                                placeholder={
+                                  depositQuestion.conditional_currency
+                                    ?.placeholder || "Select currency"
+                                }
+                                className="max-w-xs"
+                                style={getSelectStyle()}
+                                allowedCurrencies={depositQuestion.conditional_currency?.options?.map(
+                                  (opt: { value: string }) => opt.value,
+                                )}
+                              />
+                            )}
+                          </div>
+                        )
+                      }
+
+                      // If percentage is selected, show percentage input with % decorator
+                      if (
+                        depositTypeValue === "percentage" &&
+                        depositQuestion.conditional_suffix
+                      ) {
+                        return (
+                          <div className="flex items-center gap-2">
+                            <div className="relative max-w-md flex-1">
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder="Enter amount"
+                                value={localFormData[percentageFieldName] || ""}
+                                onChange={(e) => {
+                                  const sanitized = sanitizeNumberInput(
+                                    e.target.value,
+                                  )
+                                  handleFieldChange(
+                                    percentageFieldName,
+                                    sanitized,
+                                  )
+                                }}
+                                onKeyDown={handleNumberInputKeyDown}
+                                disabled={false}
+                                className={cn(
+                                  editingMode ? "cursor-not-allowed" : "",
+                                  "w-full pr-8", // Add padding for % decorator
+                                )}
+                                style={getInputStyle()}
+                              />
+                              {/* Percentage decorator (% symbol) */}
+                              <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
+                                %
+                              </div>
+                            </div>
+                            {/* "of purchase price" text on the same line */}
+                            <span className="text-sm whitespace-nowrap text-gray-600">
+                              {depositQuestion.conditional_suffix
+                                .replace("%", "")
+                                .trim()}
+                            </span>
+                          </div>
+                        )
+                      }
+
+                      // Default: show placeholder until selection is made
+                      return (
+                        <div className="relative max-w-md">
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="Enter amount"
+                            value={localFormData[amountFieldName] || ""}
+                            onChange={(e) =>
+                              handleFieldChange(amountFieldName, e.target.value)
+                            }
+                            onKeyDown={handleNumberInputKeyDown}
+                            disabled={false}
+                            className={cn(
+                              editingMode ? "cursor-not-allowed" : "",
+                              "w-full",
+                            )}
+                            style={getInputStyle()}
+                          />
+                        </div>
+                      )
+                    })()}
+                  </div>
+                ) : depositQuestion.currency_field ? (
                   <div className="space-y-2">
                     {/* Amount input with currency */}
                     <div className="flex items-center gap-3">
@@ -561,9 +739,13 @@ const DepositForm = ({
                             "Enter value"
                           }
                           value={localFormData[id] || ""}
-                          onChange={(e) =>
-                            handleFieldChange(id, e.target.value)
-                          }
+                          onChange={(e) => {
+                            const sanitized = sanitizeNumberInput(
+                              e.target.value,
+                            )
+                            handleFieldChange(id, sanitized)
+                          }}
+                          onKeyDown={handleNumberInputKeyDown}
                           disabled={false}
                           className={cn(
                             editingMode ? "cursor-not-allowed" : "",
@@ -763,190 +945,7 @@ const DepositForm = ({
                   </SelectContent>
                 </Select>
 
-                {/* Show conditional currency field if this is deposit_type and user selected 'amount' */}
-                {(id === "deposit_type" ||
-                  id === "deposit_type_instalment_1" ||
-                  id === "deposit_type_instalment_2" ||
-                  id === "deposit_type_instalment_3") &&
-                  localFormData[id] === "amount" &&
-                  depositQuestion.conditional_currency && (
-                    <div className="space-y-2">
-                      {/* Amount input with currency */}
-                      <div className="flex items-center gap-3">
-                        <div className="relative max-w-xs flex-1">
-                          <Input
-                            type="number"
-                            min="0"
-                            placeholder="Enter amount"
-                            value={
-                              localFormData[
-                                id === "deposit_type"
-                                  ? "deposit_amount"
-                                  : id.replace("deposit_type", "deposit_amount")
-                              ] || ""
-                            }
-                            onChange={(e) =>
-                              handleFieldChange(
-                                id === "deposit_type"
-                                  ? "deposit_amount"
-                                  : id.replace(
-                                      "deposit_type",
-                                      "deposit_amount",
-                                    ),
-                                e.target.value,
-                              )
-                            }
-                            disabled={false}
-                            className={cn(
-                              editingMode ? "cursor-not-allowed" : "",
-                              "w-full",
-                              depositQuestion.conditional_currency.type ===
-                                "display" && "pr-12", // Add padding for currency decorator
-                            )}
-                            style={getInputStyle()}
-                          />
-                          {/* Currency decorator for fixed mode (like offerAmount) */}
-                          {depositQuestion.conditional_currency.type ===
-                            "display" && (
-                            <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
-                              {depositQuestion.conditional_currency.value ||
-                                "N/A"}
-                            </div>
-                          )}
-                        </div>
-                        {/* Single currency dropdown (for "any" mode) */}
-                        {depositQuestion.conditional_currency.type ===
-                          "select" && (
-                          <Select
-                            value={
-                              localFormData[
-                                id === "deposit_type"
-                                  ? "deposit_amount_currency"
-                                  : `${id.replace("deposit_type", "deposit_amount")}_currency`
-                              ] || ""
-                            }
-                            onValueChange={(value) =>
-                              handleFieldChange(
-                                id === "deposit_type"
-                                  ? "deposit_amount_currency"
-                                  : `${id.replace("deposit_type", "deposit_amount")}_currency`,
-                                value,
-                              )
-                            }
-                            disabled={false}
-                          >
-                            <SelectTrigger
-                              className="w-full max-w-xs"
-                              style={getSelectStyle()}
-                            >
-                              <SelectValue
-                                placeholder={
-                                  depositQuestion.conditional_currency
-                                    .placeholder || "Currency"
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {depositQuestion.conditional_currency.options?.map(
-                                (option: { value: string; label: string }) => (
-                                  <SelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </SelectItem>
-                                ),
-                              )}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                      {/* Single currency dropdown (for "options" mode) */}
-                      {depositQuestion.conditional_currency.type === "select" &&
-                        depositQuestion.conditional_currency.options && (
-                          <CurrencySelect
-                            value={
-                              localFormData[
-                                id === "deposit_type"
-                                  ? "deposit_amount_currency"
-                                  : `${id.replace("deposit_type", "deposit_amount")}_currency`
-                              ] || ""
-                            }
-                            onValueChange={(value) =>
-                              handleFieldChange(
-                                id === "deposit_type"
-                                  ? "deposit_amount_currency"
-                                  : `${id.replace("deposit_type", "deposit_amount")}_currency`,
-                                value,
-                              )
-                            }
-                            disabled={false}
-                            placeholder={
-                              depositQuestion.conditional_currency
-                                ?.placeholder || "Select currency"
-                            }
-                            className="max-w-xs"
-                            style={getSelectStyle()}
-                            allowedCurrencies={depositQuestion.conditional_currency?.options?.map(
-                              (opt: { value: string }) => opt.value,
-                            )}
-                          />
-                        )}
-                    </div>
-                  )}
-
-                {/* Show conditional suffix if this is deposit_type and user selected 'percentage' */}
-                {(id === "deposit_type" ||
-                  id === "deposit_type_instalment_1" ||
-                  id === "deposit_type_instalment_2" ||
-                  id === "deposit_type_instalment_3") &&
-                  localFormData[id] === "percentage" &&
-                  depositQuestion.conditional_suffix && (
-                    <div className="flex items-center gap-2">
-                      <div className="relative max-w-xs flex-1">
-                        <Input
-                          placeholder="Enter percentage"
-                          value={
-                            localFormData[
-                              id === "deposit_type"
-                                ? "deposit_percentage"
-                                : id.replace(
-                                    "deposit_type",
-                                    "deposit_percentage",
-                                  )
-                            ] || ""
-                          }
-                          onChange={(e) =>
-                            handleFieldChange(
-                              id === "deposit_type"
-                                ? "deposit_percentage"
-                                : id.replace(
-                                    "deposit_type",
-                                    "deposit_percentage",
-                                  ),
-                              e.target.value,
-                            )
-                          }
-                          disabled={false}
-                          className={cn(
-                            editingMode ? "cursor-not-allowed" : "",
-                            "w-full pr-8", // Add padding for % decorator
-                          )}
-                          style={getInputStyle()}
-                        />
-                        {/* Percentage decorator (% symbol) */}
-                        <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
-                          %
-                        </div>
-                      </div>
-                      {/* "of purchase price" text on the same line as input */}
-                      <span className="text-sm whitespace-nowrap text-gray-600">
-                        {depositQuestion.conditional_suffix
-                          ?.replace("%", "")
-                          .trim()}
-                      </span>
-                    </div>
-                  )}
+                {/* Note: Conditional currency and suffix for buyer_choice are now handled in the text input section above */}
               </div>
             )}
 
@@ -1160,7 +1159,11 @@ const DepositForm = ({
                       min="0"
                       placeholder={currentPlaceholder || "Enter number"}
                       value={localFormData[id] || ""}
-                      onChange={(e) => handleFieldChange(id, e.target.value)}
+                      onChange={(e) => {
+                        const sanitized = sanitizeNumberInput(e.target.value)
+                        handleFieldChange(id, sanitized)
+                      }}
+                      onKeyDown={handleNumberInputKeyDown}
                       disabled={false}
                       className={cn(
                         editingMode ? "cursor-not-allowed" : "",
