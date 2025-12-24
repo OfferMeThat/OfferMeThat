@@ -35,7 +35,6 @@ import {
   QuestionUIConfig,
 } from "@/types/questionUIConfig"
 import { Database } from "@/types/supabase"
-import { X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
@@ -906,6 +905,47 @@ export const QuestionRenderer = ({
             }
           },
         )
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.type, question.id, value, editingMode])
+
+  // Restore custom file upload files from value prop when navigating between pages
+  useEffect(() => {
+    if (
+      question.type === "custom" &&
+      !editingMode &&
+      value &&
+      question.setupConfig &&
+      typeof question.setupConfig === "object" &&
+      "answer_type" in question.setupConfig &&
+      question.setupConfig.answer_type === "file_upload"
+    ) {
+      const fileValue = Array.isArray(value) ? value : value ? [value] : []
+      const fileKey = `${question.id}_file`
+      const existingFileData = fileUploads[fileKey]
+
+      // Check if files need to be restored
+      const hasFiles = existingFileData && "files" in existingFileData
+      const needsRestore =
+        !existingFileData ||
+        !hasFiles ||
+        existingFileData.files.length === 0 ||
+        existingFileData.files.length !== fileValue.length
+
+      if (
+        needsRestore &&
+        fileValue.length > 0 &&
+        fileValue[0] instanceof File
+      ) {
+        setFileUploads((prev) => ({
+          ...prev,
+          [fileKey]: {
+            files: fileValue,
+            fileNames: fileValue.map((f: File) => f.name),
+            error: hasFiles ? existingFileData.error : undefined,
+          },
+        }))
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5482,106 +5522,45 @@ export const QuestionRenderer = ({
             : { files: [], fileNames: [], error: undefined }
 
       return (
-        <div className="space-y-2">
-          <input
-            type="file"
-            id={`${question.id}_file_input`}
-            className="hidden"
-            disabled={disabled}
-            multiple
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-            onChange={(e) => {
-              const files = Array.from(e.target.files || [])
-              const fileKey = `${question.id}_file`
-              const fileError = validateMultipleFiles(
-                files,
-                3,
-                10 * 1024 * 1024,
-              )
-              setFileUploads((prev) => ({
-                ...prev,
-                [fileKey]: {
-                  files,
-                  fileNames: files.map((f) => f.name),
-                  error: fileError || undefined,
-                },
-              }))
-              if (!fileError && files.length > 0) {
-                onChange?.(files.length === 1 ? files[0] : files)
-              } else if (files.length === 0) {
-                onChange?.(null)
-              }
-            }}
-            data-field-id={question.id}
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <label
-              htmlFor={`${question.id}_file_input`}
-              className={cn(
-                "cursor-pointer rounded-md border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-900 transition-colors",
-                disabled && "cursor-not-allowed opacity-50",
-                !disabled && "hover:bg-gray-200",
-              )}
-            >
-              Choose file
-            </label>
-            {fileData.fileNames.length > 0 &&
-              fileData.fileNames.map((fileName, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const newFiles = [...fileData.files]
-                      const newFileNames = [...fileData.fileNames]
-                      newFiles.splice(index, 1)
-                      newFileNames.splice(index, 1)
-                      const fileKey = `${question.id}_file`
-                      setFileUploads((prev) => ({
-                        ...prev,
-                        [fileKey]:
-                          newFiles.length > 0
-                            ? {
-                                files: newFiles,
-                                fileNames: newFileNames,
-                                error: undefined,
-                              }
-                            : {
-                                files: [],
-                                fileNames: [],
-                                error: undefined,
-                              },
-                      }))
-                      if (newFiles.length > 0) {
-                        onChange?.(
-                          newFiles.length === 1 ? newFiles[0] : newFiles,
-                        )
-                      } else {
-                        onChange?.(null)
-                        const fileInput = document.getElementById(
-                          `${question.id}_file_input`,
-                        ) as HTMLInputElement
-                        if (fileInput) {
-                          fileInput.value = ""
-                        }
-                      }
-                    }}
-                    className="h-8 w-8 p-0"
-                    disabled={disabled}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <p className="text-xs text-gray-600">{fileName}</p>
-                </div>
-              ))}
-          </div>
-          <span className="text-xs text-gray-500">
-            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files, 10MB
-            total)
-          </span>
-          {renderError(fileData.error || error)}
-        </div>
+        <FileUploadInput
+          id={`${question.id}_file`}
+          label=""
+          required={question.required}
+          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+          multiple
+          disabled={disabled}
+          value={fileData.files}
+          fileNames={fileData.fileNames}
+          error={fileData.error || error}
+          maxFiles={3}
+          maxSize={10 * 1024 * 1024}
+          onChange={(files) => {
+            const fileArray = Array.isArray(files)
+              ? files
+              : files
+                ? [files]
+                : []
+            const fileKey = `${question.id}_file`
+            const fileError = validateMultipleFiles(
+              fileArray,
+              3,
+              10 * 1024 * 1024,
+            )
+            setFileUploads((prev) => ({
+              ...prev,
+              [fileKey]: {
+                files: fileArray,
+                fileNames: fileArray.map((f) => f.name),
+                error: fileError || undefined,
+              },
+            }))
+            if (!fileError && fileArray.length > 0) {
+              onChange?.(fileArray.length === 1 ? fileArray[0] : fileArray)
+            } else if (fileArray.length === 0) {
+              onChange?.(null)
+            }
+          }}
+        />
       )
     } else if (answerType === "time_date") {
       const timeType = setupConfig.time_date_type
