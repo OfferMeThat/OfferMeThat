@@ -2056,7 +2056,6 @@ export const QuestionRenderer = ({
         {/* Scenario 1: Single Person */}
         {scenario === "single" && (
           <div className="space-y-3">
-            <h4 className="text-sm font-medium">Who is the Purchaser?</h4>
             <PersonNameFields
               prefix="single"
               questionId={question.id}
@@ -2110,9 +2109,6 @@ export const QuestionRenderer = ({
             {Array.from({ length: numPurchasers }, (_, i) => i + 1).map(
               (num) => (
                 <div key={num} className="space-y-3 border-t pt-4">
-                  <h4 className="text-sm font-medium">
-                    Purchaser {num} - Who is the Purchaser?
-                  </h4>
                   <PersonNameFields
                     prefix={`purchaser-${num}`}
                     questionId={question.id}
