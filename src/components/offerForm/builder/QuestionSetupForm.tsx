@@ -771,7 +771,7 @@ const QuestionSetupForm = ({
                                 )
                                 handleConfigChange(question.id, newOptions)
                               }}
-                              className="text-red-600 hover:text-red-700"
+                              className="cursor-pointer text-red-600 hover:text-red-700"
                             >
                               Remove
                             </Button>
@@ -974,7 +974,7 @@ const QuestionSetupForm = ({
                                     )
                                     handleConfigChange(question.id, newOptions)
                                   }}
-                                  className="text-xs text-red-600 hover:text-red-700"
+                                  className="cursor-pointer text-xs text-red-600 hover:text-red-700"
                                 >
                                   Remove
                                 </button>
@@ -1041,7 +1041,7 @@ const QuestionSetupForm = ({
                 <button
                   type="button"
                   onClick={() => handleRemoveCondition(index)}
-                  className="text-sm text-red-600 hover:text-red-700"
+                  className="cursor-pointer text-sm text-red-600 hover:text-red-700"
                 >
                   Remove
                 </button>
@@ -1195,7 +1195,7 @@ const QuestionSetupForm = ({
                                     newOptions,
                                   )
                                 }}
-                                className="text-xs text-red-600 hover:text-red-700"
+                                className="cursor-pointer text-xs text-red-600 hover:text-red-700"
                               >
                                 Remove
                               </button>

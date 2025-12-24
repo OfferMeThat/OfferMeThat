@@ -1517,8 +1517,10 @@ export const smartQuestionsConfig = {
           options: CURRENCY_OPTIONS,
         }
       } else if (currencyStipulation === "options") {
+        // Collect all currency options (not just 2)
         const currencyOptions = []
-        for (let i = 1; i <= 2; i++) {
+        let i = 1
+        while (true) {
           const currencyValue =
             setupAnswers[`currency_options_${i}${suffix}`] ||
             setupAnswers[`currency_options_${i}`]
@@ -1531,8 +1533,12 @@ export const smartQuestionsConfig = {
               value: currencyValue,
               label: `${currencyValue} - ${currencyName}`,
             })
+            i++
+          } else {
+            break
           }
         }
+        // Always return select type (single dropdown with all stipulated currencies)
         return {
           type: "select",
           placeholder: "Select currency",
@@ -1906,7 +1912,8 @@ export const smartQuestionsConfig = {
       if (setupAnswers.instalments === "single") {
         // Question 1: What will your Deposit be? (only for buyer_choice)
         if (setupAnswers.deposit_management === "buyer_choice") {
-          const depositTypeQuestion = this.generateDepositTypeQuestion(setupAnswers)
+          const depositTypeQuestion =
+            this.generateDepositTypeQuestion(setupAnswers)
           questions.push(depositTypeQuestion)
         }
 

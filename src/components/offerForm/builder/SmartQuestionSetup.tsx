@@ -1575,7 +1575,7 @@ const SmartQuestionSetup = ({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleRemoveFile(question.id, index)}
-                                className="text-xs text-red-600 hover:text-red-700"
+                                className="cursor-pointer text-xs text-red-600 hover:text-red-700"
                               >
                                 Remove
                               </Button>
@@ -1639,7 +1639,7 @@ const SmartQuestionSetup = ({
                                     )
                                     handleAnswerChange(question.id, newOptions)
                                   }}
-                                  className="text-red-600 hover:text-red-700"
+                                  className="cursor-pointer text-red-600 hover:text-red-700"
                                 >
                                   Remove
                                 </Button>
@@ -1757,7 +1757,7 @@ const SmartQuestionSetup = ({
                                         newCurrencies,
                                       )
                                     }}
-                                    className="text-xs text-red-600 hover:text-red-700"
+                                    className="cursor-pointer text-xs text-red-600 hover:text-red-700"
                                   >
                                     Remove
                                   </button>
