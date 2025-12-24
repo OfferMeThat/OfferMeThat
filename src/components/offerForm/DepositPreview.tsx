@@ -533,7 +533,8 @@ const DepositForm = ({
           question_type === "calendar" ||
           question_type === "display" ||
           question_type === "custom_due_date" ||
-          question_type === "select_with_text"
+          question_type === "select_with_text" ||
+          question_type === "within_days"
 
         // Only render if there's a field or it's a display type (which shows value)
         if (!hasField && question_type !== "display") {
@@ -1147,6 +1148,38 @@ const DepositForm = ({
                   renderCustomDueDate(
                     depositQuestion.custom_config || depositQuestion.config,
                   )}
+              </div>
+            )}
+
+            {question_type === "within_days" && (
+              <div className="flex items-center gap-2 pt-1.5">
+                <span className="text-sm text-gray-700">Within</span>
+                <Select
+                  value={localFormData[id] || ""}
+                  onValueChange={(value) => handleFieldChange(id, value)}
+                  disabled={false}
+                >
+                  <SelectTrigger
+                    className="w-auto min-w-[100px]"
+                    style={getSelectStyle()}
+                  >
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {depositQuestion.options?.map(
+                      (option: { value: string; label: string }) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+                {depositQuestion.suffix && (
+                  <span className="text-sm whitespace-nowrap text-gray-600">
+                    {depositQuestion.suffix}
+                  </span>
+                )}
               </div>
             )}
 

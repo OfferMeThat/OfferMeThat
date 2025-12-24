@@ -1588,16 +1588,14 @@ export const smartQuestionsConfig = {
         question.question_type = "display"
         question.value = seller_due_date_text
       } else if (deposit_due === "within_time") {
-        question.question_type = "select_with_text"
-        question.placeholder = "Enter number of days"
-        question.select_options = [
-          { value: "hours", label: "Hours" },
-          { value: "days", label: "Days" },
-          { value: "business_days", label: "Business Days" },
-          { value: "calendar_days", label: "Calendar Days" },
-          { value: "months", label: "Months" },
-        ]
-        question.suffix = "of Offer Acceptance"
+        question.question_type = "within_days"
+        question.placeholder = "Select number of days"
+        // Generate options from 1 to 100
+        question.options = Array.from({ length: 100 }, (_, i) => ({
+          value: (i + 1).toString(),
+          label: (i + 1).toString(),
+        }))
+        question.suffix = "days of Offer Acceptance"
       } else if (deposit_due === "custom" && due_date_config) {
         question.question_type = "custom_due_date"
         question.config = due_date_config
@@ -1848,13 +1846,14 @@ export const smartQuestionsConfig = {
         question.question_type = "display"
         question.value = sellerDueDateText || "Enter due date details"
       } else if (depositDue === "within_time") {
-        question.question_type = "select_with_text"
-        question.placeholder = "Enter number of days"
-        question.select_options = [
-          { value: "business_days", label: "business days" },
-          { value: "days", label: "days" },
-        ]
-        question.suffix = "after Offer Acceptance"
+        question.question_type = "within_days"
+        question.placeholder = "Select number of days"
+        // Generate options from 1 to 100
+        question.options = Array.from({ length: 100 }, (_, i) => ({
+          value: (i + 1).toString(),
+          label: (i + 1).toString(),
+        }))
+        question.suffix = "days of Offer Acceptance"
       } else if (depositDue === "custom") {
         question.question_type = "custom_due_date"
         question.config = dueDateConfig
