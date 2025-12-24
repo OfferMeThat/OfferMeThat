@@ -2543,10 +2543,45 @@ export const QuestionRenderer = ({
         expiryTime?: string
       }) || {}
     const hasExpiry = expiryValue.hasExpiry === "yes"
+    const isRequired = question.required
 
+    // If required, skip Yes/No toggle and show date/time picker directly
+    if (isRequired) {
+      return (
+        <div className="space-y-3">
+          <div className="max-w-md">
+            <DateTimePicker
+              dateValue={expiryValue.expiryDate}
+              timeValue={expiryValue.expiryTime}
+              onDateChange={(date) => {
+                // Allow selection in form builder too
+                onChange?.({
+                  ...expiryValue,
+                  hasExpiry: "yes",
+                  expiryDate: date,
+                })
+              }}
+              onTimeChange={(time) => {
+                // Allow selection in form builder too
+                onChange?.({
+                  ...expiryValue,
+                  hasExpiry: "yes",
+                  expiryTime: time,
+                })
+              }}
+              datePlaceholder={uiConfig.dateLabel || "Select date"}
+              timePlaceholder={uiConfig.timeLabel || "Select time"}
+              brandingConfig={brandingConfig}
+            />
+          </div>
+          {renderError(error)}
+        </div>
+      )
+    }
+
+    // If optional, show Yes/No toggle
     return (
       <div className="space-y-3">
-        {/* Always show radio buttons */}
         <RadioGroup
           value={expiryValue.hasExpiry || ""}
           onValueChange={(val) => {
