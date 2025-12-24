@@ -1664,7 +1664,7 @@ export const QuestionRenderer = ({
   // Submit Button
   if (question.type === "submitButton") {
     return (
-      <div className="space-y-3">
+      <div className="space-y-8">
         {/* Terms and Conditions Checkbox */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">

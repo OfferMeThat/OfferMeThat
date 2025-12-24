@@ -951,13 +951,6 @@ export const OfferFormInteractiveView = ({
         )}
       </div>
 
-      {!isFirstPage && (
-        <Button variant="outline" onClick={handlePrevious} className="gap-2">
-          <ChevronLeft className="h-4 w-4" />
-          Previous
-        </Button>
-      )}
-
       {/* Questions */}
       <div className="space-y-0">
         {currentPage.questions.map((question, index) => {
@@ -1074,7 +1067,17 @@ export const OfferFormInteractiveView = ({
       </div>
 
       {/* Navigation / Submit */}
-      <div className="mt-8 flex items-center justify-between gap-4">
+      <div className="mt-4 flex flex-col items-center gap-4">
+        {!isFirstPage && (
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            className="w-1/2 gap-2"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </Button>
+        )}
         {!isLastPage ? (
           <Button
             type="button"
@@ -1083,7 +1086,7 @@ export const OfferFormInteractiveView = ({
               e.stopPropagation()
               handleNext()
             }}
-            className="mx-auto w-1/2 gap-2"
+            className="w-1/2 gap-2"
             style={{
               backgroundColor: brandingConfig?.buttonColor || undefined,
               color: brandingConfig?.buttonTextColor || undefined,
@@ -1096,7 +1099,7 @@ export const OfferFormInteractiveView = ({
           <Button
             size="lg"
             onClick={handleSubmit}
-            className="mx-auto w-1/2 gap-2"
+            className="w-1/2 gap-2"
             style={{
               backgroundColor: brandingConfig?.buttonColor || undefined,
               color: brandingConfig?.buttonTextColor || undefined,
