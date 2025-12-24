@@ -167,32 +167,52 @@ const PersonNameFields = ({
   const getFieldError = (fieldName: "firstName" | "lastName" | "idFile") => {
     if (!error || editingMode) return undefined
     
+    const lowerError = error.toLowerCase()
+    
     // Check if error is related to name fields
     if (fieldName === "firstName" || fieldName === "lastName") {
+      // Check for specific field errors
       if (
-        error.includes("First name") ||
-        error.includes("Last name") ||
-        error.includes("name is required") ||
-        error.includes("name are required")
+        lowerError.includes("first name") ||
+        lowerError.includes("last name") ||
+        lowerError.includes("name is required") ||
+        lowerError.includes("name are required") ||
+        lowerError.includes("at least one name")
       ) {
         // If error mentions both names, show for both fields
-        if (error.includes("First name and last name")) {
-          return error
+        if (lowerError.includes("first name and last name")) {
+          // Check if error mentions a specific purchaser
+          if (lowerError.includes("purchaser")) {
+            // Extract purchaser number if mentioned
+            const purchaserMatch = error.match(/purchaser (\d+)/i)
+            if (purchaserMatch) {
+              const purchaserNum = purchaserMatch[1]
+              // Only show error if this is the matching purchaser
+              if (prefix === `purchaser-${purchaserNum}`) {
+                return error
+              }
+              return undefined
+            }
+          }
+          // Show for "single" prefix or if no specific purchaser mentioned
+          if (prefix === "single" || !lowerError.includes("purchaser")) {
+            return error
+          }
         }
         // If error is specific to first name
-        if (fieldName === "firstName" && error.includes("First name")) {
-          return error.includes("First name and last name")
+        if (fieldName === "firstName" && lowerError.includes("first name")) {
+          return lowerError.includes("first name and last name")
             ? error
             : "First name is required"
         }
         // If error is specific to last name
-        if (fieldName === "lastName" && error.includes("Last name")) {
-          return error.includes("First name and last name")
+        if (fieldName === "lastName" && lowerError.includes("last name")) {
+          return lowerError.includes("first name and last name")
             ? error
             : "Last name is required"
         }
-        // Generic name error
-        if (error.includes("name") && !error.includes("ID")) {
+        // Generic name error - show for both fields if ID is mandatory
+        if (isIdMandatory && lowerError.includes("name") && !lowerError.includes("id") && !lowerError.includes("upload")) {
           return fieldName === "firstName"
             ? "First name is required"
             : "Last name is required"
@@ -202,17 +222,68 @@ const PersonNameFields = ({
     
     // Check if error is related to ID file
     if (fieldName === "idFile") {
-      if (error.includes("ID") || error.includes("idFile") || error.includes("identification")) {
-        return error
+      // Check for various ID-related error messages
+      if (
+        lowerError.includes("id upload") ||
+        lowerError.includes("id file") ||
+        lowerError.includes("identification") ||
+        (lowerError.includes("upload") && (lowerError.includes("required") || lowerError.includes("mandatory"))) ||
+        (lowerError.includes("id") && lowerError.includes("required") && !lowerError.includes("name"))
+      ) {
+        // Check if error mentions a specific purchaser
+        if (lowerError.includes("purchaser")) {
+          const purchaserMatch = error.match(/purchaser (\d+)/i)
+          if (purchaserMatch) {
+            const purchaserNum = purchaserMatch[1]
+            // Only show error if this is the matching purchaser
+            if (prefix === `purchaser-${purchaserNum}`) {
+              return error
+            }
+            return undefined
+          }
+        }
+        // Show for "single" prefix or if no specific purchaser mentioned
+        if (prefix === "single" || !lowerError.includes("purchaser")) {
+          return error
+        }
       }
     }
     
     return undefined
   }
   
-  const firstNameError = getFieldError("firstName")
-  const lastNameError = getFieldError("lastName")
-  const idFileError = getFieldError("idFile") || fileData.error
+  // Get field-specific errors from validation
+  let firstNameError = getFieldError("firstName")
+  let lastNameError = getFieldError("lastName")
+  let idFileError = getFieldError("idFile") || fileData.error
+  
+  // If there's a validation error and ID is mandatory, show errors for empty required fields
+  // This ensures errors show even if the validation message is generic
+  if (error && isIdMandatory && !editingMode) {
+    const lowerError = error.toLowerCase()
+    const hasValidationError = lowerError.includes("required") || 
+                               lowerError.includes("name") || 
+                               lowerError.includes("id") ||
+                               lowerError.includes("upload") ||
+                               lowerError.includes("field")
+    
+    // Show firstName error if field is empty and there's a validation error
+    if (!firstNameError && !nameData.firstName?.trim() && hasValidationError) {
+      firstNameError = "First name is required"
+    }
+    
+    // Show lastName error if field is empty and there's a validation error
+    if (!lastNameError && !nameData.lastName?.trim() && hasValidationError) {
+      lastNameError = "Last name is required"
+    }
+    
+    // Show ID file error if file is missing and there's a validation error
+    if (!idFileError && !fileData.file && hasValidationError) {
+      // Always show ID error if there's any validation error and file is missing
+      // The error might be generic but if ID is mandatory and file is missing, show it
+      idFileError = "ID upload is required"
+    }
+  }
 
   // Helper: Get input style with branding
   const getInputStyle = () => {
@@ -758,6 +829,59 @@ export const QuestionRenderer = ({
       }
     }
   }, [question.type, value, listings])
+
+  // Restore nameOfPurchaser files from value prop when navigating between pages
+  useEffect(() => {
+    if (question.type === "nameOfPurchaser" && !editingMode && value) {
+      const setupConfig = (question.setupConfig as Record<string, any>) || {}
+      const collectionMethod = setupConfig.collection_method
+
+      if (collectionMethod === "single_field") {
+        // For single field, check if value has idFile
+        const valueObj = value && typeof value === "object" && !Array.isArray(value) ? value : null
+        const idFile = valueObj?.idFile
+        const fileKey = `${question.id}_single_id_upload`
+        
+        if (idFile instanceof File) {
+          // Restore file if it exists in value but not in fileUploads
+          const existingFileData = fileUploads[fileKey]
+          if (!existingFileData || !existingFileData.file || existingFileData.file !== idFile) {
+            setFileUploads((prev) => ({
+              ...prev,
+              [fileKey]: {
+                file: idFile,
+                fileName: idFile.name,
+                error: undefined,
+              },
+            }))
+          }
+        }
+      } else if (collectionMethod === "individual_names") {
+        // For individual names, restore all ID files from value.idFiles
+        const valueObj = value && typeof value === "object" && !Array.isArray(value) ? value : {}
+        const valueIdFiles = valueObj.idFiles || {}
+        
+        Object.entries(valueIdFiles).forEach(([prefix, idFile]: [string, any]) => {
+          if (idFile instanceof File) {
+            const fileKey = `${question.id}_${prefix}_id`
+            const existingFileData = fileUploads[fileKey]
+            // Only restore if not already in fileUploads or if file name is missing
+            if (!existingFileData || !existingFileData.file || existingFileData.file !== idFile) {
+              setFileUploads((prev) => ({
+                ...prev,
+                [fileKey]: {
+                  file: idFile,
+                  fileName: idFile.name,
+                  error: existingFileData?.error,
+                },
+              }))
+            }
+          }
+        })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.type, question.id, value, editingMode])
 
   // Sync nameOfPurchaser ID files when they change in fileUploads
   // This will be handled inside the nameOfPurchaser block by calling updateNameOfPurchaserData
@@ -1489,6 +1613,20 @@ export const QuestionRenderer = ({
     if (collectionMethod === "single_field") {
       const singleFieldValue =
         typeof value === "string" ? value : value?.name || ""
+      
+      // Check if there's a validation error for the name field
+      let nameError: string | undefined
+      if (error && !editingMode) {
+        const lowerError = error.toLowerCase()
+        if (
+          lowerError.includes("name is required") ||
+          lowerError.includes("name are required") ||
+          (lowerError.includes("required") && lowerError.includes("name") && !lowerError.includes("id"))
+        ) {
+          nameError = error.includes("Name is required") ? error : "Name is required"
+        }
+      }
+      
       return (
         <div className="space-y-3">
           <div className="relative max-w-md">
@@ -1525,6 +1663,11 @@ export const QuestionRenderer = ({
               uiConfig.placeholder || "Enter name(s) of purchaser(s)",
             )}
           </div>
+          {nameError && !editingMode && (
+            <p className="mt-1 text-sm text-red-500" role="alert">
+              {nameError}
+            </p>
+          )}
           {collectId && collectId !== "no" && (
             <div className="mt-3">
               {(() => {
@@ -1540,6 +1683,21 @@ export const QuestionRenderer = ({
                           error: fileDataRaw.error,
                         }
                       : { file: null, fileName: "", error: undefined }
+                
+                // Check if there's a validation error for ID file
+                let idFileError = fileData.error
+                if (error && !editingMode) {
+                  const lowerError = error.toLowerCase()
+                  if (
+                    lowerError.includes("id upload") ||
+                    lowerError.includes("id file") ||
+                    lowerError.includes("identification") ||
+                    (lowerError.includes("upload") && lowerError.includes("required"))
+                  ) {
+                    idFileError = error.includes("ID upload") ? error : "ID upload is required"
+                  }
+                }
+                
                 return (
                   <FileUploadInput
                     id={`${question.id}_single_id_upload`}
@@ -1554,7 +1712,7 @@ export const QuestionRenderer = ({
                     disabled={disabled}
                     value={fileData.file}
                     fileNames={fileData.fileName ? [fileData.fileName] : []}
-                    error={fileData.error}
+                    error={idFileError}
                     onChange={(file) => {
                       const fileKey = `${question.id}_single_id_upload`
                       const fileObj = Array.isArray(file) ? file[0] : file
