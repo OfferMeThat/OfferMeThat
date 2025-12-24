@@ -1202,9 +1202,25 @@ export const QuestionRenderer = ({
 
   // Specify Listing
   if (question.type === "specifyListing") {
-    // If no listings, show simple input (even in editing mode, show dropdown if listings exist)
-    if (!listings || listings.length === 0) {
-      const inputValue = editingMode ? "" : (value as string) || customAddress
+    // In editing mode (form builder/customization), always show dropdown with example listings if no real listings
+    // In actual form, show text input if no listings, dropdown if listings exist
+    const hasRealListings = listings && listings.length > 0
+    const useExampleListings = editingMode && !hasRealListings
+
+    // Example listings for preview/customization
+    const exampleListings = [
+      { id: "example-1", address: "Example Listing 1" },
+      { id: "example-2", address: "Example Listing 2" },
+    ]
+
+    // Determine which listings to use
+    const displayListings = useExampleListings
+      ? exampleListings
+      : listings || []
+
+    // If not in editing mode and no listings, show simple text input
+    if (!editingMode && !hasRealListings) {
+      const inputValue = (value as string) || customAddress
       return (
         <div>
           <div className="relative max-w-md">
@@ -1214,30 +1230,24 @@ export const QuestionRenderer = ({
                 uiConfig.placeholder || "Enter listing address or ID..."
               }
               disabled={disabled}
-              className={cn(editingMode && "cursor-not-allowed", "w-full")}
+              className="w-full"
               style={getInputStyle()}
               value={inputValue}
               onChange={(e) => {
                 const newValue = e.target.value
-                if (!editingMode) {
-                  setCustomAddress(newValue)
-                  onChange?.(newValue)
-                }
+                setCustomAddress(newValue)
+                onChange?.(newValue)
               }}
               onBlur={onBlur}
               data-field-id={question.id}
             />
-            {renderEditOverlay(
-              "placeholder",
-              uiConfig.placeholder || "Enter listing address or ID...",
-            )}
           </div>
           {renderError(error)}
         </div>
       )
     }
 
-    // Show dropdown with listings and "not here" option
+    // Show dropdown with listings (real or example) and "not here" option
     // Input appears below when "custom" is selected
     return (
       <div className="space-y-3">
@@ -1253,8 +1263,11 @@ export const QuestionRenderer = ({
                 setSelectedListingId(selectValue)
                 setShowCustomInput(false)
                 setCustomAddress("")
-                // Call onChange with the listing ID - this should clear the error via handleFieldChange
-                onChange?.(selectValue)
+                // In editing mode with example listings, don't call onChange
+                // In actual form or with real listings, call onChange with the listing ID
+                if (!useExampleListings) {
+                  onChange?.(selectValue)
+                }
               }
             }}
             disabled={disabled}
@@ -1267,7 +1280,7 @@ export const QuestionRenderer = ({
               <SelectValue placeholder="Select a listing..." />
             </SelectTrigger>
             <SelectContent>
-              {listings.map((listing) => (
+              {displayListings.map((listing) => (
                 <SelectItem key={listing.id} value={listing.id}>
                   {listing.address}
                 </SelectItem>
@@ -1287,20 +1300,33 @@ export const QuestionRenderer = ({
                 type="text"
                 placeholder={uiConfig.placeholder || "Enter listing address..."}
                 disabled={disabled}
-                className="w-full"
+                className={cn(editingMode && "cursor-not-allowed", "w-full")}
                 style={getInputStyle()}
                 value={customAddress}
                 onChange={(e) => {
                   const newValue = e.target.value
                   setCustomAddress(newValue)
-                  onChange?.(newValue)
+                  if (!editingMode) {
+                    onChange?.(newValue)
+                  }
                 }}
                 onBlur={onBlur}
                 data-field-id={question.id}
               />
+              {renderEditOverlay(
+                "placeholder",
+                uiConfig.placeholder || "Enter listing address...",
+              )}
             </div>
             {renderError(error)}
           </div>
+        )}
+        {/* Show explanatory text when using example listings in editing mode */}
+        {useExampleListings && (
+          <p className="text-sm text-gray-500">
+            If you have not added any active Listings, Buyers will specify a
+            Listing using text.
+          </p>
         )}
       </div>
     )
