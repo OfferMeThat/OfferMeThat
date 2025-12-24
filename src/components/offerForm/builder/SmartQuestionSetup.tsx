@@ -1,5 +1,6 @@
 "use client"
 
+import { CurrencySelect } from "@/components/shared/CurrencySelect"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,13 +12,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { CurrencySelect } from "@/components/shared/CurrencySelect"
-import { FileUploadInput } from "@/components/shared/FileUploadInput"
 import { CURRENCY_OPTIONS } from "@/constants/offerFormQuestions"
 import { getSmartQuestion } from "@/data/smartQuestions"
-import { useCallback, useEffect, useRef, useState } from "react"
-import { Paperclip } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Paperclip } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import DepositDueDateModal from "./DepositDueDateModal"
 import LoanDueDateModal from "./LoanDueDateModal"
 
@@ -322,7 +321,7 @@ const SmartQuestionSetup = ({
         // Get previous values from initial setup config to detect what changed
         const prevLenderDetails = initialSetupConfig.lender_details
         const prevAttachments = initialSetupConfig.attachments
-        
+
         // Handle lender_details field-level optionality
         // If changed to "optional", only update field-level required, NOT question-level
         if (answers.lender_details === "optional") {
@@ -358,7 +357,7 @@ const SmartQuestionSetup = ({
             },
           }
         }
-        
+
         // Handle attachments field-level optionality
         // If changed to "optional", only update field-level required, NOT question-level
         if (answers.attachments === "optional") {
@@ -394,7 +393,7 @@ const SmartQuestionSetup = ({
             },
           }
         }
-        
+
         // If both are "not_required", question can be optional
         if (
           answers.lender_details === "not_required" &&
@@ -407,9 +406,12 @@ const SmartQuestionSetup = ({
       // Evidence of Funds - evidence_of_funds
       // Note: This is part of Subject to Loan Approval question, not a separate question
       // Handle it when editing Subject to Loan Approval setup
-      if (smartQuestion.id === "loan_approval" && answers.evidence_of_funds !== undefined) {
+      if (
+        smartQuestion.id === "loan_approval" &&
+        answers.evidence_of_funds !== undefined
+      ) {
         const prevEvidenceOfFunds = initialSetupConfig.evidence_of_funds
-        
+
         if (answers.evidence_of_funds === "optional") {
           // If evidence_of_funds is "optional", only update field-level required, NOT question-level
           uiConfigUpdates = {
@@ -418,7 +420,8 @@ const SmartQuestionSetup = ({
               ...(initialUIConfig.subQuestions || {}),
               ...(uiConfigUpdates?.subQuestions || {}),
               evidence_of_funds_attachment: {
-                ...(initialUIConfig.subQuestions?.evidence_of_funds_attachment || {}),
+                ...(initialUIConfig.subQuestions
+                  ?.evidence_of_funds_attachment || {}),
                 required: false,
               },
             },
@@ -438,7 +441,8 @@ const SmartQuestionSetup = ({
               ...(initialUIConfig.subQuestions || {}),
               ...(uiConfigUpdates?.subQuestions || {}),
               evidence_of_funds_attachment: {
-                ...(initialUIConfig.subQuestions?.evidence_of_funds_attachment || {}),
+                ...(initialUIConfig.subQuestions
+                  ?.evidence_of_funds_attachment || {}),
                 required: true,
               },
             },
@@ -446,7 +450,12 @@ const SmartQuestionSetup = ({
         }
       }
 
-      onComplete(generatedProperties, answersRef.current, requiredOverride, uiConfigUpdates)
+      onComplete(
+        generatedProperties,
+        answersRef.current,
+        requiredOverride,
+        uiConfigUpdates,
+      )
     } catch (error) {
       console.error("Error in handleSave:", error)
       isSavingRef.current = false
@@ -1534,56 +1543,53 @@ const SmartQuestionSetup = ({
                       Upload files
                     </span>
                   </label>
-                  {answers[question.id] &&
-                    answers[question.id].length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-600">
-                            Uploaded files ({answers[question.id].length}):
-                          </p>
+                  {answers[question.id] && answers[question.id].length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-600">
+                          Uploaded files ({answers[question.id].length}):
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setAnswers((prev) => ({
+                              ...prev,
+                              [question.id]: [],
+                            }))
+                          }
+                          className="text-xs"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                      {answers[question.id].map((file: File, index: number) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between rounded-md bg-gray-50 p-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-700">
+                              {file.name}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                            </span>
+                          </div>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() =>
-                              setAnswers((prev) => ({
-                                ...prev,
-                                [question.id]: [],
-                              }))
-                            }
-                            className="text-xs"
+                            onClick={() => handleRemoveFile(question.id, index)}
+                            className="cursor-pointer text-xs text-red-600 hover:text-red-700"
                           >
-                            Clear All
+                            Remove
                           </Button>
                         </div>
-                        {answers[question.id].map(
-                          (file: File, index: number) => (
-                            <div
-                              key={index}
-                              className="flex items-center justify-between rounded-md bg-gray-50 p-2"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-700">
-                                  {file.name}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                                </span>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleRemoveFile(question.id, index)}
-                                className="cursor-pointer text-xs text-red-600 hover:text-red-700"
-                              >
-                                Remove
-                              </Button>
-                            </div>
-                          ),
-                        )}
-                      </div>
-                    )}
+                      ))}
+                    </div>
+                  )}
                   <span className="text-xs text-gray-500">
                     Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3
                     files, 10MB total)
@@ -1869,9 +1875,17 @@ const SmartQuestionSetup = ({
                           )
 
                           // If question doesn't exist in setupQuestions, create a dynamic one
+                          // Generate the correct label based on whether it's for an instalment
+                          let questionLabel = `Select Currency ${optionIndex}`
+                          if (suffix === "_instalment_1") {
+                            questionLabel = `Select Currency ${optionIndex} for Instalment 1`
+                          } else if (suffix === "_instalment_2") {
+                            questionLabel = `Select Currency ${optionIndex} for Instalment 2`
+                          }
+
                           const displayQuestion = currencyQuestion || {
                             id: currencyOptionId,
-                            question: `Select Currency ${optionIndex}`,
+                            question: questionLabel,
                             options: allCurrencyOptions,
                           }
 
