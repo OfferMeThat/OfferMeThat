@@ -32,6 +32,7 @@ interface DepositQuestion {
   options?: Array<{ value: string; label: string }>
   placeholder?: string
   required?: boolean
+  suffix?: string // For percentage inputs: "% of purchase price"
   currency_field?: {
     type?: "select" | "display" | "multi_select"
     placeholder?: string
@@ -49,7 +50,6 @@ interface DepositQuestion {
   config?: any
   value?: string
   select_options?: Array<{ value: string; label: string }>
-  suffix?: string
 }
 
 interface Question {
@@ -579,6 +579,13 @@ const DepositForm = ({
                             {depositQuestion.currency_field.value || "N/A"}
                           </div>
                         )}
+                        {/* Percentage decorator (% symbol) - shown when suffix exists and no currency decorator */}
+                        {depositQuestion.suffix &&
+                          depositQuestion.currency_field.type !== "display" && (
+                            <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
+                              %
+                            </div>
+                          )}
                         {/* Edit overlay - adjust right padding for fixed currency mode */}
                         {editingMode &&
                         depositQuestion.currency_field.type === "display" &&
@@ -625,33 +632,57 @@ const DepositForm = ({
                         />
                       )}
                     </div>
+                    {/* "of purchase price" text on the same line as input (when suffix exists) */}
+                    {depositQuestion.suffix && (
+                      <span className="text-sm whitespace-nowrap text-gray-600">
+                        {depositQuestion.suffix.replace("%", "").trim()}
+                      </span>
+                    )}
                   </div>
                 ) : (
-                  <div className="relative max-w-md">
-                    <Input
-                      placeholder={currentPlaceholder || "Enter value"}
-                      value={localFormData[id] || ""}
-                      onChange={(e) => handleFieldChange(id, e.target.value)}
-                      disabled={false}
-                      className={cn(
-                        editingMode ? "cursor-not-allowed" : "",
-                        "w-full",
-                      )}
-                      style={getInputStyle()}
-                    />
-                    {editingMode && (
-                      <div
-                        className="absolute inset-0 cursor-pointer bg-transparent"
-                        onClick={() => {
-                          if (onEditPlaceholder) {
-                            onEditPlaceholder(
-                              `sub_question_placeholder_${id}`,
-                              currentPlaceholder || "",
-                            )
-                          }
-                        }}
-                        title="Click to edit placeholder text"
+                  <div className="flex items-center gap-2">
+                    <div className="relative max-w-md flex-1">
+                      <Input
+                        placeholder={currentPlaceholder || "Enter value"}
+                        value={localFormData[id] || ""}
+                        onChange={(e) => handleFieldChange(id, e.target.value)}
+                        disabled={false}
+                        className={cn(
+                          editingMode ? "cursor-not-allowed" : "",
+                          "w-full",
+                          depositQuestion.suffix && "pr-8", // Add padding for % decorator
+                        )}
+                        style={getInputStyle()}
                       />
+                      {/* Percentage decorator (% symbol) */}
+                      {depositQuestion.suffix && (
+                        <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
+                          %
+                        </div>
+                      )}
+                      {editingMode && (
+                        <div
+                          className={cn(
+                            "absolute inset-0 cursor-pointer bg-transparent",
+                            depositQuestion.suffix && "right-8", // Adjust for % decorator
+                          )}
+                          onClick={() => {
+                            if (onEditPlaceholder) {
+                              onEditPlaceholder(
+                                `sub_question_placeholder_${id}`,
+                                currentPlaceholder || "",
+                              )
+                            }
+                          }}
+                          title="Click to edit placeholder text"
+                        />
+                      )}
+                    </div>
+                    {/* "of purchase price" text on the same line as input */}
+                    {depositQuestion.suffix && (
+                      <span className="text-sm whitespace-nowrap text-gray-600">
+                        {depositQuestion.suffix.replace("%", "").trim()}
+                      </span>
                     )}
                   </div>
                 )}
@@ -871,7 +902,7 @@ const DepositForm = ({
                   id === "deposit_type_instalment_3") &&
                   localFormData[id] === "percentage" &&
                   depositQuestion.conditional_suffix && (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <div className="relative max-w-xs flex-1">
                         <Input
                           placeholder="Enter percentage"
@@ -899,16 +930,21 @@ const DepositForm = ({
                           disabled={false}
                           className={cn(
                             editingMode ? "cursor-not-allowed" : "",
-                            "w-full",
+                            "w-full pr-8", // Add padding for % decorator
                           )}
                           style={getInputStyle()}
                         />
+                        {/* Percentage decorator (% symbol) */}
+                        <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
+                          %
+                        </div>
                       </div>
-                      <div className="flex items-center">
-                        <span className="text-sm font-medium whitespace-nowrap text-gray-700">
-                          {depositQuestion.conditional_suffix}
-                        </span>
-                      </div>
+                      {/* "of purchase price" text on the same line as input */}
+                      <span className="text-sm whitespace-nowrap text-gray-600">
+                        {depositQuestion.conditional_suffix
+                          ?.replace("%", "")
+                          .trim()}
+                      </span>
                     </div>
                   )}
               </div>

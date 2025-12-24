@@ -2976,42 +2976,49 @@ export const QuestionRenderer = ({
                         ),
                       )}
                     </div>
-                    <div className="relative max-w-md">
-                      <Input
-                        type="text"
-                        placeholder={getSubQuestionPlaceholder(
-                          uiConfig,
+                    <div className="flex items-center gap-2">
+                      <div className="relative max-w-md flex-1">
+                        <Input
+                          type="text"
+                          placeholder={getSubQuestionPlaceholder(
+                            uiConfig,
+                            "loanAmountPlaceholder",
+                            "Enter percentage",
+                          )}
+                          className={cn(
+                            "w-full pr-8", // Add padding for % decorator
+                            editingMode && "cursor-not-allowed",
+                          )}
+                          disabled={disabled}
+                          style={getInputStyle()}
+                          value={loanValue.loanPercentage || ""}
+                          onChange={(e) => {
+                            if (!editingMode) {
+                              onChange?.({
+                                ...loanValue,
+                                loanPercentage: e.target.value,
+                              })
+                            }
+                          }}
+                          data-field-id={`${question.id}_loanPercentage`}
+                        />
+                        {/* Percentage decorator (% symbol) */}
+                        <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
+                          %
+                        </div>
+                        {renderEditOverlay(
                           "loanAmountPlaceholder",
-                          "Enter percentage",
+                          getSubQuestionPlaceholder(
+                            uiConfig,
+                            "loanAmountPlaceholder",
+                            "Enter percentage",
+                          ),
                         )}
-                        className={cn(
-                          "w-full",
-                          editingMode && "cursor-not-allowed",
-                        )}
-                        disabled={disabled}
-                        style={getInputStyle()}
-                        value={loanValue.loanPercentage || ""}
-                        onChange={(e) => {
-                          if (!editingMode) {
-                            onChange?.({
-                              ...loanValue,
-                              loanPercentage: e.target.value,
-                            })
-                          }
-                        }}
-                        data-field-id={`${question.id}_loanPercentage`}
-                      />
-                      <div className="pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2 text-sm font-medium text-gray-500">
-                        %
                       </div>
-                      {renderEditOverlay(
-                        "loanAmountPlaceholder",
-                        getSubQuestionPlaceholder(
-                          uiConfig,
-                          "loanAmountPlaceholder",
-                          "Enter percentage",
-                        ),
-                      )}
+                      {/* "of purchase price" text on the same line as input */}
+                      <span className="text-sm whitespace-nowrap text-gray-600">
+                        of purchase price
+                      </span>
                     </div>
                     {getFieldError("loanAmount") && !editingMode && (
                       <p className="mt-1 text-sm text-red-500" role="alert">
