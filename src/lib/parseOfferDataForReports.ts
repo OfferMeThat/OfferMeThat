@@ -526,27 +526,62 @@ export function getSubmitterRoleFromData(offer: any): string {
 
 /**
  * Gets loan amount from subjectToLoanApproval
+ * Handles both amount and percentage, with currency support
  */
 export function getLoanAmountFromData(subjectToLoanApproval: any): string {
   if (!subjectToLoanApproval) return "N/A"
 
   const data = parseJsonField(subjectToLoanApproval)
-  const loanAmount = data?.loanAmount
+  
+  // Check if we have loanData object (new structure)
+  const loanData = data?.loanData || data
+  
+  // Determine which field to use based on loanAmountType
+  const loanAmountType = loanData?.loanAmountType || data?.loanAmountType
+  const loanAmount = loanData?.loanAmount || data?.loanAmount
+  const loanPercentage = loanData?.loanPercentage || data?.loanPercentage
+  const loanAmountCurrency = loanData?.loanAmountCurrency || data?.loanAmountCurrency
+  const loanPercentageCurrency = loanData?.loanPercentageCurrency || data?.loanPercentageCurrency
 
+  // If percentage is selected/available
+  if (loanAmountType === "percentage" && loanPercentage !== undefined && loanPercentage !== null && loanPercentage !== "") {
+    const parsed =
+      typeof loanPercentage === "number"
+        ? loanPercentage
+        : parseFloat(String(loanPercentage))
+    if (!isNaN(parsed)) {
+      return `${parsed}% of purchase price${loanPercentageCurrency ? ` (${loanPercentageCurrency})` : ""}`
+    }
+    return String(loanPercentage) + "% of purchase price"
+  }
+
+  // If amount is selected/available
   if (loanAmount !== undefined && loanAmount !== null && loanAmount !== "") {
     const parsed =
       typeof loanAmount === "number"
         ? loanAmount
         : parseFloat(String(loanAmount))
     if (!isNaN(parsed)) {
+      const currency = loanAmountCurrency || "USD"
       return new Intl.NumberFormat("en-US", {
         style: "currency",
-        currency: "USD",
+        currency: currency,
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }).format(parsed)
     }
-    return String(loanAmount)
+    return String(loanAmount) + (loanAmountCurrency ? ` ${loanAmountCurrency}` : "")
+  }
+
+  // Fallback: check if loan_amount_type is "percentage" (old format)
+  if (data?.loan_amount_type === "percentage" && loanPercentage !== undefined && loanPercentage !== null && loanPercentage !== "") {
+    const parsed =
+      typeof loanPercentage === "number"
+        ? loanPercentage
+        : parseFloat(String(loanPercentage))
+    if (!isNaN(parsed)) {
+      return `${parsed}% of purchase price`
+    }
   }
 
   return "N/A"
@@ -554,12 +589,17 @@ export function getLoanAmountFromData(subjectToLoanApproval: any): string {
 
 /**
  * Gets loan company name from subjectToLoanApproval
+ * Handles both old format (data.companyName) and new format (data.loanData.lenderDetails.companyName)
  */
 export function getLoanCompanyNameFromData(subjectToLoanApproval: any): string {
   if (!subjectToLoanApproval) return "N/A"
 
   const data = parseJsonField(subjectToLoanApproval)
-  const companyName = data?.companyName
+  
+  // Check new structure first (loanData.lenderDetails.companyName)
+  const loanData = data?.loanData || data
+  const lenderDetails = loanData?.lenderDetails || data?.lenderDetails
+  const companyName = lenderDetails?.companyName || loanData?.companyName || data?.companyName
 
   if (companyName && typeof companyName === "string" && companyName.trim()) {
     return companyName.trim()
@@ -1229,7 +1269,7 @@ export function getAllSubjectToLoanInfo(subjectToLoanApproval: any): string {
 
   const loanAmount = getLoanAmountFromData(subjectToLoanApproval)
   if (loanAmount !== "N/A") {
-    parts.push(`Amount: ${loanAmount}`)
+    parts.push(`Loan: ${loanAmount}`)
   }
 
   const companyName = getLoanCompanyNameFromData(subjectToLoanApproval)

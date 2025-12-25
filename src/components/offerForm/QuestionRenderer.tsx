@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { CURRENCY_OPTIONS } from "@/constants/offerFormQuestions"
 import { getSmartQuestion } from "@/data/smartQuestions"
 import { getCurrencyPlaceholder } from "@/lib/currencyUtils"
 import {
@@ -2683,6 +2684,37 @@ export const QuestionRenderer = ({
     const isSubjectToLoan = loanValue.subjectToLoan === "yes"
     const knowsLenderDetails = !loanValue.unknownLender
 
+    // Helper: Prevent invalid characters in number inputs (e, E, +, -)
+    const handleNumberInputKeyDown = (
+      e: React.KeyboardEvent<HTMLInputElement>,
+    ) => {
+      // Prevent e, E, +, - from being entered
+      if (e.key === "e" || e.key === "E" || e.key === "+" || e.key === "-") {
+        e.preventDefault()
+      }
+    }
+
+    // Helper: Filter out invalid characters from number input values (for paste protection)
+    const sanitizeNumberInput = (value: string): string => {
+      // Remove e, E, +, - characters
+      return value.replace(/[eE\+\-]/g, "")
+    }
+
+    // Initialize loanAmountType to "amount" if not set (for amount_or_percentage)
+    useEffect(() => {
+      if (
+        loanAmountType === "amount_or_percentage" &&
+        !loanValue.loanAmountType &&
+        isSubjectToLoan
+      ) {
+        onChange?.({
+          ...loanValue,
+          loanAmountType: "amount",
+        })
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loanAmountType, isSubjectToLoan])
+
     // Parse error message to extract field-specific errors
     const getFieldError = (fieldName: string) => {
       if (!error || editingMode) return undefined
@@ -2839,10 +2871,10 @@ export const QuestionRenderer = ({
                         <span className="font-bold text-red-500">*</span>
                       </Label>
                     </div>
-                    <Select
-                      value={loanValue.loanAmountType || ""}
-                      onValueChange={(val) => {
-                        if (!editingMode) {
+                    <div className="w-1/2">
+                      <Select
+                        value={loanValue.loanAmountType || "amount"}
+                        onValueChange={(val) => {
                           onChange?.({
                             ...loanValue,
                             loanAmountType: val,
@@ -2856,102 +2888,32 @@ export const QuestionRenderer = ({
                                 ? loanValue.loanPercentage
                                 : undefined,
                           })
-                        }
-                      }}
-                      disabled={disabled}
-                    >
-                      <SelectTrigger
-                        className="w-full max-w-md"
-                        style={getSelectStyle()}
+                        }}
+                        disabled={disabled}
                       >
-                        <SelectValue placeholder="Select..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="amount">A fixed amount</SelectItem>
-                        <SelectItem value="percentage">
-                          A percentage of purchase price
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                        <SelectTrigger
+                          className="w-full"
+                          style={getSelectStyle()}
+                        >
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="amount">A fixed amount</SelectItem>
+                          <SelectItem value="percentage">
+                            A percentage of purchase price
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 )}
 
                 {/* Loan Amount Input (for fixed_amount or amount_or_percentage with amount selected) */}
                 {(loanAmountType === "fixed_amount" ||
                   (loanAmountType === "amount_or_percentage" &&
-                    loanValue.loanAmountType === "amount")) && (
-                  <div>
-                    <div className="relative inline-block">
-                      <Label
-                        className={cn(
-                          "mb-2 block text-sm font-medium",
-                          editingMode &&
-                            "cursor-pointer transition-colors hover:text-blue-600",
-                        )}
-                      >
-                        {getSubQuestionLabel(
-                          uiConfig,
-                          "loanAmountLabel",
-                          "What is your Loan Amount?",
-                        )}{" "}
-                        <span className="font-bold text-red-500">*</span>
-                      </Label>
-                      {renderLabelOverlay(
-                        "loanAmountLabel",
-                        getSubQuestionLabel(
-                          uiConfig,
-                          "loanAmountLabel",
-                          "What is your Loan Amount?",
-                        ),
-                      )}
-                    </div>
-                    <div className="relative max-w-md">
-                      <Input
-                        type="text"
-                        placeholder={getSubQuestionPlaceholder(
-                          uiConfig,
-                          "loanAmountPlaceholder",
-                          "Enter amount",
-                        )}
-                        className={cn(
-                          "w-full",
-                          editingMode && "cursor-not-allowed",
-                        )}
-                        disabled={disabled}
-                        style={getInputStyle()}
-                        value={loanValue.loanAmount || ""}
-                        onChange={(e) => {
-                          if (!editingMode) {
-                            onChange?.({
-                              ...loanValue,
-                              loanAmount: e.target.value,
-                            })
-                          }
-                        }}
-                        data-field-id={`${question.id}_loanAmount`}
-                      />
-                      {renderEditOverlay(
-                        "loanAmountPlaceholder",
-                        getSubQuestionPlaceholder(
-                          uiConfig,
-                          "loanAmountPlaceholder",
-                          "Enter amount",
-                        ),
-                      )}
-                    </div>
-                    {getFieldError("loanAmount") && !editingMode && (
-                      <p className="mt-1 text-sm text-red-500" role="alert">
-                        {getFieldError("loanAmount")}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Loan Percentage Input (for percentage or amount_or_percentage with percentage selected) */}
-                {(loanAmountType === "percentage" ||
-                  (loanAmountType === "amount_or_percentage" &&
-                    loanValue.loanAmountType === "percentage")) && (
-                  <div>
+                    (loanValue.loanAmountType === "amount" ||
+                      !loanValue.loanAmountType))) && (
+                  <div className="space-y-2">
                     <div className="relative inline-block">
                       <Label
                         className={cn(
@@ -2977,27 +2939,126 @@ export const QuestionRenderer = ({
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="relative max-w-md flex-1">
+                      <div className="relative w-1/2">
                         <Input
-                          type="text"
+                          type="number"
+                          min="0"
+                          placeholder={getSubQuestionPlaceholder(
+                            uiConfig,
+                            "loanAmountPlaceholder",
+                            "Enter amount",
+                          )}
+                          className={cn(
+                            editingMode && "cursor-not-allowed",
+                            "w-full",
+                          )}
+                          disabled={disabled}
+                          style={getInputStyle()}
+                          value={loanValue.loanAmount || ""}
+                          onChange={(e) => {
+                            if (!editingMode) {
+                              const sanitized = sanitizeNumberInput(
+                                e.target.value,
+                              )
+                              onChange?.({
+                                ...loanValue,
+                                loanAmount: sanitized,
+                              })
+                            }
+                          }}
+                          onKeyDown={handleNumberInputKeyDown}
+                          data-field-id={`${question.id}_loanAmount`}
+                        />
+                        {renderEditOverlay(
+                          "loanAmountPlaceholder",
+                          getSubQuestionPlaceholder(
+                            uiConfig,
+                            "loanAmountPlaceholder",
+                            "Enter amount",
+                          ),
+                        )}
+                      </div>
+                      {/* Currency dropdown */}
+                      <div className="w-1/2">
+                        <CurrencySelect
+                          value={loanValue.loanAmountCurrency || ""}
+                          onValueChange={(val) => {
+                            if (!editingMode) {
+                              onChange?.({
+                                ...loanValue,
+                                loanAmountCurrency: val,
+                              })
+                            }
+                          }}
+                          disabled={disabled || editingMode}
+                          placeholder="Select currency"
+                          className="w-full"
+                          style={getSelectStyle()}
+                          allowedCurrencies={CURRENCY_OPTIONS.map(
+                            (opt) => opt.value,
+                          )}
+                        />
+                      </div>
+                    </div>
+                    {getFieldError("loanAmount") && !editingMode && (
+                      <p className="mt-1 text-sm text-red-500" role="alert">
+                        {getFieldError("loanAmount")}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Loan Percentage Input (for percentage or amount_or_percentage with percentage selected) */}
+                {(loanAmountType === "percentage" ||
+                  (loanAmountType === "amount_or_percentage" &&
+                    loanValue.loanAmountType === "percentage")) && (
+                  <div className="space-y-2">
+                    <div className="relative inline-block">
+                      <Label
+                        className={cn(
+                          "mb-2 block text-sm font-medium",
+                          editingMode &&
+                            "cursor-pointer transition-colors hover:text-blue-600",
+                        )}
+                      >
+                        {getSubQuestionLabel(
+                          uiConfig,
+                          "loanAmountLabel",
+                          "What is your Loan Amount?",
+                        )}{" "}
+                        <span className="font-bold text-red-500">*</span>
+                      </Label>
+                      {renderLabelOverlay(
+                        "loanAmountLabel",
+                        getSubQuestionLabel(
+                          uiConfig,
+                          "loanAmountLabel",
+                          "What is your Loan Amount?",
+                        ),
+                      )}
+                    </div>
+                    {/* First row: percentage input with % decorator and "of purchase price" text */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-1/2">
+                        <Input
+                          type="number"
+                          min="0"
                           placeholder={getSubQuestionPlaceholder(
                             uiConfig,
                             "loanAmountPlaceholder",
                             "Enter percentage",
                           )}
                           className={cn(
-                            "w-full pr-8", // Add padding for % decorator
                             editingMode && "cursor-not-allowed",
+                            "w-full pr-8", // Add padding for % decorator
                           )}
                           disabled={disabled}
                           style={getInputStyle()}
                           value={loanValue.loanPercentage || ""}
                           onChange={(e) => {
                             if (!editingMode) {
-                              // Remove e, E, +, - characters
-                              const sanitized = e.target.value.replace(
-                                /[eE\+\-]/g,
-                                "",
+                              const sanitized = sanitizeNumberInput(
+                                e.target.value,
                               )
                               onChange?.({
                                 ...loanValue,
@@ -3005,17 +3066,7 @@ export const QuestionRenderer = ({
                               })
                             }
                           }}
-                          onKeyDown={(e) => {
-                            // Prevent e, E, +, - from being entered
-                            if (
-                              e.key === "e" ||
-                              e.key === "E" ||
-                              e.key === "+" ||
-                              e.key === "-"
-                            ) {
-                              e.preventDefault()
-                            }
-                          }}
+                          onKeyDown={handleNumberInputKeyDown}
                           data-field-id={`${question.id}_loanPercentage`}
                         />
                         {/* Percentage decorator (% symbol) */}
@@ -3031,10 +3082,31 @@ export const QuestionRenderer = ({
                           ),
                         )}
                       </div>
-                      {/* "of purchase price" text on the same line as input */}
-                      <span className="text-sm whitespace-nowrap text-gray-600">
+                      {/* "of purchase price" text on the same line */}
+                      <span className="w-1/2 text-sm whitespace-nowrap text-gray-600">
                         of purchase price
                       </span>
+                    </div>
+                    {/* Second row: currency selector underneath */}
+                    <div className="w-full">
+                      <CurrencySelect
+                        value={loanValue.loanPercentageCurrency || ""}
+                        onValueChange={(val) => {
+                          if (!editingMode) {
+                            onChange?.({
+                              ...loanValue,
+                              loanPercentageCurrency: val,
+                            })
+                          }
+                        }}
+                        disabled={disabled || editingMode}
+                        placeholder="Select currency"
+                        className="w-full"
+                        style={getSelectStyle()}
+                        allowedCurrencies={CURRENCY_OPTIONS.map(
+                          (opt) => opt.value,
+                        )}
+                      />
                     </div>
                     {getFieldError("loanAmount") && !editingMode && (
                       <p className="mt-1 text-sm text-red-500" role="alert">
