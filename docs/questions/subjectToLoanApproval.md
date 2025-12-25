@@ -17,9 +17,9 @@ The Subject to Loan Approval question schema is divided into three main parts:
 This represents the configuration that form builders set up when creating a Subject to Loan Approval question. It includes:
 
 - **Loan Amount Type** (`loan_amount_type`):
-  - `"fixed_amount"`: Buyer must enter a fixed amount
-  - `"percentage"`: Buyer must enter a percentage of purchase price
-  - `"amount_or_percentage"`: Buyer can choose between amount or percentage
+  - `"fixed_amount"`: Buyer must enter a fixed amount (with currency selector)
+  - `"percentage"`: Buyer must enter a percentage of purchase price (with currency selector)
+  - `"amount_or_percentage"`: Buyer can choose between amount or percentage (defaults to "amount", with currency selectors for both)
   - `"no_amount"`: Don't collect loan amount
 
 - **Lender Details** (`lender_details`):
@@ -73,9 +73,11 @@ The data structure depends on the `subjectToLoan` value:
     
     // Loan amount (when loanAmountType === "amount" or loan_amount_type === "fixed_amount")
     loanAmount?: number | string,
+    loanAmountCurrency?: string,  // Currency for loan amount (e.g., "USD", "EUR")
     
     // Loan percentage (when loanAmountType === "percentage" or loan_amount_type === "percentage")
     loanPercentage?: number | string,
+    loanPercentageCurrency?: string,  // Currency for loan percentage (e.g., "USD", "EUR")
     
     // Lender details (only if lender_details !== "not_required")
     lenderDetails?: {
@@ -363,9 +365,11 @@ const setupConfig: SubjectToLoanApprovalSetupConfig = {
 
 - `subjectToLoan` - Main question answer ("yes" | "no")
 - `loanData` - Data when subjectToLoan === "yes"
-  - `loanAmountType` - Selection when loan_amount_type === "amount_or_percentage"
-  - `loanAmount` - Loan amount value
-  - `loanPercentage` - Loan percentage value
+  - `loanAmountType` - Selection when loan_amount_type === "amount_or_percentage" (defaults to "amount")
+  - `loanAmount` - Loan amount value (when amount is selected)
+  - `loanAmountCurrency` - Currency code for loan amount (e.g., "USD", "EUR", "GBP")
+  - `loanPercentage` - Loan percentage value (when percentage is selected)
+  - `loanPercentageCurrency` - Currency code for loan percentage (e.g., "USD", "EUR", "GBP")
   - `lenderDetails` - Lender information object
   - `supportingDocs` - Pre-approval documents
   - `loanApprovalDue` - Due date information
@@ -391,6 +395,58 @@ When updating the schema:
 3. **Validation**: Always validate setup configs before rendering questions
 4. **Testing**: Test all setup configurations and data collection scenarios
 
+## UI/UX Features
+
+### Loan Amount Selection (Amount or Percentage)
+
+When `loan_amount_type` is set to `"amount_or_percentage"`, the form displays:
+
+1. **Select Dropdown**: "How would you like to specify your loan amount?" with options:
+   - "A fixed amount"
+   - "A percentage of purchase price"
+   - Defaults to "A fixed amount" if not selected
+
+2. **Conditional Input Fields** based on selection:
+   - **Amount selected**: Shows amount input with currency selector (both fields in a row, each `w-1/2`)
+   - **Percentage selected**: Shows percentage input with "%" decorator, "of purchase price" text, and currency selector below (two rows: first row has input and text, second row has currency selector)
+
+### Field Width and Layout
+
+- **Two fields in a row**: Each field is `w-1/2` (half-width)
+  - Amount input + Currency selector
+  - Percentage input + "of purchase price" text
+- **Single field**: Full width (`w-full`)
+  - Currency selector below percentage input
+
+### Number Input Handling
+
+- Inputs use `type="number"` with `min="0"`
+- Invalid characters (e, E, +, -) are prevented via `onKeyDown` handler
+- Values are sanitized on change to remove invalid characters
+
+### Currency Selection
+
+- Currency selectors use `CurrencySelect` component with all available currencies from `CURRENCY_OPTIONS`
+- Currency is stored separately for amount (`loanAmountCurrency`) and percentage (`loanPercentageCurrency`)
+- Currency is displayed in formatted loan amount strings for reports
+
+## Data Collection and Display
+
+### Form Data Collection
+
+The `QuestionRenderer` component collects data using the `onChange` callback:
+- All field values are stored in a single object under the question ID
+- Currency fields are stored with `_currency` suffix (`loanAmountCurrency`, `loanPercentageCurrency`)
+- When switching between amount/percentage, the other field is cleared
+
+### Data Transformation
+
+The `parseOfferDataForReports.ts` utilities handle:
+- Parsing JSON strings from database
+- Handling both old format (flat structure) and new format (`loanData` object)
+- Formatting amounts with currency: `$500,000 USD` or `80% of purchase price (EUR)`
+- Extracting lender details from nested structure
+
 ## Related Files
 
 - `src/types/questions/subjectToLoanApproval.ts` - Schema definition
@@ -398,6 +454,7 @@ When updating the schema:
 - `src/components/offerForm/QuestionRenderer.tsx` - Question rendering
 - `src/types/offerData.ts` - Data collection types (re-exports schema types)
 - `src/lib/offerFormValidation.ts` - Yup validation schemas
+- `src/lib/parseOfferDataForReports.ts` - Report generation utilities
 - `src/components/offerForm/builder/SmartQuestionSetup.tsx` - Setup UI
 - `src/types/questionUIConfig.ts` - UI configuration with field-level required support
 
