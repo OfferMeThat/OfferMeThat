@@ -4421,57 +4421,43 @@ export const QuestionRenderer = ({
             </p>
           )}
           {dateType === "within_days" && (
-            <div className="flex max-w-md gap-2">
-              <div className="relative flex-1">
-                <Input
-                  type="number"
-                  min="0"
-                  placeholder={getSubQuestionPlaceholder(
-                    uiConfig,
-                    "daysPlaceholder",
-                    "Number of days",
-                  )}
-                  onKeyDown={(e) => {
-                    // Prevent e, E, +, - from being entered
-                    if (
-                      e.key === "e" ||
-                      e.key === "E" ||
-                      e.key === "+" ||
-                      e.key === "-"
-                    ) {
-                      e.preventDefault()
-                    }
-                  }}
-                  disabled={disabled}
-                  className={cn(editingMode && "cursor-not-allowed", "w-full")}
-                  style={getInputStyle()}
-                  value={editingMode ? "" : formValues.settlementDays || ""}
-                  onChange={(e) => {
+            <div className="flex max-w-md items-center gap-2">
+              <span className="text-sm text-gray-700">Within</span>
+              <div className="relative w-24">
+                <Select
+                  value={
+                    editingMode
+                      ? ""
+                      : formValues.settlementDays
+                        ? String(formValues.settlementDays)
+                        : ""
+                  }
+                  onValueChange={(value) => {
                     if (!editingMode) {
                       const newValues = {
                         ...formValues,
-                        settlementDays: e.target.value
-                          ? Number(e.target.value)
-                          : "",
+                        settlementDays: value ? Number(value) : "",
                       }
                       setFormValues(newValues)
                       onChange?.(newValues)
                     }
                   }}
-                  onBlur={onBlur}
-                  data-field-id={question.id}
-                />
-                {renderEditOverlay(
-                  "daysPlaceholder",
-                  getSubQuestionPlaceholder(
-                    uiConfig,
-                    "daysPlaceholder",
-                    "Number of days",
-                  ),
-                )}
+                  disabled={disabled || editingMode}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 100 }, (_, i) => i + 1).map((num) => (
+                      <SelectItem key={num} value={String(num)}>
+                        {num}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <span className="flex items-center text-sm text-gray-600">
-                days after acceptance
+              <span className="text-sm text-gray-700">
+                days of Offer Acceptance
               </span>
             </div>
           )}
