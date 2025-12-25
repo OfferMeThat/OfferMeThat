@@ -2678,7 +2678,9 @@ export const QuestionRenderer = ({
     const lenderDetails = setupConfig.lender_details
     const attachments = setupConfig.attachments
     const loanApprovalDue = setupConfig.loan_approval_due
-    const financeSpecialist = setupConfig.finance_specialist_communication
+    const financeCommunications =
+      setupConfig.finance_communications ||
+      setupConfig.finance_specialist_communication
 
     const loanValue = (value as Record<string, any>) || {}
     const isSubjectToLoan = loanValue.subjectToLoan === "yes"
@@ -2841,7 +2843,7 @@ export const QuestionRenderer = ({
             }}
             disabled={disabled}
           >
-            <SelectTrigger className="w-full max-w-md" style={getSelectStyle()}>
+            <SelectTrigger className="w-3/4 max-w-md" style={getSelectStyle()}>
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
@@ -3121,11 +3123,11 @@ export const QuestionRenderer = ({
             {/* Company Name with checkbox */}
             {lenderDetails && lenderDetails !== "not_required" && (
               <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <div className="relative inline-block">
+                <div className="w-3/4">
+                  <div className="relative mb-2 inline-block">
                     <Label
                       className={cn(
-                        "w-32 pt-2 text-sm font-medium",
+                        "block text-sm font-medium",
                         editingMode &&
                           "cursor-pointer transition-colors hover:text-blue-600",
                       )}
@@ -3158,7 +3160,7 @@ export const QuestionRenderer = ({
                       ),
                     )}
                   </div>
-                  <div className="relative max-w-md flex-1">
+                  <div className="relative">
                     <Input
                       type="text"
                       placeholder={getSubQuestionPlaceholder(
@@ -3196,27 +3198,30 @@ export const QuestionRenderer = ({
                 {getFieldError("companyName") &&
                   !editingMode &&
                   knowsLenderDetails && (
-                    <p className="mt-1 ml-36 text-sm text-red-500" role="alert">
+                    <p className="mt-1 text-sm text-red-500" role="alert">
                       {getFieldError("companyName")}
                     </p>
                   )}
-                <div className="flex items-center gap-2 pl-36">
-                  <Checkbox
-                    id="unknown-lender"
-                    checked={loanValue.unknownLender || false}
-                    onCheckedChange={(checked) => {
-                      if (!editingMode) {
-                        onChange?.({ ...loanValue, unknownLender: checked })
-                      }
-                    }}
-                  />
-                  <Label
-                    htmlFor="unknown-lender"
-                    className="text-sm font-normal"
-                  >
-                    I don't know Lender Details yet
-                  </Label>
-                </div>
+                {/* Only show checkbox if lender_details is "optional" */}
+                {lenderDetails === "optional" && (
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="unknown-lender"
+                      checked={loanValue.unknownLender || false}
+                      onCheckedChange={(checked) => {
+                        if (!editingMode) {
+                          onChange?.({ ...loanValue, unknownLender: checked })
+                        }
+                      }}
+                    />
+                    <Label
+                      htmlFor="unknown-lender"
+                      className="text-sm font-normal"
+                    >
+                      I don't know Lender Details yet
+                    </Label>
+                  </div>
+                )}
               </div>
             )}
 
@@ -3226,11 +3231,11 @@ export const QuestionRenderer = ({
               knowsLenderDetails && (
                 <>
                   {/* Contact Name */}
-                  <div className="flex items-center gap-3">
-                    <div className="relative inline-block">
+                  <div className="w-3/4">
+                    <div className="relative mb-2 inline-block">
                       <Label
                         className={cn(
-                          "w-32 text-sm font-medium",
+                          "block text-sm font-medium",
                           editingMode &&
                             "cursor-pointer transition-colors hover:text-blue-600",
                         )}
@@ -3250,7 +3255,7 @@ export const QuestionRenderer = ({
                         ),
                       )}
                     </div>
-                    <div className="relative max-w-md flex-1">
+                    <div className="relative">
                       <Input
                         type="text"
                         placeholder={getSubQuestionPlaceholder(
@@ -3286,17 +3291,17 @@ export const QuestionRenderer = ({
                     </div>
                   </div>
                   {getFieldError("contactName") && !editingMode && (
-                    <p className="mt-1 ml-36 text-sm text-red-500" role="alert">
+                    <p className="mt-1 text-sm text-red-500" role="alert">
                       {getFieldError("contactName")}
                     </p>
                   )}
 
                   {/* Contact Phone */}
-                  <div className="flex items-center gap-3">
-                    <div className="relative inline-block">
+                  <div className="w-3/4">
+                    <div className="relative mb-2 inline-block">
                       <Label
                         className={cn(
-                          "w-32 text-sm font-medium",
+                          "block text-sm font-medium",
                           editingMode &&
                             "cursor-pointer transition-colors hover:text-blue-600",
                         )}
@@ -3316,7 +3321,7 @@ export const QuestionRenderer = ({
                         ),
                       )}
                     </div>
-                    <div className="relative max-w-md flex-1">
+                    <div className="relative">
                       <Input
                         type="tel"
                         placeholder={getSubQuestionPlaceholder(
@@ -3352,17 +3357,17 @@ export const QuestionRenderer = ({
                     </div>
                   </div>
                   {getFieldError("contactPhone") && !editingMode && (
-                    <p className="mt-1 ml-36 text-sm text-red-500" role="alert">
+                    <p className="mt-1 text-sm text-red-500" role="alert">
                       {getFieldError("contactPhone")}
                     </p>
                   )}
 
                   {/* Contact Email */}
-                  <div className="flex items-center gap-3">
-                    <div className="relative inline-block">
+                  <div className="w-3/4">
+                    <div className="relative mb-2 inline-block">
                       <Label
                         className={cn(
-                          "w-32 text-sm font-medium",
+                          "block text-sm font-medium",
                           editingMode &&
                             "cursor-pointer transition-colors hover:text-blue-600",
                         )}
@@ -3382,7 +3387,7 @@ export const QuestionRenderer = ({
                         ),
                       )}
                     </div>
-                    <div className="relative max-w-md flex-1">
+                    <div className="relative">
                       <Input
                         type="email"
                         placeholder={getSubQuestionPlaceholder(
@@ -3418,7 +3423,7 @@ export const QuestionRenderer = ({
                     </div>
                   </div>
                   {getFieldError("contactEmail") && !editingMode && (
-                    <p className="mt-1 ml-36 text-sm text-red-500" role="alert">
+                    <p className="mt-1 text-sm text-red-500" role="alert">
                       {getFieldError("contactEmail")}
                     </p>
                   )}
@@ -3652,43 +3657,66 @@ export const QuestionRenderer = ({
             )}
 
             {/* Finance Specialist Communication */}
-            {financeSpecialist && financeSpecialist !== "not_shown" && (
-              <div>
-                <Label className="mb-2 block text-sm font-medium">
-                  Would you like to receive communication from a Finance
-                  Specialist with regard to your financing options?{" "}
-                  <span className="font-bold text-red-500">*</span>
-                </Label>
-                <Select
-                  disabled={disabled}
-                  value={loanValue.financeSpecialist || ""}
-                  onValueChange={(val) => {
-                    if (!editingMode) {
-                      onChange?.({ ...loanValue, financeSpecialist: val })
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    className="w-full max-w-md"
-                    style={getSelectStyle()}
-                  >
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="yes">Yes</SelectItem>
-                    <SelectItem value="no">No</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            {/* Show when finance_communications is "referral_partner" or "self_manage" (not "no_thanks") */}
+            {financeCommunications &&
+              financeCommunications !== "no_thanks" &&
+              (financeCommunications === "referral_partner" ||
+                financeCommunications === "self_manage") && (
+                <div>
+                  <div className="relative inline-block">
+                    <Label
+                      className={cn(
+                        "mb-2 block text-sm font-medium",
+                        editingMode &&
+                          "cursor-pointer transition-colors hover:text-blue-600",
+                      )}
+                    >
+                      {getSubQuestionLabel(
+                        uiConfig,
+                        "financeSpecialistLabel",
+                        "Would you like to receive communication from a Finance Specialist with regard to your financing options?",
+                      )}{" "}
+                      <span className="font-bold text-red-500">*</span>
+                    </Label>
+                    {renderLabelOverlay(
+                      "financeSpecialistLabel",
+                      getSubQuestionLabel(
+                        uiConfig,
+                        "financeSpecialistLabel",
+                        "Would you like to receive communication from a Finance Specialist with regard to your financing options?",
+                      ),
+                    )}
+                  </div>
+                  <div className="w-1/2">
+                    <Select
+                      disabled={disabled || editingMode}
+                      value={loanValue.financeSpecialist || ""}
+                      onValueChange={(val) => {
+                        onChange?.({ ...loanValue, financeSpecialist: val })
+                      }}
+                    >
+                      <SelectTrigger
+                        className="w-full"
+                        style={getSelectStyle()}
+                      >
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
           </>
         )}
 
-        {/* Proof of Funds - shown when "No" is selected */}
-        {/* Always show if evidence_of_funds is configured (optional or required) */}
+        {/* Evidence of Funds - shown when "No" is selected and evidence_of_funds is configured */}
+        {/* Show if evidence_of_funds is configured (optional or required) AND subjectToLoan is "no" */}
         {!isSubjectToLoan &&
-          (setupConfig.evidence_of_funds === "optional" ||
-            setupConfig.evidence_of_funds === "required") && (
+          setupConfig.evidence_of_funds &&
+          setupConfig.evidence_of_funds !== "not_required" && (
             <div>
               <div className="relative inline-block">
                 <Label
@@ -3698,11 +3726,20 @@ export const QuestionRenderer = ({
                       "cursor-pointer transition-colors hover:text-blue-600",
                   )}
                 >
-                  {getSubQuestionLabel(
-                    uiConfig,
-                    "evidenceOfFundsLabel",
-                    "Evidence of Funds:",
-                  )}
+                  {(() => {
+                    const labelText = getSubQuestionLabel(
+                      uiConfig,
+                      "evidenceOfFundsLabel",
+                      "Provide Evidence of Funds",
+                    )
+                    // Remove any existing asterisk from the label text
+                    const cleanLabelText = labelText
+                      .replace(/\s*\*+\s*$/, "")
+                      .replace(/^\s*\*+\s*$/, "") // Also remove if label is only asterisk(s)
+                      .trim()
+                    // If label is empty or only asterisk(s), use default
+                    return cleanLabelText || "Provide Evidence of Funds"
+                  })()}
                   {(() => {
                     // Check field-level required from uiConfig first
                     const fieldRequired = getSubQuestionRequired(

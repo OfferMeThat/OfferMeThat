@@ -107,10 +107,13 @@ export function FileUploadInput({
   return (
     <div className={cn("space-y-2", className)}>
       <div className="space-y-2">
-        <Label htmlFor={id} className="text-sm font-medium text-gray-900">
-          {label}
-          {required && <span className="text-red-500"> *</span>}
-        </Label>
+        {/* Only render label if it's not empty */}
+        {label && label.trim() !== "" && (
+          <Label htmlFor={id} className="text-sm font-medium text-gray-900">
+            {label}
+            {required && <span className="text-red-500"> *</span>}
+          </Label>
+        )}
         <div className="flex items-center gap-2">
           <input
             type="file"
