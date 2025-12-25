@@ -414,6 +414,7 @@ export function getSpecialConditionsFromData(specialConditions: any): string {
     try {
       const parsed = JSON.parse(specialConditions)
       // Check if it has meaningful data
+      // Note: conditionAttachmentUrls is deprecated but kept for backward compatibility
       if (
         (parsed.selectedConditions &&
           Array.isArray(parsed.selectedConditions) &&
@@ -423,7 +424,10 @@ export function getSpecialConditionsFromData(specialConditions: any): string {
           Object.keys(parsed.conditionAttachmentUrls).length > 0) ||
         (parsed.customCondition &&
           typeof parsed.customCondition === "string" &&
-          parsed.customCondition.trim())
+          parsed.customCondition.trim()) ||
+        (parsed.customConditionAttachmentUrls &&
+          Array.isArray(parsed.customConditionAttachmentUrls) &&
+          parsed.customConditionAttachmentUrls.length > 0)
       ) {
         return "Yes"
       }
@@ -440,12 +444,16 @@ export function getSpecialConditionsFromData(specialConditions: any): string {
     (data?.selectedConditions &&
       Array.isArray(data.selectedConditions) &&
       data.selectedConditions.length > 0) ||
+    // Note: conditionAttachmentUrls is deprecated but kept for backward compatibility
     (data?.conditionAttachmentUrls &&
       typeof data.conditionAttachmentUrls === "object" &&
       Object.keys(data.conditionAttachmentUrls).length > 0) ||
     (data?.customCondition &&
       typeof data.customCondition === "string" &&
-      data.customCondition.trim())
+      data.customCondition.trim()) ||
+    (data?.customConditionAttachmentUrls &&
+      Array.isArray(data.customConditionAttachmentUrls) &&
+      data.customConditionAttachmentUrls.length > 0)
   ) {
     return "Yes"
   }
@@ -1087,21 +1095,17 @@ export function getSpecialConditionUrls(specialConditions: any): string {
 
   const urls: string[] = []
 
-  // Check conditionAttachmentUrls
+  // Note: conditionAttachmentUrls is deprecated - SUBMITTERS cannot upload files for predefined conditions
+  // Only check customConditionAttachmentUrls
   if (
-    data.conditionAttachmentUrls &&
-    typeof data.conditionAttachmentUrls === "object"
+    data.customConditionAttachmentUrls &&
+    Array.isArray(data.customConditionAttachmentUrls)
   ) {
-    for (const key in data.conditionAttachmentUrls) {
-      const attachmentUrls = data.conditionAttachmentUrls[key]
-      if (Array.isArray(attachmentUrls)) {
-        urls.push(
-          ...attachmentUrls.filter((url: string) => typeof url === "string"),
-        )
-      } else if (typeof attachmentUrls === "string") {
-        urls.push(attachmentUrls)
-      }
-    }
+    urls.push(
+      ...data.customConditionAttachmentUrls.filter(
+        (url: string) => typeof url === "string",
+      ),
+    )
   }
 
   return urls.length > 0 ? "Yes" : "N/A"

@@ -103,3 +103,26 @@ export {
   isLenderDetailsComplete,
 } from "./subjectToLoanApproval"
 
+// Special Conditions Question Schema
+export type {
+  AllowCustomConditions,
+  SetupAttachment,
+  ConditionDefinition,
+  SpecialConditionsSetupConfig,
+  SpecialConditionsCollectedData,
+  SpecialConditionsUIConfig,
+  SpecialConditionsValue,
+  SpecialConditionsValidationResult,
+} from "./specialConditions"
+
+export {
+  MAX_CONDITIONS,
+  MAX_SETUP_ATTACHMENTS_PER_CONDITION,
+  MAX_SETUP_ATTACHMENT_SIZE,
+  MAX_CUSTOM_CONDITION_ATTACHMENTS,
+  MAX_CUSTOM_CONDITION_ATTACHMENT_SIZE,
+  ACCEPTED_FILE_TYPES,
+  SETUP_ATTACHMENTS_BUCKET,
+  CUSTOM_CONDITION_ATTACHMENTS_BUCKET,
+} from "./specialConditions"
+

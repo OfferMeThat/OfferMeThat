@@ -3892,15 +3892,22 @@ export const QuestionRenderer = ({
       (setupConfig.conditions as Array<{
         name: string
         details?: string
+        attachments?: Array<{
+          url: string
+          fileName: string
+          fileSize?: number
+          uploadedAt?: string
+        }>
       }>) || []
     const allowCustom = setupConfig.allow_custom_conditions === "yes"
 
-    // Get current form value - should be an object with selectedConditions and customCondition
+    // Get current form value - should be an object with selectedConditions, customCondition, and customConditionAttachments
     const specialConditionsValueRaw =
       (value as {
         selectedConditions?: number[] | string[]
         customCondition?: string
         conditionAttachments?: Record<number | string, File[]>
+        customConditionAttachments?: File[]
       }) || {}
 
     // Normalize the value to ensure proper types
@@ -3932,15 +3939,10 @@ export const QuestionRenderer = ({
     const customCondition = specialConditionsValue.customCondition || ""
     const conditionAttachments =
       specialConditionsValue.conditionAttachments || {}
+    const customConditionAttachments =
+      specialConditionsValue.customConditionAttachments || []
 
-    // Get file upload state for condition attachments
-    const getConditionFileData = (conditionIndex: number) => {
-      const fileKey = `${question.id}_condition_${conditionIndex}_attachments`
-      const fileDataRaw = fileUploads[fileKey]
-      return fileDataRaw && "files" in fileDataRaw
-        ? fileDataRaw
-        : { files: [], fileNames: [], error: undefined }
-    }
+    // Note: getConditionFileData removed - SUBMITTERS cannot upload files for predefined conditions
 
     const handleConditionToggle = (
       conditionIndex: number,
@@ -3963,85 +3965,8 @@ export const QuestionRenderer = ({
       })
     }
 
-    const handleConditionFileUpload = (
-      conditionIndex: number,
-      event: React.ChangeEvent<HTMLInputElement>,
-    ) => {
-      const files = Array.from(event.target.files || [])
-      if (files.length === 0) return
-
-      // Validate files (max 3, total 10MB)
-      const fileError = validateMultipleFiles(files, 3, 10 * 1024 * 1024)
-
-      const fileKey = `${question.id}_condition_${conditionIndex}_attachments`
-      setFileUploads((prev) => ({
-        ...prev,
-        [fileKey]: {
-          files,
-          fileNames: files.map((f) => f.name),
-          error: fileError || undefined,
-        },
-      }))
-
-      if (!fileError && files.length > 0) {
-        // Ensure we only store actual File objects
-        const validFiles = files.filter((f) => f instanceof File)
-        if (validFiles.length > 0) {
-          // Update form value with files
-          onChange?.({
-            ...specialConditionsValue,
-            conditionAttachments: {
-              ...conditionAttachments,
-              [conditionIndex]: validFiles,
-            },
-          })
-        }
-      }
-
-      // Clear the input
-      event.target.value = ""
-    }
-
-    const handleRemoveConditionFile = (
-      conditionIndex: number,
-      fileIndex: number,
-    ) => {
-      const fileKey = `${question.id}_condition_${conditionIndex}_attachments`
-      const fileData = getConditionFileData(conditionIndex)
-      const newFiles = [...fileData.files]
-      const newFileNames = [...fileData.fileNames]
-      newFiles.splice(fileIndex, 1)
-      newFileNames.splice(fileIndex, 1)
-
-      setFileUploads((prev) => ({
-        ...prev,
-        [fileKey]:
-          newFiles.length > 0
-            ? {
-                files: newFiles,
-                fileNames: newFileNames,
-                error: undefined,
-              }
-            : {
-                files: [],
-                fileNames: [],
-                error: undefined,
-              },
-      }))
-
-      // Update form value - ensure only File objects are stored
-      const updatedAttachments = { ...conditionAttachments }
-      const validFiles = newFiles.filter((f) => f instanceof File)
-      if (validFiles.length > 0) {
-        updatedAttachments[conditionIndex] = validFiles
-      } else {
-        delete updatedAttachments[conditionIndex]
-      }
-      onChange?.({
-        ...specialConditionsValue,
-        conditionAttachments: updatedAttachments,
-      })
-    }
+    // Note: File upload handlers for predefined conditions are removed
+    // SUBMITTERS cannot upload files for predefined conditions - only view setup attachments
 
     return (
       <div className="space-y-3">
@@ -4049,8 +3974,6 @@ export const QuestionRenderer = ({
           <div className="space-y-3">
             {conditions.map((condition, idx) => {
               const isSelected = selectedConditions.includes(idx)
-              const fileData = getConditionFileData(idx)
-              const hasFiles = fileData.files.length > 0
 
               return (
                 <div key={idx} className="space-y-3">
@@ -4075,72 +3998,43 @@ export const QuestionRenderer = ({
                     </div>
                   </div>
 
-                  {/* File upload for this condition - always at the bottom (show if selected or in form builder for testing) */}
-                  {(isSelected || editingMode) && (
-                    <div className="ml-7">
-                      <FileUploadInput
-                        id={`${question.id}_condition_${idx}_file_input`}
-                        label="Special Conditions"
-                        required={false}
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                        multiple
-                        disabled={disabled || editingMode}
-                        value={fileData.files}
-                        fileNames={fileData.fileNames}
-                        error={fileData.error}
-                        maxFiles={3}
-                        maxSize={10 * 1024 * 1024}
-                        onChange={(files) => {
-                          const fileArray = Array.isArray(files)
-                            ? files
-                            : files
-                              ? [files]
-                              : []
-                          if (fileArray.length === 0) return
-
-                          // Validate files (max 3, total 10MB)
-                          const fileError = validateMultipleFiles(
-                            fileArray,
-                            3,
-                            10 * 1024 * 1024,
-                          )
-
-                          const fileKey = `${question.id}_condition_${idx}_attachments`
-                          setFileUploads((prev) => ({
-                            ...prev,
-                            [fileKey]: {
-                              files: fileArray,
-                              fileNames: fileArray.map((f) => f.name),
-                              error: fileError || undefined,
-                            },
-                          }))
-
-                          if (!fileError && fileArray.length > 0) {
-                            // Ensure we only store actual File objects
-                            const validFiles = fileArray.filter(
-                              (f) => f instanceof File,
-                            )
-                            if (validFiles.length > 0) {
-                              // Update form value with files
-                              onChange?.({
-                                ...specialConditionsValue,
-                                conditionAttachments: {
-                                  ...conditionAttachments,
-                                  [idx]: validFiles,
-                                },
-                              })
-                            }
-                          }
-                        }}
-                        onRemove={(fileIndex) => {
-                          handleRemoveConditionFile(
-                            idx,
-                            fileIndex !== undefined ? fileIndex : 0,
-                          )
-                        }}
-                      />
-                    </div>
-                  )}
+                  {/* Display setup attachments (from setupConfig) - ALWAYS show these for SUBMITTERS to review */}
+                  {/* These are reference documents, shown in builder, preview, and final form */}
+                  {condition.attachments &&
+                    condition.attachments.length > 0 && (
+                      <div className="ml-7 space-y-2">
+                        <p className="text-xs font-medium text-gray-700">
+                          Attachments (for review):
+                        </p>
+                        <div className="space-y-1">
+                          {condition.attachments.map(
+                            (
+                              att: {
+                                url: string
+                                fileName: string
+                                fileSize?: number
+                                uploadedAt?: string
+                              },
+                              attIndex: number,
+                            ) => (
+                              <div
+                                key={attIndex}
+                                className="flex items-center justify-between rounded border border-gray-200 bg-gray-50 p-2"
+                              >
+                                <a
+                                  href={att.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-blue-600 hover:underline"
+                                >
+                                  {att.fileName}
+                                </a>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    )}
                 </div>
               )
             })}
@@ -4202,6 +4096,145 @@ export const QuestionRenderer = ({
                 ),
               )}
             </div>
+            {/* File upload for custom condition - SUBMITTER can upload attachments */}
+            {!editingMode && (
+              <div className="mt-3">
+                <FileUploadInput
+                  id={`${question.id}_custom_condition_attachments`}
+                  label="Attachments"
+                  required={false}
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                  multiple
+                  disabled={disabled}
+                  value={(() => {
+                    const fileData =
+                      fileUploads[`${question.id}_custom_condition_attachments`]
+                    if (fileData && "files" in fileData) {
+                      return fileData.files
+                    }
+                    return customConditionAttachments
+                  })()}
+                  fileNames={(() => {
+                    const fileData =
+                      fileUploads[`${question.id}_custom_condition_attachments`]
+                    if (fileData && "fileNames" in fileData) {
+                      return fileData.fileNames
+                    }
+                    return customConditionAttachments.map((f) => f.name) || []
+                  })()}
+                  error={(() => {
+                    const fileData =
+                      fileUploads[`${question.id}_custom_condition_attachments`]
+                    return fileData && "error" in fileData
+                      ? fileData.error
+                      : undefined
+                  })()}
+                  maxFiles={10}
+                  maxSize={50 * 1024 * 1024}
+                  onChange={(files) => {
+                    const fileArray = Array.isArray(files)
+                      ? files
+                      : files
+                        ? [files]
+                        : []
+                    if (fileArray.length === 0) {
+                      // Clear files
+                      const fileKey = `${question.id}_custom_condition_attachments`
+                      setFileUploads((prev) => {
+                        const updated = { ...prev }
+                        delete updated[fileKey]
+                        return updated
+                      })
+                      onChange?.({
+                        ...specialConditionsValue,
+                        customConditionAttachments: [],
+                      })
+                      return
+                    }
+
+                    // Validate files (max 10, total 50MB)
+                    const fileError = validateMultipleFiles(
+                      fileArray,
+                      10,
+                      50 * 1024 * 1024,
+                    )
+
+                    const fileKey = `${question.id}_custom_condition_attachments`
+                    setFileUploads((prev) => ({
+                      ...prev,
+                      [fileKey]: {
+                        files: fileArray,
+                        fileNames: fileArray.map((f) => f.name),
+                        error: fileError || undefined,
+                      },
+                    }))
+
+                    if (!fileError && fileArray.length > 0) {
+                      // Ensure we only store actual File objects
+                      const validFiles = fileArray.filter(
+                        (f) => f instanceof File,
+                      )
+                      if (validFiles.length > 0) {
+                        // Update form value with files
+                        onChange?.({
+                          ...specialConditionsValue,
+                          customConditionAttachments: validFiles,
+                        })
+                      }
+                    }
+                  }}
+                  onRemove={(fileIndex) => {
+                    const fileKey = `${question.id}_custom_condition_attachments`
+                    const fileDataRaw = fileUploads[fileKey]
+                    const fileData =
+                      fileDataRaw && "files" in fileDataRaw
+                        ? fileDataRaw
+                        : customConditionAttachments.length > 0
+                          ? {
+                              files: customConditionAttachments,
+                              fileNames: customConditionAttachments.map(
+                                (f) => f.name,
+                              ),
+                              error: undefined,
+                            }
+                          : { files: [], fileNames: [], error: undefined }
+
+                    const newFiles = [...fileData.files]
+                    const newFileNames = [...fileData.fileNames]
+                    if (fileIndex !== undefined) {
+                      newFiles.splice(fileIndex, 1)
+                      newFileNames.splice(fileIndex, 1)
+                    } else {
+                      newFiles.length = 0
+                      newFileNames.length = 0
+                    }
+
+                    setFileUploads((prev) => ({
+                      ...prev,
+                      [fileKey]:
+                        newFiles.length > 0
+                          ? {
+                              files: newFiles,
+                              fileNames: newFileNames,
+                              error: undefined,
+                            }
+                          : {
+                              files: [],
+                              fileNames: [],
+                              error: undefined,
+                            },
+                    }))
+
+                    // Update form value
+                    const validFiles = newFiles.filter((f) => f instanceof File)
+                    onChange?.({
+                      ...specialConditionsValue,
+                      customConditionAttachments: validFiles,
+                    })
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

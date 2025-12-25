@@ -479,7 +479,26 @@ const OfferFormBuilderPageContent = () => {
           delete cleanConfig.__requiredOverride
         }
 
-        await addQuestion(
+        // Extract pending files for Special Conditions (they'll be uploaded after question creation)
+        let pendingFilesMap: Record<number, File[]> | null = null
+        if (questionType === "specialConditions" && cleanConfig?.conditions) {
+          pendingFilesMap = {}
+          cleanConfig.conditions = cleanConfig.conditions.map(
+            (condition: any, index: number) => {
+              if (
+                condition.__pendingFiles &&
+                condition.__pendingFiles.length > 0
+              ) {
+                pendingFilesMap![index] = condition.__pendingFiles
+                const { __pendingFiles, ...rest } = condition
+                return rest
+              }
+              return condition
+            },
+          )
+        }
+
+        const questionId = await addQuestion(
           formId,
           questionType,
           addQuestionAfterOrder,
@@ -487,18 +506,53 @@ const OfferFormBuilderPageContent = () => {
           uiConfig,
         )
 
-        // If we have a requiredOverride, we need to update the question after creation
-        if (requiredOverride !== undefined) {
-          // Get the newly added question
-          const updatedQuestions = await getFormQuestions(formId)
-          const newQuestion = updatedQuestions.find(
-            (q) =>
-              q.type === questionType && q.order === addQuestionAfterOrder + 1,
+        // Upload files for Special Conditions if any
+        if (pendingFilesMap && Object.keys(pendingFilesMap).length > 0) {
+          const { uploadSpecialConditionsSetupFiles } = await import(
+            "@/lib/questionSetupFileUpload"
           )
 
-          if (newQuestion) {
-            await updateQuestion(newQuestion.id, { required: requiredOverride })
+          const updatedConditions = [...(cleanConfig.conditions || [])]
+          for (const [indexStr, files] of Object.entries(pendingFilesMap)) {
+            const conditionIndex = parseInt(indexStr, 10)
+            try {
+              const uploadedFiles = await uploadSpecialConditionsSetupFiles(
+                formId,
+                questionId,
+                conditionIndex,
+                files,
+              )
+
+              // Merge with existing attachments
+              const existingAttachments =
+                updatedConditions[conditionIndex]?.attachments || []
+              updatedConditions[conditionIndex] = {
+                ...updatedConditions[conditionIndex],
+                attachments: [...existingAttachments, ...uploadedFiles],
+              }
+            } catch (error) {
+              console.error(
+                `Error uploading files for condition ${conditionIndex}:`,
+                error,
+              )
+              toast.error(
+                `Failed to upload some attachments for condition ${conditionIndex + 1}`,
+              )
+            }
           }
+
+          // Update question with uploaded file URLs
+          await updateQuestion(questionId, {
+            setupConfig: {
+              ...cleanConfig,
+              conditions: updatedConditions,
+            },
+          })
+        }
+
+        // If we have a requiredOverride, we need to update the question after creation
+        if (requiredOverride !== undefined) {
+          await updateQuestion(questionId, { required: requiredOverride })
         }
 
         // Fetch fresh data
@@ -520,11 +574,78 @@ const OfferFormBuilderPageContent = () => {
     })
   }
 
-  const handleUpdateQuestion = (questionId: string, updates: any) => {
+  const handleUpdateQuestion = async (questionId: string, updates: any) => {
     if (!formId) return
 
     startTransition(async () => {
       try {
+        // Handle Special Conditions file uploads
+        if (
+          updates.setupConfig?.conditions &&
+          typeof updates.setupConfig.conditions === "object"
+        ) {
+          const pendingFilesMap: Record<number, File[]> = {}
+          const processedConditions = updates.setupConfig.conditions.map(
+            (condition: any, index: number) => {
+              if (
+                condition.__pendingFiles &&
+                condition.__pendingFiles.length > 0
+              ) {
+                pendingFilesMap[index] = condition.__pendingFiles
+                const { __pendingFiles, ...rest } = condition
+                return rest
+              }
+              return condition
+            },
+          )
+
+          // If there are pending files, upload them first
+          if (Object.keys(pendingFilesMap).length > 0) {
+            const { uploadSpecialConditionsSetupFiles } = await import(
+              "@/lib/questionSetupFileUpload"
+            )
+
+            const updatedConditions = [...processedConditions]
+            for (const [indexStr, files] of Object.entries(pendingFilesMap)) {
+              const conditionIndex = parseInt(indexStr, 10)
+              try {
+                const uploadedFiles = await uploadSpecialConditionsSetupFiles(
+                  formId,
+                  questionId,
+                  conditionIndex,
+                  files,
+                )
+
+                // Merge with existing attachments
+                const existingAttachments =
+                  updatedConditions[conditionIndex]?.attachments || []
+                updatedConditions[conditionIndex] = {
+                  ...updatedConditions[conditionIndex],
+                  attachments: [...existingAttachments, ...uploadedFiles],
+                }
+              } catch (error) {
+                console.error(
+                  `Error uploading files for condition ${conditionIndex}:`,
+                  error,
+                )
+                toast.error(
+                  `Failed to upload some attachments for condition ${conditionIndex + 1}`,
+                )
+              }
+            }
+
+            updates.setupConfig = {
+              ...updates.setupConfig,
+              conditions: updatedConditions,
+            }
+          } else {
+            updates.setupConfig = {
+              ...updates.setupConfig,
+              conditions: processedConditions,
+            }
+          }
+        }
+
         await updateQuestion(questionId, updates)
 
         // Fetch fresh data

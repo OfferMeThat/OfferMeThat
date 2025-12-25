@@ -656,10 +656,11 @@ export const OfferFormInteractiveView = ({
             selectedConditions?: number[] | string[]
             customCondition?: string
             conditionAttachments?: Record<number | string, File[]>
+            customConditionAttachments?: File[]
           }
 
           // Normalize selectedConditions to numbers
-          const normalizedData = {
+          const normalizedData: any = {
             ...specialConditionsData,
             selectedConditions: Array.isArray(
               specialConditionsData.selectedConditions,
@@ -670,39 +671,37 @@ export const OfferFormInteractiveView = ({
               : [],
           }
 
+          // Note: conditionAttachments is deprecated - SUBMITTERS cannot upload files for predefined conditions
+          // Remove any legacy conditionAttachments data
           if (normalizedData.conditionAttachments) {
-            const uploadedAttachments: Record<number, string[]> = {}
-
-            // Upload files for each condition (only if files are actual File objects)
-            for (const [conditionIndexStr, files] of Object.entries(
-              normalizedData.conditionAttachments,
-            )) {
-              // Filter out empty objects and ensure we have actual File objects
-              const validFiles = Array.isArray(files)
-                ? files.filter((f) => f instanceof File)
-                : []
-
-              if (validFiles.length > 0 && isFileArray(validFiles)) {
-                const conditionIndex = parseInt(conditionIndexStr, 10)
-                const urls = await uploadMultipleFilesToStorageClient(
-                  "offer-documents",
-                  validFiles,
-                  tempOfferId,
-                  `condition-${conditionIndex}-attachments`,
-                )
-                uploadedAttachments[conditionIndex] = urls
-              }
-            }
-
-            processedFormData[questionId] = {
-              ...normalizedData,
-              conditionAttachmentUrls: uploadedAttachments,
-            }
-            delete processedFormData[questionId].conditionAttachments
-          } else {
-            // Even if no attachments, still normalize the data
-            processedFormData[questionId] = normalizedData
+            delete normalizedData.conditionAttachments
           }
+          if (normalizedData.conditionAttachmentUrls) {
+            delete normalizedData.conditionAttachmentUrls
+          }
+
+          // Upload files for custom condition attachments only
+          if (
+            normalizedData.customConditionAttachments &&
+            Array.isArray(normalizedData.customConditionAttachments)
+          ) {
+            const validFiles = normalizedData.customConditionAttachments.filter(
+              (f: any) => f instanceof File,
+            )
+
+            if (validFiles.length > 0 && isFileArray(validFiles)) {
+              const urls = await uploadMultipleFilesToStorageClient(
+                "offer-documents",
+                validFiles,
+                tempOfferId,
+                "custom-condition-attachments",
+              )
+              normalizedData.customConditionAttachmentUrls = urls
+            }
+            delete normalizedData.customConditionAttachments
+          }
+
+          processedFormData[questionId] = normalizedData
         }
 
         // Handle custom question file uploads
