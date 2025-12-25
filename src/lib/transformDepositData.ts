@@ -49,18 +49,52 @@ export function transformDepositFormData(
     const instalment: any = {}
 
     // Get deposit type for this instalment
-    const depositTypeKey1 = instalmentNum === 1 ? "deposit_type" : `deposit_type_instalment_${instalmentNum}`
-    const depositTypeKey2 = instalmentNum === 1 ? "deposit_type_instalment_1" : undefined
-    const depositType = formData[depositTypeKey1] || (depositTypeKey2 ? formData[depositTypeKey2] : undefined)
+    // For instalment 1: check deposit_type_instalment_1 first (for one_or_two/three_plus), then deposit_type (for single)
+    // For instalment 2+: check deposit_type_instalment_X
+    const depositTypeKey1 =
+      instalmentNum === 1
+        ? "deposit_type_instalment_1"
+        : `deposit_type_instalment_${instalmentNum}`
+    const depositTypeKey2 = instalmentNum === 1 ? "deposit_type" : undefined
+    const depositType =
+      formData[depositTypeKey1] ||
+      (depositTypeKey2 ? formData[depositTypeKey2] : undefined)
 
     // Get amount/percentage - check which key exists in formData
-    const amountKey1 = instalmentNum === 1 ? "deposit_amount" : `deposit_amount_${instalmentNum}`
-    const amountKey2 = instalmentNum === 1 ? "deposit_amount_1" : undefined
-    const amountKey = formData[amountKey1] !== undefined ? amountKey1 : (amountKey2 && formData[amountKey2] !== undefined ? amountKey2 : amountKey1)
-    
-    const percentageKey1 = instalmentNum === 1 ? "deposit_percentage" : `deposit_percentage_${instalmentNum}`
-    const percentageKey2 = instalmentNum === 1 ? "deposit_percentage_1" : undefined
-    const percentageKey = formData[percentageKey1] !== undefined ? percentageKey1 : (percentageKey2 && formData[percentageKey2] !== undefined ? percentageKey2 : percentageKey1)
+    // For instalment 1: check deposit_amount (for one_or_two/three_plus) or deposit_amount_instalment_1 (for two_always)
+    // For instalment 2+: check deposit_amount_instalment_X
+    const amountKey1 =
+      instalmentNum === 1
+        ? "deposit_amount"
+        : `deposit_amount_instalment_${instalmentNum}`
+    const amountKey2 =
+      instalmentNum === 1 ? "deposit_amount_instalment_1" : undefined
+    const amountKey3 = instalmentNum === 1 ? "deposit_amount_1" : undefined
+    const amountKey =
+      formData[amountKey1] !== undefined
+        ? amountKey1
+        : amountKey2 && formData[amountKey2] !== undefined
+          ? amountKey2
+          : amountKey3 && formData[amountKey3] !== undefined
+            ? amountKey3
+            : amountKey1
+
+    const percentageKey1 =
+      instalmentNum === 1
+        ? "deposit_percentage"
+        : `deposit_percentage_instalment_${instalmentNum}`
+    const percentageKey2 =
+      instalmentNum === 1 ? "deposit_percentage_instalment_1" : undefined
+    const percentageKey3 =
+      instalmentNum === 1 ? "deposit_percentage_1" : undefined
+    const percentageKey =
+      formData[percentageKey1] !== undefined
+        ? percentageKey1
+        : percentageKey2 && formData[percentageKey2] !== undefined
+          ? percentageKey2
+          : percentageKey3 && formData[percentageKey3] !== undefined
+            ? percentageKey3
+            : percentageKey1
 
     const amount = parseAmount(formData[amountKey])
     const percentage = parseAmount(formData[percentageKey])
@@ -83,17 +117,58 @@ export function transformDepositFormData(
     }
 
     // Get currency - check which key exists in formData
-    const currencyKey1 = instalmentNum === 1 ? "deposit_amount_currency" : `deposit_amount_${instalmentNum}_currency`
-    const currencyKey2 = instalmentNum === 1 ? "deposit_amount_1_currency" : undefined
-    const currencyKey3 = instalmentNum === 1 ? "deposit_amount_currency_1" : `deposit_amount_currency_${instalmentNum}`
-    
-    let currency = formData[currencyKey1]
-    if (!currency && currencyKey2) {
-      currency = formData[currencyKey2]
+    // Currency can be attached to either amount or percentage fields depending on deposit type
+    // For amount: deposit_amount_currency, deposit_amount_instalment_X_currency, etc.
+    // For percentage: deposit_percentage_currency, deposit_percentage_instalment_X_currency, etc.
+    let currency: string | undefined
+
+    // Check amount currency fields first
+    const amountCurrencyKey1 =
+      instalmentNum === 1
+        ? "deposit_amount_currency"
+        : `deposit_amount_instalment_${instalmentNum}_currency`
+    const amountCurrencyKey2 =
+      instalmentNum === 1 ? "deposit_amount_instalment_1_currency" : undefined
+    const amountCurrencyKey3 =
+      instalmentNum === 1 ? "deposit_amount_1_currency" : undefined
+    const amountCurrencyKey4 =
+      instalmentNum === 1
+        ? "deposit_amount_currency_1"
+        : `deposit_amount_currency_${instalmentNum}`
+
+    currency = formData[amountCurrencyKey1]
+    if (!currency && amountCurrencyKey2) {
+      currency = formData[amountCurrencyKey2]
+    }
+    if (!currency && amountCurrencyKey3) {
+      currency = formData[amountCurrencyKey3]
     }
     if (!currency) {
-      currency = formData[currencyKey3]
+      currency = formData[amountCurrencyKey4]
     }
+
+    // If not found in amount fields, check percentage currency fields
+    if (!currency) {
+      const percentageCurrencyKey1 =
+        instalmentNum === 1
+          ? "deposit_percentage_currency"
+          : `deposit_percentage_instalment_${instalmentNum}_currency`
+      const percentageCurrencyKey2 =
+        instalmentNum === 1
+          ? "deposit_percentage_instalment_1_currency"
+          : undefined
+      const percentageCurrencyKey3 =
+        instalmentNum === 1 ? "deposit_percentage_1_currency" : undefined
+
+      currency = formData[percentageCurrencyKey1]
+      if (!currency && percentageCurrencyKey2) {
+        currency = formData[percentageCurrencyKey2]
+      }
+      if (!currency && percentageCurrencyKey3) {
+        currency = formData[percentageCurrencyKey3]
+      }
+    }
+
     if (currency) {
       instalment.currency = currency
     }
@@ -102,16 +177,23 @@ export function transformDepositFormData(
     // For instalment 1, check: deposit_due, deposit_due_1, deposit_due_instalment_1
     // For other instalments, check: deposit_due_${instalmentNum}, deposit_due_instalment_${instalmentNum}
     // But skip if it's a number (that would be for "within X days" format)
-    const dueKeys = instalmentNum === 1
-      ? ["deposit_due", "deposit_due_1", "deposit_due_instalment_1"]
-      : [`deposit_due_${instalmentNum}`, `deposit_due_instalment_${instalmentNum}`]
-    
+    const dueKeys =
+      instalmentNum === 1
+        ? ["deposit_due", "deposit_due_1", "deposit_due_instalment_1"]
+        : [
+            `deposit_due_${instalmentNum}`,
+            `deposit_due_instalment_${instalmentNum}`,
+          ]
+
     let due: string | Date | undefined
     for (const key of dueKeys) {
       const value = formData[key]
       if (value !== undefined) {
         // Check if it's a number (for "within X days" format) - skip it, it will be handled by depositDueWithin
-        if (typeof value === "number" || (typeof value === "string" && /^\d+$/.test(value.trim()))) {
+        if (
+          typeof value === "number" ||
+          (typeof value === "string" && /^\d+$/.test(value.trim()))
+        ) {
           continue
         }
         due = parseDate(value)
@@ -123,9 +205,17 @@ export function transformDepositFormData(
     }
 
     // Get due date text (for seller-specified text) - check which key exists
-    const dueTextKey1 = instalmentNum === 1 ? "deposit_due_text" : `deposit_due_${instalmentNum}_text`
+    const dueTextKey1 =
+      instalmentNum === 1
+        ? "deposit_due_text"
+        : `deposit_due_${instalmentNum}_text`
     const dueTextKey2 = instalmentNum === 1 ? "deposit_due_1_text" : undefined
-    const dueTextKey = formData[dueTextKey1] !== undefined ? dueTextKey1 : (dueTextKey2 && formData[dueTextKey2] !== undefined ? dueTextKey2 : dueTextKey1)
+    const dueTextKey =
+      formData[dueTextKey1] !== undefined
+        ? dueTextKey1
+        : dueTextKey2 && formData[dueTextKey2] !== undefined
+          ? dueTextKey2
+          : dueTextKey1
     const dueText = formData[dueTextKey]
     if (dueText) {
       instalment.depositDueText = dueText
@@ -134,13 +224,25 @@ export function transformDepositFormData(
     // Get due date within (for "within X days" format) - check which key exists
     // For instalment 1, check: deposit_due, deposit_due_1, deposit_due_instalment_1
     // For other instalments, check: deposit_due_${instalmentNum}, deposit_due_instalment_${instalmentNum}
-    const dueWithinNumberKeys = instalmentNum === 1
-      ? ["deposit_due", "deposit_due_1", "deposit_due_instalment_1"]
-      : [`deposit_due_${instalmentNum}`, `deposit_due_instalment_${instalmentNum}`]
-    
-    const dueWithinUnitKeys = instalmentNum === 1
-      ? ["deposit_due_unit", "deposit_due_1_unit", "deposit_due_instalment_1_unit"]
-      : [`deposit_due_${instalmentNum}_unit`, `deposit_due_instalment_${instalmentNum}_unit`]
+    const dueWithinNumberKeys =
+      instalmentNum === 1
+        ? ["deposit_due", "deposit_due_1", "deposit_due_instalment_1"]
+        : [
+            `deposit_due_${instalmentNum}`,
+            `deposit_due_instalment_${instalmentNum}`,
+          ]
+
+    const dueWithinUnitKeys =
+      instalmentNum === 1
+        ? [
+            "deposit_due_unit",
+            "deposit_due_1_unit",
+            "deposit_due_instalment_1_unit",
+          ]
+        : [
+            `deposit_due_${instalmentNum}_unit`,
+            `deposit_due_instalment_${instalmentNum}_unit`,
+          ]
 
     let dueWithinNumber: number | undefined
     let dueWithinUnit: string | undefined
@@ -171,9 +273,17 @@ export function transformDepositFormData(
     }
 
     // Get holding - check which key exists
-    const holdingKey1 = instalmentNum === 1 ? "deposit_holding" : `deposit_holding_${instalmentNum}`
+    const holdingKey1 =
+      instalmentNum === 1
+        ? "deposit_holding"
+        : `deposit_holding_${instalmentNum}`
     const holdingKey2 = instalmentNum === 1 ? "deposit_holding_1" : undefined
-    const holdingKey = formData[holdingKey1] !== undefined ? holdingKey1 : (holdingKey2 && formData[holdingKey2] !== undefined ? holdingKey2 : holdingKey1)
+    const holdingKey =
+      formData[holdingKey1] !== undefined
+        ? holdingKey1
+        : holdingKey2 && formData[holdingKey2] !== undefined
+          ? holdingKey2
+          : holdingKey1
     const holding = formData[holdingKey]
     if (holding) {
       instalment.depositHolding = holding
@@ -193,8 +303,7 @@ export function transformDepositFormData(
   }
   // Handle multiple instalments
   else if (numInstalments > 1) {
-    depositData.instalments =
-      numInstalments === 2 ? "two_always" : "three_plus"
+    depositData.instalments = numInstalments === 2 ? "two_always" : "three_plus"
     depositData.numInstalments = numInstalments
 
     // Build instalment data for each instalment
@@ -219,4 +328,3 @@ export function transformDepositFormData(
 
   return Object.keys(depositData).length > 0 ? depositData : null
 }
-

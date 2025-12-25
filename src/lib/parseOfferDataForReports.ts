@@ -181,18 +181,24 @@ export function getDepositAmountFromData(
   }
 
   // Single instalment - raw form data format (check multiple field name formats)
+  // For instalment 1: check deposit_amount first (for one_or_two/three_plus), then deposit_amount_instalment_1 (for two_always)
   const amount =
-    data?.deposit_amount_instalment_1 ||
     data?.deposit_amount ||
+    data?.deposit_amount_instalment_1 ||
     data?.deposit_amount_1
   const percentage =
-    data?.deposit_percentage_instalment_1 ||
     data?.deposit_percentage ||
+    data?.deposit_percentage_instalment_1 ||
     data?.deposit_percentage_1
-  const currency =
-    data?.deposit_amount_instalment_1_currency ||
+  
+  // Check both amount and percentage currency fields
+  let currency =
     data?.deposit_amount_currency ||
+    data?.deposit_amount_instalment_1_currency ||
     data?.deposit_amount_1_currency ||
+    data?.deposit_percentage_currency ||
+    data?.deposit_percentage_instalment_1_currency ||
+    data?.deposit_percentage_1_currency ||
     "USD"
 
   if (amount !== undefined && amount !== null && amount !== "") {
@@ -846,35 +852,93 @@ export function getDepositInstalmentData(
   }
 
   // Fallback to raw form data format
+  // For instalment 1: check deposit_amount first (for one_or_two/three_plus), then deposit_amount_instalment_1 (for two_always)
+  // For instalment 2+: check deposit_amount_instalment_X
   const amountKey =
     instalmentNumber === 1
-      ? "deposit_amount_instalment_1"
+      ? "deposit_amount"
       : `deposit_amount_instalment_${instalmentNumber}`
+  const amountKey2 =
+    instalmentNumber === 1
+      ? "deposit_amount_instalment_1"
+      : undefined
+  const amountKey3 =
+    instalmentNumber === 1
+      ? "deposit_amount_1"
+      : undefined
   const amount =
     data?.[amountKey] ||
-    data?.[`deposit_amount_${instalmentNumber}`] ||
-    (instalmentNumber === 1 ? data?.deposit_amount : undefined)
+    (amountKey2 ? data?.[amountKey2] : undefined) ||
+    (amountKey3 ? data?.[amountKey3] : undefined) ||
+    undefined
 
   const percentageKey =
     instalmentNumber === 1
-      ? "deposit_percentage_instalment_1"
+      ? "deposit_percentage"
       : `deposit_percentage_instalment_${instalmentNumber}`
+  const percentageKey2 =
+    instalmentNumber === 1
+      ? "deposit_percentage_instalment_1"
+      : undefined
+  const percentageKey3 =
+    instalmentNumber === 1
+      ? "deposit_percentage_1"
+      : undefined
   const percentage =
     data?.[percentageKey] ||
-    data?.[`deposit_percentage_${instalmentNumber}`] ||
-    (instalmentNumber === 1 ? data?.deposit_percentage : undefined)
+    (percentageKey2 ? data?.[percentageKey2] : undefined) ||
+    (percentageKey3 ? data?.[percentageKey3] : undefined) ||
+    undefined
 
-  const currencyKey =
+  // Get currency - check both amount and percentage currency fields
+  // For instalment 1: check deposit_amount_currency, deposit_percentage_currency, deposit_amount_instalment_1_currency, etc.
+  // For instalment 2+: check deposit_amount_instalment_X_currency, deposit_percentage_instalment_X_currency
+  let currency: string | undefined
+  
+  // Check amount currency fields first
+  const amountCurrencyKey1 =
+    instalmentNumber === 1
+      ? "deposit_amount_currency"
+      : `deposit_amount_instalment_${instalmentNumber}_currency`
+  const amountCurrencyKey2 =
     instalmentNumber === 1
       ? "deposit_amount_instalment_1_currency"
-      : `deposit_amount_instalment_${instalmentNumber}_currency`
-  const currency =
-    data?.[currencyKey] ||
-    data?.[`deposit_amount_${instalmentNumber}_currency`] ||
-    (instalmentNumber === 1
-      ? data?.deposit_amount_currency || data?.deposit_amount_1_currency
-      : undefined) ||
-    "USD"
+      : undefined
+  const amountCurrencyKey3 =
+    instalmentNumber === 1
+      ? "deposit_amount_1_currency"
+      : undefined
+  
+  currency =
+    data?.[amountCurrencyKey1] ||
+    (amountCurrencyKey2 ? data?.[amountCurrencyKey2] : undefined) ||
+    (amountCurrencyKey3 ? data?.[amountCurrencyKey3] : undefined)
+  
+  // If not found, check percentage currency fields
+  if (!currency) {
+    const percentageCurrencyKey1 =
+      instalmentNumber === 1
+        ? "deposit_percentage_currency"
+        : `deposit_percentage_instalment_${instalmentNumber}_currency`
+    const percentageCurrencyKey2 =
+      instalmentNumber === 1
+        ? "deposit_percentage_instalment_1_currency"
+        : undefined
+    const percentageCurrencyKey3 =
+      instalmentNumber === 1
+        ? "deposit_percentage_1_currency"
+        : undefined
+    
+    currency =
+      data?.[percentageCurrencyKey1] ||
+      (percentageCurrencyKey2 ? data?.[percentageCurrencyKey2] : undefined) ||
+      (percentageCurrencyKey3 ? data?.[percentageCurrencyKey3] : undefined)
+  }
+  
+  // Default to USD if no currency found
+  if (!currency) {
+    currency = "USD"
+  }
 
   const holdingKey =
     instalmentNumber === 1
