@@ -613,22 +613,46 @@ const DepositForm = ({
                     {/* Get the deposit_type selection to determine what to show */}
                     {(() => {
                       // Helper function to determine instalment scenario and field names
+                      // IMPORTANT: Use allQuestions instead of question.deposit_questions to include dynamically generated questions
                       const getInstalmentInfo = () => {
+                        // SCENARIO 3: Multi-instalment with _instalment_X suffix (check this first for two_always)
+                        // For two_always: ALL instalments use deposit_amount_instalment_X
+                        // For one_or_two/three_plus: instalment 2+ uses deposit_amount_instalment_X
+                        if (id.startsWith("deposit_amount_instalment_")) {
+                          const instalmentMatch = id.match(
+                            /deposit_amount_instalment_(\d+)/,
+                          )
+                          if (instalmentMatch) {
+                            const instalmentNum = parseInt(
+                              instalmentMatch[1],
+                              10,
+                            )
+                            // For two_always: instalment 1 uses deposit_amount_instalment_1, instalment 2 uses deposit_amount_instalment_2
+                            // For one_or_two/three_plus: instalment 2+ uses deposit_amount_instalment_X
+                            // In both cases, the corresponding deposit_type is deposit_type_instalment_X
+                            return {
+                              depositTypeFieldName: `deposit_type_instalment_${instalmentNum}`,
+                              amountFieldName: `deposit_amount_instalment_${instalmentNum}`,
+                              percentageFieldName: `deposit_percentage_instalment_${instalmentNum}`,
+                            }
+                          }
+                        }
+
                         // SCENARIO 1: Single instalment (deposit_amount with deposit_type, no instalment questions)
                         if (id === "deposit_amount") {
-                          // Check if there's a deposit_type question (single instalment)
-                          const hasSingleDepositType =
-                            question.deposit_questions?.some(
-                              (q: DepositQuestion) => q.id === "deposit_type",
-                            )
+                          // Check if there's a deposit_type question (single instalment, no suffix)
+                          // Use allQuestions to include dynamically generated questions
+                          const hasSingleDepositType = allQuestions.some(
+                            (q: DepositQuestion) => q.id === "deposit_type",
+                          )
                           // Check if there are any instalment-specific deposit_type questions
-                          const hasInstalmentType =
-                            question.deposit_questions?.some(
-                              (q: DepositQuestion) =>
-                                q.id?.startsWith("deposit_type_instalment_"),
-                            )
+                          // Use allQuestions to include dynamically generated questions
+                          const hasInstalmentType = allQuestions.some(
+                            (q: DepositQuestion) =>
+                              q.id?.startsWith("deposit_type_instalment_"),
+                          )
 
-                          // If we have deposit_type (single) and NO instalment types, it's single instalment
+                          // If we have deposit_type (single, no suffix) and NO instalment types, it's single instalment
                           if (hasSingleDepositType && !hasInstalmentType) {
                             return {
                               depositTypeFieldName: "deposit_type",
@@ -639,6 +663,22 @@ const DepositForm = ({
 
                           // SCENARIO 2: Multi-instalment Instalment 1 (deposit_amount but has instalment_1 type question)
                           // For one_or_two/three_plus: instalment 1 uses deposit_amount (no suffix) but deposit_type_instalment_1
+                          // Check specifically for deposit_type_instalment_1 to confirm this is instalment 1
+                          // Use allQuestions to include dynamically generated questions
+                          const hasInstalment1Type = allQuestions.some(
+                            (q: DepositQuestion) =>
+                              q.id === "deposit_type_instalment_1",
+                          )
+                          if (hasInstalment1Type) {
+                            return {
+                              depositTypeFieldName: "deposit_type_instalment_1",
+                              amountFieldName: "deposit_amount",
+                              percentageFieldName: "deposit_percentage",
+                            }
+                          }
+
+                          // Fallback: if we have instalment types but not instalment_1, still try instalment_1
+                          // (this handles edge cases where questions might be generated in different order)
                           if (hasInstalmentType) {
                             return {
                               depositTypeFieldName: "deposit_type_instalment_1",
@@ -652,25 +692,6 @@ const DepositForm = ({
                             depositTypeFieldName: "deposit_type",
                             amountFieldName: "deposit_amount",
                             percentageFieldName: "deposit_percentage",
-                          }
-                        }
-
-                        // SCENARIO 3: Multi-instalment Instalment 2+ (deposit_amount_instalment_X)
-                        // For two_always or instalment 2+ in one_or_two/three_plus
-                        if (id.startsWith("deposit_amount_instalment_")) {
-                          const instalmentMatch = id.match(
-                            /deposit_amount_instalment_(\d+)/,
-                          )
-                          if (instalmentMatch) {
-                            const instalmentNum = parseInt(
-                              instalmentMatch[1],
-                              10,
-                            )
-                            return {
-                              depositTypeFieldName: `deposit_type_instalment_${instalmentNum}`,
-                              amountFieldName: `deposit_amount_instalment_${instalmentNum}`,
-                              percentageFieldName: `deposit_percentage_instalment_${instalmentNum}`,
-                            }
                           }
                         }
 
@@ -689,8 +710,12 @@ const DepositForm = ({
                       } = getInstalmentInfo()
 
                       // Get the deposit_type value, defaulting to "amount" if not set
+                      // IMPORTANT: Read this value directly from localFormData to ensure reactivity
                       const depositTypeValue =
                         localFormData[depositTypeFieldName] || "amount"
+
+                      // Debug: Log to verify the field names are correct (remove in production)
+                      // console.log('Deposit field mapping:', { id, depositTypeFieldName, depositTypeValue, amountFieldName, percentageFieldName })
 
                       // If amount is selected, show amount input with currency
                       if (
