@@ -146,17 +146,52 @@ if (isDepositHoldingConfigured(setupConfig.deposit_holding)) {
 
 ### Generated Question IDs
 
-- Single instalment: `deposit_amount`, `deposit_due`, `deposit_holding`
-- Instalment-specific: `deposit_amount_instalment_1`, `deposit_due_instalment_2`, etc.
-- Alternative format: `deposit_amount_1`, `deposit_due_2`, etc.
-- Deposit type: `deposit_type`, `deposit_type_instalment_1`, etc.
-- Instalment selector: `deposit_instalments`
+**Field Naming Patterns by Instalment Configuration:**
+
+1. **Single Instalment:**
+   - Amount: `deposit_amount`
+   - Percentage: `deposit_percentage`
+   - Type: `deposit_type`
+   - Currency: `deposit_amount_currency` or `deposit_percentage_currency`
+   - Due: `deposit_due`
+   - Holding: `deposit_holding`
+
+2. **Two Always (`two_always`):**
+   - All instalments use `_instalment_X` suffix:
+   - Instalment 1: `deposit_amount_instalment_1`, `deposit_type_instalment_1`, `deposit_percentage_instalment_1`
+   - Instalment 2: `deposit_amount_instalment_2`, `deposit_type_instalment_2`, `deposit_percentage_instalment_2`
+   - Currency: `deposit_amount_instalment_X_currency` or `deposit_percentage_instalment_X_currency`
+
+3. **One or Two / Three Plus (`one_or_two` / `three_plus`):**
+   - Instalment 1: Uses base fields (no suffix) for amount/percentage, but `_instalment_1` suffix for type:
+     - Amount: `deposit_amount`
+     - Percentage: `deposit_percentage`
+     - Type: `deposit_type_instalment_1` (note: has suffix even though amount doesn't)
+     - Currency: `deposit_amount_currency` or `deposit_percentage_currency`
+   - Instalment 2+: Uses `_instalment_X` suffix:
+     - Amount: `deposit_amount_instalment_2`, `deposit_amount_instalment_3`, etc.
+     - Percentage: `deposit_percentage_instalment_2`, `deposit_percentage_instalment_3`, etc.
+     - Type: `deposit_type_instalment_2`, `deposit_type_instalment_3`, etc.
+     - Currency: `deposit_amount_instalment_X_currency` or `deposit_percentage_instalment_X_currency`
+
+**Other Question IDs:**
+
+- Instalment selector: `deposit_instalments` (for one_or_two/three_plus)
 - Instalment headers: `instalment_1_header`, `instalment_2_header`, etc.
 
 ### Collected Data Fields
 
-- Structured format: `instalment_1`, `instalment_2`, `instalment_3`
-- Legacy format: `deposit_amount_1`, `deposit_due_instalment_2`, etc.
+**Form Data Fields (Raw):**
+The form collects data using the question IDs above. When `buyer_choice` is selected:
+
+- `deposit_type` or `deposit_type_instalment_X` stores "amount" or "percentage"
+- Based on the type, either `deposit_amount`/`deposit_amount_instalment_X` OR `deposit_percentage`/`deposit_percentage_instalment_X` is populated
+- Currency is stored as `deposit_amount_currency`, `deposit_percentage_currency`, `deposit_amount_instalment_X_currency`, or `deposit_percentage_instalment_X_currency` depending on which field was used
+
+**Transformed Data Format:**
+
+- Structured format: `instalment_1`, `instalment_2`, `instalment_3` (each containing `depositType`, `amount`, `percentage`, `currency`, `depositDue`, `depositHolding`)
+- Legacy format: `deposit_amount_1`, `deposit_due_instalment_2`, etc. (for backward compatibility)
 
 ## Extending the Schema
 
@@ -178,6 +213,69 @@ When updating the schema:
 3. **Validation**: Always validate setup configs before generating questions
 4. **Testing**: Test all instalment configurations and management types
 
+## UI/UX Features
+
+### Buyer Choice (Amount vs Percentage)
+
+When `deposit_management` is set to `buyer_choice`, the form displays:
+
+1. A Select dropdown: "What will your Deposit be?" with options:
+   - "A fixed amount"
+   - "A percentage of purchase price"
+2. Conditional input fields that change based on selection:
+   - **Amount selected**: Shows amount input with currency selector
+   - **Percentage selected**: Shows percentage input with "%" decorator, "of purchase price" text, and currency selector below
+
+### Field Width and Layout
+
+- **Two fields in a row**: Each field is `w-1/2` (half-width)
+  - Amount input + Currency selector
+  - Percentage input + "of purchase price" text
+  - Input + Select dropdown (for select_with_text)
+- **Single field**: Full width (`w-full`)
+  - Standalone inputs
+  - Standalone Select components (half-width: `w-1/2`)
+  - Standalone date pickers
+
+### Placeholder Editing
+
+In form builder mode, all text and number inputs support placeholder editing:
+
+- Clicking on an input in editing mode opens a placeholder editor modal
+- The edit overlay covers the entire input area
+- Inputs remain editable for typing values (not blocked by edit overlay)
+
+## Data Collection and Transformation
+
+### Form Data Collection
+
+The `DepositPreview` component collects data using `localFormData` state:
+
+- All field values are stored using their question IDs as keys
+- Currency fields are stored with `_currency` suffix
+- The `onChange` callback passes the complete form data to the parent
+
+### Data Transformation
+
+The `transformDepositFormData` function in `src/lib/transformDepositData.ts`:
+
+1. Reads raw form data with various field name formats
+2. Normalizes to structured format with `instalment_1`, `instalment_2`, etc.
+3. Handles all field name variations:
+   - `deposit_type` vs `deposit_type_instalment_1` for instalment 1
+   - `deposit_amount` vs `deposit_amount_instalment_1` for instalment 1
+   - Currency from both amount and percentage fields
+4. Determines deposit type from `deposit_type` field or infers from presence of amount/percentage
+
+### Data Display
+
+The `depositDataHelpers.ts` and `parseOfferDataForReports.ts` utilities:
+
+- Normalize deposit data from various formats
+- Format amounts with currency: `$10,000 USD` or `5% of purchase price`
+- Format due dates: "Immediately upon Offer Acceptance", "Within 5 days", or specific dates
+- Generate summaries for reports and offer pages
+
 ## Related Files
 
 - `src/types/questions/deposit.ts` - Schema definition
@@ -185,3 +283,5 @@ When updating the schema:
 - `src/components/offerForm/DepositPreview.tsx` - Question rendering
 - `src/types/offerData.ts` - Data collection types
 - `src/lib/depositDataHelpers.ts` - Data normalization utilities
+- `src/lib/transformDepositData.ts` - Form data transformation
+- `src/lib/parseOfferDataForReports.ts` - Report generation utilities
