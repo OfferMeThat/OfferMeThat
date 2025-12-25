@@ -1,5 +1,6 @@
 import { QuestionType } from "./form"
 import type { NameOfPurchaserSetupConfig as NameOfPurchaserSetupConfigSchema } from "./questions/nameOfPurchaser"
+import type { SpecialConditionsSetupConfig as SpecialConditionsSetupConfigSchema } from "./questions/specialConditions"
 
 /**
  * Reusable type structures for question setup and configuration
@@ -74,13 +75,12 @@ export interface DepositSetupConfig {
  */
 export type SubjectToLoanApprovalSetupConfig = import("./questions/subjectToLoanApproval").SubjectToLoanApprovalSetupConfig
 
-export interface SpecialConditionsSetupConfig {
-  allow_custom_conditions?: "yes" | "no"
-  conditions?: Array<{
-    name: string
-    details?: string
-  }>
-}
+/**
+ * Setup configuration for Special Conditions question
+ * Uses the comprehensive schema from specialConditions.ts
+ * All fields are optional here to allow partial updates during setup
+ */
+export type SpecialConditionsSetupConfig = SpecialConditionsSetupConfigSchema
 
 export interface SettlementDateSetupConfig {
   settlement_date_type?: "calendar" | "datetime" | "buyer_text" | "seller_text" | "within_days" | "CYO"

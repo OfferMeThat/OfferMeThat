@@ -37,6 +37,17 @@ Comprehensive schema for subject to loan approval questions, covering:
 
 **Schema Location**: `src/types/questions/subjectToLoanApproval.ts`
 
+### [Special Conditions Question](./specialConditions.md)
+
+Comprehensive schema for special conditions questions, covering:
+
+- Setup configuration (predefined conditions, custom conditions, setup attachments)
+- Collected data (selected conditions, custom condition text, attachments)
+- Attachment handling (setup vs. custom condition attachments)
+- Storage bucket configuration
+
+**Schema Location**: `src/types/questions/specialConditions.ts`
+
 ## Schema Structure
 
 Each question type schema follows a consistent structure:
@@ -77,6 +88,12 @@ import type {
   SubjectToLoanApprovalCollectedData,
   SubjectToLoanData,
 } from "@/types/questions/subjectToLoanApproval"
+
+import type {
+  SpecialConditionsSetupConfig,
+  SpecialConditionsCollectedData,
+  ConditionDefinition,
+} from "@/types/questions/specialConditions"
 ```
 
 ## Adding New Question Schemas
