@@ -248,13 +248,23 @@ export const buildQuestionValidation = (
                 })
               }
 
-              // Validate ID file if ID is required (check field-level first, then setup config)
-              // Only require ID file if name is provided (user has filled in the name)
-              if (idRequired && name && name.trim() && !(value as any).idFile) {
-                return this.createError({
-                  message: "ID upload is required",
-                  path: `${this.path}.idFile`,
-                })
+              // Validate ID files if ID is required (check field-level first, then setup config)
+              // Only require ID files if name is provided (user has filled in the name)
+              // Support both idFiles array (new) and idFile single (backward compatibility)
+              if (idRequired && name && name.trim()) {
+                const idFiles = (value as any).idFiles
+                const idFile = (value as any).idFile
+                // Check if we have files in either format
+                const hasFiles =
+                  (Array.isArray(idFiles) && idFiles.length > 0) ||
+                  idFile instanceof File
+
+                if (!hasFiles) {
+                  return this.createError({
+                    message: "ID upload is required",
+                    path: `${this.path}.idFiles`,
+                  })
+                }
               }
 
               return true
@@ -373,7 +383,8 @@ export const buildQuestionValidation = (
               const idFiles = obj.idFiles || {}
               const nameFields = obj.nameFields || {}
 
-              // Check that each person with a name has an ID file
+              // Check that each person with a name has ID files
+              // idFiles[prefix] is an array of Files (File[]) in the new format
               const missingIds: string[] = []
               Object.keys(nameFields).forEach((prefix) => {
                 const nameData = nameFields[prefix]
@@ -385,8 +396,15 @@ export const buildQuestionValidation = (
                   nameData.lastName &&
                   nameData.lastName.trim()
                 ) {
-                  // This person has a name, so they need an ID file if ID is mandatory
-                  if (!idFiles[prefix] || !(idFiles[prefix] instanceof File)) {
+                  // This person has a name, so they need ID files if ID is mandatory
+                  const personIdFiles = idFiles[prefix]
+                  // Support both array format (new) and single File (backward compatibility)
+                  const hasFiles =
+                    (Array.isArray(personIdFiles) &&
+                      personIdFiles.length > 0) ||
+                    personIdFiles instanceof File
+
+                  if (!hasFiles) {
                     missingIds.push(prefix)
                   }
                 }
