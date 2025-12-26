@@ -1736,6 +1736,7 @@ export const QuestionRenderer = ({
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <Checkbox
+              id={`${question.id}_terms_checkbox`}
               disabled={disabled || editingMode}
               checked={editingMode ? false : (value as boolean) || false}
               onCheckedChange={(checked) => {
@@ -1746,10 +1747,38 @@ export const QuestionRenderer = ({
               onBlur={onBlur}
               data-field-id={`${question.id}_terms`}
             />
-            <label className="text-sm text-gray-700">
-              I agree to the terms and conditions.
-              <span className="text-red-500"> *</span>
-            </label>
+            <div className="relative inline-block flex-1">
+              <Label
+                htmlFor={
+                  editingMode ? undefined : `${question.id}_terms_checkbox`
+                }
+                className={cn(
+                  "text-sm text-gray-700",
+                  editingMode ? "cursor-not-allowed" : "cursor-pointer",
+                )}
+                onClick={(e) => {
+                  // In editing mode, prevent default label behavior (checkbox toggle)
+                  if (editingMode) {
+                    e.preventDefault()
+                  }
+                }}
+              >
+                {getSubQuestionLabel(
+                  uiConfig,
+                  "termsLabel",
+                  "I agree to the terms and conditions.",
+                )}
+                <span className="text-red-500"> *</span>
+              </Label>
+              {renderLabelOverlay(
+                "termsLabel",
+                getSubQuestionLabel(
+                  uiConfig,
+                  "termsLabel",
+                  "I agree to the terms and conditions.",
+                ),
+              )}
+            </div>
           </div>
           {/* Show validation error for T&C checkbox */}
           {error && <p className="ml-7 text-sm text-red-500">{error}</p>}
