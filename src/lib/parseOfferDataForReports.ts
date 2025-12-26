@@ -181,18 +181,24 @@ export function getDepositAmountFromData(
   }
 
   // Single instalment - raw form data format (check multiple field name formats)
+  // For instalment 1: check deposit_amount first (for one_or_two/three_plus), then deposit_amount_instalment_1 (for two_always)
   const amount =
-    data?.deposit_amount_instalment_1 ||
     data?.deposit_amount ||
+    data?.deposit_amount_instalment_1 ||
     data?.deposit_amount_1
   const percentage =
-    data?.deposit_percentage_instalment_1 ||
     data?.deposit_percentage ||
+    data?.deposit_percentage_instalment_1 ||
     data?.deposit_percentage_1
-  const currency =
-    data?.deposit_amount_instalment_1_currency ||
+  
+  // Check both amount and percentage currency fields
+  let currency =
     data?.deposit_amount_currency ||
+    data?.deposit_amount_instalment_1_currency ||
     data?.deposit_amount_1_currency ||
+    data?.deposit_percentage_currency ||
+    data?.deposit_percentage_instalment_1_currency ||
+    data?.deposit_percentage_1_currency ||
     "USD"
 
   if (amount !== undefined && amount !== null && amount !== "") {
@@ -408,6 +414,7 @@ export function getSpecialConditionsFromData(specialConditions: any): string {
     try {
       const parsed = JSON.parse(specialConditions)
       // Check if it has meaningful data
+      // Note: conditionAttachmentUrls is deprecated but kept for backward compatibility
       if (
         (parsed.selectedConditions &&
           Array.isArray(parsed.selectedConditions) &&
@@ -417,7 +424,10 @@ export function getSpecialConditionsFromData(specialConditions: any): string {
           Object.keys(parsed.conditionAttachmentUrls).length > 0) ||
         (parsed.customCondition &&
           typeof parsed.customCondition === "string" &&
-          parsed.customCondition.trim())
+          parsed.customCondition.trim()) ||
+        (parsed.customConditionAttachmentUrls &&
+          Array.isArray(parsed.customConditionAttachmentUrls) &&
+          parsed.customConditionAttachmentUrls.length > 0)
       ) {
         return "Yes"
       }
@@ -434,12 +444,16 @@ export function getSpecialConditionsFromData(specialConditions: any): string {
     (data?.selectedConditions &&
       Array.isArray(data.selectedConditions) &&
       data.selectedConditions.length > 0) ||
+    // Note: conditionAttachmentUrls is deprecated but kept for backward compatibility
     (data?.conditionAttachmentUrls &&
       typeof data.conditionAttachmentUrls === "object" &&
       Object.keys(data.conditionAttachmentUrls).length > 0) ||
     (data?.customCondition &&
       typeof data.customCondition === "string" &&
-      data.customCondition.trim())
+      data.customCondition.trim()) ||
+    (data?.customConditionAttachmentUrls &&
+      Array.isArray(data.customConditionAttachmentUrls) &&
+      data.customConditionAttachmentUrls.length > 0)
   ) {
     return "Yes"
   }
@@ -520,27 +534,62 @@ export function getSubmitterRoleFromData(offer: any): string {
 
 /**
  * Gets loan amount from subjectToLoanApproval
+ * Handles both amount and percentage, with currency support
  */
 export function getLoanAmountFromData(subjectToLoanApproval: any): string {
   if (!subjectToLoanApproval) return "N/A"
 
   const data = parseJsonField(subjectToLoanApproval)
-  const loanAmount = data?.loanAmount
+  
+  // Check if we have loanData object (new structure)
+  const loanData = data?.loanData || data
+  
+  // Determine which field to use based on loanAmountType
+  const loanAmountType = loanData?.loanAmountType || data?.loanAmountType
+  const loanAmount = loanData?.loanAmount || data?.loanAmount
+  const loanPercentage = loanData?.loanPercentage || data?.loanPercentage
+  const loanAmountCurrency = loanData?.loanAmountCurrency || data?.loanAmountCurrency
+  const loanPercentageCurrency = loanData?.loanPercentageCurrency || data?.loanPercentageCurrency
 
+  // If percentage is selected/available
+  if (loanAmountType === "percentage" && loanPercentage !== undefined && loanPercentage !== null && loanPercentage !== "") {
+    const parsed =
+      typeof loanPercentage === "number"
+        ? loanPercentage
+        : parseFloat(String(loanPercentage))
+    if (!isNaN(parsed)) {
+      return `${parsed}% of purchase price${loanPercentageCurrency ? ` (${loanPercentageCurrency})` : ""}`
+    }
+    return String(loanPercentage) + "% of purchase price"
+  }
+
+  // If amount is selected/available
   if (loanAmount !== undefined && loanAmount !== null && loanAmount !== "") {
     const parsed =
       typeof loanAmount === "number"
         ? loanAmount
         : parseFloat(String(loanAmount))
     if (!isNaN(parsed)) {
+      const currency = loanAmountCurrency || "USD"
       return new Intl.NumberFormat("en-US", {
         style: "currency",
-        currency: "USD",
+        currency: currency,
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }).format(parsed)
     }
-    return String(loanAmount)
+    return String(loanAmount) + (loanAmountCurrency ? ` ${loanAmountCurrency}` : "")
+  }
+
+  // Fallback: check if loan_amount_type is "percentage" (old format)
+  if (data?.loan_amount_type === "percentage" && loanPercentage !== undefined && loanPercentage !== null && loanPercentage !== "") {
+    const parsed =
+      typeof loanPercentage === "number"
+        ? loanPercentage
+        : parseFloat(String(loanPercentage))
+    if (!isNaN(parsed)) {
+      return `${parsed}% of purchase price`
+    }
   }
 
   return "N/A"
@@ -548,12 +597,17 @@ export function getLoanAmountFromData(subjectToLoanApproval: any): string {
 
 /**
  * Gets loan company name from subjectToLoanApproval
+ * Handles both old format (data.companyName) and new format (data.loanData.lenderDetails.companyName)
  */
 export function getLoanCompanyNameFromData(subjectToLoanApproval: any): string {
   if (!subjectToLoanApproval) return "N/A"
 
   const data = parseJsonField(subjectToLoanApproval)
-  const companyName = data?.companyName
+  
+  // Check new structure first (loanData.lenderDetails.companyName)
+  const loanData = data?.loanData || data
+  const lenderDetails = loanData?.lenderDetails || data?.lenderDetails
+  const companyName = lenderDetails?.companyName || loanData?.companyName || data?.companyName
 
   if (companyName && typeof companyName === "string" && companyName.trim()) {
     return companyName.trim()
@@ -846,35 +900,93 @@ export function getDepositInstalmentData(
   }
 
   // Fallback to raw form data format
+  // For instalment 1: check deposit_amount first (for one_or_two/three_plus), then deposit_amount_instalment_1 (for two_always)
+  // For instalment 2+: check deposit_amount_instalment_X
   const amountKey =
     instalmentNumber === 1
-      ? "deposit_amount_instalment_1"
+      ? "deposit_amount"
       : `deposit_amount_instalment_${instalmentNumber}`
+  const amountKey2 =
+    instalmentNumber === 1
+      ? "deposit_amount_instalment_1"
+      : undefined
+  const amountKey3 =
+    instalmentNumber === 1
+      ? "deposit_amount_1"
+      : undefined
   const amount =
     data?.[amountKey] ||
-    data?.[`deposit_amount_${instalmentNumber}`] ||
-    (instalmentNumber === 1 ? data?.deposit_amount : undefined)
+    (amountKey2 ? data?.[amountKey2] : undefined) ||
+    (amountKey3 ? data?.[amountKey3] : undefined) ||
+    undefined
 
   const percentageKey =
     instalmentNumber === 1
-      ? "deposit_percentage_instalment_1"
+      ? "deposit_percentage"
       : `deposit_percentage_instalment_${instalmentNumber}`
+  const percentageKey2 =
+    instalmentNumber === 1
+      ? "deposit_percentage_instalment_1"
+      : undefined
+  const percentageKey3 =
+    instalmentNumber === 1
+      ? "deposit_percentage_1"
+      : undefined
   const percentage =
     data?.[percentageKey] ||
-    data?.[`deposit_percentage_${instalmentNumber}`] ||
-    (instalmentNumber === 1 ? data?.deposit_percentage : undefined)
+    (percentageKey2 ? data?.[percentageKey2] : undefined) ||
+    (percentageKey3 ? data?.[percentageKey3] : undefined) ||
+    undefined
 
-  const currencyKey =
+  // Get currency - check both amount and percentage currency fields
+  // For instalment 1: check deposit_amount_currency, deposit_percentage_currency, deposit_amount_instalment_1_currency, etc.
+  // For instalment 2+: check deposit_amount_instalment_X_currency, deposit_percentage_instalment_X_currency
+  let currency: string | undefined
+  
+  // Check amount currency fields first
+  const amountCurrencyKey1 =
+    instalmentNumber === 1
+      ? "deposit_amount_currency"
+      : `deposit_amount_instalment_${instalmentNumber}_currency`
+  const amountCurrencyKey2 =
     instalmentNumber === 1
       ? "deposit_amount_instalment_1_currency"
-      : `deposit_amount_instalment_${instalmentNumber}_currency`
-  const currency =
-    data?.[currencyKey] ||
-    data?.[`deposit_amount_${instalmentNumber}_currency`] ||
-    (instalmentNumber === 1
-      ? data?.deposit_amount_currency || data?.deposit_amount_1_currency
-      : undefined) ||
-    "USD"
+      : undefined
+  const amountCurrencyKey3 =
+    instalmentNumber === 1
+      ? "deposit_amount_1_currency"
+      : undefined
+  
+  currency =
+    data?.[amountCurrencyKey1] ||
+    (amountCurrencyKey2 ? data?.[amountCurrencyKey2] : undefined) ||
+    (amountCurrencyKey3 ? data?.[amountCurrencyKey3] : undefined)
+  
+  // If not found, check percentage currency fields
+  if (!currency) {
+    const percentageCurrencyKey1 =
+      instalmentNumber === 1
+        ? "deposit_percentage_currency"
+        : `deposit_percentage_instalment_${instalmentNumber}_currency`
+    const percentageCurrencyKey2 =
+      instalmentNumber === 1
+        ? "deposit_percentage_instalment_1_currency"
+        : undefined
+    const percentageCurrencyKey3 =
+      instalmentNumber === 1
+        ? "deposit_percentage_1_currency"
+        : undefined
+    
+    currency =
+      data?.[percentageCurrencyKey1] ||
+      (percentageCurrencyKey2 ? data?.[percentageCurrencyKey2] : undefined) ||
+      (percentageCurrencyKey3 ? data?.[percentageCurrencyKey3] : undefined)
+  }
+  
+  // Default to USD if no currency found
+  if (!currency) {
+    currency = "USD"
+  }
 
   const holdingKey =
     instalmentNumber === 1
@@ -983,21 +1095,17 @@ export function getSpecialConditionUrls(specialConditions: any): string {
 
   const urls: string[] = []
 
-  // Check conditionAttachmentUrls
+  // Note: conditionAttachmentUrls is deprecated - SUBMITTERS cannot upload files for predefined conditions
+  // Only check customConditionAttachmentUrls
   if (
-    data.conditionAttachmentUrls &&
-    typeof data.conditionAttachmentUrls === "object"
+    data.customConditionAttachmentUrls &&
+    Array.isArray(data.customConditionAttachmentUrls)
   ) {
-    for (const key in data.conditionAttachmentUrls) {
-      const attachmentUrls = data.conditionAttachmentUrls[key]
-      if (Array.isArray(attachmentUrls)) {
-        urls.push(
-          ...attachmentUrls.filter((url: string) => typeof url === "string"),
-        )
-      } else if (typeof attachmentUrls === "string") {
-        urls.push(attachmentUrls)
-      }
-    }
+    urls.push(
+      ...data.customConditionAttachmentUrls.filter(
+        (url: string) => typeof url === "string",
+      ),
+    )
   }
 
   return urls.length > 0 ? "Yes" : "N/A"
@@ -1165,7 +1273,7 @@ export function getAllSubjectToLoanInfo(subjectToLoanApproval: any): string {
 
   const loanAmount = getLoanAmountFromData(subjectToLoanApproval)
   if (loanAmount !== "N/A") {
-    parts.push(`Amount: ${loanAmount}`)
+    parts.push(`Loan: ${loanAmount}`)
   }
 
   const companyName = getLoanCompanyNameFromData(subjectToLoanApproval)

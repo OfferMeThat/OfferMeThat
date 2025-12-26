@@ -100,9 +100,11 @@ export function normalizeDepositData(
       const instalment: DepositInstalment = {}
 
       // Get deposit type
+      // For instalment 1: check deposit_type_instalment_1 first (for one_or_two/three_plus), then deposit_type (for single)
+      // For instalment 2+: check deposit_type_instalment_X
       const depositType =
         (data as any)[`deposit_type_instalment_${i}`] ||
-        (data as any).deposit_type ||
+        (i === 1 ? (data as any).deposit_type : undefined) ||
         undefined
       if (depositType) instalment.depositType = depositType
 
@@ -138,13 +140,25 @@ export function normalizeDepositData(
       }
 
       // Get currency (check multiple field name formats)
-      const currency =
+      // Currency can be attached to either amount or percentage fields depending on deposit type
+      let currency =
         (data as any)[`deposit_amount_instalment_${i}_currency`] ||
         (data as any)[`deposit_amount_${i}_currency`] ||
         (data as any)[`deposit_amount_currency_${i}`] ||
         (i === 1
           ? data.deposit_amount_currency || data.deposit_amount_currency_1
           : undefined)
+      
+      // If not found in amount fields, check percentage currency fields
+      if (!currency) {
+        currency =
+          (data as any)[`deposit_percentage_instalment_${i}_currency`] ||
+          (data as any)[`deposit_percentage_${i}_currency`] ||
+          (i === 1
+            ? data.deposit_percentage_currency || data.deposit_percentage_currency_1
+            : undefined)
+      }
+      
       if (currency) instalment.currency = currency
 
       // Get due date

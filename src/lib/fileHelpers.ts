@@ -73,3 +73,34 @@ export function formatFileLinks(
   })
 }
 
+/**
+ * Truncates a file name to a maximum length for display
+ * Preserves the file extension
+ * @param fileName - The file name to truncate
+ * @param maxLength - Maximum length (default: 40)
+ * @returns Truncated file name with ellipsis if needed
+ */
+export function truncateFileName(fileName: string, maxLength: number = 40): string {
+  if (!fileName || fileName.length <= maxLength) {
+    return fileName
+  }
+
+  // Find the last dot (file extension)
+  const lastDotIndex = fileName.lastIndexOf(".")
+  if (lastDotIndex === -1) {
+    // No extension, just truncate
+    return fileName.substring(0, maxLength - 3) + "..."
+  }
+
+  const extension = fileName.substring(lastDotIndex)
+  const nameWithoutExt = fileName.substring(0, lastDotIndex)
+  const availableLength = maxLength - extension.length - 3 // 3 for "..."
+
+  if (availableLength <= 0) {
+    // Extension is longer than maxLength, just return extension
+    return extension
+  }
+
+  return nameWithoutExt.substring(0, availableLength) + "..." + extension
+}
+

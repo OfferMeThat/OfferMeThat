@@ -119,7 +119,7 @@ export const QUESTION_TYPE_TO_LABEL: Record<QuestionType, string> = {
   offerAmount: "Offer Amount",
   submitButton: "Submit Button",
   offerExpiry: "Offer Expiry",
-  deposit: "Deposit",
+  deposit: "Deposit Details",
   subjectToLoanApproval: "Subject to Loan Approval",
   attachPurchaseAgreement: "Attach Purchase Agreement",
   specialConditions: "Special Conditions",

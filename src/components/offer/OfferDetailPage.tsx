@@ -10,7 +10,7 @@ import {
   formatSubjectToLoanApproval,
 } from "@/lib/formatOfferData"
 import { parseAllCustomQuestions } from "@/lib/parseCustomQuestionsData"
-import { extractFileName } from "@/lib/fileHelpers"
+import { extractFileName, truncateFileName } from "@/lib/fileHelpers"
 import { OfferWithListing } from "@/types/offer"
 import {
   ArrowLeft,
@@ -417,6 +417,10 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                     <div className="flex flex-col gap-1 pl-4">
                       {purchaseAgreementUrls.map((url, index) => {
                         const fileName = extractFileName(url)
+                        const displayName =
+                          purchaseAgreementUrls.length > 1
+                            ? `${fileName} (File ${index + 1})`
+                            : fileName
                         return (
                           <a
                             key={index}
@@ -424,11 +428,10 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                            title={displayName}
                           >
                             <FileText size={16} />
-                            {purchaseAgreementUrls.length > 1
-                              ? `${fileName} (File ${index + 1})`
-                              : fileName}
+                            {truncateFileName(displayName)}
                           </a>
                         )
                       })}

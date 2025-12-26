@@ -1,4 +1,6 @@
 import { QuestionType } from "./form"
+import type { NameOfPurchaserSetupConfig as NameOfPurchaserSetupConfigSchema } from "./questions/nameOfPurchaser"
+import type { SpecialConditionsSetupConfig as SpecialConditionsSetupConfigSchema } from "./questions/specialConditions"
 
 /**
  * Reusable type structures for question setup and configuration
@@ -12,11 +14,12 @@ export interface BaseUIConfig {
 }
 
 // Setup Config Types for different question types
-export interface NameOfPurchaserSetupConfig {
-  collection_method?: "single_field" | "individual_names"
-  collect_middle_names?: "yes" | "no"
-  collect_identification?: "mandatory" | "optional" | "no"
-}
+/**
+ * Setup configuration for Name of Purchaser question
+ * Uses the comprehensive schema from nameOfPurchaserQuestionSchema.ts
+ * All fields are optional here to allow partial updates during setup
+ */
+export type NameOfPurchaserSetupConfig = Partial<NameOfPurchaserSetupConfigSchema>
 
 export interface AttachPurchaseAgreementSetupConfig {
   contract_requirement?: "required" | "optional"
@@ -65,24 +68,19 @@ export interface DepositSetupConfig {
   inst2_holding_details?: string
 }
 
-export interface SubjectToLoanApprovalSetupConfig {
-  loan_amount_type?: "fixed_amount" | "percentage" | "amount_or_percentage" | "no_amount"
-  lender_details?: "required" | "optional" | "not_required"
-  attachments?: "optional" | "required" | "not_required"
-  loan_approval_due?: "no_due_date" | "calendar" | "datetime" | "buyer_text" | "seller_text" | "within_time" | "custom"
-  finance_approval_due_date?: string
-  finance_communications?: "referral_partner" | "self_manage" | "no_thanks"
-  lead_recipient_email?: string
-  evidence_of_funds?: "optional" | "required" | "not_required"
-}
+/**
+ * Setup configuration for Subject to Loan Approval question
+ * Uses the comprehensive schema from subjectToLoanApproval.ts
+ * All fields are optional here to allow partial updates during setup
+ */
+export type SubjectToLoanApprovalSetupConfig = import("./questions/subjectToLoanApproval").SubjectToLoanApprovalSetupConfig
 
-export interface SpecialConditionsSetupConfig {
-  allow_custom_conditions?: "yes" | "no"
-  conditions?: Array<{
-    name: string
-    details?: string
-  }>
-}
+/**
+ * Setup configuration for Special Conditions question
+ * Uses the comprehensive schema from specialConditions.ts
+ * All fields are optional here to allow partial updates during setup
+ */
+export type SpecialConditionsSetupConfig = SpecialConditionsSetupConfigSchema
 
 export interface SettlementDateSetupConfig {
   settlement_date_type?: "calendar" | "datetime" | "buyer_text" | "seller_text" | "within_days" | "CYO"

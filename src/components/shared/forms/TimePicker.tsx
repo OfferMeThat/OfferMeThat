@@ -52,12 +52,8 @@ const TimePicker = ({
         ...style,
       }
     }
-    // Don't override border color - let border-input class handle it
-    // Only set background to ensure consistency
-    return {
-      backgroundColor: "#ffffff",
-      ...style,
-    }
+    // Use default transparent background like other inputs
+    return style || {}
   }
 
   const getInputStyle = () => {
@@ -69,11 +65,8 @@ const TimePicker = ({
         borderStyle: "solid",
       }
     }
-    // Don't override border color - let border-input class handle it
-    // Only set background to ensure consistency
-    return {
-      backgroundColor: "#ffffff",
-    }
+    // Use default transparent background like other inputs
+    return {}
   }
 
   const getButtonStyle = () => {
@@ -86,20 +79,24 @@ const TimePicker = ({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild className="cursor-pointer">
-        <Button
-          variant="outline"
-          disabled={disabled}
-          className={cn(
-            "shrink justify-between font-normal",
-            !value && "text-gray-500",
-            btnClassName,
-          )}
-          style={getFieldStyle()}
-        >
-          <Clock className="h-4 w-4" />
-          {value || label || "Select time"}
-        </Button>
+      <PopoverTrigger asChild>
+        <div className="relative">
+          <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            type="text"
+            readOnly
+            value={value || ""}
+            placeholder={label || "Select time"}
+            disabled={disabled}
+            className={cn(
+              "w-full pl-10 cursor-pointer",
+              !value && "text-gray-500",
+              btnClassName,
+            )}
+            style={getFieldStyle()}
+            onClick={() => !disabled && setOpen(true)}
+          />
+        </div>
       </PopoverTrigger>
       <PopoverContent
         className="w-auto p-4"

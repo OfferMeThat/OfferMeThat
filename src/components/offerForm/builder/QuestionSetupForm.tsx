@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
+import { FileUploadInput } from "@/components/shared/FileUploadInput"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -13,6 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { currencyNames } from "@/constants/forms"
 import { QUESTION_DEFINITIONS as OFFER_QUESTION_DEFINITIONS } from "@/constants/offerFormQuestions"
+import { validateMultipleFiles } from "@/lib/offerFormValidation"
 import { getQuestionRequiredFromSetup } from "@/lib/questionHelpers"
 import { cn } from "@/lib/utils"
 import { QuestionType } from "@/types/form"
@@ -30,11 +32,13 @@ interface QuestionSetupFormProps {
     setupConfig: QuestionSetupConfig,
     uiConfig?: QuestionUIConfig,
     requiredOverride?: boolean,
+    uiConfigUpdates?: Record<string, any>,
   ) => void
   onCancel: () => void
   hideButtons?: boolean
   mode?: "add" | "edit"
   questionDefinitions?: Partial<Record<QuestionType, any>>
+  currentQuestionRequired?: boolean
 }
 
 const QuestionSetupForm = ({
@@ -46,6 +50,7 @@ const QuestionSetupForm = ({
   hideButtons = false,
   mode = "add",
   questionDefinitions = OFFER_QUESTION_DEFINITIONS,
+  currentQuestionRequired,
 }: QuestionSetupFormProps) => {
   // Initialize setupConfig with defaults for offerAmount
   const initialConfig = useMemo(() => {
@@ -95,12 +100,26 @@ const QuestionSetupForm = ({
   // Initialize with one empty condition if none exist
   const initialConditions = (initialSetupConfig as any)?.conditions || []
   const [conditions, setConditions] = useState<
-    Array<{ name: string; details: string }>
+    Array<{
+      name: string
+      details: string
+      attachments?: Array<{
+        url: string
+        fileName: string
+        fileSize?: number
+        uploadedAt?: string
+      }>
+    }>
   >(
     initialConditions.length > 0
       ? initialConditions
       : [{ name: "", details: "" }],
   )
+
+  // State for file uploads per condition (temporary File objects before upload)
+  const [conditionFileUploads, setConditionFileUploads] = useState<
+    Record<number, { files: File[]; fileNames: string[] }>
+  >({})
 
   // State for settlement date modal
   const [showSettlementDateModal, setShowSettlementDateModal] = useState(false)
@@ -168,7 +187,13 @@ const QuestionSetupForm = ({
 
       setSetupConfig(configToSet)
       if (configToSet?.conditions && configToSet.conditions.length > 0) {
-        setConditions(configToSet.conditions)
+        setConditions(
+          configToSet.conditions.map((c: any) => ({
+            name: c.name || "",
+            details: c.details || "",
+            attachments: c.attachments || [],
+          })),
+        )
       } else if (questionType === "specialConditions") {
         // Initialize with one empty condition for special conditions
         setConditions([{ name: "", details: "" }])
@@ -260,6 +285,109 @@ const QuestionSetupForm = ({
     const updated = [...conditions]
     updated[index][field] = value
     setConditions(updated)
+  }
+
+  const handleConditionFileUpload = (
+    conditionIndex: number,
+    files: File | File[] | null,
+  ) => {
+    if (!files) {
+      setConditionFileUploads((prev) => {
+        const updated = { ...prev }
+        delete updated[conditionIndex]
+        return updated
+      })
+      return
+    }
+
+    const newFiles = Array.isArray(files) ? files : [files]
+
+    // Get existing files from state
+    const existingFiles = conditionFileUploads[conditionIndex]?.files || []
+
+    // Merge new files with existing files
+    const mergedFiles = [...existingFiles, ...newFiles]
+
+    // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+    const maxFiles = 5
+    const finalFiles =
+      mergedFiles.length > maxFiles
+        ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+        : mergedFiles
+
+    const fileError = validateMultipleFiles(
+      finalFiles,
+      maxFiles,
+      10 * 1024 * 1024,
+    ) // Max 5 files, 10MB total
+
+    if (fileError) {
+      toast.error(fileError)
+      return
+    }
+
+    setConditionFileUploads((prev) => ({
+      ...prev,
+      [conditionIndex]: {
+        files: finalFiles,
+        fileNames: finalFiles.map((f) => f.name),
+      },
+    }))
+  }
+
+  const handleRemoveConditionFile = (
+    conditionIndex: number,
+    fileIndex: number,
+  ) => {
+    // Check if it's a new file (in conditionFileUploads) or existing attachment (in conditions)
+    const currentUploads = conditionFileUploads[conditionIndex]
+    const condition = conditions[conditionIndex]
+
+    // If it's a newly uploaded file (in conditionFileUploads)
+    if (currentUploads && fileIndex < currentUploads.files.length) {
+      setConditionFileUploads((prev) => {
+        const current = prev[conditionIndex]
+        if (!current) return prev
+
+        const newFiles = [...current.files]
+        const newFileNames = [...current.fileNames]
+        newFiles.splice(fileIndex, 1)
+        newFileNames.splice(fileIndex, 1)
+
+        if (newFiles.length === 0) {
+          const updated = { ...prev }
+          delete updated[conditionIndex]
+          return updated
+        }
+
+        return {
+          ...prev,
+          [conditionIndex]: {
+            files: newFiles,
+            fileNames: newFileNames,
+          },
+        }
+      })
+    } else if (condition?.attachments && condition.attachments.length > 0) {
+      // It's an existing attachment - remove it from the condition
+      const attachmentIndex = fileIndex - (currentUploads?.files.length || 0)
+      if (
+        attachmentIndex >= 0 &&
+        attachmentIndex < condition.attachments.length
+      ) {
+        const updated = [...conditions]
+        if (updated[conditionIndex]) {
+          updated[conditionIndex] = {
+            ...updated[conditionIndex],
+            attachments:
+              updated[conditionIndex].attachments?.filter(
+                (_: any, idx: number) => idx !== attachmentIndex,
+              ) || [],
+          }
+          setConditions(updated)
+        }
+      }
+    }
   }
 
   // Validation function to check if setup is complete
@@ -361,13 +489,17 @@ const QuestionSetupForm = ({
     }
 
     // For Special Conditions, include the conditions array in setupConfig
+    // Note: Files will be uploaded in the save action after question is created/updated
     let finalConfig =
       questionType === "specialConditions"
         ? {
             ...setupConfig,
-            conditions: conditions.map((condition) => ({
+            conditions: conditions.map((condition, index) => ({
               name: condition.name,
               details: condition.details,
+              attachments: condition.attachments || [],
+              // Include temporary files that need to be uploaded
+              __pendingFiles: conditionFileUploads[index]?.files || [],
             })),
           }
         : { ...setupConfig }
@@ -494,12 +626,13 @@ const QuestionSetupForm = ({
         questionId={questionType}
         initialSetupConfig={initialSetupConfig}
         initialUIConfig={initialUIConfig}
-        onComplete={(generated, answers, requiredOverride) => {
-          onComplete(answers, generated, requiredOverride)
+        onComplete={(generated, answers, requiredOverride, uiConfigUpdates) => {
+          onComplete(answers, generated, requiredOverride, uiConfigUpdates)
         }}
         onCancel={onCancel}
         hideButtons={hideButtons}
         mode={mode}
+        currentQuestionRequired={currentQuestionRequired}
       />
     )
   }
@@ -767,7 +900,7 @@ const QuestionSetupForm = ({
                                 )
                                 handleConfigChange(question.id, newOptions)
                               }}
-                              className="text-red-600 hover:text-red-700"
+                              className="cursor-pointer text-red-600 hover:text-red-700"
                             >
                               Remove
                             </Button>
@@ -970,7 +1103,7 @@ const QuestionSetupForm = ({
                                     )
                                     handleConfigChange(question.id, newOptions)
                                   }}
-                                  className="text-xs text-red-600 hover:text-red-700"
+                                  className="cursor-pointer text-xs text-red-600 hover:text-red-700"
                                 >
                                   Remove
                                 </button>
@@ -1037,7 +1170,7 @@ const QuestionSetupForm = ({
                 <button
                   type="button"
                   onClick={() => handleRemoveCondition(index)}
-                  className="text-sm text-red-600 hover:text-red-700"
+                  className="cursor-pointer text-sm text-red-600 hover:text-red-700"
                 >
                   Remove
                 </button>
@@ -1069,6 +1202,79 @@ const QuestionSetupForm = ({
                   placeholder="Enter additional details (optional)"
                   rows={3}
                 />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">
+                  Attachments (optional, max 5 files, 10MB total)
+                </label>
+                <p className="mb-2 text-xs text-gray-500">
+                  Upload attachments that submitter can review for this
+                  condition
+                </p>
+                <FileUploadInput
+                  id={`condition_${index}_attachments`}
+                  label=""
+                  required={false}
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                  multiple
+                  disabled={false}
+                  value={
+                    conditionFileUploads[index]?.files ||
+                    condition.attachments
+                      ?.map((att) => {
+                        // Create a dummy File object for display if we have URLs
+                        // In a real implementation, you'd fetch these files or display them differently
+                        return null
+                      })
+                      .filter(Boolean) ||
+                    []
+                  }
+                  fileNames={[
+                    ...(conditionFileUploads[index]?.fileNames || []),
+                    ...(condition.attachments?.map((att) => att.fileName) ||
+                      []),
+                  ]}
+                  error={undefined}
+                  maxFiles={5}
+                  maxSize={10 * 1024 * 1024}
+                  onChange={(files) => handleConditionFileUpload(index, files)}
+                  onRemove={(fileIndex) =>
+                    handleRemoveConditionFile(index, fileIndex || 0)
+                  }
+                >
+                  <span className="text-xs text-gray-500">
+                    Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG, TXT (Max 5
+                    files, 10MB total)
+                  </span>
+                </FileUploadInput>
+                {/* Display existing attachments from setupConfig */}
+                {condition.attachments &&
+                  condition.attachments.length > 0 &&
+                  conditionFileUploads[index]?.files.length === 0 && (
+                    <div className="mt-2 space-y-1">
+                      {condition.attachments.map((att, attIndex) => (
+                        <div
+                          key={attIndex}
+                          className="flex items-center justify-between rounded border border-gray-200 bg-gray-50 p-2 text-xs"
+                        >
+                          <a
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            {att.fileName}
+                          </a>
+                          <span className="text-gray-500">
+                            {att.fileSize
+                              ? `${(att.fileSize / 1024).toFixed(1)} KB`
+                              : ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
               </div>
             </div>
           ))}
@@ -1191,7 +1397,7 @@ const QuestionSetupForm = ({
                                     newOptions,
                                   )
                                 }}
-                                className="text-xs text-red-600 hover:text-red-700"
+                                className="cursor-pointer text-xs text-red-600 hover:text-red-700"
                               >
                                 Remove
                               </button>

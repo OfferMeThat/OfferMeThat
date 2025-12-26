@@ -6,6 +6,7 @@ import {
 } from "@/constants/offerFormQuestions"
 import { buildSmartQuestionUiConfig } from "@/data/smartQuestions"
 import { createClient } from "@/lib/supabase/server"
+import { uploadFileToStorage } from "@/lib/supabase/storage"
 import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
@@ -593,8 +594,22 @@ export const movePageBreak = async (
     )
   }
 
-  // Validation: ensure we don't go beyond the last question
-  if (newBreakIndex >= allQuestions.length) {
+  // Validation: ensure we don't go beyond the last regular question (exclude submit button)
+  // breakIndex represents the question ORDER value after which the break occurs
+  // We need to compare against the maximum ORDER value, not the count of questions
+  const regularQuestions = allQuestions.filter(
+    (q) => q.type !== "submitButton",
+  )
+  
+  if (regularQuestions.length === 0) {
+    throw new Error("No regular questions found")
+  }
+  
+  // Find the maximum order value among regular questions
+  const maxRegularOrder = Math.max(...regularQuestions.map((q) => q.order))
+  
+  // Ensure there's at least one question after the break
+  if (newBreakIndex >= maxRegularOrder) {
     throw new Error(
       "Cannot move break: must have at least 1 question at the bottom",
     )
@@ -991,6 +1006,71 @@ export const saveBrandingConfig = async (
   }
 }
 
+/**
+ * Upload Special Conditions setup attachments
+ * Accepts files as base64-encoded strings and uploads them to Supabase Storage
+ */
+export const uploadSpecialConditionsAttachments = async (
+  formId: string,
+  questionId: string | null,
+  conditionIndex: number,
+  files: Array<{ name: string; type: string; data: string }>, // base64-encoded file data
+): Promise<Array<{ url: string; fileName: string; fileSize: number }>> => {
+  const supabase = await createClient()
+
+  // Determine if we should use a temporary path (if questionId is null, question not created yet)
+  const basePath = questionId
+    ? `question-setup/${formId}/${questionId}/condition_${conditionIndex}`
+    : `question-setup-temp/${formId}/condition_${conditionIndex}`
+
+  const uploadedFiles: Array<{
+    url: string
+    fileName: string
+    fileSize: number
+  }> = []
+
+  for (const file of files) {
+    try {
+      // Convert base64 to buffer
+      const fileBuffer = Buffer.from(file.data, "base64")
+      const timestamp = Date.now()
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+      const filePath = `${basePath}/${timestamp}-${sanitizedFileName}`
+
+      // Upload to storage (using "special-conditions" bucket)
+      const bucket = "special-conditions"
+
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, fileBuffer, {
+          contentType: file.type,
+          upsert: true,
+        })
+
+      if (error) {
+        console.error("Error uploading file:", error)
+        throw new Error(`Failed to upload file: ${error.message}`)
+      }
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(bucket).getPublicUrl(filePath)
+
+      uploadedFiles.push({
+        url: publicUrl,
+        fileName: file.name,
+        fileSize: fileBuffer.length,
+      })
+    } catch (error) {
+      console.error(`Error uploading file ${file.name}:`, error)
+      // Continue with other files even if one fails
+    }
+  }
+
+  return uploadedFiles
+}
+
 export const addQuestion = async (
   formId: string,
   questionType: QuestionType,
@@ -1088,20 +1168,24 @@ export const addQuestion = async (
     label: fallbackLabel,
   }
 
-  const { error } = await supabase.from("offerFormQuestions").insert({
-    formId,
-    pageId,
-    type: questionType,
-    order: newOrder,
-    required: REQUIRED_QUESTION_TYPES.includes(questionType), // Only required if in REQUIRED_QUESTION_TYPES
-    setupConfig: finalSetupConfig,
-    uiConfig: finalUiConfig,
-  })
+  const { data: insertedQuestion, error } = await supabase
+    .from("offerFormQuestions")
+    .insert({
+      formId,
+      pageId,
+      type: questionType,
+      order: newOrder,
+      required: REQUIRED_QUESTION_TYPES.includes(questionType), // Only required if in REQUIRED_QUESTION_TYPES
+      setupConfig: finalSetupConfig,
+      uiConfig: finalUiConfig,
+    })
+    .select()
+    .single()
 
   if (error) {
     console.error("Error inserting question:", error)
     throw new Error("Failed to insert question")
   }
 
-  return true
+  return insertedQuestion.id
 }
