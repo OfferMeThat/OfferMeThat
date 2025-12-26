@@ -5652,6 +5652,13 @@ export const QuestionRenderer = ({
             ? value
             : (value as string) || { countryCode: "+1", number: "" }
 
+        // Use getSubQuestionPlaceholder to get the placeholder (same pattern as submitterPhone)
+        const phonePlaceholder = getSubQuestionPlaceholder(
+          uiConfig,
+          "phonePlaceholder",
+          "Enter your phone number",
+        )
+
         return (
           <div>
             <div className="relative flex max-w-md items-center gap-2">
@@ -5664,22 +5671,20 @@ export const QuestionRenderer = ({
                 onBlur={onBlur}
                 disabled={disabled}
                 editingMode={editingMode}
-                placeholder={uiConfig.phonePlaceholder || "555-123-4567"}
+                placeholder={phonePlaceholder}
                 className={cn(editingMode && "cursor-not-allowed", "w-full")}
                 style={getInputStyle()}
                 data-field-id={question.id}
               />
               {/* Edit overlay only covers the phone number input part, not the country code dropdown */}
               {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
+              {/* Same pattern as submitterPhone question */}
               {editingMode && onEditPlaceholder && (
                 <div
                   className="absolute top-0 right-0 bottom-0 left-[108px] z-20 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onEditPlaceholder(
-                      "phonePlaceholder",
-                      uiConfig.phonePlaceholder || "Enter your phone number",
-                    )
+                    onEditPlaceholder("phonePlaceholder", phonePlaceholder)
                   }}
                   title="Click to edit placeholder"
                 />
@@ -5970,6 +5975,13 @@ export const QuestionRenderer = ({
           ? value
           : (value as string) || { countryCode: "+1", number: "" }
 
+      // Use getSubQuestionPlaceholder to get the placeholder (same pattern as submitterPhone)
+      const phonePlaceholder = getSubQuestionPlaceholder(
+        uiConfig,
+        "placeholder",
+        "Enter your phone number",
+      )
+
       return (
         <div>
           <div className="relative flex max-w-md items-center gap-2">
@@ -5982,22 +5994,20 @@ export const QuestionRenderer = ({
               onBlur={onBlur}
               disabled={disabled}
               editingMode={editingMode}
-              placeholder={uiConfig.placeholder || "555-123-4567"}
+              placeholder={phonePlaceholder}
               className={cn(editingMode && "cursor-not-allowed", "w-full")}
               style={getInputStyle()}
               data-field-id={question.id}
             />
             {/* Edit overlay only covers the phone number input part, not the country code dropdown */}
             {/* Country code dropdown is 100px + gap-2 (8px) = 108px from left */}
+            {/* Same pattern as submitterPhone question */}
             {editingMode && onEditPlaceholder && (
               <div
                 className="absolute top-0 right-0 bottom-0 left-[108px] z-20 cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onEditPlaceholder(
-                    "placeholder",
-                    uiConfig.placeholder || "Enter your phone number",
-                  )
+                  onEditPlaceholder("placeholder", phonePlaceholder)
                 }}
                 title="Click to edit placeholder"
               />
