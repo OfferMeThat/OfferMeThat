@@ -178,10 +178,19 @@ const OfferFormBuilderPageContent = () => {
 
     startTransition(async () => {
       try {
-        // Find the question above
-        const questionAbove = questions.find(
-          (q) => q.order === currentOrder - 1,
+        // Get all questions sorted by order, excluding submit button
+        const sortedQuestions = questions
+          .filter((q) => q.type !== "submitButton")
+          .sort((a, b) => a.order - b.order)
+
+        // Find current question index
+        const currentIndex = sortedQuestions.findIndex(
+          (q) => q.id === questionId,
         )
+        if (currentIndex === -1 || currentIndex === 0) return
+
+        // Find the question above (previous in sorted array)
+        const questionAbove = sortedQuestions[currentIndex - 1]
         if (!questionAbove) return
 
         // Check if the question above is locked in its position
@@ -203,20 +212,17 @@ const OfferFormBuilderPageContent = () => {
         }
 
         // Swap orders
-        await updateQuestionOrder(questionId, currentOrder - 1)
+        await updateQuestionOrder(questionId, questionAbove.order)
         await updateQuestionOrder(questionAbove.id, currentOrder)
 
-        // Update local state
-        setQuestions((prev) =>
-          prev
-            .map((q) => {
-              if (q.id === questionId) return { ...q, order: currentOrder - 1 }
-              if (q.id === questionAbove.id)
-                return { ...q, order: currentOrder }
-              return q
-            })
-            .sort((a, b) => a.order - b.order),
-        )
+        // Fetch fresh data to ensure consistency
+        const [fetchedQuestions, fetchedPages] = await Promise.all([
+          getFormQuestions(formId!),
+          getFormPages(formId!),
+        ])
+
+        setQuestions(fetchedQuestions)
+        setPages(fetchedPages)
 
         toast.success("Question moved up")
       } catch (error) {
@@ -266,14 +272,24 @@ const OfferFormBuilderPageContent = () => {
 
     startTransition(async () => {
       try {
-        // Find the question below
-        const questionBelow = questions.find(
-          (q) => q.order === currentOrder + 1,
+        // Get all questions sorted by order, excluding submit button
+        const sortedQuestions = questions
+          .filter((q) => q.type !== "submitButton")
+          .sort((a, b) => a.order - b.order)
+
+        // Find current question index
+        const currentIndex = sortedQuestions.findIndex(
+          (q) => q.id === questionId,
         )
+        if (currentIndex === -1 || currentIndex === sortedQuestions.length - 1)
+          return
+
+        // Find the question below (next in sorted array)
+        const questionBelow = sortedQuestions[currentIndex + 1]
         if (!questionBelow) return
 
         // Check if moving would put this question into a locked position
-        const targetPosition = currentOrder + 1
+        const targetPosition = questionBelow.order
         // Position 1 is always locked (unless it's specifyListing)
         if (targetPosition === 1 && questionType !== "specifyListing") {
           setShowRestrictionModal(true)
@@ -290,20 +306,17 @@ const OfferFormBuilderPageContent = () => {
         }
 
         // Swap orders
-        await updateQuestionOrder(questionId, currentOrder + 1)
+        await updateQuestionOrder(questionId, questionBelow.order)
         await updateQuestionOrder(questionBelow.id, currentOrder)
 
-        // Update local state
-        setQuestions((prev) =>
-          prev
-            .map((q) => {
-              if (q.id === questionId) return { ...q, order: currentOrder + 1 }
-              if (q.id === questionBelow.id)
-                return { ...q, order: currentOrder }
-              return q
-            })
-            .sort((a, b) => a.order - b.order),
-        )
+        // Fetch fresh data to ensure consistency
+        const [fetchedQuestions, fetchedPages] = await Promise.all([
+          getFormQuestions(formId!),
+          getFormPages(formId!),
+        ])
+
+        setQuestions(fetchedQuestions)
+        setPages(fetchedPages)
 
         toast.success("Question moved down")
       } catch (error) {
