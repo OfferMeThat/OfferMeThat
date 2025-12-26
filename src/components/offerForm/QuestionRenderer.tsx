@@ -5845,23 +5845,70 @@ export const QuestionRenderer = ({
         )
       }
     } else if (answerType === "yes_no") {
-      return (
-        <RadioGroup disabled={disabled}>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="yes" id="custom-yes" />
-            <Label htmlFor="custom-yes">Yes</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="no" id="custom-no" />
-            <Label htmlFor="custom-no">No</Label>
-          </div>
-          {setupConfig.allow_unsure === "yes" && (
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="unsure" id="custom-unsure" />
-              <Label htmlFor="custom-unsure">Unsure</Label>
+      const currentValue = editingMode ? "" : (value as string) || ""
+      const isRequired = question.required || false
+
+      const handleOptionClick = (optionValue: string) => {
+        if (editingMode || disabled) return
+
+        // If clicking the same value and question is not required, deselect it
+        if (optionValue === currentValue && !isRequired) {
+          onChange?.("")
+        } else {
+          onChange?.(optionValue)
+        }
+      }
+
+      // Custom radio buttons that support deselection
+      const RadioOption = ({
+        value: optionValue,
+        label,
+        id,
+      }: {
+        value: string
+        label: string
+        id: string
+      }) => {
+        const isSelected = currentValue === optionValue
+        return (
+          <div
+            className="flex cursor-pointer items-center space-x-2"
+            onClick={() => handleOptionClick(optionValue)}
+          >
+            <div
+              className={cn(
+                "relative h-4 w-4 rounded-full border-2 transition-colors",
+                isSelected
+                  ? "border-primary bg-white"
+                  : "border-gray-300 bg-white",
+                (disabled || editingMode) && "cursor-not-allowed opacity-50",
+              )}
+            >
+              {isSelected && (
+                <div className="bg-primary absolute top-1/2 left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full" />
+              )}
             </div>
+            <Label
+              htmlFor={id}
+              className={cn(
+                "cursor-pointer",
+                (disabled || editingMode) && "cursor-not-allowed",
+              )}
+            >
+              {label}
+            </Label>
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-2">
+          <RadioOption value="yes" label="Yes" id="custom-yes" />
+          <RadioOption value="no" label="No" id="custom-no" />
+          {setupConfig.allow_unsure === "yes" && (
+            <RadioOption value="unsure" label="Unsure" id="custom-unsure" />
           )}
-        </RadioGroup>
+        </div>
       )
     } else if (answerType === "single_select") {
       // Handle both array format (new) and comma-separated string (legacy)
@@ -5880,15 +5927,74 @@ export const QuestionRenderer = ({
             .filter((opt: string) => opt.length > 0)
         }
       }
-      return (
-        <RadioGroup disabled={disabled}>
-          {options.map((opt: string, idx: number) => (
-            <div key={idx} className="flex items-center space-x-2">
-              <RadioGroupItem value={opt} id={`option-${idx}`} />
-              <Label htmlFor={`option-${idx}`}>{opt}</Label>
+
+      const currentValue = editingMode ? "" : (value as string) || ""
+      const isRequired = question.required || false
+
+      const handleOptionClick = (optionValue: string) => {
+        if (editingMode || disabled) return
+
+        // If clicking the same value and question is not required, deselect it
+        if (optionValue === currentValue && !isRequired) {
+          onChange?.("")
+        } else {
+          onChange?.(optionValue)
+        }
+      }
+
+      // Custom radio buttons that support deselection (same as yes_no)
+      const RadioOption = ({
+        value: optionValue,
+        label,
+        id,
+      }: {
+        value: string
+        label: string
+        id: string
+      }) => {
+        const isSelected = currentValue === optionValue
+        return (
+          <div
+            className="flex cursor-pointer items-center space-x-2"
+            onClick={() => handleOptionClick(optionValue)}
+          >
+            <div
+              className={cn(
+                "relative h-4 w-4 rounded-full border-2 transition-colors",
+                isSelected
+                  ? "border-primary bg-white"
+                  : "border-gray-300 bg-white",
+                (disabled || editingMode) && "cursor-not-allowed opacity-50",
+              )}
+            >
+              {isSelected && (
+                <div className="bg-primary absolute top-1/2 left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full" />
+              )}
             </div>
+            <Label
+              htmlFor={id}
+              className={cn(
+                "cursor-pointer",
+                (disabled || editingMode) && "cursor-not-allowed",
+              )}
+            >
+              {label}
+            </Label>
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-2">
+          {options.map((opt: string, idx: number) => (
+            <RadioOption
+              key={idx}
+              value={opt}
+              label={opt}
+              id={`custom-select-${idx}`}
+            />
           ))}
-        </RadioGroup>
+        </div>
       )
     } else if (answerType === "multi_select") {
       // Handle both array format (new) and comma-separated string (legacy)
