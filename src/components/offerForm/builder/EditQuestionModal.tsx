@@ -59,17 +59,19 @@ const EditQuestionModal = ({
       // Also merge any field-level required updates
       const currentUIConfig = (question.uiConfig as Record<string, any>) || {}
       if (uiConfig || uiConfigUpdates) {
+        const uiConfigAny = uiConfig as Record<string, any> | undefined
+        const uiConfigUpdatesAny = uiConfigUpdates as Record<string, any> | undefined
         updates.uiConfig = {
           ...currentUIConfig,
           ...uiConfig,
           ...uiConfigUpdates,
           // Deep merge subQuestions if both exist
-          ...(uiConfig?.subQuestions || uiConfigUpdates?.subQuestions
+          ...(uiConfigAny?.subQuestions || uiConfigUpdatesAny?.subQuestions
             ? {
                 subQuestions: {
                   ...(currentUIConfig.subQuestions || {}),
-                  ...(uiConfig?.subQuestions || {}),
-                  ...(uiConfigUpdates?.subQuestions || {}),
+                  ...(uiConfigAny?.subQuestions || {}),
+                  ...(uiConfigUpdatesAny?.subQuestions || {}),
                 },
               }
             : {}),

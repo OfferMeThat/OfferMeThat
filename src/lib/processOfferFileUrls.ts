@@ -31,7 +31,7 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
 
   // Collect URLs from purchaserData
   if (processedOffer.purchaserData) {
-    const purchaserData = processedOffer.purchaserData as PurchaserData
+    const purchaserData = processedOffer.purchaserData as any // Use any to support both old and new formats
     // Single field: support both idFileUrl (single) and idFileUrls (array)
     if (purchaserData.method === "single_field") {
       if (purchaserData.idFileUrl) {
@@ -210,7 +210,7 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
 
   // Replace URLs in purchaserData
   if (processedOffer.purchaserData) {
-    const purchaserData = processedOffer.purchaserData as PurchaserData
+    const purchaserData = processedOffer.purchaserData as any // Use any to support both old and new formats
     // Single field: support both idFileUrl (single) and idFileUrls (array)
     if (purchaserData.method === "single_field") {
       if (purchaserData.idFileUrl) {
@@ -220,7 +220,7 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
         const urls = Array.isArray(purchaserData.idFileUrls)
           ? purchaserData.idFileUrls
           : [purchaserData.idFileUrls]
-        purchaserData.idFileUrls = urls.map((url) => getSignedUrl(url) || url)
+        purchaserData.idFileUrls = urls.map((url: string) => getSignedUrl(url) || url)
       }
     }
     // Individual names: support both single URLs and arrays per key

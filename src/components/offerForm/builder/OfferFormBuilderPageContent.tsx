@@ -521,7 +521,11 @@ const OfferFormBuilderPageContent = () => {
         )
 
         // Upload files for Special Conditions if any
-        if (pendingFilesMap && Object.keys(pendingFilesMap).length > 0) {
+        if (
+          pendingFilesMap &&
+          Object.keys(pendingFilesMap).length > 0 &&
+          cleanConfig
+        ) {
           const { uploadSpecialConditionsSetupFiles } = await import(
             "@/lib/questionSetupFileUpload"
           )
