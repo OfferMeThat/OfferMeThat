@@ -972,7 +972,7 @@ const OfferFormBuilderPageContent = () => {
                                             p.breakIndex > currentBreakIndex,
                                         )
 
-                                        // Can't move up if: at question 1, or would collide with previous break
+                                        // Can move up if: not at question 1, and either no break before or enough space
                                         const canMoveUp =
                                           currentBreakIndex > 1 &&
                                           (!hasBreakBefore ||
@@ -989,10 +989,20 @@ const OfferFormBuilderPageContent = () => {
                                                   currentBreakIndex - 1,
                                               ))
 
-                                        // Can't move down if: at last question, or would collide with next break
+                                        // Can move down if: not at last question, and either no break after or enough space
+                                        // Ensure at least one question remains after the break (excluding submit button)
+                                        // Compare breakIndex (order value) against max order value, not count
+                                        const maxRegularOrder =
+                                          regularQuestions.length > 0
+                                            ? Math.max(
+                                                ...regularQuestions.map(
+                                                  (q) => q.order,
+                                                ),
+                                              )
+                                            : 0
                                         const canMoveDown =
                                           currentBreakIndex <
-                                            regularQuestions.length - 1 &&
+                                            maxRegularOrder - 1 &&
                                           (!hasBreakAfter ||
                                             allBreaks
                                               .filter(
