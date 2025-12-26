@@ -1365,7 +1365,7 @@ const SmartQuestionSetup = ({
   }, [answers, currentConditionNumber]) // Dependencies that affect canProceed
 
   return (
-    <div className="mx-auto w-full rounded-lg bg-white p-6">
+    <>
       <div className="space-y-6">
         {visibleQuestions.map((question) => {
           // Check if this is a fixed amount question and if there's a corresponding currency field
@@ -2199,7 +2199,7 @@ const SmartQuestionSetup = ({
         onSave={handleLoanDueDateConfig}
         initialConfig={answers.loan_due_date_config || {}}
       />
-    </div>
+    </>
   )
 }
 
