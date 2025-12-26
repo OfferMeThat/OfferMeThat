@@ -34,6 +34,7 @@ import {
   REQUIRED_QUESTION_TYPES,
 } from "@/constants/offerFormQuestions"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from "@/types/branding"
 import { QuestionType } from "@/types/form"
 import { Database } from "@/types/supabase"
@@ -750,7 +751,7 @@ const OfferFormBuilderPageContent = () => {
         </div>
       ) : (
         <div className="p-4">
-          <div className="mx-auto max-w-7xl space-y-6 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-xl">
+          <div className="mx-auto max-w-7xl space-y-6">
             {(() => {
               // Separate submit button from regular questions
               const regularQuestions = questions
@@ -760,239 +761,348 @@ const OfferFormBuilderPageContent = () => {
                 (q) => q.type === "submitButton",
               )
 
+              // Calculate total pages (1 + number of page breaks)
+              const totalPages =
+                1 + pages.filter((p) => p.breakIndex !== null).length
+              const hasPageBreaks = totalPages > 1
+
+              // Helper function to calculate which page a question belongs to
+              const getPageNumber = (questionOrder: number): number => {
+                const allBreaks = pages
+                  .filter((p) => p.breakIndex !== null)
+                  .sort((a, b) => (a.breakIndex || 0) - (b.breakIndex || 0))
+
+                // Count how many breaks come before this question
+                const breaksBefore = allBreaks.filter(
+                  (p) => p.breakIndex !== null && p.breakIndex < questionOrder,
+                ).length
+
+                // Page number is 1 + number of breaks before
+                return breaksBefore + 1
+              }
+
+              // Helper function to calculate which page content after a break belongs to
+              const getPageNumberAfterBreak = (breakIndex: number): number => {
+                const allBreaks = pages
+                  .filter((p) => p.breakIndex !== null)
+                  .sort((a, b) => (a.breakIndex || 0) - (b.breakIndex || 0))
+
+                // Count how many breaks come before or at this break
+                const breaksBeforeOrAt = allBreaks.filter(
+                  (p) => p.breakIndex !== null && p.breakIndex <= breakIndex,
+                ).length
+
+                // Page number after break is 1 + number of breaks before or at
+                return breaksBeforeOrAt + 1
+              }
+
+              // Group questions by page
+              const questionsByPage: Record<number, typeof regularQuestions> =
+                {}
+              regularQuestions.forEach((question) => {
+                const pageNum = getPageNumber(question.order)
+                if (!questionsByPage[pageNum]) {
+                  questionsByPage[pageNum] = []
+                }
+                questionsByPage[pageNum].push(question)
+              })
+
               return (
                 <>
-                  {regularQuestions.map((question, index) => {
-                    // Find if there's a page break after this question
-                    const pageBreakAfter = pages.find(
-                      (page) => page.breakIndex === question.order,
-                    )
+                  {Object.entries(questionsByPage)
+                    .sort(([a], [b]) => Number(a) - Number(b))
+                    .map(([pageNumStr, pageQuestions], pageIndex) => {
+                      const pageNum = Number(pageNumStr)
+                      const isFirstPage = pageNum === 1
 
-                    return (
-                      <div key={question.id}>
-                        <QuestionCard
-                          questionsAmount={regularQuestions.length}
-                          question={question}
-                          questionNumber={index + 1}
-                          isFirst={index === 0}
-                          isLast={index === regularQuestions.length - 1}
-                          onMoveUp={() =>
-                            handleMoveUp(
-                              question.id,
-                              question.order,
-                              question.type,
-                            )
-                          }
-                          onMoveDown={() =>
-                            handleMoveDown(
-                              question.id,
-                              question.order,
-                              question.type,
-                            )
-                          }
-                          onDelete={() => handleDelete(question.id)}
-                          onUpdateQuestion={handleUpdateQuestion}
-                          questionDefinitions={QUESTION_DEFINITIONS}
-                          questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
-                          requiredQuestionTypes={REQUIRED_QUESTION_TYPES}
-                        />
+                      return (
+                        <div key={`page-${pageNum}`}>
+                          {/* Page label - positioned above the container, between pages */}
+                          {hasPageBreaks && (
+                            <div className="mb-2">
+                              <span className="text-sm font-bold text-gray-700">
+                                Page {pageNum} of {totalPages}
+                              </span>
+                            </div>
+                          )}
 
-                        <div className="my-8 flex flex-wrap items-center justify-center gap-4">
-                          {/* Check if we can add a question here (not between position 1 and 2) */}
-                          {(() => {
-                            // Check if "Specify Listing" exists at position 1
-                            const specifyListingQuestion = questions.find(
-                              (q) => q.type === "specifyListing",
-                            )
-                            const isSpecifyListingAtPosition1 =
-                              specifyListingQuestion?.order === 1
-
-                            // Check if "Submitter Role" exists at position 2
-                            const submitterRoleQuestion = questions.find(
-                              (q) => q.type === "submitterRole",
-                            )
-                            const isSubmitterRoleAtPosition2 =
-                              submitterRoleQuestion?.order === 2
-
-                            // Show modal if adding after position 1 would place question at position 2
-                            const wouldAddAtPosition2 =
-                              question.order === 1 &&
-                              isSpecifyListingAtPosition1 &&
-                              isSubmitterRoleAtPosition2
-
-                            return (
-                              <Button
-                                size="sm"
-                                variant="dashed"
-                                onClick={() => {
-                                  if (wouldAddAtPosition2) {
-                                    setShowRestrictionModal(true)
-                                  } else {
-                                    handleOpenAddQuestionModal(question.order)
-                                  }
-                                }}
-                              >
-                                + Add New Question Here
-                              </Button>
-                            )
-                          })()}
-                          <Button
-                            disabled={index === regularQuestions.length - 1}
-                            size="sm"
-                            variant="dashed"
-                            onClick={() => handleAddPageBreak(question.order)}
+                          {/* Page container */}
+                          <div
+                            className={cn(
+                              "rounded-lg border-2 border-gray-200 bg-gray-50 p-6",
+                              hasPageBreaks && pageIndex > 0 && "mt-0",
+                            )}
                           >
-                            + Add a Page Break Here
-                          </Button>
-                        </div>
-
-                        {/* Show page break if one exists after this question */}
-                        {pageBreakAfter && (
-                          <div className="my-8">
-                            {(() => {
-                              // Find if there are adjacent breaks
-                              const allBreaks = pages.filter(
-                                (p) => p.breakIndex !== null,
+                            {/* Questions for this page */}
+                            {pageQuestions.map((question, index) => {
+                              const globalIndex =
+                                regularQuestions.indexOf(question)
+                              // Find if there's a page break after this question
+                              const pageBreakAfter = pages.find(
+                                (page) => page.breakIndex === question.order,
                               )
-                              const currentBreakIndex =
-                                pageBreakAfter.breakIndex || 0
-
-                              // Check if there's a break before this one
-                              const hasBreakBefore = allBreaks.some(
-                                (p) =>
-                                  p.breakIndex !== null &&
-                                  p.breakIndex < currentBreakIndex,
-                              )
-
-                              // Check if there's a break after this one
-                              const hasBreakAfter = allBreaks.some(
-                                (p) =>
-                                  p.breakIndex !== null &&
-                                  p.breakIndex > currentBreakIndex,
-                              )
-
-                              // Can't move up if: at question 1, or would collide with previous break
-                              const canMoveUp =
-                                currentBreakIndex > 1 &&
-                                (!hasBreakBefore ||
-                                  allBreaks
-                                    .filter(
-                                      (p) =>
-                                        p.breakIndex !== null &&
-                                        p.breakIndex < currentBreakIndex,
-                                    )
-                                    .every(
-                                      (p) =>
-                                        (p.breakIndex || 0) <
-                                        currentBreakIndex - 1,
-                                    ))
-
-                              // Can't move down if: at last question, or would collide with next break
-                              const canMoveDown =
-                                currentBreakIndex <
-                                  regularQuestions.length - 1 &&
-                                (!hasBreakAfter ||
-                                  allBreaks
-                                    .filter(
-                                      (p) =>
-                                        p.breakIndex !== null &&
-                                        p.breakIndex > currentBreakIndex,
-                                    )
-                                    .every(
-                                      (p) =>
-                                        (p.breakIndex || 0) >
-                                        currentBreakIndex + 1,
-                                    ))
 
                               return (
-                                <PageBreak
-                                  page={pageBreakAfter}
-                                  isFirst={!canMoveUp}
-                                  isLast={!canMoveDown}
-                                  onMoveUp={() =>
-                                    handleMovePageBreak(pageBreakAfter.id, "up")
-                                  }
-                                  onMoveDown={() =>
-                                    handleMovePageBreak(
-                                      pageBreakAfter.id,
-                                      "down",
-                                    )
-                                  }
-                                  onDelete={() =>
-                                    handleDeletePageBreak(pageBreakAfter.id)
+                                <div key={question.id}>
+                                  <QuestionCard
+                                    questionsAmount={regularQuestions.length}
+                                    question={question}
+                                    questionNumber={globalIndex + 1}
+                                    isFirst={globalIndex === 0}
+                                    isLast={
+                                      globalIndex ===
+                                      regularQuestions.length - 1
+                                    }
+                                    onMoveUp={() =>
+                                      handleMoveUp(
+                                        question.id,
+                                        question.order,
+                                        question.type,
+                                      )
+                                    }
+                                    onMoveDown={() =>
+                                      handleMoveDown(
+                                        question.id,
+                                        question.order,
+                                        question.type,
+                                      )
+                                    }
+                                    onDelete={() => handleDelete(question.id)}
+                                    onUpdateQuestion={handleUpdateQuestion}
+                                    questionDefinitions={QUESTION_DEFINITIONS}
+                                    questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
+                                    requiredQuestionTypes={
+                                      REQUIRED_QUESTION_TYPES
+                                    }
+                                  />
+
+                                  <div className="my-8 flex flex-wrap items-center justify-center gap-4">
+                                    {/* Check if we can add a question here (not between position 1 and 2) */}
+                                    {(() => {
+                                      // Check if "Specify Listing" exists at position 1
+                                      const specifyListingQuestion =
+                                        questions.find(
+                                          (q) => q.type === "specifyListing",
+                                        )
+                                      const isSpecifyListingAtPosition1 =
+                                        specifyListingQuestion?.order === 1
+
+                                      // Check if "Submitter Role" exists at position 2
+                                      const submitterRoleQuestion =
+                                        questions.find(
+                                          (q) => q.type === "submitterRole",
+                                        )
+                                      const isSubmitterRoleAtPosition2 =
+                                        submitterRoleQuestion?.order === 2
+
+                                      // Show modal if adding after position 1 would place question at position 2
+                                      const wouldAddAtPosition2 =
+                                        question.order === 1 &&
+                                        isSpecifyListingAtPosition1 &&
+                                        isSubmitterRoleAtPosition2
+
+                                      return (
+                                        <Button
+                                          size="sm"
+                                          variant="dashed"
+                                          onClick={() => {
+                                            if (wouldAddAtPosition2) {
+                                              setShowRestrictionModal(true)
+                                            } else {
+                                              handleOpenAddQuestionModal(
+                                                question.order,
+                                              )
+                                            }
+                                          }}
+                                        >
+                                          + Add New Question Here
+                                        </Button>
+                                      )
+                                    })()}
+                                    <Button
+                                      disabled={
+                                        globalIndex ===
+                                        regularQuestions.length - 1
+                                      }
+                                      size="sm"
+                                      variant="dashed"
+                                      onClick={() =>
+                                        handleAddPageBreak(question.order)
+                                      }
+                                    >
+                                      + Add a Page Break Here
+                                    </Button>
+                                  </div>
+
+                                  {/* Show page break if one exists after this question */}
+                                  {pageBreakAfter && (
+                                    <div className="my-8">
+                                      {(() => {
+                                        // Find if there are adjacent breaks
+                                        const allBreaks = pages.filter(
+                                          (p) => p.breakIndex !== null,
+                                        )
+                                        const currentBreakIndex =
+                                          pageBreakAfter.breakIndex || 0
+
+                                        // Check if there's a break before this one
+                                        const hasBreakBefore = allBreaks.some(
+                                          (p) =>
+                                            p.breakIndex !== null &&
+                                            p.breakIndex < currentBreakIndex,
+                                        )
+
+                                        // Check if there's a break after this one
+                                        const hasBreakAfter = allBreaks.some(
+                                          (p) =>
+                                            p.breakIndex !== null &&
+                                            p.breakIndex > currentBreakIndex,
+                                        )
+
+                                        // Can't move up if: at question 1, or would collide with previous break
+                                        const canMoveUp =
+                                          currentBreakIndex > 1 &&
+                                          (!hasBreakBefore ||
+                                            allBreaks
+                                              .filter(
+                                                (p) =>
+                                                  p.breakIndex !== null &&
+                                                  p.breakIndex <
+                                                    currentBreakIndex,
+                                              )
+                                              .every(
+                                                (p) =>
+                                                  (p.breakIndex || 0) <
+                                                  currentBreakIndex - 1,
+                                              ))
+
+                                        // Can't move down if: at last question, or would collide with next break
+                                        const canMoveDown =
+                                          currentBreakIndex <
+                                            regularQuestions.length - 1 &&
+                                          (!hasBreakAfter ||
+                                            allBreaks
+                                              .filter(
+                                                (p) =>
+                                                  p.breakIndex !== null &&
+                                                  p.breakIndex >
+                                                    currentBreakIndex,
+                                              )
+                                              .every(
+                                                (p) =>
+                                                  (p.breakIndex || 0) >
+                                                  currentBreakIndex + 1,
+                                              ))
+
+                                        return (
+                                          <PageBreak
+                                            page={pageBreakAfter}
+                                            isFirst={!canMoveUp}
+                                            isLast={!canMoveDown}
+                                            onMoveUp={() =>
+                                              handleMovePageBreak(
+                                                pageBreakAfter.id,
+                                                "up",
+                                              )
+                                            }
+                                            onMoveDown={() =>
+                                              handleMovePageBreak(
+                                                pageBreakAfter.id,
+                                                "down",
+                                              )
+                                            }
+                                            onDelete={() =>
+                                              handleDeletePageBreak(
+                                                pageBreakAfter.id,
+                                              )
+                                            }
+                                          />
+                                        )
+                                      })()}
+
+                                      {/* Add buttons after page break */}
+                                      <div className="my-8 flex flex-wrap items-center justify-center gap-4">
+                                        {(() => {
+                                          // Check if "Specify Listing" exists at position 1
+                                          const specifyListingQuestion =
+                                            questions.find(
+                                              (q) =>
+                                                q.type === "specifyListing",
+                                            )
+                                          const isSpecifyListingAtPosition1 =
+                                            specifyListingQuestion?.order === 1
+
+                                          // Check if "Submitter Role" exists at position 2
+                                          const submitterRoleQuestion =
+                                            questions.find(
+                                              (q) => q.type === "submitterRole",
+                                            )
+                                          const isSubmitterRoleAtPosition2 =
+                                            submitterRoleQuestion?.order === 2
+
+                                          // Hide button if adding after position 1 would place question at position 2
+                                          const wouldAddAtPosition2 =
+                                            question.order === 1 &&
+                                            isSpecifyListingAtPosition1 &&
+                                            isSubmitterRoleAtPosition2
+
+                                          if (wouldAddAtPosition2) {
+                                            return null
+                                          }
+
+                                          return (
+                                            <Button
+                                              size="sm"
+                                              variant="dashed"
+                                              onClick={() =>
+                                                handleOpenAddQuestionModal(
+                                                  question.order,
+                                                )
+                                              }
+                                            >
+                                              + Add New Question Here
+                                            </Button>
+                                          )
+                                        })()}
+                                        <Button
+                                          disabled
+                                          size="sm"
+                                          variant="dashed"
+                                        >
+                                          + Add a Page Break Here
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+
+                            {/* Submit Button - Always at the bottom of the last page, cannot be moved */}
+                            {submitButtonQuestion && pageNum === totalPages && (
+                              <div className="my-8">
+                                <QuestionCard
+                                  questionsAmount={regularQuestions.length}
+                                  question={submitButtonQuestion}
+                                  questionNumber={0} // Not counted as a question
+                                  isFirst={false}
+                                  isLast={true}
+                                  onMoveUp={() => {}} // Disabled - cannot move
+                                  onMoveDown={() => {}} // Disabled - cannot move
+                                  onDelete={() => {}} // Disabled - cannot delete
+                                  onUpdateQuestion={handleUpdateQuestion}
+                                  questionDefinitions={QUESTION_DEFINITIONS}
+                                  questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
+                                  requiredQuestionTypes={
+                                    REQUIRED_QUESTION_TYPES
                                   }
                                 />
-                              )
-                            })()}
-
-                            {/* Add buttons after page break */}
-                            <div className="my-8 flex flex-wrap items-center justify-center gap-4">
-                              {(() => {
-                                // Check if "Specify Listing" exists at position 1
-                                const specifyListingQuestion = questions.find(
-                                  (q) => q.type === "specifyListing",
-                                )
-                                const isSpecifyListingAtPosition1 =
-                                  specifyListingQuestion?.order === 1
-
-                                // Check if "Submitter Role" exists at position 2
-                                const submitterRoleQuestion = questions.find(
-                                  (q) => q.type === "submitterRole",
-                                )
-                                const isSubmitterRoleAtPosition2 =
-                                  submitterRoleQuestion?.order === 2
-
-                                // Hide button if adding after position 1 would place question at position 2
-                                const wouldAddAtPosition2 =
-                                  question.order === 1 &&
-                                  isSpecifyListingAtPosition1 &&
-                                  isSubmitterRoleAtPosition2
-
-                                if (wouldAddAtPosition2) {
-                                  return null
-                                }
-
-                                return (
-                                  <Button
-                                    size="sm"
-                                    variant="dashed"
-                                    onClick={() =>
-                                      handleOpenAddQuestionModal(question.order)
-                                    }
-                                  >
-                                    + Add New Question Here
-                                  </Button>
-                                )
-                              })()}
-                              <Button disabled size="sm" variant="dashed">
-                                + Add a Page Break Here
-                              </Button>
-                            </div>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    )
-                  })}
-
-                  {/* Submit Button - Always at the bottom, cannot be moved */}
-                  {submitButtonQuestion && (
-                    <div className="my-8">
-                      <QuestionCard
-                        questionsAmount={regularQuestions.length}
-                        question={submitButtonQuestion}
-                        questionNumber={0} // Not counted as a question
-                        isFirst={false}
-                        isLast={true}
-                        onMoveUp={() => {}} // Disabled - cannot move
-                        onMoveDown={() => {}} // Disabled - cannot move
-                        onDelete={() => {}} // Disabled - cannot delete
-                        onUpdateQuestion={handleUpdateQuestion}
-                        questionDefinitions={QUESTION_DEFINITIONS}
-                        questionTypeToLabel={QUESTION_TYPE_TO_LABEL}
-                        requiredQuestionTypes={REQUIRED_QUESTION_TYPES}
-                      />
-                    </div>
-                  )}
+                        </div>
+                      )
+                    })}
                 </>
               )
             })()}
