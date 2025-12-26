@@ -6295,12 +6295,38 @@ export const QuestionRenderer = ({
       }
       return (
         <div className="space-y-2">
-          {options.map((opt: string, idx: number) => (
-            <div key={idx} className="flex items-center gap-2">
-              <Checkbox disabled={disabled} />
-              <Label>{opt}</Label>
-            </div>
-          ))}
+          {options.map((opt: string, idx: number) => {
+            const checkboxId = `${question.id}_multi_select_${idx}`
+            return (
+              <div key={idx} className="flex items-center gap-2">
+                <Checkbox
+                  id={checkboxId}
+                  disabled={disabled}
+                  checked={
+                    editingMode
+                      ? false
+                      : Array.isArray(value) && value.includes(opt)
+                  }
+                  onCheckedChange={(checked) => {
+                    if (!editingMode) {
+                      const currentValues = Array.isArray(value) ? value : []
+                      const newValues = checked
+                        ? [...currentValues, opt]
+                        : currentValues.filter((v) => v !== opt)
+                      onChange?.(newValues)
+                    }
+                  }}
+                  onBlur={onBlur}
+                />
+                <Label
+                  htmlFor={checkboxId}
+                  className="cursor-pointer text-sm text-gray-700"
+                >
+                  {opt}
+                </Label>
+              </div>
+            )
+          })}
         </div>
       )
     } else if (answerType === "statement") {
@@ -6322,6 +6348,7 @@ export const QuestionRenderer = ({
           {showTickbox && (
             <div className="flex items-center gap-2">
               <Checkbox
+                id={`${question.id}_statement_checkbox`}
                 disabled={tickboxDisabled}
                 checked={editingMode ? false : (value as boolean) || false}
                 onCheckedChange={(checked) => {
@@ -6329,20 +6356,34 @@ export const QuestionRenderer = ({
                     onChange?.(checked)
                   }
                 }}
+                onBlur={onBlur}
               />
-              <div className="relative inline-block">
-                <span
+              <div className="relative inline-block flex-1">
+                <Label
+                  htmlFor={`${question.id}_statement_checkbox`}
                   className={cn(
-                    "text-sm",
+                    "cursor-pointer text-sm",
                     !showTickbox ? "text-gray-400" : "text-gray-700",
+                    editingMode && "cursor-not-allowed",
                   )}
+                  onClick={(e) => {
+                    // Prevent default label behavior (toggling checkbox) in editing mode
+                    if (editingMode) {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onEditLabel?.(
+                        "tickboxText",
+                        setupConfig.tickbox_text || "I agree",
+                      )
+                    }
+                  }}
                 >
                   {setupConfig.tickbox_text || "I agree"}
                   {isRequired && <span className="text-red-500"> *</span>}
                   {isOptional && (
                     <span className="text-gray-500"> (Optional)</span>
                   )}
-                </span>
+                </Label>
                 {renderLabelOverlay(
                   "tickboxText",
                   setupConfig.tickbox_text || "I agree",
