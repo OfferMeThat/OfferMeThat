@@ -300,8 +300,26 @@ const QuestionSetupForm = ({
       return
     }
 
-    const fileArray = Array.isArray(files) ? files : [files]
-    const fileError = validateMultipleFiles(fileArray, 10, 50 * 1024 * 1024) // Max 10 files, 50MB total
+    const newFiles = Array.isArray(files) ? files : [files]
+
+    // Get existing files from state
+    const existingFiles = conditionFileUploads[conditionIndex]?.files || []
+
+    // Merge new files with existing files
+    const mergedFiles = [...existingFiles, ...newFiles]
+
+    // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+    const maxFiles = 5
+    const finalFiles =
+      mergedFiles.length > maxFiles
+        ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+        : mergedFiles
+
+    const fileError = validateMultipleFiles(
+      finalFiles,
+      maxFiles,
+      10 * 1024 * 1024,
+    ) // Max 5 files, 10MB total
 
     if (fileError) {
       toast.error(fileError)
@@ -311,8 +329,8 @@ const QuestionSetupForm = ({
     setConditionFileUploads((prev) => ({
       ...prev,
       [conditionIndex]: {
-        files: fileArray,
-        fileNames: fileArray.map((f) => f.name),
+        files: finalFiles,
+        fileNames: finalFiles.map((f) => f.name),
       },
     }))
   }
@@ -1188,10 +1206,10 @@ const QuestionSetupForm = ({
 
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">
-                  Attachments (optional, max 10 files, 50MB total)
+                  Attachments (optional, max 5 files, 10MB total)
                 </label>
                 <p className="mb-2 text-xs text-gray-500">
-                  Upload attachments that SUBMITTERS can review for this
+                  Upload attachments that submitter can review for this
                   condition
                 </p>
                 <FileUploadInput
@@ -1218,13 +1236,18 @@ const QuestionSetupForm = ({
                       []),
                   ]}
                   error={undefined}
-                  maxFiles={10}
-                  maxSize={50 * 1024 * 1024}
+                  maxFiles={5}
+                  maxSize={10 * 1024 * 1024}
                   onChange={(files) => handleConditionFileUpload(index, files)}
                   onRemove={(fileIndex) =>
                     handleRemoveConditionFile(index, fileIndex || 0)
                   }
-                />
+                >
+                  <span className="text-xs text-gray-500">
+                    Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG, TXT (Max 5
+                    files, 10MB total)
+                  </span>
+                </FileUploadInput>
                 {/* Display existing attachments from setupConfig */}
                 {condition.attachments &&
                   condition.attachments.length > 0 &&

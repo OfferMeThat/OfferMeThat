@@ -517,25 +517,45 @@ export const OfferFormInteractiveView = ({
           const isSingleField = purchaserData.name && !purchaserData.scenario
           const isIndividualNames = purchaserData.scenario
 
-          // Single field method - single ID file
-          if (isSingleField && isFile(purchaserData.idFile)) {
-            const timestamp = Date.now()
-            const fileExtension =
-              purchaserData.idFile.name.split(".").pop() || "file"
-            const fileName = `${timestamp}-${purchaserData.idFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-            const path = `${tempOfferId}/purchaser-ids/${fileName}`
-
-            const fileUrl = await uploadFileToStorageClient(
-              "offer-ids",
-              path,
-              purchaserData.idFile,
-            )
-            processedFormData[questionId] = {
-              method: "single_field",
-              name: purchaserData.name,
-              idFileUrl: fileUrl,
+          // Single field method - array of ID files (max 5)
+          if (isSingleField && purchaserData.idFiles) {
+            // Handle both array format (new) and single file format (backward compatibility)
+            let filesToUpload: File[] = []
+            if (Array.isArray(purchaserData.idFiles)) {
+              filesToUpload = purchaserData.idFiles.filter((f: any) =>
+                isFile(f),
+              )
+            } else if (isFile(purchaserData.idFiles)) {
+              filesToUpload = [purchaserData.idFiles]
+            } else if (isFile(purchaserData.idFile)) {
+              // Backward compatibility: single file in idFile
+              filesToUpload = [purchaserData.idFile]
             }
-          } else if (isSingleField && !isFile(purchaserData.idFile)) {
+
+            if (filesToUpload.length > 0) {
+              const urls = await uploadMultipleFilesToStorageClient(
+                "offer-ids",
+                filesToUpload,
+                tempOfferId,
+                "purchaser-ids",
+              )
+              processedFormData[questionId] = {
+                method: "single_field",
+                name: purchaserData.name,
+                idFileUrls: urls,
+              }
+            } else {
+              // Single field without files - just preserve the structure
+              processedFormData[questionId] = {
+                method: "single_field",
+                name: purchaserData.name || value,
+              }
+            }
+          } else if (
+            isSingleField &&
+            !purchaserData.idFiles &&
+            !purchaserData.idFile
+          ) {
             // Single field without file - just preserve the structure
             processedFormData[questionId] = {
               method: "single_field",
@@ -543,28 +563,50 @@ export const OfferFormInteractiveView = ({
             }
           }
 
-          // Individual names method - multiple ID files
+          // Individual names method - multiple ID files (arrays per prefix)
           if (
             isIndividualNames &&
             purchaserData.idFiles &&
             typeof purchaserData.idFiles === "object"
           ) {
-            const idFiles = purchaserData.idFiles as Record<string, File>
-            const uploadedUrls: Record<string, string> = {}
+            const idFiles = purchaserData.idFiles as Record<
+              string,
+              File | File[]
+            >
+            const uploadedUrls: Record<string, string | string[]> = {}
 
-            for (const [key, file] of Object.entries(idFiles)) {
-              if (isFile(file)) {
-                const timestamp = Date.now()
-                const fileExtension = file.name.split(".").pop() || "file"
-                const fileName = `${timestamp}-${key}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-                const path = `${tempOfferId}/purchaser-ids/${fileName}`
+            for (const [key, fileOrFiles] of Object.entries(idFiles)) {
+              // Handle both array format (new) and single file format (backward compatibility)
+              let filesToUpload: File[] = []
+              if (Array.isArray(fileOrFiles)) {
+                filesToUpload = fileOrFiles.filter((f) => isFile(f))
+              } else if (isFile(fileOrFiles)) {
+                filesToUpload = [fileOrFiles]
+              }
 
-                const fileUrl = await uploadFileToStorageClient(
-                  "offer-ids",
-                  path,
-                  file,
-                )
-                uploadedUrls[key] = fileUrl
+              if (filesToUpload.length > 0) {
+                if (filesToUpload.length === 1) {
+                  // Single file - upload and store as string URL
+                  const timestamp = Date.now()
+                  const fileName = `${timestamp}-${key}-${filesToUpload[0].name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+                  const path = `${tempOfferId}/purchaser-ids/${fileName}`
+
+                  const fileUrl = await uploadFileToStorageClient(
+                    "offer-ids",
+                    path,
+                    filesToUpload[0],
+                  )
+                  uploadedUrls[key] = fileUrl
+                } else {
+                  // Multiple files - upload and store as array of URLs
+                  const urls = await uploadMultipleFilesToStorageClient(
+                    "offer-ids",
+                    filesToUpload,
+                    tempOfferId,
+                    `purchaser-ids-${key}`,
+                  )
+                  uploadedUrls[key] = urls
+                }
               }
             }
 
@@ -583,7 +625,7 @@ export const OfferFormInteractiveView = ({
           }
         }
 
-        // Handle subject to loan approval supporting documents
+        // Handle subject to loan approval supporting documents and evidence of funds
         if (
           question.type === "subjectToLoanApproval" &&
           typeof value === "object" &&
@@ -591,6 +633,7 @@ export const OfferFormInteractiveView = ({
         ) {
           const loanData = value as any
 
+          // Handle supporting documents (when subjectToLoan === "yes")
           if (isFile(loanData.supportingDocs)) {
             const timestamp = Date.now()
             const fileExtension =
@@ -620,6 +663,39 @@ export const OfferFormInteractiveView = ({
               supportingDocsUrls: urls,
             }
             delete processedFormData[questionId].supportingDocs
+          }
+
+          // Handle evidence of funds (when subjectToLoan === "no")
+          if (isFileArray(loanData.evidenceOfFunds)) {
+            const urls = await uploadMultipleFilesToStorageClient(
+              "offer-documents",
+              loanData.evidenceOfFunds,
+              tempOfferId,
+              "evidence-of-funds",
+            )
+            processedFormData[questionId] = {
+              ...loanData,
+              evidenceOfFundsUrls: urls,
+            }
+            delete processedFormData[questionId].evidenceOfFunds
+          } else if (isFile(loanData.evidenceOfFunds)) {
+            // Backward compatibility: single file
+            const timestamp = Date.now()
+            const fileExtension =
+              loanData.evidenceOfFunds.name.split(".").pop() || "file"
+            const fileName = `${timestamp}-${loanData.evidenceOfFunds.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+            const path = `${tempOfferId}/evidence-of-funds/${fileName}`
+
+            const fileUrl = await uploadFileToStorageClient(
+              "offer-documents",
+              path,
+              loanData.evidenceOfFunds,
+            )
+            processedFormData[questionId] = {
+              ...loanData,
+              evidenceOfFundsUrl: fileUrl,
+            }
+            delete processedFormData[questionId].evidenceOfFunds
           }
         }
 

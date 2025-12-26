@@ -147,21 +147,18 @@ const PersonNameFields = ({
     (collectId === "mandatory" && questionRequired)
 
   // Use top-level fileUploads state with question id prefix to avoid conflicts
-  const fileDataRaw = fileUploads[`${questionId}_${prefix}_id`]
-  const fileData: { file: File | null; fileName: string; error?: string } =
-    fileDataRaw && "file" in fileDataRaw
+  const fileDataRaw = fileUploads[`${questionId}_${prefix}_id`] as any
+  // Support both old format (single file) and new format (multiple files) for backward compatibility
+  const fileData: { files: File[]; fileNames: string[]; error?: string } =
+    fileDataRaw && "files" in fileDataRaw
       ? fileDataRaw
-      : fileDataRaw && "files" in fileDataRaw
+      : fileDataRaw && "file" in fileDataRaw
         ? {
-            file: fileDataRaw.files[0] || null,
-            fileName: fileDataRaw.fileNames[0] || "",
+            files: fileDataRaw.file ? [fileDataRaw.file] : [],
+            fileNames: fileDataRaw.fileName ? [fileDataRaw.fileName] : [],
             error: fileDataRaw.error,
           }
-        : {
-            file: null,
-            fileName: "",
-            error: undefined,
-          }
+        : { files: [], fileNames: [], error: undefined }
 
   // Parse error message to extract field-specific errors
   const getFieldError = (fieldName: "firstName" | "lastName" | "idFile") => {
@@ -288,7 +285,7 @@ const PersonNameFields = ({
     }
 
     // Show ID file error if file is missing and there's a validation error
-    if (!idFileError && !fileData.file && hasValidationError) {
+    if (!idFileError && fileData.files.length === 0 && hasValidationError) {
       // Always show ID error if there's any validation error and file is missing
       // The error might be generic but if ID is mandatory and file is missing, show it
       idFileError = "ID upload is required"
@@ -603,32 +600,94 @@ const PersonNameFields = ({
               (collectId === "mandatory" && questionRequired)
             }
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-            disabled={editingMode}
-            value={fileData.file}
-            fileNames={fileData.fileName ? [fileData.fileName] : []}
+            multiple
+            disabled={disabled}
+            value={fileData.files}
+            fileNames={fileData.fileNames}
             error={idFileError}
-            onChange={(file) => {
+            maxFiles={5}
+            maxSize={10 * 1024 * 1024}
+            onChange={(files) => {
+              const newFiles = Array.isArray(files)
+                ? files
+                : files
+                  ? [files]
+                  : []
+
+              // Get existing files
+              const existingFiles = fileData.files
+
+              // Merge new files with existing files
+              const mergedFiles = [...existingFiles, ...newFiles]
+
+              // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+              const maxFiles = 5
+              const finalFiles =
+                mergedFiles.length > maxFiles
+                  ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                  : mergedFiles
+
               const fileKey = `${questionId}_${prefix}_id`
-              const fileObj = Array.isArray(file) ? file[0] : file
-              const fileError = fileObj ? validateFileSize(fileObj) : null
+              const fileError = validateMultipleFiles(
+                finalFiles,
+                maxFiles,
+                10 * 1024 * 1024,
+              )
               setFileUploads((prev) => ({
                 ...prev,
                 [fileKey]: {
-                  file: fileObj,
-                  fileName: fileObj ? fileObj.name : "",
+                  files: finalFiles,
+                  fileNames: finalFiles.map((f) => f.name),
                   error: fileError || undefined,
                 },
               }))
             }}
-            onRemove={() => {
+            onRemove={(index) => {
+              const fileKey = `${questionId}_${prefix}_id`
+              const existingFileData = fileUploads[fileKey]
+              const existingFiles =
+                existingFileData && "files" in existingFileData
+                  ? existingFileData.files
+                  : existingFileData &&
+                      "file" in existingFileData &&
+                      existingFileData.file
+                    ? [existingFileData.file]
+                    : []
+
+              const newFiles = [...existingFiles]
+              const newFileNames =
+                existingFileData && "fileNames" in existingFileData
+                  ? [...existingFileData.fileNames]
+                  : existingFileData &&
+                      "fileName" in existingFileData &&
+                      existingFileData.fileName
+                    ? [existingFileData.fileName]
+                    : []
+
+              if (index !== undefined) {
+                newFiles.splice(index, 1)
+                newFileNames.splice(index, 1)
+              } else {
+                newFiles.length = 0
+                newFileNames.length = 0
+              }
+
               setFileUploads((prev) => ({
                 ...prev,
-                [`${questionId}_${prefix}_id`]: {
-                  file: null,
-                  fileName: "",
-                  error: undefined,
-                },
+                [fileKey]:
+                  newFiles.length > 0
+                    ? {
+                        files: newFiles,
+                        fileNames: newFileNames,
+                        error: undefined,
+                      }
+                    : {
+                        files: [],
+                        fileNames: [],
+                        error: undefined,
+                      },
               }))
+
               const fileInput = document.getElementById(
                 `${questionId}_${prefix}_id_file`,
               ) as HTMLInputElement
@@ -636,7 +695,12 @@ const PersonNameFields = ({
                 fileInput.value = ""
               }
             }}
-          />
+          >
+            <span className="text-xs text-gray-500">
+              Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5 files,
+              10MB total)
+            </span>
+          </FileUploadInput>
         </div>
       )}
     </div>
@@ -1032,18 +1096,20 @@ export const QuestionRenderer = ({
   useEffect(() => {
     if (question.type === "nameOfPurchaser" && !editingMode && value) {
       // Extract ID files from fileUploads state and sync with parent
-      const idFiles: Record<string, File> = {}
+      // Now supports arrays of files (max 5 per prefix)
+      const idFiles: Record<string, File[]> = {}
       Object.entries(fileUploads).forEach(([key, fileData]) => {
         if (key.startsWith(`${question.id}_`) && key.endsWith("_id")) {
-          let file: File | null = null
-          if ("file" in fileData && fileData.file) {
-            file = fileData.file
-          } else if ("files" in fileData && fileData.files.length > 0) {
-            file = fileData.files[0]
+          let files: File[] = []
+          if ("files" in fileData && fileData.files.length > 0) {
+            files = fileData.files
+          } else if ("file" in fileData && fileData.file) {
+            // Backward compatibility: single file
+            files = [fileData.file]
           }
-          if (file) {
+          if (files.length > 0) {
             const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
-            idFiles[prefix] = file
+            idFiles[prefix] = files
           }
         }
       })
@@ -1872,18 +1938,29 @@ export const QuestionRenderer = ({
           {collectId && collectId !== "no" && (
             <div className="mt-3">
               {(() => {
-                const fileDataRaw =
-                  fileUploads[`${question.id}_single_id_upload`]
-                const fileData =
-                  fileDataRaw && "file" in fileDataRaw
+                const fileDataRaw = fileUploads[
+                  `${question.id}_single_id_upload`
+                ] as
+                  | { files: File[]; fileNames: string[]; error?: string }
+                  | { file: File | null; fileName: string; error?: string }
+                  | undefined
+                // Support both old format (single file) and new format (multiple files) for backward compatibility
+                const fileData: {
+                  files: File[]
+                  fileNames: string[]
+                  error?: string
+                } =
+                  fileDataRaw && "files" in fileDataRaw
                     ? fileDataRaw
-                    : fileDataRaw && "files" in fileDataRaw
+                    : fileDataRaw && "file" in fileDataRaw
                       ? {
-                          file: fileDataRaw.files[0] || null,
-                          fileName: fileDataRaw.fileNames[0] || "",
+                          files: fileDataRaw.file ? [fileDataRaw.file] : [],
+                          fileNames: fileDataRaw.fileName
+                            ? [fileDataRaw.fileName]
+                            : [],
                           error: fileDataRaw.error,
                         }
-                      : { file: null, fileName: "", error: undefined }
+                      : { files: [], fileNames: [], error: undefined }
 
                 // Check if there's a validation error for ID file
                 let idFileError = fileData.error
@@ -1913,48 +1990,111 @@ export const QuestionRenderer = ({
                       (collectId === "mandatory" && question.required)
                     }
                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    multiple
                     disabled={disabled}
-                    value={fileData.file}
-                    fileNames={fileData.fileName ? [fileData.fileName] : []}
+                    value={fileData.files}
+                    fileNames={fileData.fileNames}
                     error={idFileError}
-                    onChange={(file) => {
+                    maxFiles={5}
+                    maxSize={10 * 1024 * 1024}
+                    onChange={(files) => {
+                      const newFiles = Array.isArray(files)
+                        ? files
+                        : files
+                          ? [files]
+                          : []
+
+                      // Get existing files
+                      const existingFiles = fileData.files
+
+                      // Merge new files with existing files
+                      const mergedFiles = [...existingFiles, ...newFiles]
+
+                      // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+                      const maxFiles = 5
+                      const finalFiles =
+                        mergedFiles.length > maxFiles
+                          ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                          : mergedFiles
+
                       const fileKey = `${question.id}_single_id_upload`
-                      const fileObj = Array.isArray(file) ? file[0] : file
-                      const fileError = fileObj
-                        ? validateFileSize(fileObj)
-                        : null
+                      const fileError = validateMultipleFiles(
+                        finalFiles,
+                        maxFiles,
+                        10 * 1024 * 1024,
+                      )
                       setFileUploads((prev) => ({
                         ...prev,
                         [fileKey]: {
-                          file: fileObj,
-                          fileName: fileObj ? fileObj.name : "",
+                          files: finalFiles,
+                          fileNames: finalFiles.map((f) => f.name),
                           error: fileError || undefined,
                         },
                       }))
-                      if (!fileError && fileObj) {
-                        // Store file with name
+                      if (!fileError && finalFiles.length > 0) {
+                        // Store files with name
                         const currentName =
                           typeof value === "string" ? value : value?.name || ""
                         onChange?.(
                           currentName
-                            ? { name: currentName, idFile: fileObj }
-                            : fileObj,
+                            ? { name: currentName, idFiles: finalFiles }
+                            : finalFiles.length === 1
+                              ? finalFiles[0]
+                              : finalFiles,
                         )
                       }
                     }}
-                    onRemove={() => {
+                    onRemove={(index) => {
+                      const fileKey = `${question.id}_single_id_upload`
+                      const existingFileData = fileUploads[fileKey]
+                      const existingFiles =
+                        existingFileData && "files" in existingFileData
+                          ? existingFileData.files
+                          : existingFileData &&
+                              "file" in existingFileData &&
+                              existingFileData.file
+                            ? [existingFileData.file]
+                            : []
+
+                      const newFiles = [...existingFiles]
+                      const newFileNames =
+                        existingFileData && "fileNames" in existingFileData
+                          ? [...existingFileData.fileNames]
+                          : existingFileData &&
+                              "fileName" in existingFileData &&
+                              existingFileData.fileName
+                            ? [existingFileData.fileName]
+                            : []
+
+                      if (index !== undefined) {
+                        newFiles.splice(index, 1)
+                        newFileNames.splice(index, 1)
+                      } else {
+                        newFiles.length = 0
+                        newFileNames.length = 0
+                      }
+
                       setFileUploads((prev) => ({
                         ...prev,
-                        [`${question.id}_single_id_upload`]: {
-                          file: null,
-                          fileName: "",
-                          error: undefined,
-                        },
+                        [fileKey]:
+                          newFiles.length > 0
+                            ? {
+                                files: newFiles,
+                                fileNames: newFileNames,
+                                error: undefined,
+                              }
+                            : {
+                                files: [],
+                                fileNames: [],
+                                error: undefined,
+                              },
                       }))
-                      // Clear file but keep name
+
+                      // Clear files but keep name
                       const currentName =
                         typeof value === "string" ? value : value?.name || ""
                       onChange?.(currentName || null)
+
                       const fileInput = document.getElementById(
                         `${question.id}_single_id_upload`,
                       ) as HTMLInputElement
@@ -1962,7 +2102,12 @@ export const QuestionRenderer = ({
                         fileInput.value = ""
                       }
                     }}
-                  />
+                  >
+                    <span className="text-xs text-gray-500">
+                      Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5
+                      files, 10MB total)
+                    </span>
+                  </FileUploadInput>
                 )
               })()}
             </div>
@@ -1993,22 +2138,24 @@ export const QuestionRenderer = ({
         >
         corporationName?: string
         [key: string]: any // Allow dynamic keys for corporation names in "other" scenario
-        idFiles?: Record<string, File>
+        idFiles?: Record<string, File[]>
       }>,
     ) => {
       // Extract ID files from fileUploads state
-      const idFiles: Record<string, File> = {}
+      // Now supports arrays of files (max 5 per prefix)
+      const idFiles: Record<string, File[]> = {}
       Object.entries(fileUploads).forEach(([key, fileData]) => {
         if (key.startsWith(`${question.id}_`) && key.endsWith("_id")) {
-          let file: File | null = null
-          if ("file" in fileData && fileData.file) {
-            file = fileData.file
-          } else if ("files" in fileData && fileData.files.length > 0) {
-            file = fileData.files[0]
+          let files: File[] = []
+          if ("files" in fileData && fileData.files.length > 0) {
+            files = fileData.files
+          } else if ("file" in fileData && fileData.file) {
+            // Backward compatibility: single file
+            files = [fileData.file]
           }
-          if (file) {
+          if (files.length > 0) {
             const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
-            idFiles[prefix] = file
+            idFiles[prefix] = files
           }
         }
       })
@@ -2488,31 +2635,41 @@ export const QuestionRenderer = ({
           value={fileData.files}
           fileNames={fileData.fileNames}
           error={fileData.error || error}
-          maxFiles={3}
+          maxFiles={5}
           maxSize={10 * 1024 * 1024}
           onChange={(files) => {
-            const fileArray = Array.isArray(files)
-              ? files
-              : files
-                ? [files]
-                : []
+            const newFiles = Array.isArray(files) ? files : files ? [files] : []
+
+            // Get existing files
+            const existingFiles = fileData.files || []
+
+            // Merge new files with existing files
+            const mergedFiles = [...existingFiles, ...newFiles]
+
+            // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+            const maxFiles = 5
+            const finalFiles =
+              mergedFiles.length > maxFiles
+                ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                : mergedFiles
+
             const fileKey = `${question.id}_purchase_agreement`
             const fileError = validateMultipleFiles(
-              fileArray,
-              3,
+              finalFiles,
+              maxFiles,
               10 * 1024 * 1024,
             )
             setFileUploads((prev) => ({
               ...prev,
               [fileKey]: {
-                files: fileArray,
-                fileNames: fileArray.map((f) => f.name),
+                files: finalFiles,
+                fileNames: finalFiles.map((f) => f.name),
                 error: fileError || undefined,
               },
             }))
-            if (!fileError && fileArray.length > 0) {
-              onChange?.(fileArray.length === 1 ? fileArray[0] : fileArray)
-            } else if (fileArray.length === 0) {
+            if (!fileError && finalFiles.length > 0) {
+              onChange?.(finalFiles.length === 1 ? finalFiles[0] : finalFiles)
+            } else if (finalFiles.length === 0) {
               onChange?.(null)
             }
           }}
@@ -2556,7 +2713,7 @@ export const QuestionRenderer = ({
           }}
         >
           <span className="text-xs text-gray-500">
-            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files, 10MB
+            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5 files, 10MB
             total)
           </span>
         </FileUploadInput>
@@ -3532,35 +3689,56 @@ export const QuestionRenderer = ({
                       value={fileData.files}
                       fileNames={fileData.fileNames}
                       error={fileData.error || error}
-                      maxFiles={3}
+                      maxFiles={5}
                       maxSize={10 * 1024 * 1024}
                       onChange={(files) => {
-                        const fileArray = Array.isArray(files)
+                        const newFiles = Array.isArray(files)
                           ? files
                           : files
                             ? [files]
                             : []
+
+                        // Get existing files from state
+                        const fileKey = `${question.id}_supporting_docs`
+                        const existingFileData = fileUploads[fileKey]
+                        const existingFiles =
+                          existingFileData && "files" in existingFileData
+                            ? existingFileData.files
+                            : loanValue.supportingDocs &&
+                                Array.isArray(loanValue.supportingDocs)
+                              ? loanValue.supportingDocs
+                              : []
+
+                        // Merge new files with existing files
+                        const mergedFiles = [...existingFiles, ...newFiles]
+
+                        // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+                        const maxFiles = 5
+                        const finalFiles =
+                          mergedFiles.length > maxFiles
+                            ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                            : mergedFiles
+
                         const fileError = validateMultipleFiles(
-                          fileArray,
-                          3,
+                          finalFiles,
+                          maxFiles,
                           10 * 1024 * 1024,
                         )
-                        const fileKey = `${question.id}_supporting_docs`
                         setFileUploads((prev) => ({
                           ...prev,
                           [fileKey]: {
-                            files: fileArray,
-                            fileNames: fileArray.map((f) => f.name),
+                            files: finalFiles,
+                            fileNames: finalFiles.map((f) => f.name),
                             error: fileError || undefined,
                           },
                         }))
-                        if (!fileError && fileArray.length > 0) {
+                        if (!fileError && finalFiles.length > 0) {
                           // Store files in the loanValue object for validation
                           onChange?.({
                             ...loanValue,
-                            supportingDocs: fileArray,
+                            supportingDocs: finalFiles,
                           })
-                        } else if (fileArray.length === 0) {
+                        } else if (finalFiles.length === 0) {
                           onChange?.({ ...loanValue, supportingDocs: null })
                         }
                       }}
@@ -3610,7 +3788,7 @@ export const QuestionRenderer = ({
                       }}
                     >
                       <span className="text-xs text-gray-500">
-                        Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3
+                        Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5
                         files, 10MB total)
                       </span>
                     </FileUploadInput>
@@ -3827,32 +4005,53 @@ export const QuestionRenderer = ({
                     value={fileData.files}
                     fileNames={fileData.fileNames}
                     error={fileData.error || getFieldError("evidenceOfFunds")}
-                    maxFiles={3}
+                    maxFiles={5}
                     maxSize={10 * 1024 * 1024}
                     onChange={(files) => {
-                      const fileArray = Array.isArray(files)
+                      const newFiles = Array.isArray(files)
                         ? files
                         : files
                           ? [files]
                           : []
+
+                      // Get existing files from state
+                      const fileKey = `${question.id}_evidence_of_funds`
+                      const existingFileData = fileUploads[fileKey]
+                      const existingFiles =
+                        existingFileData && "files" in existingFileData
+                          ? existingFileData.files
+                          : loanValue.evidenceOfFunds &&
+                              Array.isArray(loanValue.evidenceOfFunds)
+                            ? loanValue.evidenceOfFunds
+                            : []
+
+                      // Merge new files with existing files
+                      const mergedFiles = [...existingFiles, ...newFiles]
+
+                      // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+                      const maxFiles = 5
+                      const finalFiles =
+                        mergedFiles.length > maxFiles
+                          ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                          : mergedFiles
+
                       const fileError = validateMultipleFiles(
-                        fileArray,
-                        3,
+                        finalFiles,
+                        maxFiles,
                         10 * 1024 * 1024,
                       )
-                      const fileKey = `${question.id}_evidence_of_funds`
                       setFileUploads((prev) => ({
                         ...prev,
                         [fileKey]: {
-                          files: fileArray,
-                          fileNames: fileArray.map((f) => f.name),
+                          files: finalFiles,
+                          fileNames: finalFiles.map((f) => f.name),
                           error: fileError || undefined,
                         },
                       }))
-                      if (fileArray.length > 0) {
+                      if (finalFiles.length > 0) {
                         onChange?.({
                           ...loanValue,
-                          evidenceOfFunds: fileArray,
+                          evidenceOfFunds: finalFiles,
                         })
                       } else {
                         onChange?.({
@@ -3901,7 +4100,7 @@ export const QuestionRenderer = ({
                     }}
                   >
                     <span className="text-xs text-gray-500">
-                      Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3
+                      Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5
                       files, 10MB total)
                     </span>
                   </FileUploadInput>
@@ -4126,144 +4325,167 @@ export const QuestionRenderer = ({
               )}
             </div>
             {/* File upload for custom condition - SUBMITTER can upload attachments */}
-            {!editingMode && (
-              <div className="mt-3">
-                <FileUploadInput
-                  id={`${question.id}_custom_condition_attachments`}
-                  label="Attachments"
-                  required={false}
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                  multiple
-                  disabled={disabled}
-                  value={(() => {
-                    const fileData =
-                      fileUploads[`${question.id}_custom_condition_attachments`]
-                    if (fileData && "files" in fileData) {
-                      return fileData.files
-                    }
-                    return customConditionAttachments
-                  })()}
-                  fileNames={(() => {
-                    const fileData =
-                      fileUploads[`${question.id}_custom_condition_attachments`]
-                    if (fileData && "fileNames" in fileData) {
-                      return fileData.fileNames
-                    }
-                    return customConditionAttachments.map((f) => f.name) || []
-                  })()}
-                  error={(() => {
-                    const fileData =
-                      fileUploads[`${question.id}_custom_condition_attachments`]
-                    return fileData && "error" in fileData
-                      ? fileData.error
-                      : undefined
-                  })()}
-                  maxFiles={10}
-                  maxSize={50 * 1024 * 1024}
-                  onChange={(files) => {
-                    const fileArray = Array.isArray(files)
-                      ? files
-                      : files
-                        ? [files]
-                        : []
-                    if (fileArray.length === 0) {
-                      // Clear files
-                      const fileKey = `${question.id}_custom_condition_attachments`
-                      setFileUploads((prev) => {
-                        const updated = { ...prev }
-                        delete updated[fileKey]
-                        return updated
-                      })
-                      onChange?.({
-                        ...specialConditionsValue,
-                        customConditionAttachments: [],
-                      })
-                      return
-                    }
+            <div className="mt-3">
+              <FileUploadInput
+                id={`${question.id}_custom_condition_attachments`}
+                label="Attachments"
+                required={false}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                multiple
+                disabled={disabled}
+                value={(() => {
+                  const fileData =
+                    fileUploads[`${question.id}_custom_condition_attachments`]
+                  if (fileData && "files" in fileData) {
+                    return fileData.files
+                  }
+                  return customConditionAttachments
+                })()}
+                fileNames={(() => {
+                  const fileData =
+                    fileUploads[`${question.id}_custom_condition_attachments`]
+                  if (fileData && "fileNames" in fileData) {
+                    return fileData.fileNames
+                  }
+                  return customConditionAttachments.map((f) => f.name) || []
+                })()}
+                error={(() => {
+                  const fileData =
+                    fileUploads[`${question.id}_custom_condition_attachments`]
+                  return fileData && "error" in fileData
+                    ? fileData.error
+                    : undefined
+                })()}
+                maxFiles={5}
+                maxSize={10 * 1024 * 1024}
+                onChange={(files) => {
+                  const newFiles = Array.isArray(files)
+                    ? files
+                    : files
+                      ? [files]
+                      : []
 
-                    // Validate files (max 10, total 50MB)
-                    const fileError = validateMultipleFiles(
-                      fileArray,
-                      10,
-                      50 * 1024 * 1024,
-                    )
-
+                  if (newFiles.length === 0) {
+                    // Clear files
                     const fileKey = `${question.id}_custom_condition_attachments`
-                    setFileUploads((prev) => ({
-                      ...prev,
-                      [fileKey]: {
-                        files: fileArray,
-                        fileNames: fileArray.map((f) => f.name),
-                        error: fileError || undefined,
-                      },
-                    }))
-
-                    if (!fileError && fileArray.length > 0) {
-                      // Ensure we only store actual File objects
-                      const validFiles = fileArray.filter(
-                        (f) => f instanceof File,
-                      )
-                      if (validFiles.length > 0) {
-                        // Update form value with files
-                        onChange?.({
-                          ...specialConditionsValue,
-                          customConditionAttachments: validFiles,
-                        })
-                      }
-                    }
-                  }}
-                  onRemove={(fileIndex) => {
-                    const fileKey = `${question.id}_custom_condition_attachments`
-                    const fileDataRaw = fileUploads[fileKey]
-                    const fileData =
-                      fileDataRaw && "files" in fileDataRaw
-                        ? fileDataRaw
-                        : customConditionAttachments.length > 0
-                          ? {
-                              files: customConditionAttachments,
-                              fileNames: customConditionAttachments.map(
-                                (f) => f.name,
-                              ),
-                              error: undefined,
-                            }
-                          : { files: [], fileNames: [], error: undefined }
-
-                    const newFiles = [...fileData.files]
-                    const newFileNames = [...fileData.fileNames]
-                    if (fileIndex !== undefined) {
-                      newFiles.splice(fileIndex, 1)
-                      newFileNames.splice(fileIndex, 1)
-                    } else {
-                      newFiles.length = 0
-                      newFileNames.length = 0
-                    }
-
-                    setFileUploads((prev) => ({
-                      ...prev,
-                      [fileKey]:
-                        newFiles.length > 0
-                          ? {
-                              files: newFiles,
-                              fileNames: newFileNames,
-                              error: undefined,
-                            }
-                          : {
-                              files: [],
-                              fileNames: [],
-                              error: undefined,
-                            },
-                    }))
-
-                    // Update form value
-                    const validFiles = newFiles.filter((f) => f instanceof File)
+                    setFileUploads((prev) => {
+                      const updated = { ...prev }
+                      delete updated[fileKey]
+                      return updated
+                    })
                     onChange?.({
                       ...specialConditionsValue,
-                      customConditionAttachments: validFiles,
+                      customConditionAttachments: [],
                     })
-                  }}
-                />
-              </div>
-            )}
+                    return
+                  }
+
+                  // Get existing files from state
+                  const fileKey = `${question.id}_custom_condition_attachments`
+                  const existingFileData = fileUploads[fileKey]
+                  const existingFiles =
+                    existingFileData && "files" in existingFileData
+                      ? existingFileData.files
+                      : customConditionAttachments.length > 0
+                        ? customConditionAttachments
+                        : []
+
+                  // Merge new files with existing files
+                  const mergedFiles = [...existingFiles, ...newFiles]
+
+                  // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+                  const maxFiles = 5
+                  const finalFiles =
+                    mergedFiles.length > maxFiles
+                      ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                      : mergedFiles
+
+                  // Validate files (max 5, total 10MB)
+                  const fileError = validateMultipleFiles(
+                    finalFiles,
+                    maxFiles,
+                    10 * 1024 * 1024,
+                  )
+
+                  setFileUploads((prev) => ({
+                    ...prev,
+                    [fileKey]: {
+                      files: finalFiles,
+                      fileNames: finalFiles.map((f) => f.name),
+                      error: fileError || undefined,
+                    },
+                  }))
+
+                  if (!fileError && finalFiles.length > 0) {
+                    // Ensure we only store actual File objects
+                    const validFiles = finalFiles.filter(
+                      (f) => f instanceof File,
+                    )
+                    if (validFiles.length > 0) {
+                      // Update form value with files
+                      onChange?.({
+                        ...specialConditionsValue,
+                        customConditionAttachments: validFiles,
+                      })
+                    }
+                  }
+                }}
+                onRemove={(fileIndex) => {
+                  const fileKey = `${question.id}_custom_condition_attachments`
+                  const fileDataRaw = fileUploads[fileKey]
+                  const fileData =
+                    fileDataRaw && "files" in fileDataRaw
+                      ? fileDataRaw
+                      : customConditionAttachments.length > 0
+                        ? {
+                            files: customConditionAttachments,
+                            fileNames: customConditionAttachments.map(
+                              (f) => f.name,
+                            ),
+                            error: undefined,
+                          }
+                        : { files: [], fileNames: [], error: undefined }
+
+                  const newFiles = [...fileData.files]
+                  const newFileNames = [...fileData.fileNames]
+                  if (fileIndex !== undefined) {
+                    newFiles.splice(fileIndex, 1)
+                    newFileNames.splice(fileIndex, 1)
+                  } else {
+                    newFiles.length = 0
+                    newFileNames.length = 0
+                  }
+
+                  setFileUploads((prev) => ({
+                    ...prev,
+                    [fileKey]:
+                      newFiles.length > 0
+                        ? {
+                            files: newFiles,
+                            fileNames: newFileNames,
+                            error: undefined,
+                          }
+                        : {
+                            files: [],
+                            fileNames: [],
+                            error: undefined,
+                          },
+                  }))
+
+                  // Update form value
+                  const validFiles = newFiles.filter((f) => f instanceof File)
+                  onChange?.({
+                    ...specialConditionsValue,
+                    customConditionAttachments: validFiles,
+                  })
+                }}
+              >
+                <span className="text-xs text-gray-500">
+                  Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG, TXT (Max 5
+                  files, 10MB total)
+                </span>
+              </FileUploadInput>
+            </div>
           </div>
         )}
       </div>
@@ -4669,33 +4891,47 @@ export const QuestionRenderer = ({
             value={attachmentData.files}
             fileNames={attachmentData.fileNames}
             error={attachmentData.error}
-            maxFiles={3}
+            maxFiles={5}
             maxSize={10 * 1024 * 1024}
             onChange={(files) => {
-              const fileArray = Array.isArray(files)
+              const newFiles = Array.isArray(files)
                 ? files
                 : files
                   ? [files]
                   : []
+
+              // Get existing files
+              const existingFiles = attachmentData.files || []
+
+              // Merge new files with existing files
+              const mergedFiles = [...existingFiles, ...newFiles]
+
+              // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+              const maxFiles = 5
+              const finalFiles =
+                mergedFiles.length > maxFiles
+                  ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                  : mergedFiles
+
               const fileError = validateMultipleFiles(
-                fileArray,
-                3,
+                finalFiles,
+                maxFiles,
                 10 * 1024 * 1024,
               )
               setFileUploads((prev) => ({
                 ...prev,
                 [`${question.id}_message_attachments`]: {
-                  files: fileArray,
-                  fileNames: fileArray.map((f) => f.name),
+                  files: finalFiles,
+                  fileNames: finalFiles.map((f) => f.name),
                   error: fileError || undefined,
                 },
               }))
-              if (!fileError && fileArray.length > 0) {
+              if (!fileError && finalFiles.length > 0) {
                 // Store files separately from message text
                 const currentMessage =
                   typeof value === "string" ? value : value?.message || ""
-                onChange?.({ message: currentMessage, attachments: fileArray })
-              } else if (fileArray.length === 0) {
+                onChange?.({ message: currentMessage, attachments: finalFiles })
+              } else if (finalFiles.length === 0) {
                 const currentMessage =
                   typeof value === "string" ? value : value?.message || ""
                 onChange?.(
@@ -4754,7 +4990,7 @@ export const QuestionRenderer = ({
             }}
           >
             <span className="text-xs text-gray-500">
-              Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3 files,
+              Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5 files,
               10MB total)
             </span>
           </FileUploadInput>
@@ -5785,35 +6021,50 @@ export const QuestionRenderer = ({
           value={fileData.files}
           fileNames={fileData.fileNames}
           error={fileData.error || error}
-          maxFiles={3}
+          maxFiles={5}
           maxSize={10 * 1024 * 1024}
           onChange={(files) => {
-            const fileArray = Array.isArray(files)
-              ? files
-              : files
-                ? [files]
-                : []
+            const newFiles = Array.isArray(files) ? files : files ? [files] : []
+
+            // Get existing files
+            const existingFiles = fileData.files || []
+
+            // Merge new files with existing files
+            const mergedFiles = [...existingFiles, ...newFiles]
+
+            // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+            const maxFiles = 5
+            const finalFiles =
+              mergedFiles.length > maxFiles
+                ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                : mergedFiles
+
             const fileKey = `${question.id}_file`
             const fileError = validateMultipleFiles(
-              fileArray,
-              3,
+              finalFiles,
+              maxFiles,
               10 * 1024 * 1024,
             )
             setFileUploads((prev) => ({
               ...prev,
               [fileKey]: {
-                files: fileArray,
-                fileNames: fileArray.map((f) => f.name),
+                files: finalFiles,
+                fileNames: finalFiles.map((f) => f.name),
                 error: fileError || undefined,
               },
             }))
-            if (!fileError && fileArray.length > 0) {
-              onChange?.(fileArray.length === 1 ? fileArray[0] : fileArray)
-            } else if (fileArray.length === 0) {
+            if (!fileError && finalFiles.length > 0) {
+              onChange?.(finalFiles.length === 1 ? finalFiles[0] : finalFiles)
+            } else if (finalFiles.length === 0) {
               onChange?.(null)
             }
           }}
-        />
+        >
+          <span className="text-xs text-gray-500">
+            Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5 files, 10MB
+            total)
+          </span>
+        </FileUploadInput>
       )
     } else if (answerType === "time_date") {
       const timeType = setupConfig.time_date_type

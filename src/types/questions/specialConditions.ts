@@ -67,7 +67,7 @@ export interface ConditionDefinition {
 
   /**
    * Setup attachments for this condition
-   * Reference documents that SUBMITTERS can review (read-only)
+   * Reference documents that submitters can review (read-only)
    * Uploaded by form builder, stored in "special-conditions" bucket
    */
   attachments?: SetupAttachment[]

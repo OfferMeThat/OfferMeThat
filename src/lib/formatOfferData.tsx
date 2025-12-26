@@ -6,7 +6,7 @@ import {
   SubjectToLoanApprovalData,
 } from "@/types/offerData"
 import { FileText } from "lucide-react"
-import { extractFileName } from "./fileHelpers"
+import { extractFileName, truncateFileName } from "./fileHelpers"
 import {
   normalizeDepositData,
   formatDepositAmount,
@@ -176,24 +176,41 @@ export function formatPurchaserData(
 
   // Handle single_field method
   if (method === "single_field") {
+    // Support both array format (new) and single URL string (backward compatibility)
+    const idFileUrls = dataObj.idFileUrls
+      ? Array.isArray(dataObj.idFileUrls)
+        ? dataObj.idFileUrls
+        : [dataObj.idFileUrls]
+      : dataObj.idFileUrl
+        ? [dataObj.idFileUrl]
+        : []
+
     return (
       <div className="space-y-3">
         <div>
           <p className="text-sm font-medium text-gray-500">Purchaser Name</p>
           <p className="text-base text-gray-900">{dataObj.name || "N/A"}</p>
         </div>
-        {dataObj.idFileUrl && (
+        {idFileUrls.length > 0 && (
           <div>
-            <p className="text-sm font-medium text-gray-500">ID Document</p>
-            <a
-              href={dataObj.idFileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
-            >
-              <FileText size={14} />
-              {extractFileName(dataObj.idFileUrl)}
-            </a>
+            <p className="text-sm font-medium text-gray-500">
+              ID Document{idFileUrls.length > 1 ? "s" : ""}
+            </p>
+            <div className="mt-1 space-y-1">
+              {idFileUrls.map((url: string, index: number) => (
+                <a
+                  key={index}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                  title={extractFileName(url)}
+                >
+                  <FileText size={14} />
+                  {truncateFileName(extractFileName(url))}
+                </a>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -202,15 +219,26 @@ export function formatPurchaserData(
 
   // Handle individual_names method
   if (method === "individual_names") {
-    const purchaserEntries: Array<{ key: string; nameData: any; idFileUrl?: string }> = []
-    
+    const purchaserEntries: Array<{
+      key: string
+      nameData: any
+      idFileUrls: string[]
+    }> = []
+
     // Collect purchasers from nameFields
     if (nameFields && typeof nameFields === "object") {
       Object.entries(nameFields).forEach(([key, nameData]: [string, any]) => {
+        // Support both array format (new) and single URL string (backward compatibility)
+        const fileUrls = idFileUrls?.[key]
+        const urlsArray = fileUrls
+          ? Array.isArray(fileUrls)
+            ? fileUrls
+            : [fileUrls]
+          : []
         purchaserEntries.push({
           key,
           nameData,
-          idFileUrl: idFileUrls?.[key],
+          idFileUrls: urlsArray,
         })
       })
     }
@@ -232,7 +260,7 @@ export function formatPurchaserData(
             <p className="text-sm font-medium text-gray-500">Purchasers</p>
             <div className="mt-2 space-y-3">
               {purchaserEntries.map((entry, index) => {
-                const { nameData, idFileUrl } = entry
+                const { nameData, idFileUrls } = entry
                 const fullName = [
                   nameData?.firstName,
                   !nameData?.skipMiddleName && nameData?.middleName,
@@ -264,17 +292,26 @@ export function formatPurchaserData(
                         Last Name: {nameData.lastName}
                       </p>
                     )}
-                    {idFileUrl && (
+                    {idFileUrls && idFileUrls.length > 0 && (
                       <div className="mt-2">
-                        <a
-                          href={idFileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
-                        >
-                          <FileText size={14} />
-                          {extractFileName(idFileUrl)}
-                        </a>
+                        <p className="text-sm font-medium text-gray-500">
+                          ID Document{idFileUrls.length > 1 ? "s" : ""}
+                        </p>
+                        <div className="mt-1 space-y-1">
+                          {idFileUrls.map((url: string, urlIndex: number) => (
+                            <a
+                              key={urlIndex}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                              title={extractFileName(url)}
+                            >
+                              <FileText size={14} />
+                              {truncateFileName(extractFileName(url))}
+                            </a>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -316,9 +353,10 @@ export function formatPurchaserData(
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                        title={extractFileName(purchaser.idFileUrl)}
                       >
                         <FileText size={14} />
-                        {extractFileName(purchaser.idFileUrl)}
+                        {truncateFileName(extractFileName(purchaser.idFileUrl))}
                       </a>
                     </div>
                   )}
@@ -359,9 +397,10 @@ export function formatPurchaserData(
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                        title={extractFileName(rep.idFileUrl)}
                       >
                         <FileText size={14} />
-                        {extractFileName(rep.idFileUrl)}
+                        {truncateFileName(extractFileName(rep.idFileUrl))}
                       </a>
                     </div>
                   )}
@@ -551,9 +590,10 @@ export function formatMessageToAgent(
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                  title={fileName}
                 >
                   <FileText size={14} />
-                  {fileName}
+                  {truncateFileName(fileName)}
                 </a>
               )
             })}
@@ -618,15 +658,17 @@ export function formatSubjectToLoanApproval(
   // Helper function to render file links
   const renderFileLink = (url: string, label?: string) => {
     const fileName = extractFileName(url)
+    const displayName = label || fileName
     return (
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+        title={displayName}
       >
         <FileText size={14} />
-        {label || fileName}
+        {truncateFileName(displayName)}
       </a>
     )
   }
@@ -844,9 +886,10 @@ export function formatSpecialConditions(
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 hover:underline"
+                      title={fileName}
                     >
                       <FileText size={12} />
-                      {fileName}
+                      {truncateFileName(fileName)}
                     </a>
                   )
                 })}
