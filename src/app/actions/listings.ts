@@ -323,12 +323,12 @@ export async function updateListingsStatus(
 
 export async function getListingById(
   listingId: string,
-): Promise<ListingWithOfferCounts | null> {
+): Promise<ListingWithOfferCounts & { sellers?: Array<{ fullName: string; email: string; phone: string; sendUpdateByEmail: boolean | null }> } | null> {
   const supabase = await createClient()
 
   const { data: listing, error } = await supabase
     .from("listings")
-    .select("*, offers(*), leads(*)")
+    .select("*, offers(*), leads(*), listingSellers(*)")
     .eq("id", listingId)
     .single()
 
@@ -339,6 +339,7 @@ export async function getListingById(
 
   const offers = listing.offers || []
   const leads = listing.leads || []
+  const sellers = listing.listingSellers || []
 
   return {
     ...listing,
@@ -347,6 +348,13 @@ export async function getListingById(
       .length,
     totalOffers: offers.length,
     leads: leads.length,
+    sellers: sellers.map((seller: any) => ({
+      fullName: seller.fullName,
+      email: seller.email,
+      phone: seller.phone,
+      sendUpdateByEmail: seller.sendUpdateByEmail,
+    })),
     offers: undefined,
-  } as ListingWithOfferCounts
+    listingSellers: undefined,
+  } as ListingWithOfferCounts & { sellers?: Array<{ fullName: string; email: string; phone: string; sendUpdateByEmail: boolean | null }> }
 }
