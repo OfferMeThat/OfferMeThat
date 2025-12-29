@@ -520,7 +520,6 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                               // Check if it contains markdown-style links
                               question.formattedValue.includes("[") &&
                               question.formattedValue.includes("](") ? (
-                                // Check if it's a file upload question (multiple links separated by commas)
                                 question.answerType === "file_upload" ||
                                 question.answerType === "uploadFiles" ? (
                                   <div className="flex flex-col gap-1">

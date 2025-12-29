@@ -9,7 +9,6 @@ export async function getFilteredListings(
 ): Promise<ListingWithOfferCounts[] | null> {
   const supabase = await createClient()
 
-  // Get the current user to filter by createdBy
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -19,12 +18,11 @@ export async function getFilteredListings(
     return null
   }
 
-  // Start building the query - filter by current user's listings only
   let query = supabase
     .from("listings")
     .select("*, offers(*), leads(*)")
     .eq("createdBy", user.id)
-    .or("isTest.is.null,isTest.eq.false") // Exclude test listings
+    .or("isTest.is.null,isTest.eq.false") // Excludes test listings
 
   // Apply address filter
   if (filters.address) {
@@ -44,7 +42,6 @@ export async function getFilteredListings(
     query = query.lte("createdAt", filters.dateListed.to)
   }
 
-  // Execute the query
   const { data: listings, error } = await query
 
   if (!listings || error) {
@@ -52,10 +49,8 @@ export async function getFilteredListings(
     return null
   }
 
-  // Calculate offer counts and apply offer filters
   let filteredListings = listings.map((listing) => {
     const allOffers = listing.offers || []
-    // Filter out test offers
     const offers = allOffers.filter((offer: any) => !offer.isTest)
     const leads = listing.leads || []
 
@@ -136,7 +131,6 @@ export async function deleteListings(
   const supabase = await createClient()
 
   try {
-    // Get the current user to ensure we only delete their listings
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -155,7 +149,6 @@ export async function deleteListings(
       }
     }
 
-    // First, fetch the listings to get their addresses before deletion
     const { data: listingsToDelete, error: fetchError } = await supabase
       .from("listings")
       .select("id, address")
@@ -178,7 +171,6 @@ export async function deleteListings(
       }
     }
 
-    // Create a map of listing ID to address for quick lookup
     const listingAddressMap = new Map<string, string>()
     listingsToDelete.forEach((listing) => {
       listingAddressMap.set(listing.id, listing.address)
@@ -190,7 +182,6 @@ export async function deleteListings(
       const listingAddress = listingAddressMap.get(listingId)
 
       if (listingAddress) {
-        // Update all offers that reference this listing
         const { error: updateError } = await supabase
           .from("offers")
           .update({
@@ -205,12 +196,10 @@ export async function deleteListings(
             `Error updating offers for listing ${listingId}:`,
             updateError,
           )
-          // Continue with deletion even if update fails, but log the error
         }
       }
     }
 
-    // Now delete the listings
     const { data, error } = await supabase
       .from("listings")
       .delete()
@@ -262,7 +251,6 @@ export async function updateListingsStatus(
   const supabase = await createClient()
 
   try {
-    // Get the current user to ensure we only update their listings
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -281,7 +269,6 @@ export async function updateListingsStatus(
       }
     }
 
-    // Update listings that belong to the current user
     const { data, error } = await supabase
       .from("listings")
       .update({ status: status as any })
@@ -343,7 +330,6 @@ export async function getListingById(
   }
 
   const allOffers = listing.offers || []
-  // Filter out test offers
   const offers = allOffers.filter((offer: any) => !offer.isTest)
   const leads = listing.leads || []
   const sellers = listing.listingSellers || []

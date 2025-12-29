@@ -124,10 +124,8 @@ const OffersViewFilters = ({
                 {listings
                   ?.filter((listing) => {
                     if (isTestMode) {
-                      // For test offers: show only test listings
                       return listing.isTest === true
                     } else {
-                      // For regular offers: show only real listings (address = "Some listing address")
                       return listing.address === "Some listing address"
                     }
                   })

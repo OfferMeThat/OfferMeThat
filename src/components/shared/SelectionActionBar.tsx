@@ -105,7 +105,6 @@ const SelectionActionBar = ({
 
   const itemName = selectedCount === 1 ? itemType.slice(0, -1) : itemType
 
-  // Filter out test listings - only show real listings (isTest !== true)
   const realListings = listings.filter(
     (listing) => listing.isTest !== true,
   )
