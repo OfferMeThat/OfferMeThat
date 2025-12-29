@@ -22,7 +22,7 @@ export async function getFilteredListings(
   // Start building the query - filter by current user's listings only
   let query = supabase
     .from("listings")
-    .select("*, offers(*)")
+    .select("*, offers(*), leads(*)")
     .eq("createdBy", user.id)
     .or("isTest.is.null,isTest.eq.false") // Exclude test listings
 
@@ -55,6 +55,7 @@ export async function getFilteredListings(
   // Calculate offer counts and apply offer filters
   let filteredListings = listings.map((listing) => {
     const offers = listing.offers || []
+    const leads = listing.leads || []
 
     return {
       ...listing,
@@ -63,6 +64,7 @@ export async function getFilteredListings(
       pendingOffers: offers.filter((offer) => offer.status === "unverified")
         .length,
       totalOffers: offers.length,
+      leads: leads.length,
       offers: undefined,
     }
   }) as ListingWithOfferCounts[]
@@ -326,7 +328,7 @@ export async function getListingById(
 
   const { data: listing, error } = await supabase
     .from("listings")
-    .select("*, offers(*)")
+    .select("*, offers(*), leads(*)")
     .eq("id", listingId)
     .single()
 
@@ -336,6 +338,7 @@ export async function getListingById(
   }
 
   const offers = listing.offers || []
+  const leads = listing.leads || []
 
   return {
     ...listing,
@@ -343,6 +346,7 @@ export async function getListingById(
     pendingOffers: offers.filter((offer) => offer.status === "unverified")
       .length,
     totalOffers: offers.length,
+    leads: leads.length,
     offers: undefined,
   } as ListingWithOfferCounts
 }

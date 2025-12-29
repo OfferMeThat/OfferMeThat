@@ -282,6 +282,7 @@ export type Database = {
           email: string
           fullName: string
           id: string
+          listingId: string
           phone: string
           sendUpdateByEmail: boolean | null
         }
@@ -290,6 +291,7 @@ export type Database = {
           email: string
           fullName: string
           id?: string
+          listingId: string
           phone: string
           sendUpdateByEmail?: boolean | null
         }
@@ -298,10 +300,19 @@ export type Database = {
           email?: string
           fullName?: string
           id?: string
+          listingId?: string
           phone?: string
           sendUpdateByEmail?: boolean | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "listingSellers_listingId_fkey"
+            columns: ["listingId"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       offerFormPages: {
         Row: {

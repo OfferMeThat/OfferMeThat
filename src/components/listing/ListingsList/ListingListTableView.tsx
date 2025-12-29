@@ -143,7 +143,9 @@ const ListingListTableView = ({
                 <TableCell className="text-center">
                   {item.totalOffers ?? 0}
                 </TableCell>
-                <TableCell className="text-center">1</TableCell>
+                <TableCell className="text-center">
+                  {item.leads ?? 0}
+                </TableCell>
                 <TableCell>
                   <Popover>
                     <PopoverTrigger asChild>

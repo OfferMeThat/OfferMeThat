@@ -70,7 +70,9 @@ const ListingListTileView = ({
                 </span>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <span className="text-lg font-bold">0</span>
+                <span className="text-lg font-bold">
+                  {listing.leads ?? 0}
+                </span>
                 <span className="text-center text-sm text-gray-700">Leads</span>
               </div>
             </div>

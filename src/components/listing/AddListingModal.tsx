@@ -94,34 +94,26 @@ const sellerSchema = yup.object().shape({
         number: yup
           .string()
           .matches(/^[0-9\s\-\(\)]+$/, "This number is invalid")
-          .test(
-            "phone-format",
-            "This number is invalid",
-            (val) => {
-              if (!val || typeof val !== "string") return false
-              // Remove spaces, dashes, and parentheses for validation
-              const cleaned = val.replace(/[\s\-\(\)]/g, "")
-              // Minimum 4 digits (shortest valid phone numbers globally)
-              return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
-            },
-          )
+          .test("phone-format", "This number is invalid", (val) => {
+            if (!val || typeof val !== "string") return false
+            // Remove spaces, dashes, and parentheses for validation
+            const cleaned = val.replace(/[\s\-\(\)]/g, "")
+            // Minimum 4 digits (shortest valid phone numbers globally)
+            return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
+          })
           .required("This number is invalid"),
       })
     }
     return yup
       .string()
       .matches(/^\+?[0-9\s\-\(\)]+$/, "This number is invalid")
-      .test(
-        "phone-format",
-        "This number is invalid",
-        (val) => {
-          if (!val || typeof val !== "string") return false
-          // Remove spaces, dashes, and parentheses for validation
-          const cleaned = val.replace(/[\s\-\(\)]/g, "")
-          // Minimum 4 digits (shortest valid phone numbers globally)
-          return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
-        },
-      )
+      .test("phone-format", "This number is invalid", (val) => {
+        if (!val || typeof val !== "string") return false
+        // Remove spaces, dashes, and parentheses for validation
+        const cleaned = val.replace(/[\s\-\(\)]/g, "")
+        // Minimum 4 digits (shortest valid phone numbers globally)
+        return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
+      })
       .required("This number is invalid")
   }) as unknown as yup.StringSchema,
 })
@@ -233,6 +225,7 @@ export const AddListingModal = ({
           email: formData.seller1.email,
           phone: seller1Phone,
           sendUpdateByEmail: formData.sendEmailUpdates,
+          listingId: newListing.id,
         })
         .select()
         .single()
@@ -275,6 +268,7 @@ export const AddListingModal = ({
             email: formData.seller2.email,
             phone: seller2Phone,
             sendUpdateByEmail: false,
+            listingId: newListing.id,
           })
           .select()
           .single()
@@ -323,7 +317,11 @@ export const AddListingModal = ({
             // For nested phone errors (e.g., seller1.mobile.countryCode, seller1.mobile.number),
             // show error at the parent field level (seller1.mobile)
             const pathParts = error.path.split(".")
-            if (pathParts.length > 2 && (pathParts[pathParts.length - 1] === "countryCode" || pathParts[pathParts.length - 1] === "number")) {
+            if (
+              pathParts.length > 2 &&
+              (pathParts[pathParts.length - 1] === "countryCode" ||
+                pathParts[pathParts.length - 1] === "number")
+            ) {
               // This is a nested phone error, use the parent path (e.g., seller1.mobile)
               const parentPath = pathParts.slice(0, -1).join(".")
               if (!validationErrors[parentPath]) {
