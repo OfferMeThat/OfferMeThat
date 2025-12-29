@@ -30,6 +30,9 @@ export interface SubQuestionConfig {
 
   /** Placeholder for the sub-question */
   placeholder?: string
+
+  /** Whether this sub-question/field is required (independent of question-level required) */
+  required?: boolean
 }
 
 /**
@@ -287,6 +290,37 @@ export function updateSubQuestionPlaceholder(
       [subQuestionId]: {
         ...(uiConfig.subQuestions?.[subQuestionId] || {}),
         placeholder,
+      },
+    },
+  }
+}
+
+/**
+ * Helper function to get a sub-question's required status
+ * Checks uiConfig.subQuestions first, then returns undefined if not set
+ */
+export function getSubQuestionRequired(
+  uiConfig: QuestionUIConfig,
+  subQuestionId: string,
+): boolean | undefined {
+  return uiConfig.subQuestions?.[subQuestionId]?.required
+}
+
+/**
+ * Helper function to update a sub-question's required status
+ */
+export function updateSubQuestionRequired(
+  uiConfig: QuestionUIConfig,
+  subQuestionId: string,
+  required: boolean,
+): QuestionUIConfig {
+  return {
+    ...uiConfig,
+    subQuestions: {
+      ...(uiConfig.subQuestions || {}),
+      [subQuestionId]: {
+        ...(uiConfig.subQuestions?.[subQuestionId] || {}),
+        required,
       },
     },
   }

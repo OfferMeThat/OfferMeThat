@@ -1412,7 +1412,13 @@ export const smartQuestionsConfig = {
       }
     },
 
-    generateDepositTypeQuestion: function () {
+    generateDepositTypeQuestion: function (setupAnswers) {
+      const currencyStipulation = setupAnswers?.currency_stipulation
+      const currencyField = this.generateCurrencyField(
+        currencyStipulation,
+        setupAnswers || {},
+        "",
+      )
       return {
         id: "deposit_type",
         question_text: "What will your Deposit be?",
@@ -1423,6 +1429,8 @@ export const smartQuestionsConfig = {
         ],
         required: true,
         placeholder: "Select deposit type",
+        conditional_currency: currencyField || undefined,
+        conditional_suffix: "% of purchase price",
       }
     },
 
@@ -1509,8 +1517,10 @@ export const smartQuestionsConfig = {
           options: CURRENCY_OPTIONS,
         }
       } else if (currencyStipulation === "options") {
+        // Collect all currency options (not just 2)
         const currencyOptions = []
-        for (let i = 1; i <= 2; i++) {
+        let i = 1
+        while (true) {
           const currencyValue =
             setupAnswers[`currency_options_${i}${suffix}`] ||
             setupAnswers[`currency_options_${i}`]
@@ -1523,8 +1533,12 @@ export const smartQuestionsConfig = {
               value: currencyValue,
               label: `${currencyValue} - ${currencyName}`,
             })
+            i++
+          } else {
+            break
           }
         }
+        // Always return select type (single dropdown with all stipulated currencies)
         return {
           type: "select",
           placeholder: "Select currency",
@@ -1574,16 +1588,14 @@ export const smartQuestionsConfig = {
         question.question_type = "display"
         question.value = seller_due_date_text
       } else if (deposit_due === "within_time") {
-        question.question_type = "select_with_text"
-        question.placeholder = "Enter number of days"
-        question.select_options = [
-          { value: "hours", label: "Hours" },
-          { value: "days", label: "Days" },
-          { value: "business_days", label: "Business Days" },
-          { value: "calendar_days", label: "Calendar Days" },
-          { value: "months", label: "Months" },
-        ]
-        question.suffix = "of Offer Acceptance"
+        question.question_type = "within_days"
+        question.placeholder = "Select number of days"
+        // Generate options from 1 to 100
+        question.options = Array.from({ length: 100 }, (_, i) => ({
+          value: (i + 1).toString(),
+          label: (i + 1).toString(),
+        }))
+        question.suffix = "days of Offer Acceptance"
       } else if (deposit_due === "custom" && due_date_config) {
         question.question_type = "custom_due_date"
         question.config = due_date_config
@@ -1650,7 +1662,15 @@ export const smartQuestionsConfig = {
       const depositManagement =
         setupAnswers[`deposit_management${suffix}`] ||
         setupAnswers.deposit_management
+      const currencyStipulation =
+        setupAnswers[`currency_stipulation${suffix}`] ||
+        setupAnswers.currency_stipulation
       if (depositManagement === "buyer_choice") {
+        const currencyField = this.generateCurrencyField(
+          currencyStipulation,
+          setupAnswers,
+          suffix,
+        )
         questions.push({
           id: `deposit_type_instalment_${instalmentNumber}`,
           question_text: `What will your Deposit be for Instalment ${instalmentNumber}?`,
@@ -1661,6 +1681,8 @@ export const smartQuestionsConfig = {
           ],
           required: true,
           placeholder: "Select deposit type",
+          conditional_currency: currencyField || undefined,
+          conditional_suffix: "% of purchase price",
         })
       }
 
@@ -1715,9 +1737,17 @@ export const smartQuestionsConfig = {
         setupAnswers[`currency_stipulation${suffix}`] ||
         setupAnswers.currency_stipulation
 
+      // Determine the correct question ID based on instalment configuration
+      // For one_or_two/three_plus, instalment 1 uses deposit_amount (no suffix)
+      // For two_always or instalment 2+, use deposit_amount_instalment_X
+      const questionId =
+        instalmentNumber === 1 && !isTwoAlways
+          ? "deposit_amount"
+          : `deposit_amount_instalment_${instalmentNumber}`
+
       let question = {
-        id: `deposit_amount_instalment_${instalmentNumber}`,
-        question_text: `What is your Deposit Amount for Instalment ${instalmentNumber}?`,
+        id: questionId,
+        question_text: `What is your Deposit Amount${instalmentNumber > 1 ? ` for Instalment ${instalmentNumber}` : ""}?`,
         question_type: "text",
         required: true,
         placeholder: "Enter a value",
@@ -1753,14 +1783,14 @@ export const smartQuestionsConfig = {
         const fixedCurrency =
           setupAnswers[`fixed_deposit_currency${suffix}`] ||
           setupAnswers.fixed_deposit_currency
-        question.question_text = `What is your Deposit Amount for Instalment ${instalmentNumber}?`
+        question.question_text = `What is your Deposit Amount${instalmentNumber > 1 ? ` for Instalment ${instalmentNumber}` : ""}?`
         question.question_type = "display"
         question.value = `${fixedAmount} ${fixedCurrency}`
       } else if (depositManagement === "fixed_percentage") {
         const fixedPercentage =
           setupAnswers[`fixed_deposit_percentage${suffix}`] ||
           setupAnswers.fixed_deposit_percentage
-        question.question_text = `What is your Deposit Amount for Instalment ${instalmentNumber}?`
+        question.question_text = `What is your Deposit Amount${instalmentNumber > 1 ? ` for Instalment ${instalmentNumber}` : ""}?`
         question.question_type = "display"
         question.value = `${fixedPercentage}% of purchase price`
       }
@@ -1786,9 +1816,17 @@ export const smartQuestionsConfig = {
         setupAnswers.seller_due_date_text
       const dueDateConfig = setupAnswers.due_date_config
 
+      // Determine the correct question ID based on instalment configuration
+      // For one_or_two/three_plus, instalment 1 uses deposit_due (no suffix)
+      // For two_always or instalment 2+, use deposit_due_instalment_X
+      const questionId =
+        instalmentNumber === 1 && !isTwoAlways
+          ? "deposit_due"
+          : `deposit_due_instalment_${instalmentNumber}`
+
       let question = {
-        id: `deposit_due_instalment_${instalmentNumber}`,
-        question_text: `Deposit Due for Instalment ${instalmentNumber}:`,
+        id: questionId,
+        question_text: `Deposit Due${instalmentNumber > 1 ? ` for Instalment ${instalmentNumber}` : ""}:`,
         required: true,
       }
 
@@ -1801,17 +1839,21 @@ export const smartQuestionsConfig = {
       } else if (depositDue === "datetime") {
         question.question_type = "datetime"
         question.placeholder = "Select due date and time"
-      } else if (depositDue === "seller_text") {
+      } else if (depositDue === "buyer_text") {
         question.question_type = "text"
-        question.placeholder = sellerDueDateText || "Enter due date details"
+        question.placeholder = "Enter due date"
+      } else if (depositDue === "seller_text") {
+        question.question_type = "display"
+        question.value = sellerDueDateText || "Enter due date details"
       } else if (depositDue === "within_time") {
-        question.question_type = "select_with_text"
-        question.placeholder = "Enter number of days"
-        question.select_options = [
-          { value: "business_days", label: "business days" },
-          { value: "days", label: "days" },
-        ]
-        question.suffix = "after Offer Acceptance"
+        question.question_type = "within_days"
+        question.placeholder = "Select number of days"
+        // Generate options from 1 to 100
+        question.options = Array.from({ length: 100 }, (_, i) => ({
+          value: (i + 1).toString(),
+          label: (i + 1).toString(),
+        }))
+        question.suffix = "days of Offer Acceptance"
       } else if (depositDue === "custom") {
         question.question_type = "custom_due_date"
         question.config = dueDateConfig
@@ -1837,9 +1879,17 @@ export const smartQuestionsConfig = {
         setupAnswers[`deposit_holding_details${suffix}`] ||
         setupAnswers.deposit_holding_details
 
+      // Determine the correct question ID based on instalment configuration
+      // For one_or_two/three_plus, instalment 1 uses deposit_holding (no suffix)
+      // For two_always or instalment 2+, use deposit_holding_instalment_X
+      const questionId =
+        instalmentNumber === 1 && !isTwoAlways
+          ? "deposit_holding"
+          : `deposit_holding_instalment_${instalmentNumber}`
+
       let question = {
-        id: `deposit_holding_instalment_${instalmentNumber}`,
-        question_text: `Deposit to be held for Instalment ${instalmentNumber}:`,
+        id: questionId,
+        question_text: `Deposit to be held${instalmentNumber > 1 ? ` for Instalment ${instalmentNumber}` : ""}:`,
         required: true,
       }
 
@@ -1861,7 +1911,8 @@ export const smartQuestionsConfig = {
       if (setupAnswers.instalments === "single") {
         // Question 1: What will your Deposit be? (only for buyer_choice)
         if (setupAnswers.deposit_management === "buyer_choice") {
-          const depositTypeQuestion = this.generateDepositTypeQuestion()
+          const depositTypeQuestion =
+            this.generateDepositTypeQuestion(setupAnswers)
           questions.push(depositTypeQuestion)
         }
 

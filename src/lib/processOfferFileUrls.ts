@@ -31,15 +31,31 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
 
   // Collect URLs from purchaserData
   if (processedOffer.purchaserData) {
-    const purchaserData = processedOffer.purchaserData as PurchaserData
-    if (purchaserData.method === "single_field" && purchaserData.idFileUrl) {
-      collectUrl(purchaserData.idFileUrl)
+    const purchaserData = processedOffer.purchaserData as any // Use any to support both old and new formats
+    // Single field: support both idFileUrl (single) and idFileUrls (array)
+    if (purchaserData.method === "single_field") {
+      if (purchaserData.idFileUrl) {
+        collectUrl(purchaserData.idFileUrl)
+      }
+      if (purchaserData.idFileUrls) {
+        const urls = Array.isArray(purchaserData.idFileUrls)
+          ? purchaserData.idFileUrls
+          : [purchaserData.idFileUrls]
+        urls.forEach(collectUrl)
+      }
     }
+    // Individual names: support both single URLs and arrays per key
     if (
       purchaserData.method === "individual_names" &&
       purchaserData.idFileUrls
     ) {
-      Object.values(purchaserData.idFileUrls).forEach(collectUrl)
+      Object.values(purchaserData.idFileUrls).forEach((urlOrUrls) => {
+        if (Array.isArray(urlOrUrls)) {
+          urlOrUrls.forEach(collectUrl)
+        } else if (typeof urlOrUrls === "string") {
+          collectUrl(urlOrUrls)
+        }
+      })
     }
   }
 
@@ -145,7 +161,7 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
         specialConditionsData = null
       }
     }
-    // Collect URLs from conditionAttachmentUrls
+    // Collect URLs from conditionAttachmentUrls (deprecated - for backward compatibility)
     if (
       specialConditionsData &&
       typeof specialConditionsData === "object" &&
@@ -161,6 +177,16 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
                 collectUrl(url)
               }
             })
+          }
+        })
+      }
+      // Collect URLs from customConditionAttachmentUrls (new format)
+      const customConditionAttachmentUrls =
+        (specialConditionsData as any).customConditionAttachmentUrls
+      if (Array.isArray(customConditionAttachmentUrls)) {
+        customConditionAttachmentUrls.forEach((url: any) => {
+          if (typeof url === "string") {
+            collectUrl(url)
           }
         })
       }
@@ -184,17 +210,31 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
 
   // Replace URLs in purchaserData
   if (processedOffer.purchaserData) {
-    const purchaserData = processedOffer.purchaserData as PurchaserData
-    if (purchaserData.method === "single_field" && purchaserData.idFileUrl) {
-      purchaserData.idFileUrl = getSignedUrl(purchaserData.idFileUrl) || ""
+    const purchaserData = processedOffer.purchaserData as any // Use any to support both old and new formats
+    // Single field: support both idFileUrl (single) and idFileUrls (array)
+    if (purchaserData.method === "single_field") {
+      if (purchaserData.idFileUrl) {
+        purchaserData.idFileUrl = getSignedUrl(purchaserData.idFileUrl) || ""
+      }
+      if (purchaserData.idFileUrls) {
+        const urls = Array.isArray(purchaserData.idFileUrls)
+          ? purchaserData.idFileUrls
+          : [purchaserData.idFileUrls]
+        purchaserData.idFileUrls = urls.map((url: string) => getSignedUrl(url) || url)
+      }
     }
+    // Individual names: support both single URLs and arrays per key
     if (
       purchaserData.method === "individual_names" &&
       purchaserData.idFileUrls
     ) {
-      const signedIdFileUrls: Record<string, string> = {}
-      Object.entries(purchaserData.idFileUrls).forEach(([key, url]) => {
-        signedIdFileUrls[key] = getSignedUrl(url) || url
+      const signedIdFileUrls: Record<string, string | string[]> = {}
+      Object.entries(purchaserData.idFileUrls).forEach(([key, urlOrUrls]) => {
+        if (Array.isArray(urlOrUrls)) {
+          signedIdFileUrls[key] = urlOrUrls.map((url) => getSignedUrl(url) || url)
+        } else if (typeof urlOrUrls === "string") {
+          signedIdFileUrls[key] = getSignedUrl(urlOrUrls) || urlOrUrls
+        }
       })
       purchaserData.idFileUrls = signedIdFileUrls
     }
@@ -317,7 +357,7 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
         return processedOffer
       }
     }
-    // Replace URLs in conditionAttachmentUrls
+    // Replace URLs in conditionAttachmentUrls (deprecated - for backward compatibility)
     if (
       specialConditionsData &&
       typeof specialConditionsData === "object" &&
@@ -339,13 +379,25 @@ export async function processOfferFileUrls(offer: any): Promise<any> {
         })
         ;(specialConditionsData as any).conditionAttachmentUrls =
           signedConditionAttachmentUrls
+      }
+      // Replace URLs in customConditionAttachmentUrls (new format)
+      const customConditionAttachmentUrls =
+        (specialConditionsData as any).customConditionAttachmentUrls
+      if (Array.isArray(customConditionAttachmentUrls)) {
+        ;(specialConditionsData as any).customConditionAttachmentUrls =
+          customConditionAttachmentUrls.map((url: any) => {
+            if (typeof url === "string") {
+              return getSignedUrl(url) || url
+            }
+            return url
+          })
+      }
 
-        // Store back in the same format (JSON string if it was originally a string)
-        if (isString) {
-          processedOffer.specialConditions = JSON.stringify(specialConditionsData)
-        } else {
-          processedOffer.specialConditions = specialConditionsData
-        }
+      // Store back in the same format (JSON string if it was originally a string)
+      if (isString) {
+        processedOffer.specialConditions = JSON.stringify(specialConditionsData)
+      } else {
+        processedOffer.specialConditions = specialConditionsData
       }
     }
   }

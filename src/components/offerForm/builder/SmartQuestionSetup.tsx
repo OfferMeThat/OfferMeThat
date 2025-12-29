@@ -1,5 +1,6 @@
 "use client"
 
+import { CurrencySelect } from "@/components/shared/CurrencySelect"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +14,8 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { CURRENCY_OPTIONS } from "@/constants/offerFormQuestions"
 import { getSmartQuestion } from "@/data/smartQuestions"
+import { cn } from "@/lib/utils"
+import { Paperclip } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import DepositDueDateModal from "./DepositDueDateModal"
 import LoanDueDateModal from "./LoanDueDateModal"
@@ -155,12 +158,14 @@ interface SmartQuestionSetupProps {
     generatedProperties: any,
     answers: Record<string, any>,
     requiredOverride?: boolean,
+    uiConfigUpdates?: Record<string, any>,
   ) => void
   onCancel: () => void
   hideButtons?: boolean
   initialSetupConfig?: Record<string, any>
   initialUIConfig?: Record<string, any>
   mode?: "add" | "edit"
+  currentQuestionRequired?: boolean // Pass current question required status
 }
 
 const SmartQuestionSetup = ({
@@ -171,6 +176,7 @@ const SmartQuestionSetup = ({
   initialSetupConfig = {},
   initialUIConfig = {},
   mode = "add",
+  currentQuestionRequired,
 }: SmartQuestionSetupProps) => {
   const [answers, setAnswers] = useState<Record<string, any>>(() => {
     // Initialize with initial config in edit mode, empty otherwise
@@ -269,29 +275,127 @@ const SmartQuestionSetup = ({
 
       // Determine required status based on mandatory settings in answers
       let requiredOverride: boolean | undefined = undefined
+      let uiConfigUpdates: Record<string, any> | undefined = undefined
       const answers = answersRef.current
 
       // Check for mandatory/optional settings that should affect question required status
       // Name of Purchaser - collect_identification
       if (smartQuestion.id === "name_of_purchaser") {
         if (answers.collect_identification === "mandatory") {
+          // If ID is mandatory, question should be required
           requiredOverride = true
+          // Also set field-level required to true
+          uiConfigUpdates = {
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              idUploadLabel: {
+                ...(initialUIConfig.subQuestions?.idUploadLabel || {}),
+                required: true,
+              },
+            },
+          }
         } else if (
           answers.collect_identification === "optional" ||
           answers.collect_identification === "no"
         ) {
-          requiredOverride = false
+          // If ID is optional, only update field-level required, NOT question-level
+          // This allows the question to remain mandatory while the field is optional
+          // Always update field-level required to false, regardless of question required status
+          uiConfigUpdates = {
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              idUploadLabel: {
+                ...(initialUIConfig.subQuestions?.idUploadLabel || {}),
+                required: false,
+              },
+            },
+          }
+          // Don't set requiredOverride - keep question required status as it was
+          // The question should remain mandatory/optional based on its current state,
+          // not based on ID collection setting
         }
       }
 
       // Subject to Loan Approval - lender_details and attachments
       if (smartQuestion.id === "loan_approval") {
+        // Get previous values from initial setup config to detect what changed
+        const prevLenderDetails = initialSetupConfig.lender_details
+        const prevAttachments = initialSetupConfig.attachments
+
+        // Handle lender_details field-level optionality
+        // If changed to "optional", only update field-level required, NOT question-level
+        if (answers.lender_details === "optional") {
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              lenderDetails: {
+                ...(initialUIConfig.subQuestions?.lenderDetails || {}),
+                required: false,
+              },
+            },
+          }
+          // Don't set requiredOverride - allow question to remain mandatory/optional
+          // This fixes issue: When question is Mandatory and user makes field Optional,
+          // only the field becomes optional, not the whole question
+        } else if (answers.lender_details === "required") {
+          // If lender_details is "required", make question required and field required
+          // But only if it changed from something else (to avoid updating both fields)
+          if (prevLenderDetails !== "required") {
+            requiredOverride = true
+          }
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              lenderDetails: {
+                ...(initialUIConfig.subQuestions?.lenderDetails || {}),
+                required: true,
+              },
+            },
+          }
+        }
+
+        // Handle attachments field-level optionality
+        // If changed to "optional", only update field-level required, NOT question-level
+        if (answers.attachments === "optional") {
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              loan_attachments: {
+                ...(initialUIConfig.subQuestions?.loan_attachments || {}),
+                required: false,
+              },
+            },
+          }
+          // Don't set requiredOverride - allow question to remain mandatory/optional
+          // This fixes issue: When question is Mandatory and user makes field Optional,
+          // only the field becomes optional, not the whole question
+        } else if (answers.attachments === "required") {
+          // If attachments is "required", make question required and field required
+          // But only if it changed from something else (to avoid updating both fields)
+          if (prevAttachments !== "required") {
+            requiredOverride = true
+          }
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              loan_attachments: {
+                ...(initialUIConfig.subQuestions?.loan_attachments || {}),
+                required: true,
+              },
+            },
+          }
+        }
+
+        // If both are "not_required", question can be optional
         if (
-          answers.lender_details === "required" ||
-          answers.attachments === "required"
-        ) {
-          requiredOverride = true
-        } else if (
           answers.lender_details === "not_required" &&
           answers.attachments === "not_required"
         ) {
@@ -300,18 +404,58 @@ const SmartQuestionSetup = ({
       }
 
       // Evidence of Funds - evidence_of_funds
-      if (smartQuestion.id === "evidence_of_funds") {
-        if (answers.evidence_of_funds === "required") {
-          requiredOverride = true
-        } else if (
-          answers.evidence_of_funds === "optional" ||
-          answers.evidence_of_funds === "not_required"
-        ) {
-          requiredOverride = false
+      // Note: This is part of Subject to Loan Approval question, not a separate question
+      // Handle it when editing Subject to Loan Approval setup
+      if (
+        smartQuestion.id === "loan_approval" &&
+        answers.evidence_of_funds !== undefined
+      ) {
+        const prevEvidenceOfFunds = initialSetupConfig.evidence_of_funds
+
+        if (answers.evidence_of_funds === "optional") {
+          // If evidence_of_funds is "optional", only update field-level required, NOT question-level
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              evidence_of_funds_attachment: {
+                ...(initialUIConfig.subQuestions
+                  ?.evidence_of_funds_attachment || {}),
+                required: false,
+              },
+            },
+          }
+          // Don't set requiredOverride - allow question to remain mandatory/optional
+          // This fixes issue: When question is Mandatory and user makes field Optional,
+          // only the field becomes optional, not the whole question
+        } else if (answers.evidence_of_funds === "required") {
+          // If evidence_of_funds is "required", make question required and field required
+          // But only if it changed from something else
+          if (prevEvidenceOfFunds !== "required") {
+            requiredOverride = true
+          }
+          uiConfigUpdates = {
+            ...uiConfigUpdates,
+            subQuestions: {
+              ...(initialUIConfig.subQuestions || {}),
+              ...(uiConfigUpdates?.subQuestions || {}),
+              evidence_of_funds_attachment: {
+                ...(initialUIConfig.subQuestions
+                  ?.evidence_of_funds_attachment || {}),
+                required: true,
+              },
+            },
+          }
         }
       }
 
-      onComplete(generatedProperties, answersRef.current, requiredOverride)
+      onComplete(
+        generatedProperties,
+        answersRef.current,
+        requiredOverride,
+        uiConfigUpdates,
+      )
     } catch (error) {
       console.error("Error in handleSave:", error)
       isSavingRef.current = false
@@ -1221,7 +1365,7 @@ const SmartQuestionSetup = ({
   }, [answers, currentConditionNumber]) // Dependencies that affect canProceed
 
   return (
-    <div className="mx-auto w-full rounded-lg bg-white p-6">
+    <>
       <div className="space-y-6">
         {visibleQuestions.map((question) => {
           // Check if this is a fixed amount question and if there's a corresponding currency field
@@ -1352,7 +1496,7 @@ const SmartQuestionSetup = ({
                     }
                   />
                   {isFixedAmount && hasCurrencyField && (
-                    <Select
+                    <CurrencySelect
                       value={
                         typeof answers[currencyFieldId] === "string"
                           ? answers[currencyFieldId]
@@ -1361,33 +1505,9 @@ const SmartQuestionSetup = ({
                       onValueChange={(value) =>
                         handleAnswerChange(currencyFieldId, value)
                       }
-                    >
-                      <SelectTrigger className="w-1/4">
-                        <SelectValue placeholder="Currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {visibleQuestions
-                          .find((q) => q.id === currencyFieldId)
-                          ?.options?.map((option) => (
-                            <SelectItem
-                              key={
-                                typeof option.value === "string"
-                                  ? option.value
-                                  : JSON.stringify(option.value)
-                              }
-                              value={
-                                typeof option.value === "string"
-                                  ? option.value
-                                  : JSON.stringify(option.value)
-                              }
-                            >
-                              {typeof option.label === "string"
-                                ? option.label
-                                : getCurrencyDisplayName(option.value)}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select currency"
+                      className="w-1/4"
+                    />
                   )}
                 </div>
               ) : question.type === "text_area" ? (
@@ -1402,33 +1522,27 @@ const SmartQuestionSetup = ({
                   />
                 </div>
               ) : question.type === "file_upload" ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-2"
-                      onClick={() =>
-                        document
-                          .getElementById(`file-input-${question.id}`)
-                          ?.click()
-                      }
-                    >
-                      <span>📎</span>
-                      Choose files (multiple allowed)
-                    </Button>
-                    <input
-                      id={`file-input-${question.id}`}
-                      type="file"
-                      multiple
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                      onChange={(e) => handleFileUpload(question.id, e)}
-                      className="hidden"
-                    />
-                  </div>
-
-                  {/* Display uploaded files */}
+                <div className="space-y-2">
+                  <input
+                    id={`file-input-${question.id}`}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                    onChange={(e) => handleFileUpload(question.id, e)}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor={`file-input-${question.id}`}
+                    className={cn(
+                      "flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-white px-4 py-8 text-center transition-colors",
+                      "hover:border-gray-400 hover:bg-gray-50",
+                    )}
+                  >
+                    <Paperclip className="mb-2 h-6 w-6 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-900">
+                      Upload files
+                    </span>
+                  </label>
                   {answers[question.id] && answers[question.id].length > 0 && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -1468,7 +1582,7 @@ const SmartQuestionSetup = ({
                             variant="outline"
                             size="sm"
                             onClick={() => handleRemoveFile(question.id, index)}
-                            className="text-xs text-red-600 hover:text-red-700"
+                            className="cursor-pointer text-xs text-red-600 hover:text-red-700"
                           >
                             Remove
                           </Button>
@@ -1476,6 +1590,10 @@ const SmartQuestionSetup = ({
                       ))}
                     </div>
                   )}
+                  <span className="text-xs text-gray-500">
+                    Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 3
+                    files, 10MB total)
+                  </span>
                 </div>
               ) : question.type === "option_list" ? (
                 <div className="space-y-3">
@@ -1527,7 +1645,7 @@ const SmartQuestionSetup = ({
                                     )
                                     handleAnswerChange(question.id, newOptions)
                                   }}
-                                  className="text-red-600 hover:text-red-700"
+                                  className="cursor-pointer text-red-600 hover:text-red-700"
                                 >
                                   Remove
                                 </Button>
@@ -1645,7 +1763,7 @@ const SmartQuestionSetup = ({
                                         newCurrencies,
                                       )
                                     }}
-                                    className="text-xs text-red-600 hover:text-red-700"
+                                    className="cursor-pointer text-xs text-red-600 hover:text-red-700"
                                   >
                                     Remove
                                   </button>
@@ -1757,9 +1875,17 @@ const SmartQuestionSetup = ({
                           )
 
                           // If question doesn't exist in setupQuestions, create a dynamic one
+                          // Generate the correct label based on whether it's for an instalment
+                          let questionLabel = `Select Currency ${optionIndex}`
+                          if (suffix === "_instalment_1") {
+                            questionLabel = `Select Currency ${optionIndex} for Instalment 1`
+                          } else if (suffix === "_instalment_2") {
+                            questionLabel = `Select Currency ${optionIndex} for Instalment 2`
+                          }
+
                           const displayQuestion = currencyQuestion || {
                             id: currencyOptionId,
-                            question: `Select Currency ${optionIndex}`,
+                            question: questionLabel,
                             options: allCurrencyOptions,
                           }
 
@@ -2073,7 +2199,7 @@ const SmartQuestionSetup = ({
         onSave={handleLoanDueDateConfig}
         initialConfig={answers.loan_due_date_config || {}}
       />
-    </div>
+    </>
   )
 }
 

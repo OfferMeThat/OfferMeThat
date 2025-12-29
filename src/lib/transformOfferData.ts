@@ -171,16 +171,25 @@ export function transformFormDataToOffer(
           // Single field - just a string
           offer.purchaserData = { method: "single_field", name: value }
         } else if (typeof value === "object" && value !== null) {
-          // Check if it's single_field with file URL or individual_names
+          // Check if it's single_field with file URL(s) or individual_names
           if (value.name && !value.scenario) {
-            // Single field with optional file URL (already uploaded)
-            offer.purchaserData = {
+            // Single field with optional file URL(s) (already uploaded)
+            // Support both array format (new) and single URL string (backward compatibility)
+            const purchaserDataObj: any = {
               method: "single_field",
               name: value.name,
-              idFileUrl: value.idFileUrl, // URL string, file already uploaded
             }
+            if (value.idFileUrls && Array.isArray(value.idFileUrls)) {
+              // New format: array of URLs
+              purchaserDataObj.idFileUrls = value.idFileUrls
+            } else if (value.idFileUrl) {
+              // Backward compatibility: single URL string
+              purchaserDataObj.idFileUrl = value.idFileUrl
+            }
+            offer.purchaserData = purchaserDataObj
           } else {
             // Individual names method (idFiles already converted to idFileUrls)
+            // idFileUrls can be Record<string, string> or Record<string, string[]>
             offer.purchaserData = {
               method: "individual_names",
               ...value, // Includes scenario, numPurchasers, nameFields, idFileUrls, etc.

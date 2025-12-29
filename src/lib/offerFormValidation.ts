@@ -99,17 +99,24 @@ export const buildQuestionValidation = (
     case "offerAmount":
       // offerAmount can be a number (legacy) or an object { amount: number, currency: string }
       schema = yup.lazy((value) => {
-        if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          !Array.isArray(value)
+        ) {
           const objectSchema = yup.object().shape({
             amount: yup
               .mixed()
               .transform((val) => {
-                if (val === "" || val === null || val === undefined) return undefined
+                if (val === "" || val === null || val === undefined)
+                  return undefined
                 const num = typeof val === "string" ? parseFloat(val) : val
                 return isNaN(num) ? val : num
               })
               .test("is-number", "Please enter a valid number", (val) => {
-                return val === undefined || (typeof val === "number" && !isNaN(val))
+                return (
+                  val === undefined || (typeof val === "number" && !isNaN(val))
+                )
               })
               .test("is-positive", "Amount must be positive", (val) => {
                 return val === undefined || (typeof val === "number" && val > 0)
@@ -134,15 +141,21 @@ export const buildQuestionValidation = (
                 amount: yup
                   .mixed()
                   .transform((val) => {
-                    if (val === "" || val === null || val === undefined) return undefined
+                    if (val === "" || val === null || val === undefined)
+                      return undefined
                     const num = typeof val === "string" ? parseFloat(val) : val
                     return isNaN(num) ? val : num
                   })
                   .test("is-number", "Please enter a valid number", (val) => {
-                    return val === undefined || (typeof val === "number" && !isNaN(val))
+                    return (
+                      val === undefined ||
+                      (typeof val === "number" && !isNaN(val))
+                    )
                   })
                   .test("is-positive", "Amount must be positive", (val) => {
-                    return val === undefined || (typeof val === "number" && val > 0)
+                    return (
+                      val === undefined || (typeof val === "number" && val > 0)
+                    )
                   })
                   .required("Amount is required"),
                 currency: yup
@@ -158,7 +171,8 @@ export const buildQuestionValidation = (
         const numberSchema = yup
           .mixed()
           .transform((val) => {
-            if (val === "" || val === null || val === undefined) return undefined
+            if (val === "" || val === null || val === undefined)
+              return undefined
             const num = typeof val === "string" ? parseFloat(val) : val
             return isNaN(num) ? val : num
           })
@@ -190,11 +204,15 @@ export const buildQuestionValidation = (
         (question.setupConfig as Record<string, any>) || {}
       const collectionMethod = nameOfPurchaserSetup.collection_method
       const collectIdentification = nameOfPurchaserSetup.collect_identification
-      // ID is required ONLY if BOTH:
-      // 1. collect_identification is exactly "mandatory" AND
-      // 2. The question itself is required
-      // If the question is not required (even if collect_identification is "mandatory"), ID is NOT required
-      const idRequired = collectIdentification === "mandatory" && required
+
+      // Check field-level required from uiConfig first, then fall back to setup config
+      const uiConfigData = config as Record<string, any> | null
+      const fieldLevelRequired =
+        uiConfigData?.subQuestions?.idUploadLabel?.required
+      const idRequired =
+        fieldLevelRequired !== undefined
+          ? fieldLevelRequired
+          : collectIdentification === "mandatory" && required
 
       if (collectionMethod === "single_field") {
         // For single field, can be string or object with name/idFile
@@ -230,20 +248,23 @@ export const buildQuestionValidation = (
                 })
               }
 
-              // Validate ID file ONLY if BOTH collect_identification is "mandatory" AND question is required
-              // If collect_identification is "optional" or "no", or if question is not required, skip this validation
-              // Only require ID file if name is provided (user has filled in the name)
-              if (
-                collectIdentification === "mandatory" &&
-                required &&
-                name &&
-                name.trim() &&
-                !(value as any).idFile
-              ) {
-                return this.createError({
-                  message: "ID upload is required",
-                  path: `${this.path}.idFile`,
-                })
+              // Validate ID files if ID is required (check field-level first, then setup config)
+              // Only require ID files if name is provided (user has filled in the name)
+              // Support both idFiles array (new) and idFile single (backward compatibility)
+              if (idRequired && name && name.trim()) {
+                const idFiles = (value as any).idFiles
+                const idFile = (value as any).idFile
+                // Check if we have files in either format
+                const hasFiles =
+                  (Array.isArray(idFiles) && idFiles.length > 0) ||
+                  idFile instanceof File
+
+                if (!hasFiles) {
+                  return this.createError({
+                    message: "ID upload is required",
+                    path: `${this.path}.idFiles`,
+                  })
+                }
               }
 
               return true
@@ -283,7 +304,8 @@ export const buildQuestionValidation = (
             }
 
             // Validate nameFields - at least one name must be filled
-            if (required) {
+            // If question is required OR ID is mandatory, names are required
+            if (required || idRequired) {
               const nameFields = obj.nameFields
               if (!nameFields || typeof nameFields !== "object") {
                 return this.createError({
@@ -307,19 +329,62 @@ export const buildQuestionValidation = (
               )
 
               if (!hasValidName) {
+                // If ID is mandatory, show specific message about name fields being required
+                const errorMessage = idRequired
+                  ? "First name and last name are required"
+                  : "First name and last name are required"
                 return this.createError({
-                  message: "First name and last name are required",
+                  message: errorMessage,
                 })
+              }
+
+              // If ID is mandatory, validate that each person with a name has firstName and lastName
+              if (idRequired) {
+                const missingNames: Array<{
+                  prefix: string
+                  missing: string[]
+                }> = []
+                Object.entries(nameFields).forEach(
+                  ([prefix, nameData]: [string, any]) => {
+                    if (nameData && typeof nameData === "object") {
+                      const firstName = nameData.firstName
+                      const lastName = nameData.lastName
+                      const missing: string[] = []
+                      // Check which fields are missing
+                      if (!firstName || !firstName.trim()) {
+                        missing.push("First name")
+                      }
+                      if (!lastName || !lastName.trim()) {
+                        missing.push("Last name")
+                      }
+                      // If either is missing, this person needs both
+                      if (missing.length > 0) {
+                        missingNames.push({ prefix, missing })
+                      }
+                    }
+                  },
+                )
+
+                if (missingNames.length > 0) {
+                  // Create a more specific error message
+                  const errorMessage =
+                    missingNames.length === 1
+                      ? `First name and last name are required for ${missingNames[0].prefix === "single" ? "the purchaser" : `purchaser ${missingNames[0].prefix.replace("purchaser-", "")}`}`
+                      : "First name and last name are required for all purchasers when ID is mandatory"
+                  return this.createError({
+                    message: errorMessage,
+                  })
+                }
               }
             }
 
-            // Validate ID files ONLY if BOTH collect_identification is "mandatory" AND question is required
-            // If collect_identification is "optional" or "no", or if question is not required, skip this validation entirely
-            if (collectIdentification === "mandatory" && required) {
+            // Validate ID files if ID is required (check field-level first, then setup config)
+            if (idRequired) {
               const idFiles = obj.idFiles || {}
               const nameFields = obj.nameFields || {}
 
-              // Check that each person with a name has an ID file
+              // Check that each person with a name has ID files
+              // idFiles[prefix] is an array of Files (File[]) in the new format
               const missingIds: string[] = []
               Object.keys(nameFields).forEach((prefix) => {
                 const nameData = nameFields[prefix]
@@ -331,16 +396,28 @@ export const buildQuestionValidation = (
                   nameData.lastName &&
                   nameData.lastName.trim()
                 ) {
-                  // This person has a name, so they need an ID file if ID is mandatory
-                  if (!idFiles[prefix] || !(idFiles[prefix] instanceof File)) {
+                  // This person has a name, so they need ID files if ID is mandatory
+                  const personIdFiles = idFiles[prefix]
+                  // Support both array format (new) and single File (backward compatibility)
+                  const hasFiles =
+                    (Array.isArray(personIdFiles) &&
+                      personIdFiles.length > 0) ||
+                    personIdFiles instanceof File
+
+                  if (!hasFiles) {
                     missingIds.push(prefix)
                   }
                 }
               })
 
               if (missingIds.length > 0) {
+                // Create a more specific error message
+                const errorMessage =
+                  missingIds.length === 1
+                    ? `ID upload is required for ${missingIds[0] === "single" ? "the purchaser" : `purchaser ${missingIds[0].replace("purchaser-", "")}`}`
+                    : "ID upload is required for all purchasers with names"
                 return this.createError({
-                  message: "ID upload is required for all purchasers",
+                  message: errorMessage,
                   path: `${this.path}.idFiles`,
                 })
               }
@@ -395,68 +472,108 @@ export const buildQuestionValidation = (
         // Handle both number and money types - for money, it's an object { amount, currency }
         const setupConfig = (question.setupConfig as Record<string, any>) || {}
         const numberType = setupConfig.number_type
-        
+
         if (numberType === "money") {
           // Money type is an object with amount and currency
           schema = yup.lazy((value) => {
             // If it's already an object, validate as object
-            if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+            if (
+              typeof value === "object" &&
+              value !== null &&
+              !Array.isArray(value)
+            ) {
               // Check if it's a phone number object (should be transformed before validation, but handle it here as safety)
-              if ("countryCode" in value && "number" in value && !("amount" in value)) {
+              if (
+                "countryCode" in value &&
+                "number" in value &&
+                !("amount" in value)
+              ) {
                 // This is a phone number object - should have been transformed, but if not, return a schema that will fail gracefully
                 // The data transformation should handle this, so this is just a safety check
-                return yup.mixed().test("phone-to-money", "Invalid format", () => false)
+                return yup
+                  .mixed()
+                  .test("phone-to-money", "Invalid format", () => false)
               }
-              
+
               // Normal money object with amount and currency
               return yup.object().shape({
                 amount: yup
                   .mixed()
                   .transform((val) => {
-                    if (val === "" || val === null || val === undefined) return undefined
+                    if (val === "" || val === null || val === undefined)
+                      return undefined
                     if (typeof val === "string") {
                       const trimmed = val.trim()
                       if (trimmed === "") return undefined
                       const num = parseFloat(trimmed)
                       return isNaN(num) ? undefined : num
                     }
-                    const num = typeof val === "number" ? val : parseFloat(String(val))
+                    const num =
+                      typeof val === "number" ? val : parseFloat(String(val))
                     return isNaN(num) ? undefined : num
                   })
                   .test("is-number", "Please enter a valid number", (val) => {
-                    return val === undefined || (typeof val === "number" && !isNaN(val))
+                    return (
+                      val === undefined ||
+                      (typeof val === "number" && !isNaN(val))
+                    )
                   })
-                  .test("is-non-negative", "Number cannot be negative", (val) => {
-                    return val === undefined || (typeof val === "number" && val >= 0)
-                  }),
+                  .test(
+                    "is-non-negative",
+                    "Number cannot be negative",
+                    (val) => {
+                      return (
+                        val === undefined ||
+                        (typeof val === "number" && val >= 0)
+                      )
+                    },
+                  ),
                 currency: yup.string().default("USD"),
               })
             }
             // If it's undefined/null and required, return object schema
             if ((value === undefined || value === null) && required) {
-              return yup.object().shape({
-                amount: yup
-                  .mixed()
-                  .transform((val) => {
-                    if (val === "" || val === null || val === undefined) return undefined
-                    if (typeof val === "string") {
-                      const trimmed = val.trim()
-                      if (trimmed === "") return undefined
-                      const num = parseFloat(trimmed)
+              return yup
+                .object()
+                .shape({
+                  amount: yup
+                    .mixed()
+                    .transform((val) => {
+                      if (val === "" || val === null || val === undefined)
+                        return undefined
+                      if (typeof val === "string") {
+                        const trimmed = val.trim()
+                        if (trimmed === "") return undefined
+                        const num = parseFloat(trimmed)
+                        return isNaN(num) ? undefined : num
+                      }
+                      const num =
+                        typeof val === "number" ? val : parseFloat(String(val))
                       return isNaN(num) ? undefined : num
-                    }
-                    const num = typeof val === "number" ? val : parseFloat(String(val))
-                    return isNaN(num) ? undefined : num
-                  })
-                  .test("is-number", "Please enter a valid number", (val) => {
-                    return val === undefined || (typeof val === "number" && !isNaN(val))
-                  })
-                  .test("is-non-negative", "Number cannot be negative", (val) => {
-                    return val === undefined || (typeof val === "number" && val >= 0)
-                  })
-                  .required("Amount is required"),
-                currency: yup.string().default("USD").required("Currency is required"),
-              }).required("This field is required")
+                    })
+                    .test("is-number", "Please enter a valid number", (val) => {
+                      return (
+                        val === undefined ||
+                        (typeof val === "number" && !isNaN(val))
+                      )
+                    })
+                    .test(
+                      "is-non-negative",
+                      "Number cannot be negative",
+                      (val) => {
+                        return (
+                          val === undefined ||
+                          (typeof val === "number" && val >= 0)
+                        )
+                      },
+                    )
+                    .required("Amount is required"),
+                  currency: yup
+                    .string()
+                    .default("USD")
+                    .required("Currency is required"),
+                })
+                .required("This field is required")
             }
             // Otherwise, allow null/undefined
             return yup.mixed().nullable().optional()
@@ -466,10 +583,16 @@ export const buildQuestionValidation = (
           schema = yup
             .mixed()
             .transform((val) => {
-              if (val === "" || val === null || val === undefined) return undefined
-              
+              if (val === "" || val === null || val === undefined)
+                return undefined
+
               // Handle phone number objects that might be incorrectly passed
-              if (typeof val === "object" && val !== null && "number" in val && "countryCode" in val) {
+              if (
+                typeof val === "object" &&
+                val !== null &&
+                "number" in val &&
+                "countryCode" in val
+              ) {
                 // This is a phone number object, extract the number part
                 const phoneObj = val as { countryCode: string; number: string }
                 const numberStr = phoneObj.number?.trim() || ""
@@ -477,18 +600,21 @@ export const buildQuestionValidation = (
                 const num = parseFloat(numberStr)
                 return isNaN(num) ? undefined : num
               }
-              
+
               if (typeof val === "string") {
                 const trimmed = val.trim()
                 if (trimmed === "") return undefined
                 const num = parseFloat(trimmed)
                 return isNaN(num) ? undefined : num
               }
-              const num = typeof val === "number" ? val : parseFloat(String(val))
+              const num =
+                typeof val === "number" ? val : parseFloat(String(val))
               return isNaN(num) ? undefined : num
             })
             .test("is-number", "Please enter a valid number", (val) => {
-              return val === undefined || (typeof val === "number" && !isNaN(val))
+              return (
+                val === undefined || (typeof val === "number" && !isNaN(val))
+              )
             })
             .test("is-non-negative", "Number cannot be negative", (val) => {
               return val === undefined || (typeof val === "number" && val >= 0)
@@ -503,7 +629,8 @@ export const buildQuestionValidation = (
         // Check if tickbox is required (new format) or if legacy format with tickbox_requirement
         const isRequired =
           addTickbox === "required" ||
-          (addTickbox === "yes" && setupConfig.tickbox_requirement === "essential")
+          (addTickbox === "yes" &&
+            setupConfig.tickbox_requirement === "essential")
         if (isRequired) {
           schema = yup.boolean().required("You must agree to this statement")
         } else {
@@ -721,126 +848,198 @@ export const buildQuestionValidation = (
     case "subjectToLoanApproval":
       // Complex field with nested data including supporting documents
       const setupConfig = (question.setupConfig as Record<string, any>) || {}
+      const loanAmountType = setupConfig.loan_amount_type
       const attachments = setupConfig.attachments
       const lenderDetails = setupConfig.lender_details
+      const evidenceOfFunds = setupConfig.evidence_of_funds
+      const loanApprovalDue = setupConfig.loan_approval_due
 
-      // Attachments are required if attachments === "required" AND question is required
-      const attachmentsRequired = attachments === "required" && required
-      // Lender details are required if lender_details === "required" AND question is required
-      const lenderDetailsRequired = lenderDetails === "required" && required
+      // Check field-level required from uiConfig first, then fall back to setup config
+      const loanUIConfigData = config as Record<string, any> | null
+      const lenderDetailsFieldRequired =
+        loanUIConfigData?.subQuestions?.lenderDetails?.required
+      const attachmentsFieldRequired =
+        loanUIConfigData?.subQuestions?.loan_attachments?.required
+      const evidenceOfFundsFieldRequired =
+        loanUIConfigData?.subQuestions?.evidence_of_funds_attachment?.required
 
-      if (required) {
-        // Create a schema that validates the object structure
-        const baseSchema = yup.object().shape({
-          subjectToLoan: yup.string().required("This field is required"),
-        })
+      // Determine if fields are required using helper logic
+      const attachmentsRequired =
+        attachmentsFieldRequired !== undefined
+          ? attachmentsFieldRequired
+          : attachments === "required" ||
+            (attachments === "optional" && required)
+      const lenderDetailsRequired =
+        lenderDetailsFieldRequired !== undefined
+          ? lenderDetailsFieldRequired
+          : lenderDetails === "required" ||
+            (lenderDetails === "optional" && required)
+      const evidenceOfFundsRequired =
+        evidenceOfFundsFieldRequired !== undefined
+          ? evidenceOfFundsFieldRequired
+          : evidenceOfFunds === "required" ||
+            (evidenceOfFunds === "optional" && required)
 
-        // Add validation for attachments if required
-        if (attachmentsRequired) {
-          schema = baseSchema.test(
-            "supporting-docs-required",
-            "Supporting documents are required when 'Yes' is selected",
-            function (value) {
-              if (!value || value.subjectToLoan !== "yes") {
-                return true // Not required if "No" is selected
+      // Base schema - always require subjectToLoan if question is required
+      const baseSchema = yup.object().shape({
+        subjectToLoan: required
+          ? yup.string().required("This field is required")
+          : yup.string().optional(),
+      })
+
+      schema = baseSchema.test(
+        "subjectToLoanApproval-validation",
+        function (value) {
+          if (!value) {
+            if (required) {
+              return this.createError({
+                message: "This field is required",
+                path: `${this.path}.subjectToLoan`,
+              })
+            }
+            return true
+          }
+
+          const loanValue = value as any
+
+          // Validate when "Yes" is selected
+          if (loanValue.subjectToLoan === "yes") {
+            // Validate loan amount if required
+            if (loanAmountType && loanAmountType !== "no_amount") {
+              const hasLoanAmount =
+                (loanValue.loanAmountType === "amount" &&
+                  loanValue.loanAmount &&
+                  String(loanValue.loanAmount).trim()) ||
+                (loanValue.loanAmountType === "percentage" &&
+                  loanValue.loanPercentage &&
+                  String(loanValue.loanPercentage).trim()) ||
+                (loanAmountType === "fixed_amount" &&
+                  loanValue.loanAmount &&
+                  String(loanValue.loanAmount).trim()) ||
+                (loanAmountType === "percentage" &&
+                  loanValue.loanPercentage &&
+                  String(loanValue.loanPercentage).trim())
+
+              if (!hasLoanAmount) {
+                return this.createError({
+                  message: "Loan amount is required",
+                  path: `${this.path}.loanAmount`,
+                })
               }
-              // Check if supporting documents file is provided
-              const loanValue = value as any
+            }
+
+            // Validate lender details if required
+            if (lenderDetailsRequired && lenderDetails !== "not_required") {
+              // If unknownLender is true, no details needed
+              if (loanValue.unknownLender) {
+                return true
+              }
+
+              // Check if all required lender detail fields are provided
+              const hasCompanyName =
+                loanValue.companyName && String(loanValue.companyName).trim()
+              const hasContactName =
+                loanValue.contactName && String(loanValue.contactName).trim()
+              const hasContactPhone =
+                loanValue.contactPhone && String(loanValue.contactPhone).trim()
+              const hasContactEmail =
+                loanValue.contactEmail && String(loanValue.contactEmail).trim()
+
+              // If lender_details is "required" or field-level required, all fields needed
+              if (
+                lenderDetails === "required" ||
+                lenderDetailsFieldRequired === true
+              ) {
+                if (!hasCompanyName) {
+                  return this.createError({
+                    message: "Company name is required",
+                    path: `${this.path}.companyName`,
+                  })
+                }
+                if (!hasContactName) {
+                  return this.createError({
+                    message: "Contact name is required",
+                    path: `${this.path}.contactName`,
+                  })
+                }
+                if (!hasContactPhone) {
+                  return this.createError({
+                    message: "Contact phone is required",
+                    path: `${this.path}.contactPhone`,
+                  })
+                }
+                if (!hasContactEmail) {
+                  return this.createError({
+                    message: "Contact email is required",
+                    path: `${this.path}.contactEmail`,
+                  })
+                }
+              } else if (!hasCompanyName) {
+                // If optional but required, at least company name needed
+                return this.createError({
+                  message: "Company name is required",
+                  path: `${this.path}.companyName`,
+                })
+              }
+            }
+
+            // Validate supporting documents if required
+            if (attachmentsRequired && attachments !== "not_required") {
               const hasSupportingDocs =
                 loanValue.supportingDocs &&
                 (Array.isArray(loanValue.supportingDocs)
                   ? loanValue.supportingDocs.length > 0
-                  : loanValue.supportingDocs !== null)
+                  : loanValue.supportingDocs !== null &&
+                    loanValue.supportingDocs !== undefined)
               if (!hasSupportingDocs) {
                 return this.createError({
                   message: "Supporting documents are required",
                   path: `${this.path}.supportingDocs`,
                 })
               }
-              return true
-            },
-          )
-        } else {
-          schema = baseSchema
-        }
+            }
 
-        // Add validation for lender details if required
-        if (lenderDetailsRequired) {
-          schema = (schema as any).test(
-            "lender-details-required",
-            "Lender details are required when 'Yes' is selected",
-            function (this: any, value: any) {
-              if (!value || value.subjectToLoan !== "yes") {
-                return true // Not required if "No" is selected
-              }
-              // Check if lender details are provided
-              // Lender details can be in companyName (if lender_details === "required")
-              // or contactName, contactEmail, contactPhone (if lender_details === "optional" or "required")
-              const hasLenderDetails =
-                (value.companyName && String(value.companyName).trim()) ||
-                (value.contactName && String(value.contactName).trim())
-              if (!hasLenderDetails) {
+            // Validate loan approval due date if required
+            if (loanApprovalDue && loanApprovalDue !== "no_due_date") {
+              const hasDueDate =
+                loanValue.loanDueDate ||
+                loanValue.loanDueDateTime ||
+                loanValue.loanDueText ||
+                loanValue.loanDueWithin
+              if (!hasDueDate) {
                 return this.createError({
-                  message: "Lender details are required",
-                  path: `${this.path}.companyName`,
+                  message: "Loan approval due date is required",
+                  path: `${this.path}.loanDueDate`,
                 })
               }
-              return true
-            },
-          )
-        }
-      } else {
-        // Question is not required, but sub-fields might still be required
-        schema = yup
-          .mixed()
-          .test("subjectToLoanApproval-optional", function (value) {
-            if (!value) {
-              return true // Question is optional, so empty is fine
             }
+          }
 
-            // If "Yes" is selected, validate required sub-fields
-            const loanValue = value as any
-            if (loanValue.subjectToLoan === "yes") {
-              // Validate attachments if required
-              if (attachmentsRequired) {
-                const loanValue = value as any
-                const hasSupportingDocs =
-                  loanValue.supportingDocs &&
-                  (Array.isArray(loanValue.supportingDocs)
-                    ? loanValue.supportingDocs.length > 0
-                    : loanValue.supportingDocs !== null)
-                if (!hasSupportingDocs) {
-                  return this.createError({
-                    message: "Supporting documents are required",
-                    path: `${this.path}.supportingDocs`,
-                  })
-                }
-              }
-
-              // Validate lender details if required
-              if (lenderDetailsRequired) {
-                // Check if lender details are provided
-                // Lender details can be in companyName (if lender_details === "required")
-                // or contactName, contactEmail, contactPhone (if lender_details === "optional" or "required")
-                const loanValue = value as any
-                const hasLenderDetails =
-                  (loanValue.companyName &&
-                    String(loanValue.companyName).trim()) ||
-                  (loanValue.contactName &&
-                    String(loanValue.contactName).trim())
-                if (!hasLenderDetails) {
-                  return (this as any).createError({
-                    message: "Lender details are required",
-                    path: `${(this as any).path}.companyName`,
-                  })
-                }
+          // Validate when "No" is selected
+          if (loanValue.subjectToLoan === "no") {
+            // Validate evidence of funds if required
+            if (evidenceOfFundsRequired && evidenceOfFunds !== "not_required") {
+              const hasEvidenceOfFunds =
+                loanValue.evidenceOfFunds &&
+                (Array.isArray(loanValue.evidenceOfFunds)
+                  ? loanValue.evidenceOfFunds.length > 0
+                  : loanValue.evidenceOfFunds !== null &&
+                    loanValue.evidenceOfFunds !== undefined)
+              if (!hasEvidenceOfFunds) {
+                return this.createError({
+                  message: "Evidence of funds is required",
+                  path: `${this.path}.evidenceOfFunds`,
+                })
               }
             }
+          }
 
-            return true
-          })
-          .nullable()
-          .optional()
+          return true
+        },
+      )
+
+      if (!required) {
+        schema = schema.nullable().optional()
       }
       break
 
@@ -974,14 +1173,18 @@ export const buildQuestionValidation = (
           "Invalid special conditions format",
           function (value) {
             // Allow null/undefined if not required
-            if (!required && (value === null || value === undefined || value === "")) {
+            if (
+              !required &&
+              (value === null || value === undefined || value === "")
+            ) {
               return true
             }
 
             // If required and empty, return error
             if (required && (!value || value === "")) {
               return this.createError({
-                message: "Please select at least one condition or add a custom condition",
+                message:
+                  "Please select at least one condition or add a custom condition",
               })
             }
 
@@ -1008,7 +1211,8 @@ export const buildQuestionValidation = (
 
               if (!hasSelectedConditions && !hasCustomCondition) {
                 return this.createError({
-                  message: "Please select at least one condition or add a custom condition",
+                  message:
+                    "Please select at least one condition or add a custom condition",
                 })
               }
 
@@ -1029,8 +1233,9 @@ export const buildQuestionValidation = (
   // Skip adding .required() to lazy schemas as they handle it internally
   // Also check if schema is actually a yup schema instance
   const isLazySchema = (schema as any)?._isLazy === true
-  const isYupSchema = schema && typeof schema === "object" && "validate" in schema
-  
+  const isYupSchema =
+    schema && typeof schema === "object" && "validate" in schema
+
   if (required && schema && !isLazySchema && isYupSchema) {
     // Check if schema has required method before calling it
     try {
@@ -1047,7 +1252,7 @@ export const buildQuestionValidation = (
       // Check if schema supports nullable/optional methods
       const hasNullable = typeof (schema as any).nullable === "function"
       const hasOptional = typeof (schema as any).optional === "function"
-      
+
       if (hasNullable && hasOptional) {
         if (schema instanceof yup.StringSchema) {
           schema = schema

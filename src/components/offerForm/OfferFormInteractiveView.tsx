@@ -517,25 +517,45 @@ export const OfferFormInteractiveView = ({
           const isSingleField = purchaserData.name && !purchaserData.scenario
           const isIndividualNames = purchaserData.scenario
 
-          // Single field method - single ID file
-          if (isSingleField && isFile(purchaserData.idFile)) {
-            const timestamp = Date.now()
-            const fileExtension =
-              purchaserData.idFile.name.split(".").pop() || "file"
-            const fileName = `${timestamp}-${purchaserData.idFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-            const path = `${tempOfferId}/purchaser-ids/${fileName}`
-
-            const fileUrl = await uploadFileToStorageClient(
-              "offer-ids",
-              path,
-              purchaserData.idFile,
-            )
-            processedFormData[questionId] = {
-              method: "single_field",
-              name: purchaserData.name,
-              idFileUrl: fileUrl,
+          // Single field method - array of ID files (max 5)
+          if (isSingleField && purchaserData.idFiles) {
+            // Handle both array format (new) and single file format (backward compatibility)
+            let filesToUpload: File[] = []
+            if (Array.isArray(purchaserData.idFiles)) {
+              filesToUpload = purchaserData.idFiles.filter((f: any) =>
+                isFile(f),
+              )
+            } else if (isFile(purchaserData.idFiles)) {
+              filesToUpload = [purchaserData.idFiles]
+            } else if (isFile(purchaserData.idFile)) {
+              // Backward compatibility: single file in idFile
+              filesToUpload = [purchaserData.idFile]
             }
-          } else if (isSingleField && !isFile(purchaserData.idFile)) {
+
+            if (filesToUpload.length > 0) {
+              const urls = await uploadMultipleFilesToStorageClient(
+                "offer-ids",
+                filesToUpload,
+                tempOfferId,
+                "purchaser-ids",
+              )
+              processedFormData[questionId] = {
+                method: "single_field",
+                name: purchaserData.name,
+                idFileUrls: urls,
+              }
+            } else {
+              // Single field without files - just preserve the structure
+              processedFormData[questionId] = {
+                method: "single_field",
+                name: purchaserData.name || value,
+              }
+            }
+          } else if (
+            isSingleField &&
+            !purchaserData.idFiles &&
+            !purchaserData.idFile
+          ) {
             // Single field without file - just preserve the structure
             processedFormData[questionId] = {
               method: "single_field",
@@ -543,28 +563,50 @@ export const OfferFormInteractiveView = ({
             }
           }
 
-          // Individual names method - multiple ID files
+          // Individual names method - multiple ID files (arrays per prefix)
           if (
             isIndividualNames &&
             purchaserData.idFiles &&
             typeof purchaserData.idFiles === "object"
           ) {
-            const idFiles = purchaserData.idFiles as Record<string, File>
-            const uploadedUrls: Record<string, string> = {}
+            const idFiles = purchaserData.idFiles as Record<
+              string,
+              File | File[]
+            >
+            const uploadedUrls: Record<string, string | string[]> = {}
 
-            for (const [key, file] of Object.entries(idFiles)) {
-              if (isFile(file)) {
-                const timestamp = Date.now()
-                const fileExtension = file.name.split(".").pop() || "file"
-                const fileName = `${timestamp}-${key}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-                const path = `${tempOfferId}/purchaser-ids/${fileName}`
+            for (const [key, fileOrFiles] of Object.entries(idFiles)) {
+              // Handle both array format (new) and single file format (backward compatibility)
+              let filesToUpload: File[] = []
+              if (Array.isArray(fileOrFiles)) {
+                filesToUpload = fileOrFiles.filter((f) => isFile(f))
+              } else if (isFile(fileOrFiles)) {
+                filesToUpload = [fileOrFiles]
+              }
 
-                const fileUrl = await uploadFileToStorageClient(
-                  "offer-ids",
-                  path,
-                  file,
-                )
-                uploadedUrls[key] = fileUrl
+              if (filesToUpload.length > 0) {
+                if (filesToUpload.length === 1) {
+                  // Single file - upload and store as string URL
+                  const timestamp = Date.now()
+                  const fileName = `${timestamp}-${key}-${filesToUpload[0].name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+                  const path = `${tempOfferId}/purchaser-ids/${fileName}`
+
+                  const fileUrl = await uploadFileToStorageClient(
+                    "offer-ids",
+                    path,
+                    filesToUpload[0],
+                  )
+                  uploadedUrls[key] = fileUrl
+                } else {
+                  // Multiple files - upload and store as array of URLs
+                  const urls = await uploadMultipleFilesToStorageClient(
+                    "offer-ids",
+                    filesToUpload,
+                    tempOfferId,
+                    `purchaser-ids-${key}`,
+                  )
+                  uploadedUrls[key] = urls
+                }
               }
             }
 
@@ -583,7 +625,7 @@ export const OfferFormInteractiveView = ({
           }
         }
 
-        // Handle subject to loan approval supporting documents
+        // Handle subject to loan approval supporting documents and evidence of funds
         if (
           question.type === "subjectToLoanApproval" &&
           typeof value === "object" &&
@@ -591,6 +633,7 @@ export const OfferFormInteractiveView = ({
         ) {
           const loanData = value as any
 
+          // Handle supporting documents (when subjectToLoan === "yes")
           if (isFile(loanData.supportingDocs)) {
             const timestamp = Date.now()
             const fileExtension =
@@ -620,6 +663,39 @@ export const OfferFormInteractiveView = ({
               supportingDocsUrls: urls,
             }
             delete processedFormData[questionId].supportingDocs
+          }
+
+          // Handle evidence of funds (when subjectToLoan === "no")
+          if (isFileArray(loanData.evidenceOfFunds)) {
+            const urls = await uploadMultipleFilesToStorageClient(
+              "offer-documents",
+              loanData.evidenceOfFunds,
+              tempOfferId,
+              "evidence-of-funds",
+            )
+            processedFormData[questionId] = {
+              ...loanData,
+              evidenceOfFundsUrls: urls,
+            }
+            delete processedFormData[questionId].evidenceOfFunds
+          } else if (isFile(loanData.evidenceOfFunds)) {
+            // Backward compatibility: single file
+            const timestamp = Date.now()
+            const fileExtension =
+              loanData.evidenceOfFunds.name.split(".").pop() || "file"
+            const fileName = `${timestamp}-${loanData.evidenceOfFunds.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+            const path = `${tempOfferId}/evidence-of-funds/${fileName}`
+
+            const fileUrl = await uploadFileToStorageClient(
+              "offer-documents",
+              path,
+              loanData.evidenceOfFunds,
+            )
+            processedFormData[questionId] = {
+              ...loanData,
+              evidenceOfFundsUrl: fileUrl,
+            }
+            delete processedFormData[questionId].evidenceOfFunds
           }
         }
 
@@ -656,10 +732,11 @@ export const OfferFormInteractiveView = ({
             selectedConditions?: number[] | string[]
             customCondition?: string
             conditionAttachments?: Record<number | string, File[]>
+            customConditionAttachments?: File[]
           }
 
           // Normalize selectedConditions to numbers
-          const normalizedData = {
+          const normalizedData: any = {
             ...specialConditionsData,
             selectedConditions: Array.isArray(
               specialConditionsData.selectedConditions,
@@ -670,39 +747,37 @@ export const OfferFormInteractiveView = ({
               : [],
           }
 
+          // Note: conditionAttachments is deprecated - SUBMITTERS cannot upload files for predefined conditions
+          // Remove any legacy conditionAttachments data
           if (normalizedData.conditionAttachments) {
-            const uploadedAttachments: Record<number, string[]> = {}
-
-            // Upload files for each condition (only if files are actual File objects)
-            for (const [conditionIndexStr, files] of Object.entries(
-              normalizedData.conditionAttachments,
-            )) {
-              // Filter out empty objects and ensure we have actual File objects
-              const validFiles = Array.isArray(files)
-                ? files.filter((f) => f instanceof File)
-                : []
-
-              if (validFiles.length > 0 && isFileArray(validFiles)) {
-                const conditionIndex = parseInt(conditionIndexStr, 10)
-                const urls = await uploadMultipleFilesToStorageClient(
-                  "offer-documents",
-                  validFiles,
-                  tempOfferId,
-                  `condition-${conditionIndex}-attachments`,
-                )
-                uploadedAttachments[conditionIndex] = urls
-              }
-            }
-
-            processedFormData[questionId] = {
-              ...normalizedData,
-              conditionAttachmentUrls: uploadedAttachments,
-            }
-            delete processedFormData[questionId].conditionAttachments
-          } else {
-            // Even if no attachments, still normalize the data
-            processedFormData[questionId] = normalizedData
+            delete normalizedData.conditionAttachments
           }
+          if (normalizedData.conditionAttachmentUrls) {
+            delete normalizedData.conditionAttachmentUrls
+          }
+
+          // Upload files for custom condition attachments only
+          if (
+            normalizedData.customConditionAttachments &&
+            Array.isArray(normalizedData.customConditionAttachments)
+          ) {
+            const validFiles = normalizedData.customConditionAttachments.filter(
+              (f: any) => f instanceof File,
+            )
+
+            if (validFiles.length > 0 && isFileArray(validFiles)) {
+              const urls = await uploadMultipleFilesToStorageClient(
+                "offer-documents",
+                validFiles,
+                tempOfferId,
+                "custom-condition-attachments",
+              )
+              normalizedData.customConditionAttachmentUrls = urls
+            }
+            delete normalizedData.customConditionAttachments
+          }
+
+          processedFormData[questionId] = normalizedData
         }
 
         // Handle custom question file uploads
@@ -951,13 +1026,6 @@ export const OfferFormInteractiveView = ({
         )}
       </div>
 
-      {!isFirstPage && (
-        <Button variant="outline" onClick={handlePrevious} className="gap-2">
-          <ChevronLeft className="h-4 w-4" />
-          Previous
-        </Button>
-      )}
-
       {/* Questions */}
       <div className="space-y-0">
         {currentPage.questions.map((question, index) => {
@@ -1074,7 +1142,17 @@ export const OfferFormInteractiveView = ({
       </div>
 
       {/* Navigation / Submit */}
-      <div className="mt-8 flex items-center justify-between gap-4">
+      <div className="mt-4 flex flex-col items-center gap-4">
+        {!isFirstPage && (
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            className="w-1/2 gap-2"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </Button>
+        )}
         {!isLastPage ? (
           <Button
             type="button"
@@ -1083,7 +1161,7 @@ export const OfferFormInteractiveView = ({
               e.stopPropagation()
               handleNext()
             }}
-            className="mx-auto w-1/2 gap-2"
+            className="w-1/2 gap-2"
             style={{
               backgroundColor: brandingConfig?.buttonColor || undefined,
               color: brandingConfig?.buttonTextColor || undefined,
@@ -1096,7 +1174,7 @@ export const OfferFormInteractiveView = ({
           <Button
             size="lg"
             onClick={handleSubmit}
-            className="mx-auto w-1/2 gap-2"
+            className="w-1/2 gap-2"
             style={{
               backgroundColor: brandingConfig?.buttonColor || undefined,
               color: brandingConfig?.buttonTextColor || undefined,

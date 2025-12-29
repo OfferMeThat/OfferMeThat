@@ -6,7 +6,7 @@ import {
   SubjectToLoanApprovalData,
 } from "@/types/offerData"
 import { FileText } from "lucide-react"
-import { extractFileName } from "./fileHelpers"
+import { extractFileName, truncateFileName } from "./fileHelpers"
 import {
   normalizeDepositData,
   formatDepositAmount,
@@ -176,24 +176,41 @@ export function formatPurchaserData(
 
   // Handle single_field method
   if (method === "single_field") {
+    // Support both array format (new) and single URL string (backward compatibility)
+    const idFileUrls = dataObj.idFileUrls
+      ? Array.isArray(dataObj.idFileUrls)
+        ? dataObj.idFileUrls
+        : [dataObj.idFileUrls]
+      : dataObj.idFileUrl
+        ? [dataObj.idFileUrl]
+        : []
+
     return (
       <div className="space-y-3">
         <div>
           <p className="text-sm font-medium text-gray-500">Purchaser Name</p>
           <p className="text-base text-gray-900">{dataObj.name || "N/A"}</p>
         </div>
-        {dataObj.idFileUrl && (
+        {idFileUrls.length > 0 && (
           <div>
-            <p className="text-sm font-medium text-gray-500">ID Document</p>
-            <a
-              href={dataObj.idFileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
-            >
-              <FileText size={14} />
-              {extractFileName(dataObj.idFileUrl)}
-            </a>
+            <p className="text-sm font-medium text-gray-500">
+              ID Document{idFileUrls.length > 1 ? "s" : ""}
+            </p>
+            <div className="mt-1 space-y-1">
+              {idFileUrls.map((url: string, index: number) => (
+                <a
+                  key={index}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                  title={extractFileName(url)}
+                >
+                  <FileText size={14} />
+                  {truncateFileName(extractFileName(url))}
+                </a>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -202,15 +219,26 @@ export function formatPurchaserData(
 
   // Handle individual_names method
   if (method === "individual_names") {
-    const purchaserEntries: Array<{ key: string; nameData: any; idFileUrl?: string }> = []
-    
+    const purchaserEntries: Array<{
+      key: string
+      nameData: any
+      idFileUrls: string[]
+    }> = []
+
     // Collect purchasers from nameFields
     if (nameFields && typeof nameFields === "object") {
       Object.entries(nameFields).forEach(([key, nameData]: [string, any]) => {
+        // Support both array format (new) and single URL string (backward compatibility)
+        const fileUrls = idFileUrls?.[key]
+        const urlsArray = fileUrls
+          ? Array.isArray(fileUrls)
+            ? fileUrls
+            : [fileUrls]
+          : []
         purchaserEntries.push({
           key,
           nameData,
-          idFileUrl: idFileUrls?.[key],
+          idFileUrls: urlsArray,
         })
       })
     }
@@ -232,7 +260,7 @@ export function formatPurchaserData(
             <p className="text-sm font-medium text-gray-500">Purchasers</p>
             <div className="mt-2 space-y-3">
               {purchaserEntries.map((entry, index) => {
-                const { nameData, idFileUrl } = entry
+                const { nameData, idFileUrls } = entry
                 const fullName = [
                   nameData?.firstName,
                   !nameData?.skipMiddleName && nameData?.middleName,
@@ -264,17 +292,26 @@ export function formatPurchaserData(
                         Last Name: {nameData.lastName}
                       </p>
                     )}
-                    {idFileUrl && (
+                    {idFileUrls && idFileUrls.length > 0 && (
                       <div className="mt-2">
-                        <a
-                          href={idFileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
-                        >
-                          <FileText size={14} />
-                          {extractFileName(idFileUrl)}
-                        </a>
+                        <p className="text-sm font-medium text-gray-500">
+                          ID Document{idFileUrls.length > 1 ? "s" : ""}
+                        </p>
+                        <div className="mt-1 space-y-1">
+                          {idFileUrls.map((url: string, urlIndex: number) => (
+                            <a
+                              key={urlIndex}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                              title={extractFileName(url)}
+                            >
+                              <FileText size={14} />
+                              {truncateFileName(extractFileName(url))}
+                            </a>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -316,9 +353,10 @@ export function formatPurchaserData(
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                        title={extractFileName(purchaser.idFileUrl)}
                       >
                         <FileText size={14} />
-                        {extractFileName(purchaser.idFileUrl)}
+                        {truncateFileName(extractFileName(purchaser.idFileUrl))}
                       </a>
                     </div>
                   )}
@@ -359,9 +397,10 @@ export function formatPurchaserData(
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                        title={extractFileName(rep.idFileUrl)}
                       >
                         <FileText size={14} />
-                        {extractFileName(rep.idFileUrl)}
+                        {truncateFileName(extractFileName(rep.idFileUrl))}
                       </a>
                     </div>
                   )}
@@ -551,9 +590,10 @@ export function formatMessageToAgent(
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                  title={fileName}
                 >
                   <FileText size={14} />
-                  {fileName}
+                  {truncateFileName(fileName)}
                 </a>
               )
             })}
@@ -618,15 +658,17 @@ export function formatSubjectToLoanApproval(
   // Helper function to render file links
   const renderFileLink = (url: string, label?: string) => {
     const fileName = extractFileName(url)
+    const displayName = label || fileName
     return (
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+        title={displayName}
       >
         <FileText size={14} />
-        {label || fileName}
+        {truncateFileName(displayName)}
       </a>
     )
   }
@@ -762,6 +804,7 @@ export function formatSpecialConditions(
     selectedConditions?: number[]
     customCondition?: string
     conditionAttachmentUrls?: Record<number, string[]>
+    customConditionAttachmentUrls?: string[]
   }
 
   const conditions =
@@ -772,14 +815,20 @@ export function formatSpecialConditions(
 
   const selectedConditions = specialConditionsData.selectedConditions || []
   const customCondition = specialConditionsData.customCondition || ""
-  const conditionAttachmentUrls =
-    specialConditionsData.conditionAttachmentUrls || {}
+  // Note: conditionAttachmentUrls is deprecated - SUBMITTERS cannot upload files for predefined conditions
+  // Only customConditionAttachmentUrls are used
+  const customConditionAttachmentUrls =
+    specialConditionsData.customConditionAttachmentUrls || []
 
-  // Check if there are any attachments even without selected conditions
-  const hasAttachments = Object.keys(conditionAttachmentUrls).length > 0
+  // Check if there are any attachments (only custom condition attachments matter)
+  const hasAttachments = customConditionAttachmentUrls.length > 0
 
   // If no conditions selected, no custom condition, and no attachments, return null
-  if (selectedConditions.length === 0 && !customCondition && !hasAttachments) {
+  if (
+    selectedConditions.length === 0 &&
+    !customCondition &&
+    !hasAttachments
+  ) {
     return null
   }
 
@@ -792,8 +841,6 @@ export function formatSpecialConditions(
             const condition = conditions[conditionIndex]
             if (!condition) return null
 
-            const attachments = conditionAttachmentUrls[conditionIndex] || []
-
             return (
               <div key={conditionIndex} className="space-y-1">
                 <div>
@@ -804,106 +851,51 @@ export function formatSpecialConditions(
                     <p className="text-sm text-gray-600">{condition.details}</p>
                   )}
                 </div>
-                {/* Display attachments for this condition */}
-                {attachments.length > 0 && (
-                  <div className="ml-4 space-y-1">
-                    <p className="text-xs font-medium text-gray-600">
-                      Attachments:
-                    </p>
-                    <div className="flex flex-col gap-1">
-                      {attachments.map((url: string, attIdx: number) => {
-                        const fileName = extractFileName(url)
-                        return (
-                          <a
-                            key={attIdx}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 hover:underline"
-                          >
-                            <FileText size={12} />
-                            {fileName}
-                          </a>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
+                {/* Note: Setup attachments (from setupConfig.conditions[index].attachments) 
+                    are NOT shown in offer pages - they're reference documents only for the form */}
               </div>
             )
           })}
         </div>
       )}
 
-      {/* Show attachments for conditions that have attachments but weren't in selectedConditions */}
-      {Object.keys(conditionAttachmentUrls).length > 0 && (
-        <div className="space-y-2">
-          {Object.entries(conditionAttachmentUrls).map(
-            ([conditionIndexStr, attachments]) => {
-              const conditionIndex = parseInt(conditionIndexStr, 10)
-              // Only show if not already displayed in selectedConditions
-              if (selectedConditions.includes(conditionIndex)) return null
-
-              const condition = conditions[conditionIndex]
-              const attachmentArray = Array.isArray(attachments)
-                ? attachments
-                : []
-
-              if (attachmentArray.length === 0) return null
-
-              return (
-                <div key={conditionIndex} className="space-y-1">
-                  {condition && (
-                    <div>
-                      <span className="font-medium text-gray-700">
-                        {condition.name}
-                      </span>
-                      {condition.details && (
-                        <p className="text-sm text-gray-600">
-                          {condition.details}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {/* Display attachments */}
-                  <div className={condition ? "ml-4 space-y-1" : "space-y-1"}>
-                    <p className="text-xs font-medium text-gray-600">
-                      Attachments:
-                    </p>
-                    <div className="space-y-1">
-                      {attachmentArray.map((url: string, attIdx: number) => {
-                        const fileName = extractFileName(url)
-                        return (
-                          <a
-                            key={attIdx}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 hover:underline"
-                          >
-                            <FileText size={12} />
-                            {fileName}
-                          </a>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )
-            },
-          )}
-        </div>
-      )}
-
       {/* Custom condition */}
       {customCondition && (
-        <div className="border-t pt-2">
-          <p className="mb-1 text-sm font-medium text-gray-700">
-            Custom Condition:
-          </p>
-          <p className="text-sm whitespace-pre-wrap text-gray-900">
-            {customCondition}
-          </p>
+        <div className="border-t pt-2 space-y-2">
+          <div>
+            <p className="mb-1 text-sm font-medium text-gray-700">
+              Custom Condition:
+            </p>
+            <p className="text-sm whitespace-pre-wrap text-gray-900">
+              {customCondition}
+            </p>
+          </div>
+          {/* Display custom condition attachments */}
+          {customConditionAttachmentUrls.length > 0 && (
+            <div className="ml-4 space-y-1">
+              <p className="text-xs font-medium text-gray-600">
+                Attachments:
+              </p>
+              <div className="flex flex-col gap-1">
+                {customConditionAttachmentUrls.map((url: string, attIdx: number) => {
+                  const fileName = extractFileName(url)
+                  return (
+                    <a
+                      key={attIdx}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 hover:underline"
+                      title={fileName}
+                    >
+                      <FileText size={12} />
+                      {truncateFileName(fileName)}
+                    </a>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
