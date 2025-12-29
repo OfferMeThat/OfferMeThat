@@ -1,4 +1,5 @@
-import { getFormOwnerListings } from "@/app/actions/offerForm"
+import { getFormOwnerListings as getLeadFormOwnerListings } from "@/app/actions/leadForm"
+import { getFormOwnerListings as getOfferFormOwnerListings } from "@/app/actions/offerForm"
 import DepositPreview from "@/components/offerForm/DepositPreview"
 import { CurrencySelect } from "@/components/shared/CurrencySelect"
 import { FileUploadInput } from "@/components/shared/FileUploadInput"
@@ -808,16 +809,25 @@ export const QuestionRenderer = ({
   const [selectedListingId, setSelectedListingId] = useState<string>("")
   const [customAddress, setCustomAddress] = useState<string>("")
 
-  // Fetch listings for specifyListing question (even in editing mode for form builder)
+  // Fetch listings for specifyListing and listingInterest questions (even in editing mode for form builder)
   useEffect(() => {
-    if (question.type === "specifyListing") {
+    if (
+      question.type === "specifyListing" ||
+      question.type === "listingInterest"
+    ) {
       if (listings === null) {
         // Use ownerId if available (for public forms), otherwise use formId
         const idToUse = ownerId || formId
         const useOwnerId = !!ownerId
 
         if (idToUse) {
-          getFormOwnerListings(idToUse, isTestMode, useOwnerId)
+          // Use the appropriate function based on question type
+          const getListings =
+            question.type === "listingInterest"
+              ? getLeadFormOwnerListings
+              : getOfferFormOwnerListings
+
+          getListings(idToUse, isTestMode, useOwnerId)
             .then((ownerListings) => {
               setListings(ownerListings)
             })
@@ -883,10 +893,11 @@ export const QuestionRenderer = ({
       : "",
   )
 
-  // Sync specifyListing state with value prop
+  // Sync specifyListing and listingInterest state with value prop
   useEffect(() => {
     if (
-      question.type === "specifyListing" &&
+      (question.type === "specifyListing" ||
+        question.type === "listingInterest") &&
       value &&
       typeof value === "string"
     ) {
@@ -5003,28 +5014,131 @@ export const QuestionRenderer = ({
 
   // Listing Interest
   if (question.type === "listingInterest") {
-    return (
-      <div>
-        <div className="relative max-w-md">
-          <Input
-            type="text"
-            placeholder={uiConfig.placeholder || "Specify the listing here..."}
-            disabled={disabled}
-            className="w-full"
-            style={getInputStyle()}
-            value={(value as string) || ""}
-            onChange={(e) => {
-              onChange?.(e.target.value)
-            }}
-            onBlur={onBlur}
-            data-field-id={question.id}
-          />
-          {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Specify the listing here...",
-          )}
+    // In editing mode (form builder/customization), always show dropdown with example listings if no real listings
+    // In actual form, show text input if no listings, dropdown if listings exist
+    const hasRealListings = listings && listings.length > 0
+    const useExampleListings = editingMode && !hasRealListings
+
+    // Example listings for preview/customization
+    const exampleListings = [
+      { id: "example-1", address: "Example Listing 1" },
+      { id: "example-2", address: "Example Listing 2" },
+    ]
+
+    // Determine which listings to use
+    const displayListings = useExampleListings
+      ? exampleListings
+      : listings || []
+
+    // If not in editing mode and no listings, show simple text input
+    if (!editingMode && !hasRealListings) {
+      return (
+        <div>
+          <div className="relative max-w-md">
+            <Input
+              type="text"
+              placeholder={
+                uiConfig.placeholder || "Enter listing address or ID..."
+              }
+              disabled={disabled}
+              className="w-full"
+              style={getInputStyle()}
+              value={(value as string) || customAddress}
+              onChange={(e) => {
+                const newValue = e.target.value
+                setCustomAddress(newValue)
+                onChange?.(newValue)
+              }}
+              onBlur={onBlur}
+              data-field-id={question.id}
+            />
+          </div>
+          {renderError(error)}
         </div>
-        {renderError(error)}
+      )
+    }
+
+    // Show dropdown with listings (real or example) and "not here" option
+    // Input appears below when "custom" is selected
+    return (
+      <div className="space-y-3">
+        <div>
+          <Select
+            value={selectedListingId || (showCustomInput ? "custom" : "")}
+            onValueChange={(selectValue) => {
+              if (selectValue === "custom") {
+                setShowCustomInput(true)
+                setSelectedListingId("")
+                onChange?.("")
+              } else {
+                setSelectedListingId(selectValue)
+                setShowCustomInput(false)
+                setCustomAddress("")
+                // In editing mode with example listings, don't call onChange
+                // In actual form or with real listings, call onChange with the listing ID
+                if (!useExampleListings) {
+                  onChange?.(selectValue)
+                }
+              }
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger
+              className={cn("w-full max-w-md")}
+              style={getSelectStyle()}
+              data-field-id={question.id}
+            >
+              <SelectValue placeholder="Select a listing..." />
+            </SelectTrigger>
+            <SelectContent>
+              {displayListings.map((listing) => (
+                <SelectItem key={listing.id} value={listing.id}>
+                  {listing.address}
+                </SelectItem>
+              ))}
+              <SelectItem value="custom">
+                The Listing I want isn&apos;t here
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          {/* Show error for Select dropdown when not in custom input mode */}
+          {!showCustomInput && renderError(error)}
+        </div>
+        {showCustomInput && (
+          <div>
+            <div className="relative max-w-md">
+              <Input
+                type="text"
+                placeholder={uiConfig.placeholder || "Enter listing address..."}
+                disabled={disabled}
+                className={cn(editingMode && "cursor-not-allowed", "w-full")}
+                style={getInputStyle()}
+                value={customAddress}
+                onChange={(e) => {
+                  const newValue = e.target.value
+                  setCustomAddress(newValue)
+                  if (!editingMode) {
+                    onChange?.(newValue)
+                  }
+                }}
+                onBlur={onBlur}
+                data-field-id={question.id}
+              />
+              {renderEditOverlay(
+                "placeholder",
+                uiConfig.placeholder || "Enter listing address...",
+              )}
+            </div>
+            {renderError(error)}
+          </div>
+        )}
+        {/* Show explanatory text when using example listings in editing mode */}
+        {useExampleListings && (
+          <p className="text-sm text-gray-500">
+            If you have not added any active Listings, Buyers will specify a
+            Listing using text.
+          </p>
+        )}
       </div>
     )
   }
@@ -5074,6 +5188,7 @@ export const QuestionRenderer = ({
               onBlur={onBlur}
               data-field-id={`${question.id}_lastName`}
             />
+            {renderEditOverlay("lastNamePlaceholder", "Enter your last name")}
           </div>
         </div>
         {renderError(error)}
