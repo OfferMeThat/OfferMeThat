@@ -2,7 +2,7 @@
 
 import { Filters } from "@/components/listing/MyListingsPageContent"
 import { createClient } from "@/lib/supabase/server"
-import { ListingWithOfferCounts } from "@/types/listing"
+import { ListingStatus, ListingWithOfferCounts } from "@/types/listing"
 
 export async function getFilteredListings(
   filters: Filters,
@@ -24,17 +24,14 @@ export async function getFilteredListings(
     .eq("createdBy", user.id)
     .or("isTest.is.null,isTest.eq.false") // Excludes test listings
 
-  // Apply address filter
   if (filters.address) {
     query = query.ilike("address", `%${filters.address}%`)
   }
 
-  // Apply status filter (only if not null)
   if (filters.status) {
     query = query.eq("status", filters.status)
   }
 
-  // Apply date listed filter
   if (filters.dateListed.from) {
     query = query.gte("createdAt", filters.dateListed.from)
   }
@@ -49,15 +46,18 @@ export async function getFilteredListings(
     return null
   }
 
-  let filteredListings = listings.map((listing) => {
+  let filteredListings: ListingWithOfferCounts[] = listings.map((listing) => {
     const allOffers = listing.offers || []
     const offers = allOffers.filter((offer: any) => !offer.isTest)
     const leads = listing.leads || []
 
+    const { offers: _, ...listingWithoutOffers } = listing
+
     return {
-      ...listing,
+      ...listingWithoutOffers,
       activeOffers: offers.filter(
-        (offer: any) => offer.status === "verified" || offer.status === "active",
+        (offer: any) =>
+          offer.status === "verified" || offer.status === "active",
       ).length,
       pendingOffers: offers.filter(
         (offer: any) =>
@@ -65,13 +65,11 @@ export async function getFilteredListings(
       ).length,
       totalOffers: offers.length,
       leads: leads.length,
-      offers: undefined,
     }
-  }) as ListingWithOfferCounts[]
+  })
 
   // Apply client-side offer count filters (can't be done in SQL easily)
   filteredListings = filteredListings.filter((listing) => {
-    // Filter by pending offers
     if (filters.pendingOffers.from || filters.pendingOffers.to) {
       if (
         filters.pendingOffers.from &&
@@ -87,7 +85,6 @@ export async function getFilteredListings(
       }
     }
 
-    // Filter by active offers
     if (filters.activeOffers.from || filters.activeOffers.to) {
       if (
         filters.activeOffers.from &&
@@ -103,7 +100,6 @@ export async function getFilteredListings(
       }
     }
 
-    // Filter by total offers
     if (filters.totalOffers.from || filters.totalOffers.to) {
       if (
         filters.totalOffers.from &&
@@ -269,9 +265,19 @@ export async function updateListingsStatus(
       }
     }
 
+    const validStatuses: ListingStatus[] = [
+      "forSale",
+      "underContract",
+      "sold",
+      "withdrawn",
+      "unassigned",
+    ]
+    const validStatus: ListingStatus =
+      validStatuses.find((s) => s === status) || "forSale"
+
     const { data, error } = await supabase
       .from("listings")
-      .update({ status: status as any })
+      .update({ status: validStatus })
       .in("id", listingIds)
       .eq("createdBy", user.id)
       .select()
@@ -313,9 +319,17 @@ export async function updateListingsStatus(
   }
 }
 
-export async function getListingById(
-  listingId: string,
-): Promise<ListingWithOfferCounts & { sellers?: Array<{ fullName: string; email: string; phone: string; sendUpdateByEmail: boolean | null }> } | null> {
+export async function getListingById(listingId: string): Promise<
+  | (ListingWithOfferCounts & {
+      sellers?: Array<{
+        fullName: string
+        email: string
+        phone: string
+        sendUpdateByEmail: boolean | null
+      }>
+    })
+  | null
+> {
   const supabase = await createClient()
 
   const { data: listing, error } = await supabase
@@ -334,8 +348,10 @@ export async function getListingById(
   const leads = listing.leads || []
   const sellers = listing.listingSellers || []
 
+  const { offers: _, listingSellers: __, ...listingWithoutRelations } = listing
+
   return {
-    ...listing,
+    ...listingWithoutRelations,
     activeOffers: offers.filter(
       (offer: any) => offer.status === "verified" || offer.status === "active",
     ).length,
@@ -351,7 +367,5 @@ export async function getListingById(
       phone: seller.phone,
       sendUpdateByEmail: seller.sendUpdateByEmail,
     })),
-    offers: undefined,
-    listingSellers: undefined,
-  } as ListingWithOfferCounts & { sellers?: Array<{ fullName: string; email: string; phone: string; sendUpdateByEmail: boolean | null }> }
+  }
 }

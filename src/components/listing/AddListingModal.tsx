@@ -116,7 +116,7 @@ const sellerSchema = yup.object().shape({
         return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
       })
       .required("This number is invalid")
-  }) as unknown as yup.StringSchema,
+  }),
 })
 
 const validationSchema = yup.object().shape({
@@ -185,10 +185,19 @@ export const AddListingModal = ({
         .from("listings")
         .insert({
           address: formData.address,
-          status:
-            (Object.keys(LISTING_STATUSES) as ListingStatus[]).find(
+          status: (() => {
+            const statusKeys: ListingStatus[] = [
+              "forSale",
+              "underContract",
+              "sold",
+              "withdrawn",
+              "unassigned",
+            ]
+            const statusKey = statusKeys.find(
               (key) => LISTING_STATUSES[key] === formData.status,
-            ) || "forSale",
+            )
+            return statusKey || "forSale"
+          })(),
           createdBy: user.id,
         })
         .select()
@@ -580,9 +589,11 @@ export const AddListingModal = ({
               <Checkbox
                 id="email-updates"
                 checked={formData.sendEmailUpdates}
-                onCheckedChange={(checked) =>
-                  updateFormData("sendEmailUpdates", checked as boolean)
-                }
+                onCheckedChange={(checked) => {
+                  if (typeof checked === "boolean") {
+                    updateFormData("sendEmailUpdates", checked)
+                  }
+                }}
               />
               <Label
                 htmlFor="email-updates"
@@ -598,18 +609,20 @@ export const AddListingModal = ({
               id="add-seller"
               checked={formData.addSecondSeller}
               onCheckedChange={(checked) => {
-                updateFormData("addSecondSeller", checked as boolean)
-                // Clear seller2 errors when unchecking
-                if (!checked) {
-                  setErrors((prev) => {
-                    const newErrors = { ...prev }
-                    Object.keys(newErrors).forEach((key) => {
-                      if (key.startsWith("seller2.")) {
-                        delete newErrors[key]
-                      }
+                if (typeof checked === "boolean") {
+                  updateFormData("addSecondSeller", checked)
+                  // Clear seller2 errors when unchecking
+                  if (!checked) {
+                    setErrors((prev) => {
+                      const newErrors = { ...prev }
+                      Object.keys(newErrors).forEach((key) => {
+                        if (key.startsWith("seller2.")) {
+                          delete newErrors[key]
+                        }
+                      })
+                      return newErrors
                     })
-                    return newErrors
-                  })
+                  }
                 }
               }}
             />
@@ -749,9 +762,11 @@ export const AddListingModal = ({
                 <Checkbox
                   id="email-updates-seller2"
                   checked={formData.seller2.sendUpdateByEmail || false}
-                  onCheckedChange={(checked) =>
-                    updateSeller2("sendUpdateByEmail", checked as boolean)
-                  }
+                  onCheckedChange={(checked) => {
+                    if (typeof checked === "boolean") {
+                      updateSeller2("sendUpdateByEmail", checked)
+                    }
+                  }}
                 />
                 <Label
                   htmlFor="email-updates-seller2"
