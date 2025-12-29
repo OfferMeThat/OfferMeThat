@@ -135,10 +135,10 @@ const ListingListTableView = ({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                  {item.activeOffers ?? 0}
+                  {item.pendingOffers ?? 0}
                 </TableCell>
                 <TableCell className="text-center">
-                  {item.pendingOffers ?? 0}
+                  {item.activeOffers ?? 0}
                 </TableCell>
                 <TableCell className="text-center">
                   {item.totalOffers ?? 0}

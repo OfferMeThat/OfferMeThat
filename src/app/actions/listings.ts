@@ -54,15 +54,20 @@ export async function getFilteredListings(
 
   // Calculate offer counts and apply offer filters
   let filteredListings = listings.map((listing) => {
-    const offers = listing.offers || []
+    const allOffers = listing.offers || []
+    // Filter out test offers
+    const offers = allOffers.filter((offer: any) => !offer.isTest)
     const leads = listing.leads || []
 
     return {
       ...listing,
-      activeOffers: offers.filter((offer) => offer.status === "verified")
-        .length,
-      pendingOffers: offers.filter((offer) => offer.status === "unverified")
-        .length,
+      activeOffers: offers.filter(
+        (offer: any) => offer.status === "verified" || offer.status === "active",
+      ).length,
+      pendingOffers: offers.filter(
+        (offer: any) =>
+          offer.status === "unverified" || offer.status === "pending",
+      ).length,
       totalOffers: offers.length,
       leads: leads.length,
       offers: undefined,
@@ -337,15 +342,21 @@ export async function getListingById(
     return null
   }
 
-  const offers = listing.offers || []
+  const allOffers = listing.offers || []
+  // Filter out test offers
+  const offers = allOffers.filter((offer: any) => !offer.isTest)
   const leads = listing.leads || []
   const sellers = listing.listingSellers || []
 
   return {
     ...listing,
-    activeOffers: offers.filter((offer) => offer.status === "verified").length,
-    pendingOffers: offers.filter((offer) => offer.status === "unverified")
-      .length,
+    activeOffers: offers.filter(
+      (offer: any) => offer.status === "verified" || offer.status === "active",
+    ).length,
+    pendingOffers: offers.filter(
+      (offer: any) =>
+        offer.status === "unverified" || offer.status === "pending",
+    ).length,
     totalOffers: offers.length,
     leads: leads.length,
     sellers: sellers.map((seller: any) => ({
