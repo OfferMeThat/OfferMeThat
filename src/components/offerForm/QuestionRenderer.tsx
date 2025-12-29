@@ -5174,7 +5174,11 @@ export const QuestionRenderer = ({
           <div className="relative flex-1">
             <Input
               type="text"
-              placeholder="Enter your last name"
+              placeholder={getSubQuestionPlaceholder(
+                uiConfig,
+                "lastNamePlaceholder",
+                "Enter your last name",
+              )}
               disabled={disabled}
               className="w-full"
               style={getInputStyle()}
@@ -5188,7 +5192,14 @@ export const QuestionRenderer = ({
               onBlur={onBlur}
               data-field-id={`${question.id}_lastName`}
             />
-            {renderEditOverlay("lastNamePlaceholder", "Enter your last name")}
+            {renderEditOverlay(
+              "lastNamePlaceholder",
+              getSubQuestionPlaceholder(
+                uiConfig,
+                "lastNamePlaceholder",
+                "Enter your last name",
+              ),
+            )}
           </div>
         </div>
         {renderError(error)}
