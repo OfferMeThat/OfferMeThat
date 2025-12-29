@@ -933,8 +933,22 @@ export const movePageBreak = async (
     )
   }
 
-  // Validation: ensure we don't go beyond the last question
-  if (newBreakIndex >= allQuestions.length) {
+  // Validation: ensure we don't go beyond the last regular question (exclude submit button)
+  // breakIndex represents the question ORDER value after which the break occurs
+  // We need to compare against the maximum ORDER value, not the count of questions
+  const regularQuestions = allQuestions.filter(
+    (q) => q.type !== "submitButton",
+  )
+  
+  if (regularQuestions.length === 0) {
+    throw new Error("No regular questions found")
+  }
+  
+  // Find the maximum order value among regular questions
+  const maxRegularOrder = Math.max(...regularQuestions.map((q) => q.order))
+  
+  // Ensure there's at least one question after the break
+  if (newBreakIndex >= maxRegularOrder) {
     throw new Error(
       "Cannot move break: must have at least 1 question at the bottom",
     )
