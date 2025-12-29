@@ -189,7 +189,35 @@ const LeadDetailPage = ({
                     Opinion of Sale Price
                   </p>
                   <p className="text-base font-semibold text-gray-900">
-                    {lead.opinionOfSalePrice}
+                    {(() => {
+                      try {
+                        const parsed = JSON.parse(lead.opinionOfSalePrice)
+                        if (
+                          typeof parsed === "object" &&
+                          parsed !== null &&
+                          "amount" in parsed
+                        ) {
+                          const amount = parsed.amount
+                          const currency = parsed.currency || "USD"
+                          if (
+                            amount === "" ||
+                            amount === null ||
+                            amount === undefined
+                          ) {
+                            return "N/A"
+                          }
+                          const formattedAmount =
+                            typeof amount === "number"
+                              ? amount.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              : String(amount)
+                          return `${currency} ${formattedAmount}`
+                        }
+                      } catch {}
+                      return lead.opinionOfSalePrice
+                    })()}
                   </p>
                 </div>
               </div>

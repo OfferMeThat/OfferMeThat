@@ -57,10 +57,15 @@ export function transformFormDataToLead(
 
       case "tel":
         // Handle both object format (new) and string format (legacy)
-        if (typeof value === "object" && value !== null && "countryCode" in value) {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "countryCode" in value
+        ) {
           // Combine country code and number for database storage
           const phoneObj = value as { countryCode: string; number: string }
-          lead.submitterPhone = (phoneObj.countryCode || "") + (phoneObj.number || "")
+          lead.submitterPhone =
+            (phoneObj.countryCode || "") + (phoneObj.number || "")
         } else {
           // Legacy string format
           lead.submitterPhone = value as string
@@ -68,15 +73,21 @@ export function transformFormDataToLead(
         break
 
       case "areYouInterested":
-        lead.areYouInterested = value as Database["public"]["Enums"]["areYouInterested"]
+        lead.areYouInterested =
+          value as Database["public"]["Enums"]["areYouInterested"]
         break
 
       case "followAllListings":
-        lead.followAllListings = value as Database["public"]["Enums"]["followAllListings"]
+        lead.followAllListings =
+          value as Database["public"]["Enums"]["followAllListings"]
         break
 
       case "opinionOfSalePrice":
-        lead.opinionOfSalePrice = value as string
+        if (typeof value === "object" && value !== null && "amount" in value) {
+          lead.opinionOfSalePrice = JSON.stringify(value)
+        } else {
+          lead.opinionOfSalePrice = value as string
+        }
         break
 
       case "submitterRole":
@@ -89,11 +100,13 @@ export function transformFormDataToLead(
         } else if (roleValue === "buyers_agent") {
           roleValue = "buyersAgent"
         }
-        lead.submitterRole = roleValue as Database["public"]["Enums"]["submitterRole"]
+        lead.submitterRole =
+          roleValue as Database["public"]["Enums"]["submitterRole"]
         break
 
       case "captureFinanceLeads":
-        lead.financeInterest = value as Database["public"]["Enums"]["financeInterest"]
+        lead.financeInterest =
+          value as Database["public"]["Enums"]["financeInterest"]
         break
 
       case "messageToAgent":
@@ -148,4 +161,3 @@ export function transformFormDataToLead(
   // Return the lead with all required fields
   return lead as Database["public"]["Tables"]["leads"]["Insert"]
 }
-

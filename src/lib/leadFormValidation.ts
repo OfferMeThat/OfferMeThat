@@ -48,7 +48,11 @@ export const buildQuestionValidation = (
     case "tel":
       // Phone can be a string (legacy) or an object { countryCode: string, number: string }
       schema = yup.lazy((value) => {
-        if (typeof value === "object" && value !== null && "countryCode" in value) {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "countryCode" in value
+        ) {
           // New format: object with countryCode and number
           return yup.object().shape({
             countryCode: yup
@@ -91,9 +95,21 @@ export const buildQuestionValidation = (
       schema = yup.string()
       break
 
-    case "opinionOfSalePrice":
-      schema = yup.string().max(1000, "Maximum 1000 characters allowed")
+    case "opinionOfSalePrice": {
+      const opinionSetupConfig = question.setupConfig as
+        | Record<string, any>
+        | undefined
+      const opinionAnswerType = opinionSetupConfig?.answerType || "text"
+      if (opinionAnswerType === "number") {
+        schema = yup.object({
+          amount: yup.number().nullable().typeError("Amount must be a number"),
+          currency: yup.string().required("Currency is required"),
+        })
+      } else {
+        schema = yup.string().max(1000, "Maximum 1000 characters allowed")
+      }
       break
+    }
 
     case "messageToAgent":
       // messageToAgent can be a string (message only) or an object with { message: string, attachments: File[] }
@@ -163,7 +179,11 @@ export const buildQuestionValidation = (
               return isNaN(num) ? val : num
             })
             .test("is-number", "Please enter a valid number", (val) => {
-              return val === null || val === undefined || (typeof val === "number" && !isNaN(val))
+              return (
+                val === null ||
+                val === undefined ||
+                (typeof val === "number" && !isNaN(val))
+              )
             })
             .nullable()
           break
@@ -247,4 +267,3 @@ export const buildFormValidationSchema = (
 
   return yup.object().shape(shape)
 }
-
