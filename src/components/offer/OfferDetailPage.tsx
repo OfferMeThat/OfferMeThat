@@ -411,16 +411,10 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                   <div className="space-y-3">
                     <p className="text-base font-semibold text-gray-900">
                       Purchase Agreement
-                      {purchaseAgreementUrls.length > 1 &&
-                        ` (${purchaseAgreementUrls.length} files)`}
                     </p>
                     <div className="flex flex-col gap-1 pl-4">
                       {purchaseAgreementUrls.map((url, index) => {
                         const fileName = extractFileName(url)
-                        const displayName =
-                          purchaseAgreementUrls.length > 1
-                            ? `${fileName} (File ${index + 1})`
-                            : fileName
                         return (
                           <a
                             key={index}
@@ -428,10 +422,10 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 hover:underline"
-                            title={displayName}
+                            title={fileName}
                           >
                             <FileText size={16} />
-                            {truncateFileName(displayName)}
+                            {truncateFileName(fileName)}
                           </a>
                         )
                       })}
@@ -526,30 +520,61 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                               // Check if it contains markdown-style links
                               question.formattedValue.includes("[") &&
                               question.formattedValue.includes("](") ? (
-                                <div className="whitespace-pre-wrap">
-                                  {question.formattedValue
-                                    .split(/(\[.*?\]\(.*?\))/g)
-                                    .map((part, i) => {
-                                      const linkMatch =
-                                        part.match(/\[(.*?)\]\((.*?)\)/)
-                                      if (linkMatch) {
-                                        const [, text, url] = linkMatch
-                                        return (
-                                          <a
-                                            key={i}
-                                            href={url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
-                                          >
-                                            <FileText size={14} />
-                                            {text}
-                                          </a>
+                                // Check if it's a file upload question (multiple links separated by commas)
+                                question.answerType === "file_upload" ||
+                                question.answerType === "uploadFiles" ? (
+                                  <div className="flex flex-col gap-1">
+                                    {question.formattedValue
+                                      .split(/,\s*/)
+                                      .map((linkStr, i) => {
+                                        const linkMatch = linkStr.match(
+                                          /\[(.*?)\]\((.*?)\)/,
                                         )
-                                      }
-                                      return <span key={i}>{part}</span>
-                                    })}
-                                </div>
+                                        if (linkMatch) {
+                                          const [, text, url] = linkMatch
+                                          return (
+                                            <a
+                                              key={i}
+                                              href={url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
+                                            >
+                                              <FileText size={14} />
+                                              {text}
+                                            </a>
+                                          )
+                                        }
+                                        return null
+                                      })
+                                      .filter(Boolean)}
+                                  </div>
+                                ) : (
+                                  <div className="whitespace-pre-wrap">
+                                    {question.formattedValue
+                                      .split(/(\[.*?\]\(.*?\))/g)
+                                      .map((part, i) => {
+                                        const linkMatch =
+                                          part.match(/\[(.*?)\]\((.*?)\)/)
+                                        if (linkMatch) {
+                                          const [, text, url] = linkMatch
+                                          return (
+                                            <a
+                                              key={i}
+                                              href={url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
+                                            >
+                                              <FileText size={14} />
+                                              {text}
+                                            </a>
+                                          )
+                                        }
+                                        return <span key={i}>{part}</span>
+                                      })}
+                                  </div>
+                                )
                               ) : (
                                 <p className="whitespace-pre-wrap">
                                   {question.formattedValue}

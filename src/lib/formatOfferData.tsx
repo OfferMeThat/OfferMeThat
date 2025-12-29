@@ -196,7 +196,7 @@ export function formatPurchaserData(
             <p className="text-sm font-medium text-gray-500">
               ID Document{idFileUrls.length > 1 ? "s" : ""}
             </p>
-            <div className="mt-1 space-y-1">
+            <div className="mt-1 flex flex-col gap-1">
               {idFileUrls.map((url: string, index: number) => (
                 <a
                   key={index}
@@ -297,7 +297,7 @@ export function formatPurchaserData(
                         <p className="text-sm font-medium text-gray-500">
                           ID Document{idFileUrls.length > 1 ? "s" : ""}
                         </p>
-                        <div className="mt-1 space-y-1">
+                        <div className="mt-1 flex flex-col gap-1">
                           {idFileUrls.map((url: string, urlIndex: number) => (
                             <a
                               key={urlIndex}
@@ -580,7 +580,7 @@ export function formatMessageToAgent(
       {attachmentUrls && attachmentUrls.length > 0 && (
         <div>
           <p className="text-sm font-medium text-gray-500">Attachments</p>
-          <div className="mt-1 space-y-1">
+          <div className="mt-1 flex flex-col gap-1">
             {attachmentUrls.map((url: string, index: number) => {
               const fileName = extractFileName(url)
               return (
