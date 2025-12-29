@@ -20,7 +20,9 @@ const formatSubmitterRole = (role: string | null | undefined): string => {
     .join(" ")
 }
 
-const formatAreYouInterested = (interested: string | null | undefined): string => {
+const formatAreYouInterested = (
+  interested: string | null | undefined,
+): string => {
   if (!interested) return "N/A"
   if (interested === "yesVeryInterested") return "Yes, very interested"
   if (interested === "yes") return "Yes"
@@ -34,7 +36,8 @@ const formatAreYouInterested = (interested: string | null | undefined): string =
 
 const formatFollowAllListings = (follow: string | null | undefined): string => {
   if (!follow) return "N/A"
-  if (follow === "thisAndFuture") return "Yes, follow this listing and all future listings"
+  if (follow === "thisAndFuture")
+    return "Yes, follow this listing and all future listings"
   if (follow === "thisOnly") return "Yes, follow this listing only"
   return follow
     .split(/(?=[A-Z])/)
@@ -65,7 +68,6 @@ const formatDate = (dateString: string): string => {
   })
 }
 
-
 /**
  * Gets field value for a lead
  */
@@ -93,7 +95,30 @@ const getFieldValue = (
     case "followAllListings":
       return formatFollowAllListings(lead.followAllListings)
     case "opinionOfSalePrice":
-      return lead.opinionOfSalePrice || "N/A"
+      if (!lead.opinionOfSalePrice) return "N/A"
+      try {
+        const parsed = JSON.parse(lead.opinionOfSalePrice)
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "amount" in parsed
+        ) {
+          const amount = parsed.amount
+          const currency = parsed.currency || "USD"
+          if (amount === "" || amount === null || amount === undefined) {
+            return "N/A"
+          }
+          const formattedAmount =
+            typeof amount === "number"
+              ? amount.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })
+              : String(amount)
+          return `${currency} ${formattedAmount}`
+        }
+      } catch {}
+      return lead.opinionOfSalePrice
     case "buyerAgentName":
       return lead.buyerAgentName || "N/A"
     case "buyerAgentEmail":
@@ -136,7 +161,6 @@ const getFieldLabel = (fieldKey: LeadReportFieldKey): string => {
   }
   return labels[fieldKey] || fieldKey
 }
-
 
 /**
  * Draws a card for a lead
@@ -380,4 +404,3 @@ export const generateLeadReportPDF = (
   const filename = `leads-report-${dateString}.pdf`
   doc.save(filename)
 }
-

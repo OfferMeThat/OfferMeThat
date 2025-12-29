@@ -255,7 +255,29 @@ const LeadReportGenerationModal = ({
                               )
                               break
                             case "opinionOfSalePrice":
-                              cellContent = lead.opinionOfSalePrice || "N/A"
+                              if (!lead.opinionOfSalePrice) {
+                                cellContent = "N/A"
+                              } else {
+                                try {
+                                  const parsed = JSON.parse(lead.opinionOfSalePrice)
+                                  if (typeof parsed === "object" && parsed !== null && "amount" in parsed) {
+                                    const amount = parsed.amount
+                                    const currency = parsed.currency || "USD"
+                                    if (amount === "" || amount === null || amount === undefined) {
+                                      cellContent = "N/A"
+                                    } else {
+                                      const formattedAmount = typeof amount === "number" 
+                                        ? amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        : String(amount)
+                                      cellContent = `${currency} ${formattedAmount}`
+                                    }
+                                  } else {
+                                    cellContent = lead.opinionOfSalePrice
+                                  }
+                                } catch {
+                                  cellContent = lead.opinionOfSalePrice
+                                }
+                              }
                               break
                             case "buyerAgentName":
                               cellContent = lead.buyerAgentName || "N/A"
