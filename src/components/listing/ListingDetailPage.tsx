@@ -213,7 +213,7 @@ const ListingDetailPage = ({
                       </div>
                     )}
                   </div>
-                  {index < listing.sellers.length - 1 && (
+                  {listing.sellers && index < listing.sellers.length - 1 && (
                     <div className="h-px bg-gray-200" />
                   )}
                 </div>
