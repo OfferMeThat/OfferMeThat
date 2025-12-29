@@ -23,12 +23,14 @@ type OffersViewFiltersProps = {
   filters: Filters
   setFilters: Dispatch<SetStateAction<Filters>>
   listings: Listing[] | null
+  isTestMode?: boolean
 }
 
 const OffersViewFilters = ({
   filters,
   setFilters,
   listings,
+  isTestMode = false,
 }: OffersViewFiltersProps) => {
   const [showMore, setShowMore] = useState(false)
 
@@ -119,11 +121,21 @@ const OffersViewFilters = ({
             <SelectContent className="max-h-64">
               <SelectGroup>
                 <SelectItem value="all">All Properties</SelectItem>
-                {listings?.map((listing) => (
-                  <SelectItem key={listing.id} value={listing.id}>
-                    {listing.address}
-                  </SelectItem>
-                ))}
+                {listings
+                  ?.filter((listing) => {
+                    if (isTestMode) {
+                      // For test offers: show only test listings
+                      return listing.isTest === true
+                    } else {
+                      // For regular offers: show only real listings (address = "Some listing address")
+                      return listing.address === "Some listing address"
+                    }
+                  })
+                  .map((listing) => (
+                    <SelectItem key={listing.id} value={listing.id}>
+                      {listing.address}
+                    </SelectItem>
+                  ))}
               </SelectGroup>
             </SelectContent>
           </Select>
