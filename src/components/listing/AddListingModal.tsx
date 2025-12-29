@@ -327,10 +327,10 @@ export const AddListingModal = ({
             // For nested phone errors (e.g., seller1.mobile.countryCode, seller1.mobile.number),
             // show error at the parent field level (seller1.mobile)
             const pathParts = error.path.split(".")
+            const lastPathPart = pathParts[pathParts.length - 1]
             if (
               pathParts.length > 2 &&
-              (pathParts[pathParts.length - 1] === "countryCode" ||
-                pathParts[pathParts.length - 1] === "number")
+              (lastPathPart === "countryCode" || lastPathPart === "number")
             ) {
               // This is a nested phone error, use the parent path (e.g., seller1.mobile)
               const parentPath = pathParts.slice(0, -1).join(".")
