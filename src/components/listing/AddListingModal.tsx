@@ -40,6 +40,7 @@ interface SellerData {
   lastName: string
   email: string
   mobile: string | { countryCode: string; number: string }
+  sendUpdateByEmail?: boolean
 }
 
 interface FormData {
@@ -267,7 +268,7 @@ export const AddListingModal = ({
             fullName: seller2FullName,
             email: formData.seller2.email,
             phone: seller2Phone,
-            sendUpdateByEmail: false,
+            sendUpdateByEmail: formData.seller2.sendUpdateByEmail || false,
             listingId: newListing.id,
           })
           .select()
@@ -397,7 +398,7 @@ export const AddListingModal = ({
 
   const updateSeller2 = (
     field: keyof SellerData,
-    value: string | { countryCode: string; number: string },
+    value: string | { countryCode: string; number: string } | boolean,
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -742,6 +743,22 @@ export const AddListingModal = ({
                     {errors["seller2.mobile"]}
                   </p>
                 )}
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="email-updates-seller2"
+                  checked={formData.seller2.sendUpdateByEmail || false}
+                  onCheckedChange={(checked) =>
+                    updateSeller2("sendUpdateByEmail", checked as boolean)
+                  }
+                />
+                <Label
+                  htmlFor="email-updates-seller2"
+                  className="cursor-pointer text-sm font-normal"
+                >
+                  Send automatic updates by email
+                </Label>
               </div>
             </div>
           )}
