@@ -1,8 +1,9 @@
 "use client"
 
 import { Filters } from "@/components/offer/MyOffersPageContent"
-import { OfferStatus } from "@/types/offer"
 import { Listing } from "@/types/listing"
+import { OfferStatus } from "@/types/offer"
+import { ChevronUp } from "lucide-react"
 import { Dispatch, SetStateAction, useState } from "react"
 import { OFFER_STATUSES } from "../../constants/offers"
 import DatePicker from "../shared/forms/DatePicker"
@@ -17,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select"
-import { ChevronUp } from "lucide-react"
 
 type OffersViewFiltersProps = {
   filters: Filters
@@ -108,7 +108,7 @@ const OffersViewFilters = ({
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label>All Properties</Label>
+          <Label>Properties</Label>
           <Select
             value={filters.listingId || "all"}
             onValueChange={(value) =>
@@ -126,7 +126,7 @@ const OffersViewFilters = ({
                     if (isTestMode) {
                       return listing.isTest === true
                     } else {
-                      return listing.address === "Some listing address"
+                      return listing.isTest !== true
                     }
                   })
                   .map((listing) => (
@@ -169,7 +169,9 @@ const OffersViewFilters = ({
                 placeholder="Min amount"
                 className="max-w-64"
                 value={filters.minAmount || ""}
-                onChange={(e) => handleAmountChange("minAmount", e.target.value)}
+                onChange={(e) =>
+                  handleAmountChange("minAmount", e.target.value)
+                }
               />
             </div>
 
@@ -180,7 +182,9 @@ const OffersViewFilters = ({
                 placeholder="Max amount"
                 className="max-w-64"
                 value={filters.maxAmount || ""}
-                onChange={(e) => handleAmountChange("maxAmount", e.target.value)}
+                onChange={(e) =>
+                  handleAmountChange("maxAmount", e.target.value)
+                }
               />
             </div>
 
@@ -231,4 +235,3 @@ const OffersViewFilters = ({
 }
 
 export default OffersViewFilters
-
