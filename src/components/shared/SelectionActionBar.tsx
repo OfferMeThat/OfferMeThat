@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils"
 import { FileSpreadsheet, Link2, MessageSquare, Trash2, X } from "lucide-react"
 import { useState } from "react"
+import { toast } from "sonner"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +35,7 @@ export type SelectionActionBarProps = {
   itemType?: "offers" | "listings" | "leads"
   showMessageButton?: boolean
   onAssignToListing?: (listingId: string) => Promise<void>
-  listings?: Array<{ id: string; address: string }>
+  listings?: Array<{ id: string; address: string; isTest?: boolean | null }>
 }
 
 const SelectionActionBar = ({
@@ -103,6 +104,19 @@ const SelectionActionBar = ({
   }
 
   const itemName = selectedCount === 1 ? itemType.slice(0, -1) : itemType
+
+  // Filter out test listings - only show real listings (isTest !== true)
+  const realListings = listings.filter(
+    (listing) => listing.isTest !== true,
+  )
+
+  const handleAssignButtonClick = () => {
+    if (realListings.length === 0) {
+      toast.error("You have no listings to assign to. Please create a listing first.")
+      return
+    }
+    setShowAssignDialog(true)
+  }
 
   return (
     <>
@@ -177,11 +191,11 @@ const SelectionActionBar = ({
               </Button>
             )}
 
-            {onAssignToListing && listings.length > 0 && (
+            {onAssignToListing && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowAssignDialog(true)}
+                onClick={handleAssignButtonClick}
                 className="gap-2"
               >
                 <Link2 size={16} />
@@ -243,7 +257,7 @@ const SelectionActionBar = ({
                 <SelectValue placeholder="Select a listing..." />
               </SelectTrigger>
               <SelectContent>
-                {listings.map((listing) => (
+                {realListings.map((listing) => (
                   <SelectItem key={listing.id} value={listing.id}>
                     {listing.address}
                   </SelectItem>

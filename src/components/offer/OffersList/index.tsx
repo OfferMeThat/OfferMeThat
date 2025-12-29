@@ -28,7 +28,11 @@ const OffersList = ({
   offers: Array<OfferWithListing> | null
   onOffersUpdate?: (offers: Array<OfferWithListing> | null) => void
   onViewModeChange?: (mode: "table" | "tile") => void
-  listings?: Array<{ id: string; address: string }> | null
+  listings?: Array<{
+    id: string
+    address: string
+    isTest?: boolean | null
+  }> | null
   isUnassigned?: boolean
   onAssignSuccess?: () => void
   isTestMode?: boolean
