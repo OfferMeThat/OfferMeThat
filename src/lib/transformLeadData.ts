@@ -125,19 +125,39 @@ export function transformFormDataToLead(
         break
 
       case "custom":
-        // Store custom question data
-        const setupConfig = (question.setupConfig as Record<string, any>) || {}
-        const answerType = setupConfig.answer_type
-
         if (!lead.customQuestionsData) {
           lead.customQuestionsData = {}
         }
+        const setupConfig = (question.setupConfig as Record<string, any>) || {}
+        const uiConfig = (question.uiConfig as Record<string, any>) || {}
+        const questionText =
+          setupConfig.question_text || uiConfig.label || "Custom Question"
+        const answerType = setupConfig.answer_type
 
-        // Transform value based on answer type
         let transformedValue = value
         if (answerType === "number" || answerType === "number_amount") {
-          if (typeof value === "string") {
-            // Convert string to number
+          const numberType = setupConfig.number_type
+          if (
+            numberType === "money" &&
+            typeof value === "object" &&
+            value !== null
+          ) {
+            const amountValue = (value as any).amount
+            if (typeof amountValue === "string") {
+              const parsed = parseFloat(amountValue.trim())
+              transformedValue = {
+                ...value,
+                amount: isNaN(parsed) ? 0 : parsed,
+                currency: (value as any).currency || "USD",
+              }
+            } else if (typeof amountValue === "number") {
+              transformedValue = {
+                ...value,
+                amount: amountValue,
+                currency: (value as any).currency || "USD",
+              }
+            }
+          } else if (typeof value === "string") {
             const parsed = parseFloat(value.trim())
             transformedValue = isNaN(parsed) ? null : parsed
           } else if (typeof value === "number") {
@@ -147,6 +167,7 @@ export function transformFormDataToLead(
 
         const customData = lead.customQuestionsData as Record<string, any>
         customData[question.id] = {
+          questionText,
           answerType,
           value: transformedValue,
         }
