@@ -120,6 +120,7 @@ const MyOffersPageContent = ({
         filters={filters}
         setFilters={setFilters}
         listings={initialListings}
+        isTestMode={isTestMode}
       />
 
       {isPending ? (

@@ -8,4 +8,5 @@ export type ListingWithOfferCounts = Listing & {
   activeOffers: number
   pendingOffers: number
   totalOffers: number
+  leads: number
 }

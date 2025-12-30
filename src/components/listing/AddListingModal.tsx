@@ -40,6 +40,7 @@ interface SellerData {
   lastName: string
   email: string
   mobile: string | { countryCode: string; number: string }
+  sendUpdateByEmail?: boolean
 }
 
 interface FormData {
@@ -94,36 +95,28 @@ const sellerSchema = yup.object().shape({
         number: yup
           .string()
           .matches(/^[0-9\s\-\(\)]+$/, "This number is invalid")
-          .test(
-            "phone-format",
-            "This number is invalid",
-            (val) => {
-              if (!val || typeof val !== "string") return false
-              // Remove spaces, dashes, and parentheses for validation
-              const cleaned = val.replace(/[\s\-\(\)]/g, "")
-              // Minimum 4 digits (shortest valid phone numbers globally)
-              return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
-            },
-          )
+          .test("phone-format", "This number is invalid", (val) => {
+            if (!val || typeof val !== "string") return false
+            // Remove spaces, dashes, and parentheses for validation
+            const cleaned = val.replace(/[\s\-\(\)]/g, "")
+            // Minimum 4 digits (shortest valid phone numbers globally)
+            return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
+          })
           .required("This number is invalid"),
       })
     }
     return yup
       .string()
       .matches(/^\+?[0-9\s\-\(\)]+$/, "This number is invalid")
-      .test(
-        "phone-format",
-        "This number is invalid",
-        (val) => {
-          if (!val || typeof val !== "string") return false
-          // Remove spaces, dashes, and parentheses for validation
-          const cleaned = val.replace(/[\s\-\(\)]/g, "")
-          // Minimum 4 digits (shortest valid phone numbers globally)
-          return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
-        },
-      )
+      .test("phone-format", "This number is invalid", (val) => {
+        if (!val || typeof val !== "string") return false
+        // Remove spaces, dashes, and parentheses for validation
+        const cleaned = val.replace(/[\s\-\(\)]/g, "")
+        // Minimum 4 digits (shortest valid phone numbers globally)
+        return /^[0-9]+$/.test(cleaned) && cleaned.length >= 4
+      })
       .required("This number is invalid")
-  }) as unknown as yup.StringSchema,
+  }),
 })
 
 const validationSchema = yup.object().shape({
@@ -192,10 +185,19 @@ export const AddListingModal = ({
         .from("listings")
         .insert({
           address: formData.address,
-          status:
-            (Object.keys(LISTING_STATUSES) as ListingStatus[]).find(
+          status: (() => {
+            const statusKeys: ListingStatus[] = [
+              "forSale",
+              "underContract",
+              "sold",
+              "withdrawn",
+              "unassigned",
+            ]
+            const statusKey = statusKeys.find(
               (key) => LISTING_STATUSES[key] === formData.status,
-            ) || "forSale",
+            )
+            return statusKey || "forSale"
+          })(),
           createdBy: user.id,
         })
         .select()
@@ -233,6 +235,7 @@ export const AddListingModal = ({
           email: formData.seller1.email,
           phone: seller1Phone,
           sendUpdateByEmail: formData.sendEmailUpdates,
+          listingId: newListing.id,
         })
         .select()
         .single()
@@ -274,7 +277,8 @@ export const AddListingModal = ({
             fullName: seller2FullName,
             email: formData.seller2.email,
             phone: seller2Phone,
-            sendUpdateByEmail: false,
+            sendUpdateByEmail: formData.seller2.sendUpdateByEmail || false,
+            listingId: newListing.id,
           })
           .select()
           .single()
@@ -323,7 +327,11 @@ export const AddListingModal = ({
             // For nested phone errors (e.g., seller1.mobile.countryCode, seller1.mobile.number),
             // show error at the parent field level (seller1.mobile)
             const pathParts = error.path.split(".")
-            if (pathParts.length > 2 && (pathParts[pathParts.length - 1] === "countryCode" || pathParts[pathParts.length - 1] === "number")) {
+            const lastPathPart = pathParts[pathParts.length - 1]
+            if (
+              pathParts.length > 2 &&
+              (lastPathPart === "countryCode" || lastPathPart === "number")
+            ) {
               // This is a nested phone error, use the parent path (e.g., seller1.mobile)
               const parentPath = pathParts.slice(0, -1).join(".")
               if (!validationErrors[parentPath]) {
@@ -399,7 +407,7 @@ export const AddListingModal = ({
 
   const updateSeller2 = (
     field: keyof SellerData,
-    value: string | { countryCode: string; number: string },
+    value: string | { countryCode: string; number: string } | boolean,
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -581,9 +589,11 @@ export const AddListingModal = ({
               <Checkbox
                 id="email-updates"
                 checked={formData.sendEmailUpdates}
-                onCheckedChange={(checked) =>
-                  updateFormData("sendEmailUpdates", checked as boolean)
-                }
+                onCheckedChange={(checked) => {
+                  if (typeof checked === "boolean") {
+                    updateFormData("sendEmailUpdates", checked)
+                  }
+                }}
               />
               <Label
                 htmlFor="email-updates"
@@ -599,18 +609,20 @@ export const AddListingModal = ({
               id="add-seller"
               checked={formData.addSecondSeller}
               onCheckedChange={(checked) => {
-                updateFormData("addSecondSeller", checked as boolean)
-                // Clear seller2 errors when unchecking
-                if (!checked) {
-                  setErrors((prev) => {
-                    const newErrors = { ...prev }
-                    Object.keys(newErrors).forEach((key) => {
-                      if (key.startsWith("seller2.")) {
-                        delete newErrors[key]
-                      }
+                if (typeof checked === "boolean") {
+                  updateFormData("addSecondSeller", checked)
+                  // Clear seller2 errors when unchecking
+                  if (!checked) {
+                    setErrors((prev) => {
+                      const newErrors = { ...prev }
+                      Object.keys(newErrors).forEach((key) => {
+                        if (key.startsWith("seller2.")) {
+                          delete newErrors[key]
+                        }
+                      })
+                      return newErrors
                     })
-                    return newErrors
-                  })
+                  }
                 }
               }}
             />
@@ -744,6 +756,24 @@ export const AddListingModal = ({
                     {errors["seller2.mobile"]}
                   </p>
                 )}
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="email-updates-seller2"
+                  checked={formData.seller2.sendUpdateByEmail || false}
+                  onCheckedChange={(checked) => {
+                    if (typeof checked === "boolean") {
+                      updateSeller2("sendUpdateByEmail", checked)
+                    }
+                  }}
+                />
+                <Label
+                  htmlFor="email-updates-seller2"
+                  className="cursor-pointer text-sm font-normal"
+                >
+                  Send automatic updates by email
+                </Label>
               </div>
             </div>
           )}
