@@ -23,11 +23,17 @@ export function transformFormDataToLead(
   // Process each question's data
   questions.forEach((question) => {
     const value = formData[question.id]
+    // Skip empty values, but allow false for boolean fields (like submitButton/termsAccepted)
     if (value === null || value === undefined || value === "") {
       return // Skip empty values
     }
 
     switch (question.type) {
+      case "submitButton":
+        // Store termsAccepted boolean value (always true due to validation, but handle explicitly)
+        lead.termsAccepted = value as boolean
+        return // Early return since submitButton doesn't need further processing
+
       case "listingInterest":
         // Can be listing ID (UUID) or custom address (string)
         if (typeof value === "string") {

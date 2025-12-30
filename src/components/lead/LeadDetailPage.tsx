@@ -1,5 +1,6 @@
 "use client"
 
+import { QUESTION_TYPE_TO_LABEL } from "@/constants/leadFormQuestions"
 import {
   formatAreYouInterested,
   formatFinanceInterest,
@@ -9,7 +10,8 @@ import {
   getRoleBadgeVariant,
 } from "@/lib/formatLeadData"
 import { formatFormDataField } from "@/lib/formatLeadFormData"
-import { parseAllCustomQuestions } from "@/lib/parseCustomQuestionsData"
+import { parseCustomQuestion } from "@/lib/parseCustomQuestionsData"
+import { QuestionType } from "@/types/form"
 import { LeadWithListing } from "@/types/lead"
 import { Database } from "@/types/supabase"
 import {
@@ -87,10 +89,48 @@ const LeadDetailPage = ({
     lead.listingId &&
     lead.customListingAddress === null
 
-  // Parse custom questions data
-  const parsedCustomQuestions = parseAllCustomQuestions(
-    lead.customQuestionsData as any,
-  )
+  const customQuestionsData = lead.customQuestionsData as
+    | Record<
+        string,
+        {
+          answerType: string
+          value: any
+        }
+      >
+    | null
+    | undefined
+
+  const parsedCustomQuestions =
+    questions && customQuestionsData
+      ? Object.entries(customQuestionsData)
+          .map(([questionId, questionData]) => {
+            const question = questions.find((q) => q.id === questionId)
+            if (!question || !questionData || !questionData.value) return null
+
+            const uiConfig = (question.uiConfig as Record<string, any>) || {}
+            const setupConfig =
+              (question.setupConfig as Record<string, any>) || {}
+            const questionText =
+              uiConfig.label || setupConfig.question_text || "Custom Question"
+
+            try {
+              const parsed = parseCustomQuestion(questionId, {
+                questionText,
+                answerType: questionData.answerType,
+                value: questionData.value,
+              })
+              return parsed
+            } catch (e) {
+              return {
+                questionText,
+                answerType: questionData.answerType,
+                formattedValue: String(questionData.value),
+                rawValue: questionData.value,
+              }
+            }
+          })
+          .filter((q): q is NonNullable<typeof q> => q !== null)
+      : []
 
   return (
     <main className="px-6 py-8">
@@ -380,70 +420,32 @@ const LeadDetailPage = ({
         )}
 
         {/* Finance Information (if applicable) */}
-        {lead.financeInterest === "yes" && (
+        {lead.financeInterest && (
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-md md:col-span-2">
             <Heading as="h2" size="medium" weight="bold" className="mb-4">
               Finance Information
             </Heading>
             <div className="space-y-4">
-              {lead.financeInterest && (
-                <div className="flex items-start gap-3">
-                  <DollarSign className="mt-1 h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">
-                      Finance Interest
-                    </p>
-                    <Badge variant="secondary" className="mt-1">
-                      {formatFinanceInterest(lead.financeInterest)}
-                    </Badge>
-                  </div>
-                </div>
-              )}
-              {/* Finance setup info might be in customQuestionsData or formData */}
-              {(lead.customQuestionsData as any)?.financeSetup && (
+              <div className="flex items-start gap-3">
+                <DollarSign className="mt-1 h-5 w-5 text-gray-400" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">
-                    Finance Setup
+                    Finance Interest
                   </p>
-                  <p className="text-base font-semibold text-gray-900 capitalize">
-                    {(lead.customQuestionsData as any).financeSetup
-                      .replace(/([A-Z])/g, " $1")
-                      .trim()}
-                  </p>
+                  <Badge variant="secondary" className="mt-1">
+                    {formatFinanceInterest(lead.financeInterest)}
+                  </Badge>
                 </div>
-              )}
-              {(lead.customQuestionsData as any)?.referralPartnerEmail && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">
-                    Referral Partner Email
-                  </p>
-                  <a
-                    href={`mailto:${(lead.customQuestionsData as any).referralPartnerEmail}`}
-                    className="text-base font-semibold text-teal-600 hover:text-teal-700 hover:underline"
-                  >
-                    {(lead.customQuestionsData as any).referralPartnerEmail}
-                  </a>
-                </div>
-              )}
-              {(lead.customQuestionsData as any)?.leadRecipientEmail && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">
-                    Lead Recipient Email
-                  </p>
-                  <a
-                    href={`mailto:${(lead.customQuestionsData as any).leadRecipientEmail}`}
-                    className="text-base font-semibold text-teal-600 hover:text-teal-700 hover:underline"
-                  >
-                    {(lead.customQuestionsData as any).leadRecipientEmail}
-                  </a>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* Additional Information */}
-        {(lead.messageToAgent || lead.customQuestionsData || lead.formData) && (
+        {(lead.messageToAgent ||
+          parsedCustomQuestions.length > 0 ||
+          (lead.formData &&
+            typeof lead.formData === "object" &&
+            Object.keys(lead.formData as Record<string, any>).length > 0)) && (
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-md md:col-span-2">
             <Heading as="h2" size="medium" weight="bold" className="mb-4">
               Additional Information
@@ -523,14 +525,32 @@ const LeadDetailPage = ({
                 </div>
               )}
 
-              {/* Parse and display formData fields with proper labels */}
               {lead.formData &&
                 typeof lead.formData === "object" &&
                 Object.keys(lead.formData as Record<string, any>).length >
                   0 && (
                   <div className="space-y-4">
-                    {Object.entries(lead.formData as Record<string, any>).map(
-                      ([questionId, value]) => {
+                    {(() => {
+                      const formDataEntries = Object.entries(
+                        lead.formData as Record<string, any>,
+                      )
+
+                      // Sort entries by question order if questions are available
+                      const sortedEntries = questions
+                        ? formDataEntries.sort(([idA], [idB]) => {
+                            const questionA = questions.find(
+                              (q) => q.id === idA,
+                            )
+                            const questionB = questions.find(
+                              (q) => q.id === idB,
+                            )
+                            const orderA = questionA?.order ?? 9999
+                            const orderB = questionB?.order ?? 9999
+                            return orderA - orderB
+                          })
+                        : formDataEntries
+
+                      return sortedEntries.map(([questionId, value]) => {
                         if (
                           value === null ||
                           value === undefined ||
@@ -539,18 +559,35 @@ const LeadDetailPage = ({
                           return null
                         }
 
-                        // Find the question to get its label
                         const question = questions?.find(
                           (q) => q.id === questionId,
                         )
 
-                        // Skip submitterRole if it's already in the submitterRole column
-                        // (it should be saved there, not in formData)
-                        if (question?.type === "submitterRole") {
-                          // If submitterRole is in formData but also in the column, skip formData version
-                          // If it's only in formData (legacy data), we'll show it but use the column value if available
-                          if (lead.submitterRole) {
-                            return null // Skip - already shown in main section
+                        if (question) {
+                          const questionType = question.type
+
+                          if (
+                            [
+                              "listingInterest",
+                              "name",
+                              "email",
+                              "tel",
+                              "submitterRole",
+                              "areYouInterested",
+                              "followAllListings",
+                              "opinionOfSalePrice",
+                              "captureFinanceLeads",
+                              "messageToAgent",
+                              "custom",
+                            ].includes(questionType)
+                          ) {
+                            if (
+                              questionType === "submitterRole" &&
+                              lead.submitterRole
+                            ) {
+                              return null
+                            }
+                            return null
                           }
                         }
 
@@ -560,6 +597,9 @@ const LeadDetailPage = ({
                         const questionLabel =
                           uiConfig?.questionText ||
                           uiConfig?.label ||
+                          QUESTION_TYPE_TO_LABEL[
+                            (question?.type as QuestionType) || "custom"
+                          ] ||
                           questionId
                             .replace(/([A-Z])/g, " $1")
                             .replace(/^./, (str) => str.toUpperCase())
@@ -627,8 +667,8 @@ const LeadDetailPage = ({
                             </div>
                           </div>
                         )
-                      },
-                    )}
+                      })
+                    })()}
                   </div>
                 )}
             </div>
