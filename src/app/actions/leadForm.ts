@@ -1176,11 +1176,12 @@ export async function getAllListingsForLeads(): Promise<Listing[] | null> {
     return null
   }
 
-  // Only fetch listings created by the current user
+  // Only fetch listings created by the current user, excluding test listings
   const { data: listings, error } = await supabase
     .from("listings")
     .select("*")
     .eq("createdBy", user.id)
+    .or("isTest.is.null,isTest.eq.false") // Excludes test listings
     .order("address", { ascending: true })
 
   if (!listings || error) {

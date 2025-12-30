@@ -69,7 +69,7 @@ const LeadsViewFilters = ({
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label>All Properties</Label>
+          <Label>Properties</Label>
           <Select
             value={filters.listingId || "all"}
             onValueChange={(value) =>
