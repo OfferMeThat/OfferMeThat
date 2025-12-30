@@ -62,13 +62,38 @@ const formatCurrency = (amount: number, currency: string = "USD"): string => {
 /**
  * Formats buyer type enum to readable string
  */
-const formatBuyerType = (buyerType: string): string => {
+const formatBuyerType = (buyerType: string | null | undefined): string => {
+  if (!buyerType) return "N/A"
+  
+  const trimmed = buyerType.trim()
+  
+  // Normalize: convert camelCase to snake_case for lookup
+  const normalized = trimmed
+    .replace(/([A-Z])/g, "_$1")
+    .toLowerCase()
+    .replace(/^_/, "")
+  
   const buyerTypeLabels: Record<string, string> = {
     buyer: "Buyer",
     agent: "Agent",
     affiliate: "Affiliate",
+    buyer_with_agent: "Buyer with Agent",
+    buyer_self: "Unrepresented Buyer",
+    buyers_agent: "Buyer's Agent",
+    buyer_represented: "Represented Buyer",
   }
-  return buyerTypeLabels[buyerType] || buyerType
+  // Try normalized first, then original trimmed
+  if (buyerTypeLabels[normalized]) {
+    return buyerTypeLabels[normalized]
+  }
+  if (buyerTypeLabels[trimmed]) {
+    return buyerTypeLabels[trimmed]
+  }
+  // Fallback: convert snake_case to Title Case
+  return normalized
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ")
 }
 
 /**
@@ -240,11 +265,15 @@ const drawOfferCard = (
   doc.setFillColor(TEAL_COLOR[0], TEAL_COLOR[1], TEAL_COLOR[2])
   doc.rect(x, y, width, headerHeight, "F")
 
-  // Draw offer number in header
+  // Draw listing address in header (replacing "Offer 1", "Offer 2", etc.)
   doc.setTextColor(WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2])
   doc.setFontSize(14)
   doc.setFont("helvetica", "bold")
-  doc.text(`Offer ${offerNumber}`, x + cardPadding, y + headerHeight / 2 + 3)
+  const listingAddress = getListingAddress(offer)
+  // Truncate address if too long to fit in header
+  const maxAddressWidth = width - 2 * cardPadding
+  const addressLines = doc.splitTextToSize(listingAddress, maxAddressWidth)
+  doc.text(addressLines[0], x + cardPadding, y + headerHeight / 2 + 3)
 
   // Draw content background (white)
   doc.setFillColor(WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2])
@@ -256,13 +285,16 @@ const drawOfferCard = (
   doc.setFont("helvetica", "bold")
   doc.text("Offer Information", x + cardPadding, contentStartY + 8)
 
-  // Draw fields - show ALL selected fields
+  // Draw fields - show ALL selected fields (excluding listingAddress since it's in the header)
   doc.setFont("helvetica", "normal")
   doc.setFontSize(8)
   let currentY = contentStartY + 15
 
-  // Show all selected fields - iterate through ALL of them
-  for (const fieldKey of selectedFields) {
+  // Show all selected fields - iterate through ALL of them (excluding listingAddress)
+  const fieldsToDisplay = selectedFields.filter(
+    (fieldKey) => fieldKey !== "listingAddress",
+  )
+  for (const fieldKey of fieldsToDisplay) {
     // Check if we're going to overflow the card before drawing
     if (currentY + 8 > y + height - cardPadding) {
       break // Stop drawing if we're out of space
@@ -391,13 +423,10 @@ export const generateOfferReportPDF = (
   let currentRow = 0
   let cardsInCurrentRow = 0
 
-  // Generate header text
+  // Generate header text (listing address removed since it's shown in each card header)
   let headerText = "Offer Report"
   if (userName) {
     headerText += ` - ${userName}`
-  }
-  if (listingAddress) {
-    headerText += ` - ${listingAddress}`
   }
 
   // Draw header banner

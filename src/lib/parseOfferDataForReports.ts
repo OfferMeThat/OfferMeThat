@@ -518,12 +518,36 @@ export function getSubmitterRoleFromData(offer: any): string {
           entry.questionType === "submitterRole"
         ) {
           const role = entry.value
+          if (!role) return "N/A"
+          
+          // Normalize: convert camelCase to snake_case for lookup
+          const normalized = String(role)
+            .trim()
+            .replace(/([A-Z])/g, "_$1")
+            .toLowerCase()
+            .replace(/^_/, "")
+          
           const roleLabels: Record<string, string> = {
             buyer_self: "Unrepresented Buyer",
+            buyer_with_agent: "Buyer with Agent",
+            buyers_agent: "Buyer's Agent",
             buyer_represented: "Represented Buyer",
             agent: "Agent",
           }
-          return roleLabels[role] || role || "N/A"
+          
+          // Try normalized first, then original
+          if (roleLabels[normalized]) {
+            return roleLabels[normalized]
+          }
+          if (roleLabels[role]) {
+            return roleLabels[role]
+          }
+          
+          // Fallback: convert snake_case to Title Case
+          return normalized
+            .split("_")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(" ")
         }
       }
     }

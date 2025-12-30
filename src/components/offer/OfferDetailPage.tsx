@@ -388,8 +388,31 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                   <p className="text-sm font-medium text-gray-500">
                     Buyer Type
                   </p>
-                  <p className="text-base font-semibold text-gray-900 capitalize">
-                    {offer.buyerType}
+                  <p className="text-base font-semibold text-gray-900">
+                    {(() => {
+                      const buyerTypeLabels: Record<string, string> = {
+                        buyer: "Buyer",
+                        agent: "Agent",
+                        affiliate: "Affiliate",
+                        buyer_with_agent: "Buyer with Agent",
+                        buyer_self: "Unrepresented Buyer",
+                        buyers_agent: "Buyer's Agent",
+                        buyer_represented: "Represented Buyer",
+                      }
+                      // If exact match found, return it
+                      if (buyerTypeLabels[offer.buyerType]) {
+                        return buyerTypeLabels[offer.buyerType]
+                      }
+                      // Fallback: convert snake_case to Title Case
+                      return offer.buyerType
+                        .split("_")
+                        .map(
+                          (word) =>
+                            word.charAt(0).toUpperCase() +
+                            word.slice(1).toLowerCase(),
+                        )
+                        .join(" ")
+                    })()}
                   </p>
                 </div>
               </div>

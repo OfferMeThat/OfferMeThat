@@ -180,8 +180,20 @@ const OfferReportGenerationModal = ({
       buyer: "Buyer",
       agent: "Agent",
       affiliate: "Affiliate",
+      buyer_with_agent: "Buyer with Agent",
+      buyer_self: "Unrepresented Buyer",
+      buyers_agent: "Buyer's Agent",
+      buyer_represented: "Represented Buyer",
     }
-    return buyerTypeLabels[buyerType] || buyerType
+    // If exact match found, return it
+    if (buyerTypeLabels[buyerType]) {
+      return buyerTypeLabels[buyerType]
+    }
+    // Fallback: convert snake_case to Title Case
+    return buyerType
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ")
   }
 
   // Format payment way
