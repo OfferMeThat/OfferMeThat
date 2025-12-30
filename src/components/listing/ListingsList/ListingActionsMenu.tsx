@@ -2,7 +2,7 @@
 
 import { LISTING_STATUSES } from "@/constants/listings"
 import { ListingStatus } from "@/types/listing"
-import { Ellipsis } from "lucide-react"
+import { Ellipsis, Eye, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import {
@@ -115,6 +115,7 @@ const ListingActionsMenu = ({
                 variant="ghost"
                 className="w-full justify-start gap-2 p-2"
               >
+                <Eye size={16} />
                 View Listing
               </Button>
             </Link>
@@ -123,6 +124,7 @@ const ListingActionsMenu = ({
               className="w-full justify-start gap-2 p-2"
               onClick={handleStatusClick}
             >
+              <Pencil size={16} />
               Update Listing Status
             </Button>
             <Button
@@ -130,6 +132,7 @@ const ListingActionsMenu = ({
               className="w-full justify-start gap-2 p-2 text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={handleDeleteClick}
             >
+              <Trash2 size={16} />
               Delete
             </Button>
           </div>
