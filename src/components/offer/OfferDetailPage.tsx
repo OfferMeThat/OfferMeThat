@@ -1,6 +1,7 @@
 "use client"
 
 import { OFFER_STATUSES, OFFER_TO_BADGE_MAP } from "@/constants/offers"
+import { extractFileName, truncateFileName } from "@/lib/fileHelpers"
 import {
   formatDepositData,
   formatMessageToAgent,
@@ -10,7 +11,6 @@ import {
   formatSubjectToLoanApproval,
 } from "@/lib/formatOfferData"
 import { parseAllCustomQuestions } from "@/lib/parseCustomQuestionsData"
-import { extractFileName, truncateFileName } from "@/lib/fileHelpers"
 import { OfferWithListing } from "@/types/offer"
 import {
   ArrowLeft,
@@ -29,12 +29,78 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import React from "react"
 import Heading from "../shared/typography/Heading"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 
 const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
   const router = useRouter()
+
+  const renderMarkdownLinks = (text: string) => {
+    return text.split(/(\[.*?\]\(.*?\))/g).map((part, i) => {
+      const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/)
+      if (linkMatch) {
+        const [, text, url] = linkMatch
+        return (
+          <a
+            key={i}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
+          >
+            <FileText size={14} />
+            {text}
+          </a>
+        )
+      }
+      return <span key={i}>{part}</span>
+    })
+  }
+
+  const renderFileUploadLinks = (text: string) => {
+    return (
+      <div className="flex flex-col gap-1">
+        {text
+          .split(/,\s*/)
+          .map((linkStr, i) => {
+            const linkMatch = linkStr.match(/\[(.*?)\]\((.*?)\)/)
+            if (linkMatch) {
+              const [, text, url] = linkMatch
+              return (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
+                >
+                  <FileText size={14} />
+                  {text}
+                </a>
+              )
+            }
+            return null
+          })
+          .filter(Boolean)}
+      </div>
+    )
+  }
+
+  // Render formatted section with title
+  const renderFormattedSection = (
+    title: string,
+    formatted: React.ReactNode,
+  ) => {
+    if (!formatted) return null
+    return (
+      <div className="space-y-3">
+        <p className="text-base font-semibold text-gray-900">{title}</p>
+        <div className="pl-4 text-base">{formatted}</div>
+      </div>
+    )
+  }
 
   if (!offer) {
     return (
@@ -333,23 +399,17 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
 
         {/* Additional Information */}
         {(() => {
-          // Check if there's any actual content to display
           const hasSpecialConditions = !!specialConditions
-          // Helper to parse purchaseAgreementFileUrl (can be single URL string or JSON array)
           const parsePurchaseAgreementUrls = (
             value: string | null | undefined,
           ): string[] => {
             if (!value) return []
             try {
-              // Try to parse as JSON array
               const parsed = JSON.parse(value)
               if (Array.isArray(parsed)) {
                 return parsed.filter((url) => typeof url === "string")
               }
-            } catch {
-              // Not JSON, treat as single URL string
-            }
-            // Single URL string (backward compatibility)
+            } catch {}
             return [value]
           }
           const purchaseAgreementUrls = parsePurchaseAgreementUrls(
@@ -411,16 +471,10 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                   <div className="space-y-3">
                     <p className="text-base font-semibold text-gray-900">
                       Purchase Agreement
-                      {purchaseAgreementUrls.length > 1 &&
-                        ` (${purchaseAgreementUrls.length} files)`}
                     </p>
                     <div className="flex flex-col gap-1 pl-4">
                       {purchaseAgreementUrls.map((url, index) => {
                         const fileName = extractFileName(url)
-                        const displayName =
-                          purchaseAgreementUrls.length > 1
-                            ? `${fileName} (File ${index + 1})`
-                            : fileName
                         return (
                           <a
                             key={index}
@@ -428,10 +482,10 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 hover:underline"
-                            title={displayName}
+                            title={fileName}
                           >
                             <FileText size={16} />
-                            {truncateFileName(displayName)}
+                            {truncateFileName(fileName)}
                           </a>
                         )
                       })}
@@ -439,76 +493,30 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                   </div>
                 )}
 
-                {messageToAgent &&
-                  (() => {
-                    const formatted = formatMessageToAgent(
-                      messageToAgent as any,
-                    )
-                    return formatted ? (
-                      <div className="space-y-3">
-                        <p className="text-base font-semibold text-gray-900">
-                          Message to Agent
-                        </p>
-                        <div className="pl-4 text-base">{formatted}</div>
-                      </div>
-                    ) : null
-                  })()}
+                {renderFormattedSection(
+                  "Message to Agent",
+                  formatMessageToAgent(messageToAgent as any),
+                )}
 
-                {purchaserData &&
-                  (() => {
-                    const formatted = formatPurchaserData(purchaserData as any)
-                    return formatted ? (
-                      <div className="space-y-3">
-                        <p className="text-base font-semibold text-gray-900">
-                          Purchaser Information
-                        </p>
-                        <div className="pl-4 text-base">{formatted}</div>
-                      </div>
-                    ) : null
-                  })()}
+                {renderFormattedSection(
+                  "Purchaser Information",
+                  formatPurchaserData(purchaserData as any),
+                )}
 
-                {depositData &&
-                  (() => {
-                    const formatted = formatDepositData(depositData as any)
-                    return formatted ? (
-                      <div className="space-y-3">
-                        <p className="text-base font-semibold text-gray-900">
-                          Deposit Information
-                        </p>
-                        <div className="pl-4 text-base">{formatted}</div>
-                      </div>
-                    ) : null
-                  })()}
+                {renderFormattedSection(
+                  "Deposit Information",
+                  formatDepositData(depositData as any),
+                )}
 
-                {settlementDateData &&
-                  (() => {
-                    const formatted = formatSettlementDateData(
-                      settlementDateData as any,
-                    )
-                    return formatted ? (
-                      <div className="space-y-3">
-                        <p className="text-base font-semibold text-gray-900">
-                          Settlement Date
-                        </p>
-                        <div className="pl-4 text-base">{formatted}</div>
-                      </div>
-                    ) : null
-                  })()}
+                {renderFormattedSection(
+                  "Settlement Date",
+                  formatSettlementDateData(settlementDateData as any),
+                )}
 
-                {subjectToLoanApproval &&
-                  (() => {
-                    const formatted = formatSubjectToLoanApproval(
-                      subjectToLoanApproval as any,
-                    )
-                    return formatted ? (
-                      <div className="space-y-3">
-                        <p className="text-base font-semibold text-gray-900">
-                          Subject to Loan Approval
-                        </p>
-                        <div className="pl-4 text-base">{formatted}</div>
-                      </div>
-                    ) : null
-                  })()}
+                {renderFormattedSection(
+                  "Subject to Loan Approval",
+                  formatSubjectToLoanApproval(subjectToLoanApproval as any),
+                )}
 
                 {parsedCustomQuestions.length > 0 && (
                   <div className="space-y-3">
@@ -526,30 +534,16 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                               // Check if it contains markdown-style links
                               question.formattedValue.includes("[") &&
                               question.formattedValue.includes("](") ? (
-                                <div className="whitespace-pre-wrap">
-                                  {question.formattedValue
-                                    .split(/(\[.*?\]\(.*?\))/g)
-                                    .map((part, i) => {
-                                      const linkMatch =
-                                        part.match(/\[(.*?)\]\((.*?)\)/)
-                                      if (linkMatch) {
-                                        const [, text, url] = linkMatch
-                                        return (
-                                          <a
-                                            key={i}
-                                            href={url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
-                                          >
-                                            <FileText size={14} />
-                                            {text}
-                                          </a>
-                                        )
-                                      }
-                                      return <span key={i}>{part}</span>
-                                    })}
-                                </div>
+                                question.answerType === "file_upload" ||
+                                question.answerType === "uploadFiles" ? (
+                                  renderFileUploadLinks(question.formattedValue)
+                                ) : (
+                                  <div className="whitespace-pre-wrap">
+                                    {renderMarkdownLinks(
+                                      question.formattedValue,
+                                    )}
+                                  </div>
+                                )
                               ) : (
                                 <p className="whitespace-pre-wrap">
                                   {question.formattedValue}

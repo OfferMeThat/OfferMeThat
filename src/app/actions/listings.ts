@@ -2,14 +2,13 @@
 
 import { Filters } from "@/components/listing/MyListingsPageContent"
 import { createClient } from "@/lib/supabase/server"
-import { ListingWithOfferCounts } from "@/types/listing"
+import { ListingStatus, ListingWithOfferCounts } from "@/types/listing"
 
 export async function getFilteredListings(
   filters: Filters,
 ): Promise<ListingWithOfferCounts[] | null> {
   const supabase = await createClient()
 
-  // Get the current user to filter by createdBy
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -19,24 +18,20 @@ export async function getFilteredListings(
     return null
   }
 
-  // Start building the query - filter by current user's listings only
   let query = supabase
     .from("listings")
-    .select("*, offers(*)")
+    .select("*, offers(*), leads(*)")
     .eq("createdBy", user.id)
-    .or("isTest.is.null,isTest.eq.false") // Exclude test listings
+    .or("isTest.is.null,isTest.eq.false") // Excludes test listings
 
-  // Apply address filter
   if (filters.address) {
     query = query.ilike("address", `%${filters.address}%`)
   }
 
-  // Apply status filter (only if not null)
   if (filters.status) {
     query = query.eq("status", filters.status)
   }
 
-  // Apply date listed filter
   if (filters.dateListed.from) {
     query = query.gte("createdAt", filters.dateListed.from)
   }
@@ -44,7 +39,6 @@ export async function getFilteredListings(
     query = query.lte("createdAt", filters.dateListed.to)
   }
 
-  // Execute the query
   const { data: listings, error } = await query
 
   if (!listings || error) {
@@ -52,24 +46,30 @@ export async function getFilteredListings(
     return null
   }
 
-  // Calculate offer counts and apply offer filters
-  let filteredListings = listings.map((listing) => {
-    const offers = listing.offers || []
+  let filteredListings: ListingWithOfferCounts[] = listings.map((listing) => {
+    const allOffers = listing.offers || []
+    const offers = allOffers.filter((offer: any) => !offer.isTest)
+    const leads = listing.leads || []
+
+    const { offers: _, ...listingWithoutOffers } = listing
 
     return {
-      ...listing,
-      activeOffers: offers.filter((offer) => offer.status === "verified")
-        .length,
-      pendingOffers: offers.filter((offer) => offer.status === "unverified")
-        .length,
+      ...listingWithoutOffers,
+      activeOffers: offers.filter(
+        (offer: any) =>
+          offer.status === "verified" || offer.status === "active",
+      ).length,
+      pendingOffers: offers.filter(
+        (offer: any) =>
+          offer.status === "unverified" || offer.status === "pending",
+      ).length,
       totalOffers: offers.length,
-      offers: undefined,
+      leads: leads.length,
     }
-  }) as ListingWithOfferCounts[]
+  })
 
   // Apply client-side offer count filters (can't be done in SQL easily)
   filteredListings = filteredListings.filter((listing) => {
-    // Filter by pending offers
     if (filters.pendingOffers.from || filters.pendingOffers.to) {
       if (
         filters.pendingOffers.from &&
@@ -85,7 +85,6 @@ export async function getFilteredListings(
       }
     }
 
-    // Filter by active offers
     if (filters.activeOffers.from || filters.activeOffers.to) {
       if (
         filters.activeOffers.from &&
@@ -101,7 +100,6 @@ export async function getFilteredListings(
       }
     }
 
-    // Filter by total offers
     if (filters.totalOffers.from || filters.totalOffers.to) {
       if (
         filters.totalOffers.from &&
@@ -129,7 +127,6 @@ export async function deleteListings(
   const supabase = await createClient()
 
   try {
-    // Get the current user to ensure we only delete their listings
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -148,7 +145,6 @@ export async function deleteListings(
       }
     }
 
-    // First, fetch the listings to get their addresses before deletion
     const { data: listingsToDelete, error: fetchError } = await supabase
       .from("listings")
       .select("id, address")
@@ -171,7 +167,6 @@ export async function deleteListings(
       }
     }
 
-    // Create a map of listing ID to address for quick lookup
     const listingAddressMap = new Map<string, string>()
     listingsToDelete.forEach((listing) => {
       listingAddressMap.set(listing.id, listing.address)
@@ -183,7 +178,6 @@ export async function deleteListings(
       const listingAddress = listingAddressMap.get(listingId)
 
       if (listingAddress) {
-        // Update all offers that reference this listing
         const { error: updateError } = await supabase
           .from("offers")
           .update({
@@ -198,12 +192,10 @@ export async function deleteListings(
             `Error updating offers for listing ${listingId}:`,
             updateError,
           )
-          // Continue with deletion even if update fails, but log the error
         }
       }
     }
 
-    // Now delete the listings
     const { data, error } = await supabase
       .from("listings")
       .delete()
@@ -255,7 +247,6 @@ export async function updateListingsStatus(
   const supabase = await createClient()
 
   try {
-    // Get the current user to ensure we only update their listings
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -274,10 +265,19 @@ export async function updateListingsStatus(
       }
     }
 
-    // Update listings that belong to the current user
+    const validStatuses: ListingStatus[] = [
+      "forSale",
+      "underContract",
+      "sold",
+      "withdrawn",
+      "unassigned",
+    ]
+    const validStatus: ListingStatus =
+      validStatuses.find((s) => s === status) || "forSale"
+
     const { data, error } = await supabase
       .from("listings")
-      .update({ status: status as any })
+      .update({ status: validStatus })
       .in("id", listingIds)
       .eq("createdBy", user.id)
       .select()
@@ -319,14 +319,22 @@ export async function updateListingsStatus(
   }
 }
 
-export async function getListingById(
-  listingId: string,
-): Promise<ListingWithOfferCounts | null> {
+export async function getListingById(listingId: string): Promise<
+  | (ListingWithOfferCounts & {
+      sellers?: Array<{
+        fullName: string
+        email: string
+        phone: string
+        sendUpdateByEmail: boolean | null
+      }>
+    })
+  | null
+> {
   const supabase = await createClient()
 
   const { data: listing, error } = await supabase
     .from("listings")
-    .select("*, offers(*)")
+    .select("*, offers(*), leads(*), listingSellers(*)")
     .eq("id", listingId)
     .single()
 
@@ -335,14 +343,29 @@ export async function getListingById(
     return null
   }
 
-  const offers = listing.offers || []
+  const allOffers = listing.offers || []
+  const offers = allOffers.filter((offer: any) => !offer.isTest)
+  const leads = listing.leads || []
+  const sellers = listing.listingSellers || []
+
+  const { offers: _, listingSellers: __, ...listingWithoutRelations } = listing
 
   return {
-    ...listing,
-    activeOffers: offers.filter((offer) => offer.status === "verified").length,
-    pendingOffers: offers.filter((offer) => offer.status === "unverified")
-      .length,
+    ...listingWithoutRelations,
+    activeOffers: offers.filter(
+      (offer: any) => offer.status === "verified" || offer.status === "active",
+    ).length,
+    pendingOffers: offers.filter(
+      (offer: any) =>
+        offer.status === "unverified" || offer.status === "pending",
+    ).length,
     totalOffers: offers.length,
-    offers: undefined,
-  } as ListingWithOfferCounts
+    leads: leads.length,
+    sellers: sellers.map((seller: any) => ({
+      fullName: seller.fullName,
+      email: seller.email,
+      phone: seller.phone,
+      sendUpdateByEmail: seller.sendUpdateByEmail,
+    })),
+  }
 }
