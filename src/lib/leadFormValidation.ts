@@ -101,10 +101,60 @@ export const buildQuestionValidation = (
         | undefined
       const opinionAnswerType = opinionSetupConfig?.answerType || "text"
       if (opinionAnswerType === "number") {
-        schema = yup.object({
-          amount: yup.number().nullable().typeError("Amount must be a number"),
-          currency: yup.string().required("Currency is required"),
-        })
+        // For money type: if amount is provided, currency is required
+        // If question is optional, allow entire object to be null/undefined
+        schema = yup
+          .mixed()
+          .test(
+            "opinion-of-sale-price-money",
+            "Invalid value",
+            function (value) {
+              // If question is optional, allow null/undefined entirely
+              if (!required && (value === null || value === undefined)) {
+                return true
+              }
+              // If question is required, value must be an object
+              if (required && (!value || typeof value !== "object")) {
+                return this.createError({
+                  message: "This field is required",
+                })
+              }
+              // If value exists, validate the object structure
+              if (value && typeof value === "object") {
+                const val = value as { amount?: any; currency?: string }
+                // If amount is provided (not null/undefined), currency is required
+                if (val.amount !== null && val.amount !== undefined) {
+                  if (
+                    !val.currency ||
+                    (typeof val.currency === "string" &&
+                      val.currency.trim() === "")
+                  ) {
+                    return this.createError({
+                      message: "Currency is required",
+                      path: "currency",
+                    })
+                  }
+                  // Validate amount is a number
+                  if (typeof val.amount !== "number" || isNaN(val.amount)) {
+                    return this.createError({
+                      message: "Amount must be a number",
+                      path: "amount",
+                    })
+                  }
+                } else if (required) {
+                  // If required and no amount, that's an error
+                  return this.createError({
+                    message: "This field is required",
+                  })
+                }
+              }
+              return true
+            },
+          )
+          .nullable()
+          .optional()
+        // Mark as lazy schema so we don't add .required() at the end
+        ;(schema as any)._isLazy = true
       } else {
         schema = yup.string().max(1000, "Maximum 1000 characters allowed")
       }
