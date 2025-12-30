@@ -1,18 +1,11 @@
+"use client"
+
 import { LISTING_STATUSES, LISTING_TO_BADGE_MAP } from "@/constants/listings"
-import { ListingWithOfferCounts } from "@/types/listing"
-import {
-  ArrowRight,
-  ChartColumn,
-  Ellipsis,
-  MessageSquare,
-  Pencil,
-} from "lucide-react"
+import { ListingStatus, ListingWithOfferCounts } from "@/types/listing"
 import Link from "next/link"
 import { Badge } from "../../ui/badge"
-import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
 import { EmptyState } from "../../ui/empty-state"
-import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
 import {
   Table,
   TableBody,
@@ -21,17 +14,22 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table"
+import ListingActionsMenu from "./ListingActionsMenu"
 
 const ListingListTableView = ({
   listings,
   selectedListings,
   onToggleListing,
   onToggleAll,
+  onDelete,
+  onUpdateStatus,
 }: {
   listings: Array<ListingWithOfferCounts> | null
   selectedListings: Set<string>
   onToggleListing: (listingId: string) => void
   onToggleAll: (checked: boolean) => void
+  onDelete: (listingId: string) => Promise<void>
+  onUpdateStatus: (listingId: string, status: ListingStatus) => Promise<void>
 }) => {
   const allSelected =
     listings &&
@@ -146,57 +144,15 @@ const ListingListTableView = ({
                 <TableCell className="text-center">
                   {item.leads ?? 0}
                 </TableCell>
-                <TableCell>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" className="mx-auto">
-                        <Ellipsis size={18} />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="max-w-60 p-2"
-                      side="bottom"
-                      collisionPadding={64}
-                    >
-                      <div className="flex flex-col gap-1">
-                        <Link href={`/listing/${item.id}`}>
-                          <Button
-                            variant="ghost"
-                            className="w-full justify-start gap-2 p-2"
-                          >
-                            <ArrowRight size={18} />
-                            <span className="text-sm">Go to Listing</span>
-                          </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          className="hover: flex items-center justify-start gap-2 p-2"
-                        >
-                          <MessageSquare size={18} />
-                          <span className="text-sm"> Message Seller</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="hover: flex items-center justify-start gap-2 p-2"
-                        >
-                          <ChartColumn size={18} />
-                          <span className="text-sm">
-                            Generate Report for Seller
-                          </span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="flex items-center justify-start gap-2 p-2"
-                        >
-                          <Pencil size={18} />
-                          <span className="text-sm">
-                            {" "}
-                            Update Listing Status
-                          </span>
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <ListingActionsMenu
+                    listingId={item.id}
+                    currentStatus={item.status}
+                    onDelete={onDelete}
+                    onUpdateStatus={onUpdateStatus}
+                    buttonClassName="mx-auto"
+                    iconSize={18}
+                  />
                 </TableCell>
               </TableRow>
             )

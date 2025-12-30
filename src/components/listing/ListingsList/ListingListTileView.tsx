@@ -1,14 +1,23 @@
+"use client"
+
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { LISTING_STATUSES, LISTING_TO_BADGE_MAP } from "@/constants/listings"
-import { ListingWithOfferCounts } from "@/types/listing"
-import { SquarePen } from "lucide-react"
+import { ListingStatus, ListingWithOfferCounts } from "@/types/listing"
+import ListingActionsMenu from "./ListingActionsMenu"
 
 const ListingListTileView = ({
   listings,
+  selectedListings,
+  onToggleListing,
+  onDelete,
+  onUpdateStatus,
 }: {
   listings: Array<ListingWithOfferCounts> | null
+  selectedListings: Set<string>
+  onToggleListing: (listingId: string) => void
+  onDelete: (listingId: string) => Promise<void>
+  onUpdateStatus: (listingId: string, status: ListingStatus) => Promise<void>
 }) => {
   if (!listings || listings.length === 0) {
     return (
@@ -39,9 +48,12 @@ const ListingListTileView = ({
               <Badge variant={LISTING_TO_BADGE_MAP[listing.status]}>
                 {LISTING_STATUSES[listing.status]}
               </Badge>
-              <Button variant="ghost">
-                <SquarePen size={18} />
-              </Button>
+              <ListingActionsMenu
+                listingId={listing.id}
+                currentStatus={listing.status}
+                onDelete={onDelete}
+                onUpdateStatus={onUpdateStatus}
+              />
             </div>
 
             <span className="text-xl font-bold">{listing.address}</span>

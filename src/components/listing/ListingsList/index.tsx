@@ -112,16 +112,61 @@ const ListingsList = ({
     }
   }
 
+  const handleIndividualDelete = async (listingId: string) => {
+    if (listings && onListingsUpdate) {
+      const updatedListings = listings.filter(
+        (listing) => listing.id !== listingId,
+      )
+      onListingsUpdate(updatedListings.length > 0 ? updatedListings : null)
+    }
+
+    const result = await deleteListings([listingId])
+
+    if (result.success) {
+      toast.success("Successfully deleted listing")
+      router.refresh()
+    } else {
+      if (onListingsUpdate) {
+        onListingsUpdate(listings)
+      }
+      toast.error(result.error || "Failed to delete listing")
+    }
+  }
+
+  const handleIndividualStatusUpdate = async (
+    listingId: string,
+    status: ListingStatus,
+  ) => {
+    if (listings && onListingsUpdate) {
+      const updatedListings = listings.map((listing) =>
+        listing.id === listingId ? { ...listing, status } : listing,
+      )
+      onListingsUpdate(updatedListings)
+    }
+
+    const result = await updateListingsStatus([listingId], status)
+
+    if (result.success) {
+      toast.success("Successfully updated listing status")
+      router.refresh()
+    } else {
+      if (onListingsUpdate) {
+        onListingsUpdate(listings)
+      }
+      toast.error(result.error || "Failed to update listing status")
+    }
+  }
+
   const handleGenerateReport = () => {
     setReportModalOpen(true)
   }
 
-  const statusOptions = Object.entries(LISTING_STATUSES).map(
-    ([value, label]) => ({
+  const statusOptions = Object.entries(LISTING_STATUSES)
+    .filter(([value]) => value !== "unassigned")
+    .map(([value, label]) => ({
       value,
       label,
-    }),
-  )
+    }))
 
   // Get selected listings data for report generation
   const selectedListingsData =
@@ -154,9 +199,17 @@ const ListingsList = ({
           selectedListings={selectedListings}
           onToggleListing={handleToggleListing}
           onToggleAll={handleToggleAll}
+          onDelete={handleIndividualDelete}
+          onUpdateStatus={handleIndividualStatusUpdate}
         />
       ) : (
-        <ListingListTileView listings={listings} />
+        <ListingListTileView
+          listings={listings}
+          selectedListings={selectedListings}
+          onToggleListing={handleToggleListing}
+          onDelete={handleIndividualDelete}
+          onUpdateStatus={handleIndividualStatusUpdate}
+        />
       )}
 
       <SelectionActionBar
