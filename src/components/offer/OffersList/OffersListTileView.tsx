@@ -1,7 +1,7 @@
 "use client"
 
 import { OFFER_STATUSES, OFFER_TO_BADGE_MAP } from "@/constants/offers"
-import { OfferWithListing } from "@/types/offer"
+import { OfferStatus, OfferWithListing } from "@/types/offer"
 import { Check, Clock } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -15,6 +15,7 @@ const OffersListTileView = ({
   selectedOffers,
   onToggleOffer,
   onDelete,
+  onUpdateStatus,
   onAssignToListing,
   listings,
   showAssignToListing,
@@ -23,6 +24,7 @@ const OffersListTileView = ({
   selectedOffers: Set<string>
   onToggleOffer: (offerId: string) => void
   onDelete: (offerId: string) => Promise<void>
+  onUpdateStatus?: (offerId: string, status: OfferStatus) => Promise<void>
   onAssignToListing?: (offerId: string, listingId: string) => Promise<void>
   listings: Array<{ id: string; address: string; isTest?: boolean | null }>
   showAssignToListing?: boolean
@@ -167,7 +169,9 @@ const OffersListTileView = ({
               </span>
               <OfferActionsMenu
                 offerId={offer.id}
+                currentStatus={offer.status}
                 onDelete={onDelete}
+                onUpdateStatus={onUpdateStatus}
                 onAssignToListing={onAssignToListing}
                 listings={listings}
                 showAssignToListing={showAssignToListing}

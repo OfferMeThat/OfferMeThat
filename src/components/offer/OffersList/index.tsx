@@ -205,12 +205,36 @@ const OffersList = ({
     }
   }
 
-  const statusOptions = Object.entries(OFFER_STATUSES).map(
-    ([value, label]) => ({
+  const handleIndividualStatusUpdate = async (
+    offerId: string,
+    status: OfferStatus,
+  ) => {
+    if (offers && onOffersUpdate) {
+      const updatedOffers = offers.map((offer) =>
+        offer.id === offerId ? { ...offer, status } : offer,
+      )
+      onOffersUpdate(updatedOffers)
+    }
+
+    const result = await updateOffersStatus([offerId], status)
+
+    if (result.success) {
+      toast.success("Successfully updated offer status")
+      router.refresh()
+    } else {
+      if (onOffersUpdate) {
+        onOffersUpdate(offers)
+      }
+      toast.error(result.error || "Failed to update offer status")
+    }
+  }
+
+  const statusOptions = Object.entries(OFFER_STATUSES)
+    .filter(([value]) => value !== "unassigned")
+    .map(([value, label]) => ({
       value,
       label,
-    }),
-  )
+    }))
 
   // Get selected offers data for report generation
   const selectedOffersData =
@@ -244,6 +268,7 @@ const OffersList = ({
           onToggleOffer={handleToggleOffer}
           onToggleAll={handleToggleAll}
           onDelete={handleIndividualDelete}
+          onUpdateStatus={handleIndividualStatusUpdate}
           onAssignToListing={
             isUnassigned ? handleIndividualAssignToListing : undefined
           }
@@ -256,6 +281,7 @@ const OffersList = ({
           selectedOffers={selectedOffers}
           onToggleOffer={handleToggleOffer}
           onDelete={handleIndividualDelete}
+          onUpdateStatus={handleIndividualStatusUpdate}
           onAssignToListing={
             isUnassigned ? handleIndividualAssignToListing : undefined
           }

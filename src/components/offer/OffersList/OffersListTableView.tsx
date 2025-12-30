@@ -1,7 +1,7 @@
 "use client"
 
 import { OFFER_STATUSES, OFFER_TO_BADGE_MAP } from "@/constants/offers"
-import { OfferWithListing } from "@/types/offer"
+import { OfferStatus, OfferWithListing } from "@/types/offer"
 import { Check, Clock } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -24,6 +24,7 @@ const OffersListTableView = ({
   onToggleOffer,
   onToggleAll,
   onDelete,
+  onUpdateStatus,
   onAssignToListing,
   listings,
   showAssignToListing,
@@ -33,6 +34,7 @@ const OffersListTableView = ({
   onToggleOffer: (offerId: string) => void
   onToggleAll: (checked: boolean) => void
   onDelete: (offerId: string) => Promise<void>
+  onUpdateStatus?: (offerId: string, status: OfferStatus) => Promise<void>
   onAssignToListing?: (offerId: string, listingId: string) => Promise<void>
   listings: Array<{ id: string; address: string; isTest?: boolean | null }>
   showAssignToListing?: boolean
@@ -187,7 +189,9 @@ const OffersListTableView = ({
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <OfferActionsMenu
                     offerId={offer.id}
+                    currentStatus={offer.status}
                     onDelete={onDelete}
+                    onUpdateStatus={onUpdateStatus}
                     onAssignToListing={onAssignToListing}
                     listings={listings}
                     buttonClassName="mx-auto"
