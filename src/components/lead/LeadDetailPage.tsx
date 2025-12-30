@@ -10,7 +10,7 @@ import {
   getRoleBadgeVariant,
 } from "@/lib/formatLeadData"
 import { formatFormDataField } from "@/lib/formatLeadFormData"
-import { parseCustomQuestion } from "@/lib/parseCustomQuestionsData"
+import { parseAllCustomQuestions } from "@/lib/parseCustomQuestionsData"
 import { QuestionType } from "@/types/form"
 import { LeadWithListing } from "@/types/lead"
 import { Database } from "@/types/supabase"
@@ -35,6 +35,44 @@ import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 
 type Question = Database["public"]["Tables"]["leadFormQuestions"]["Row"]
+
+/**
+ * Renders file links from a markdown-formatted string (e.g., "[file1](url1), [file2](url2)")
+ * Displays files in a vertical column layout
+ */
+function renderFileLinksFromMarkdown(
+  markdownString: string,
+): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-1">
+      {markdownString
+        .split(/(\[.*?\]\(.*?\))/g)
+        .filter((part) => {
+          // Only process link parts, skip commas and spaces
+          return part.match(/\[(.*?)\]\((.*?)\)/) !== null
+        })
+        .map((part, i) => {
+          const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/)
+          if (linkMatch) {
+            const [, text, url] = linkMatch
+            return (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+              >
+                <FileText size={14} />
+                {text}
+              </a>
+            )
+          }
+          return null
+        })}
+    </div>
+  )
+}
 
 const LeadDetailPage = ({
   lead,
@@ -89,48 +127,19 @@ const LeadDetailPage = ({
     lead.listingId &&
     lead.customListingAddress === null
 
-  const customQuestionsData = lead.customQuestionsData as
-    | Record<
-        string,
-        {
-          answerType: string
-          value: any
-        }
-      >
-    | null
-    | undefined
-
-  const parsedCustomQuestions =
-    questions && customQuestionsData
-      ? Object.entries(customQuestionsData)
-          .map(([questionId, questionData]) => {
-            const question = questions.find((q) => q.id === questionId)
-            if (!question || !questionData || !questionData.value) return null
-
-            const uiConfig = (question.uiConfig as Record<string, any>) || {}
-            const setupConfig =
-              (question.setupConfig as Record<string, any>) || {}
-            const questionText =
-              uiConfig.label || setupConfig.question_text || "Custom Question"
-
-            try {
-              const parsed = parseCustomQuestion(questionId, {
-                questionText,
-                answerType: questionData.answerType,
-                value: questionData.value,
-              })
-              return parsed
-            } catch (e) {
-              return {
-                questionText,
-                answerType: questionData.answerType,
-                formattedValue: String(questionData.value),
-                rawValue: questionData.value,
-              }
-            }
-          })
-          .filter((q): q is NonNullable<typeof q> => q !== null)
-      : []
+  const parseJsonField = (field: any): any => {
+    if (!field) return null
+    if (typeof field === "string") {
+      try {
+        return JSON.parse(field)
+      } catch {
+        return field
+      }
+    }
+    return field
+  }
+  const customQuestionsData = parseJsonField(lead.customQuestionsData)
+  const parsedCustomQuestions = parseAllCustomQuestions(customQuestionsData)
 
   return (
     <main className="px-6 py-8">
@@ -483,33 +492,12 @@ const LeadDetailPage = ({
                         </p>
                         <div className="text-base text-gray-900">
                           {typeof question.formattedValue === "string" ? (
-                            // Check if it contains markdown-style links
+                            // Check if it contains markdown-style links (for file uploads)
                             question.formattedValue.includes("[") &&
                             question.formattedValue.includes("](") ? (
-                              <div className="whitespace-pre-wrap">
-                                {question.formattedValue
-                                  .split(/(\[.*?\]\(.*?\))/g)
-                                  .map((part, i) => {
-                                    const linkMatch =
-                                      part.match(/\[(.*?)\]\((.*?)\)/)
-                                    if (linkMatch) {
-                                      const [, text, url] = linkMatch
-                                      return (
-                                        <a
-                                          key={i}
-                                          href={url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
-                                        >
-                                          <FileText size={14} />
-                                          {text}
-                                        </a>
-                                      )
-                                    }
-                                    return <span key={i}>{part}</span>
-                                  })}
-                              </div>
+                              renderFileLinksFromMarkdown(
+                                question.formattedValue,
+                              )
                             ) : (
                               <p className="whitespace-pre-wrap">
                                 {question.formattedValue}
@@ -632,30 +620,7 @@ const LeadDetailPage = ({
                                 // Check if it contains markdown-style links (for file uploads)
                                 formattedValue.includes("[") &&
                                 formattedValue.includes("](") ? (
-                                  <div className="whitespace-pre-wrap">
-                                    {formattedValue
-                                      .split(/(\[.*?\]\(.*?\))/g)
-                                      .map((part, i) => {
-                                        const linkMatch =
-                                          part.match(/\[(.*?)\]\((.*?)\)/)
-                                        if (linkMatch) {
-                                          const [, text, url] = linkMatch
-                                          return (
-                                            <a
-                                              key={i}
-                                              href={url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
-                                            >
-                                              <FileText size={14} />
-                                              {text}
-                                            </a>
-                                          )
-                                        }
-                                        return <span key={i}>{part}</span>
-                                      })}
-                                  </div>
+                                  renderFileLinksFromMarkdown(formattedValue)
                                 ) : (
                                   <p className="whitespace-pre-wrap">
                                     {formattedValue}
