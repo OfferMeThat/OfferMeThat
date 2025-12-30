@@ -1042,7 +1042,7 @@ const QuestionSetupForm = ({
                               key={`currency-${index}-${currency || "empty"}`}
                               className="flex items-center gap-2"
                             >
-                              <span className="w-32 text-xs font-medium text-gray-700">
+                              <span className="w-32 text-xs font-medium text-gray-700 whitespace-nowrap">
                                 Currency Option {index + 1}:
                               </span>
                               <Select
