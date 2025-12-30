@@ -163,6 +163,48 @@ const OffersList = ({
     }
   }
 
+  const handleIndividualDelete = async (offerId: string) => {
+    if (offers && onOffersUpdate) {
+      const updatedOffers = offers.filter((offer) => offer.id !== offerId)
+      onOffersUpdate(updatedOffers.length > 0 ? updatedOffers : null)
+    }
+
+    const result = await deleteOffers([offerId])
+
+    if (result.success) {
+      toast.success("Successfully deleted offer")
+      router.refresh()
+    } else {
+      if (onOffersUpdate) {
+        onOffersUpdate(offers)
+      }
+      toast.error(result.error || "Failed to delete offer")
+    }
+  }
+
+  const handleIndividualAssignToListing = async (
+    offerId: string,
+    listingId: string,
+  ) => {
+    if (offers && onOffersUpdate && isUnassigned) {
+      const updatedOffers = offers.filter((offer) => offer.id !== offerId)
+      onOffersUpdate(updatedOffers.length > 0 ? updatedOffers : null)
+    }
+
+    const result = await assignOffersToListing([offerId], listingId)
+
+    if (result.success) {
+      toast.success("Successfully assigned offer to listing")
+      router.refresh()
+      onAssignSuccess?.()
+    } else {
+      if (onOffersUpdate && isUnassigned) {
+        onOffersUpdate(offers)
+      }
+      toast.error(result.error || "Failed to assign offer to listing")
+    }
+  }
+
   const statusOptions = Object.entries(OFFER_STATUSES).map(
     ([value, label]) => ({
       value,
@@ -201,12 +243,24 @@ const OffersList = ({
           selectedOffers={selectedOffers}
           onToggleOffer={handleToggleOffer}
           onToggleAll={handleToggleAll}
+          onDelete={handleIndividualDelete}
+          onAssignToListing={
+            isUnassigned ? handleIndividualAssignToListing : undefined
+          }
+          listings={listings || []}
+          showAssignToListing={isUnassigned}
         />
       ) : (
         <OffersListTileView
           offers={offers}
           selectedOffers={selectedOffers}
           onToggleOffer={handleToggleOffer}
+          onDelete={handleIndividualDelete}
+          onAssignToListing={
+            isUnassigned ? handleIndividualAssignToListing : undefined
+          }
+          listings={listings || []}
+          showAssignToListing={isUnassigned}
         />
       )}
 
