@@ -1,9 +1,6 @@
 "use client"
 
-import {
-  assignLeadsToListing,
-  deleteLeads,
-} from "@/app/actions/leadForm"
+import { assignLeadsToListing, deleteLeads } from "@/app/actions/leadForm"
 import { LeadWithListing } from "@/types/lead"
 import { LayoutGrid, TableOfContents } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -61,9 +58,7 @@ const LeadsList = ({
 
     // Optimistic update: remove leads from UI immediately
     if (leads && onLeadsUpdate) {
-      const updatedLeads = leads.filter(
-        (lead) => !leadIds.includes(lead.id),
-      )
+      const updatedLeads = leads.filter((lead) => !leadIds.includes(lead.id))
       onLeadsUpdate(updatedLeads.length > 0 ? updatedLeads : null)
     }
 
@@ -105,6 +100,42 @@ const LeadsList = ({
     }
   }
 
+  const handleIndividualDelete = async (leadId: string) => {
+    if (leads && onLeadsUpdate) {
+      const updatedLeads = leads.filter((lead) => lead.id !== leadId)
+      onLeadsUpdate(updatedLeads.length > 0 ? updatedLeads : null)
+    }
+
+    const result = await deleteLeads([leadId])
+
+    if (result.success) {
+      toast.success("Successfully deleted lead")
+      router.refresh()
+    } else {
+      if (onLeadsUpdate) {
+        onLeadsUpdate(leads)
+      }
+      toast.error(result.error || "Failed to delete lead")
+    }
+  }
+
+  const handleIndividualAssignToListing = async (
+    leadId: string,
+    listingId: string,
+  ) => {
+    const result = await assignLeadsToListing([leadId], listingId)
+
+    if (result.success) {
+      toast.success("Successfully assigned lead to listing")
+      router.refresh()
+      if (onLeadsUpdate) {
+        window.location.reload()
+      }
+    } else {
+      toast.error(result.error || "Failed to assign lead to listing")
+    }
+  }
+
   return (
     <>
       <div className="mb-4 flex w-fit items-center gap-1 overflow-hidden rounded-full shadow-sm">
@@ -132,12 +163,18 @@ const LeadsList = ({
           selectedLeads={selectedLeads}
           onToggleLead={handleToggleLead}
           onToggleAll={handleToggleAll}
+          onDelete={handleIndividualDelete}
+          onAssignToListing={handleIndividualAssignToListing}
+          listings={listings || []}
         />
       ) : (
         <LeadsListTileView
           leads={leads}
           selectedLeads={selectedLeads}
           onToggleLead={handleToggleLead}
+          onDelete={handleIndividualDelete}
+          onAssignToListing={handleIndividualAssignToListing}
+          listings={listings || []}
         />
       )}
 
@@ -162,4 +199,3 @@ const LeadsList = ({
 }
 
 export default LeadsList
-

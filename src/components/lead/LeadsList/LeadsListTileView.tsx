@@ -6,23 +6,27 @@ import {
   getRoleBadgeVariant,
 } from "@/lib/formatLeadData"
 import { LeadWithListing } from "@/types/lead"
-import { Ellipsis } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Badge } from "../../ui/badge"
-import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
 import { EmptyState } from "../../ui/empty-state"
-import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
+import LeadActionsMenu from "./LeadActionsMenu"
 
 const LeadsListTileView = ({
   leads,
   selectedLeads,
   onToggleLead,
+  onDelete,
+  onAssignToListing,
+  listings,
 }: {
   leads: Array<LeadWithListing> | null
   selectedLeads: Set<string>
   onToggleLead: (leadId: string) => void
+  onDelete: (leadId: string) => Promise<void>
+  onAssignToListing: (leadId: string, listingId: string) => Promise<void>
+  listings: Array<{ id: string; address: string; isTest?: boolean | null }>
 }) => {
   const router = useRouter()
 
@@ -141,29 +145,12 @@ const LeadsListTileView = ({
               <span className="text-xs text-gray-600">
                 Received: {formattedDate}
               </span>
-              <Popover>
-                <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Ellipsis size={16} />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="max-w-60 p-2"
-                  side="bottom"
-                  collisionPadding={64}
-                >
-                  <div className="flex flex-col gap-1">
-                    <Link href={`/lead/${lead.id}`}>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start gap-2 p-2"
-                      >
-                        View Lead
-                      </Button>
-                    </Link>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <LeadActionsMenu
+                leadId={lead.id}
+                onDelete={onDelete}
+                onAssignToListing={onAssignToListing}
+                listings={listings}
+              />
             </div>
           </div>
         )

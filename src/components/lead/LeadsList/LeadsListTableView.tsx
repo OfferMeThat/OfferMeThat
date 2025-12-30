@@ -6,14 +6,11 @@ import {
   getRoleBadgeVariant,
 } from "@/lib/formatLeadData"
 import { LeadWithListing } from "@/types/lead"
-import { Ellipsis } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Badge } from "../../ui/badge"
-import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
 import { EmptyState } from "../../ui/empty-state"
-import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
 import {
   Table,
   TableBody,
@@ -22,17 +19,24 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table"
+import LeadActionsMenu from "./LeadActionsMenu"
 
 const LeadsListTableView = ({
   leads,
   selectedLeads,
   onToggleLead,
   onToggleAll,
+  onDelete,
+  onAssignToListing,
+  listings,
 }: {
   leads: Array<LeadWithListing> | null
   selectedLeads: Set<string>
   onToggleLead: (leadId: string) => void
   onToggleAll: (checked: boolean) => void
+  onDelete: (leadId: string) => Promise<void>
+  onAssignToListing: (leadId: string, listingId: string) => Promise<void>
+  listings: Array<{ id: string; address: string; isTest?: boolean | null }>
 }) => {
   const router = useRouter()
 
@@ -53,8 +57,6 @@ const LeadsListTableView = ({
     }
     return lead.listing?.address || "N/A"
   }
-
-
 
   // Show empty state if no leads
   if (!leads || leads.length === 0) {
@@ -173,29 +175,14 @@ const LeadsListTableView = ({
                   )}
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" className="mx-auto">
-                        <Ellipsis size={18} />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="max-w-60 p-2"
-                      side="bottom"
-                      collisionPadding={64}
-                    >
-                      <div className="flex flex-col gap-1">
-                        <Link href={`/lead/${lead.id}`}>
-                          <Button
-                            variant="ghost"
-                            className="w-full justify-start gap-2 p-2"
-                          >
-                            View Lead
-                          </Button>
-                        </Link>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <LeadActionsMenu
+                    leadId={lead.id}
+                    onDelete={onDelete}
+                    onAssignToListing={onAssignToListing}
+                    listings={listings}
+                    buttonClassName="mx-auto"
+                    iconSize={18}
+                  />
                 </TableCell>
               </TableRow>
             )
@@ -207,4 +194,3 @@ const LeadsListTableView = ({
 }
 
 export default LeadsListTableView
-
