@@ -7,7 +7,7 @@ import {
 } from "@/lib/depositDataHelpers"
 import { OfferWithListing } from "@/types/offer"
 import { Database } from "@/types/supabase"
-import { ArrowLeft, ArrowRight, Copy, Trash2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "../ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog"
@@ -65,7 +65,7 @@ const CounterOfferModal = ({
         setQuestions(result.questions)
         const formValues = transformOfferToFormValues(result.offer)
         setOriginalFormValues(formValues)
-        setCounterFormValues({ ...formValues })
+        setCounterFormValues({})
       }
     } catch (error) {
       console.error("Error fetching offer data:", error)
@@ -155,58 +155,48 @@ const CounterOfferModal = ({
     counterValue: any,
   ) => {
     const displayValue = renderDisplay(originalValue)
-    const isNA = displayValue === "N/A" || !originalValue
 
     return (
-      <div className="space-y-3">
-        <Label className="text-sm font-medium text-gray-700">{label}</Label>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-gray-500">
-              Original Offer
-            </div>
-            <Input
-              value={displayValue}
-              disabled
-              className="bg-gray-50 text-gray-700"
-            />
+      <div className="space-y-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr]">
+          <Label className="text-sm font-medium text-gray-700">{label}</Label>
+          <div></div>
+          <div></div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
+          <Input
+            value={displayValue}
+            disabled
+            className="w-full bg-gray-50 text-gray-700"
+          />
+          <div className="flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => handleCopyValue(fieldKey)}
+            >
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-medium text-gray-500">
-                Counter Offer
-              </div>
-              <div className="flex gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2"
-                  onClick={() => handleCopyValue(fieldKey)}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-                {counterValue !== undefined && counterValue !== null && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-red-600 hover:text-red-700"
-                    onClick={() => handleRemoveValue(fieldKey)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              {renderInput(
+                counterValue ?? (fieldKey === "submitterName" ? {} : ""),
+                (value) => handleValueChange(fieldKey, value),
+              )}
             </div>
-            {counterValue !== undefined && counterValue !== null ? (
-              renderInput(counterValue, (value) =>
-                handleValueChange(fieldKey, value),
-              )
-            ) : (
-              <div className="rounded border border-dashed border-gray-300 bg-white p-3 text-sm text-gray-400">
-                Field removed
-              </div>
+            {counterValue !== undefined && counterValue !== null && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 shrink-0 px-2 text-red-600 hover:text-red-700"
+                onClick={() => handleRemoveValue(fieldKey)}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
             )}
           </div>
         </div>
@@ -226,6 +216,7 @@ const CounterOfferModal = ({
                 value={value || ""}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder="Enter property address"
+                className="w-full"
               />
             ),
             (value) => value || "N/A",
@@ -236,96 +227,132 @@ const CounterOfferModal = ({
           {renderField(
             "What best describes you?",
             "submitterRole",
-            (value, onChange) => (
-              <Input
-                value={value || ""}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder="Enter role"
-              />
-            ),
-            (value) => value || "N/A",
+            (value, onChange) => {
+              const getSelectValue = (val: string | null | undefined) => {
+                if (!val) return ""
+                if (val === "buyer") return "buyer_self"
+                if (val === "agent") return "buyers_agent"
+                return val
+              }
+
+              const getDisplayLabel = (val: string) => {
+                if (val === "buyer_self")
+                  return "I am a Buyer representing myself"
+                if (val === "buyer_with_agent")
+                  return "I am a Buyer and I have an Agent"
+                if (val === "buyers_agent")
+                  return "I'm a Buyers' Agent representing a Buyer"
+                return val || ""
+              }
+
+              return (
+                <Select
+                  value={getSelectValue(value)}
+                  onValueChange={(newValue) => onChange(newValue)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="buyer_self">
+                      I am a Buyer representing myself
+                    </SelectItem>
+                    <SelectItem value="buyer_with_agent">
+                      I am a Buyer and I have an Agent
+                    </SelectItem>
+                    <SelectItem value="buyers_agent">
+                      I&apos;m a Buyers&apos; Agent representing a Buyer
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )
+            },
+            (value) => {
+              if (!value) return "N/A"
+              if (value === "buyer") return "I am a Buyer representing myself"
+              if (value === "agent")
+                return "I'm a Buyers' Agent representing a Buyer"
+              if (value === "buyer_self")
+                return "I am a Buyer representing myself"
+              if (value === "buyer_with_agent")
+                return "I am a Buyer and I have an Agent"
+              if (value === "buyers_agent")
+                return "I'm a Buyers' Agent representing a Buyer"
+              return value
+            },
             originalFormValues.submitterRole,
             counterFormValues.submitterRole,
           )}
 
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-gray-700">
-              Your Name
-            </Label>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-gray-500">
-                  Original Offer
-                </div>
-                <Input
-                  value={
-                    originalFormValues.submitterName
-                      ? `${originalFormValues.submitterName.firstName || ""} ${originalFormValues.submitterName.lastName || ""}`.trim() ||
-                        "N/A"
-                      : "N/A"
-                  }
-                  disabled
-                  className="bg-gray-50 text-gray-700"
-                />
+          <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr]">
+              <Label className="text-sm font-medium text-gray-700">
+                Your Name
+              </Label>
+              <div></div>
+              <div></div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr] md:items-start">
+              <Input
+                value={
+                  originalFormValues.submitterName
+                    ? `${originalFormValues.submitterName.firstName || ""} ${originalFormValues.submitterName.lastName || ""}`.trim() ||
+                      "N/A"
+                    : "N/A"
+                }
+                disabled
+                className="w-full bg-gray-50 text-gray-700"
+              />
+              <div className="flex justify-center pt-0.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => handleCopyValue("submitterName")}
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium text-gray-500">
-                    Counter Offer
-                  </div>
-                  <div className="flex gap-1">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Input
+                    value={counterFormValues.submitterName?.firstName || ""}
+                    onChange={(e) =>
+                      handleValueChange("submitterName", {
+                        ...(counterFormValues.submitterName || {}),
+                        firstName: e.target.value,
+                      })
+                    }
+                    placeholder="First Name"
+                    className="w-full"
+                  />
+                  <Input
+                    value={counterFormValues.submitterName?.lastName || ""}
+                    onChange={(e) =>
+                      handleValueChange("submitterName", {
+                        ...(counterFormValues.submitterName || {}),
+                        lastName: e.target.value,
+                      })
+                    }
+                    placeholder="Last Name"
+                    className="w-full"
+                  />
+                </div>
+                {counterFormValues.submitterName !== undefined &&
+                  counterFormValues.submitterName !== null &&
+                  (counterFormValues.submitterName.firstName ||
+                    counterFormValues.submitterName.lastName) && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 px-2"
-                      onClick={() => handleCopyValue("submitterName")}
+                      className="h-6 shrink-0 px-2 text-red-600 hover:text-red-700"
+                      onClick={() => handleRemoveValue("submitterName")}
                     >
-                      <Copy className="h-3 w-3" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
-                    {counterFormValues.submitterName !== undefined &&
-                      counterFormValues.submitterName !== null && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-red-600 hover:text-red-700"
-                          onClick={() => handleRemoveValue("submitterName")}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
-                  </div>
-                </div>
-                {counterFormValues.submitterName !== undefined &&
-                counterFormValues.submitterName !== null ? (
-                  <div className="space-y-2">
-                    <Input
-                      value={counterFormValues.submitterName?.firstName || ""}
-                      onChange={(e) =>
-                        handleValueChange("submitterName", {
-                          ...counterFormValues.submitterName,
-                          firstName: e.target.value,
-                        })
-                      }
-                      placeholder="First Name"
-                    />
-                    <Input
-                      value={counterFormValues.submitterName?.lastName || ""}
-                      onChange={(e) =>
-                        handleValueChange("submitterName", {
-                          ...counterFormValues.submitterName,
-                          lastName: e.target.value,
-                        })
-                      }
-                      placeholder="Last Name"
-                    />
-                  </div>
-                ) : (
-                  <div className="rounded border border-dashed border-gray-300 bg-white p-3 text-sm text-gray-400">
-                    Field removed
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>
@@ -339,6 +366,7 @@ const CounterOfferModal = ({
                 value={value || ""}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder="Enter email"
+                className="w-full"
               />
             ),
             (value) => value || "N/A",
@@ -355,6 +383,7 @@ const CounterOfferModal = ({
                 value={value || ""}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder="Enter phone number"
+                className="w-full"
               />
             ),
             (value) => value || "N/A",
@@ -377,6 +406,7 @@ const CounterOfferModal = ({
                 onChange={(e) => onChange(e.target.value)}
                 placeholder="File URL"
                 disabled
+                className="w-full"
               />
             ),
             (value) => {
@@ -405,6 +435,7 @@ const CounterOfferModal = ({
                     })
                   }
                   placeholder="0.00"
+                  className="w-full"
                 />
                 <Input
                   value={value?.currency || "USD"}
@@ -415,6 +446,7 @@ const CounterOfferModal = ({
                     })
                   }
                   placeholder="USD"
+                  className="w-full"
                 />
               </div>
             ),
@@ -469,7 +501,7 @@ const CounterOfferModal = ({
                   }
                 }}
                 placeholder="Deposit data (JSON)"
-                className="font-mono text-xs"
+                className="w-full font-mono text-xs"
                 rows={6}
               />
             ),
@@ -489,7 +521,7 @@ const CounterOfferModal = ({
             "paymentWay",
             (value, onChange) => (
               <Select value={value || "cash"} onValueChange={onChange}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -521,6 +553,7 @@ const CounterOfferModal = ({
                     })
                   }
                   placeholder="Date"
+                  className="w-full"
                 />
                 <Input
                   type="time"
@@ -532,6 +565,7 @@ const CounterOfferModal = ({
                     })
                   }
                   placeholder="Time"
+                  className="w-full"
                 />
               </div>
             ),
@@ -570,6 +604,7 @@ const CounterOfferModal = ({
                 onChange={(e) => onChange(e.target.value)}
                 placeholder="Enter message to agent"
                 rows={6}
+                className="w-full"
               />
             ),
             getMessageDisplay,
@@ -604,6 +639,11 @@ const CounterOfferModal = ({
           </div>
         ) : (
           <>
+            <div className="grid grid-cols-1 gap-4 border-b pb-3 md:grid-cols-[1fr_auto_1fr]">
+              <div className="text-xs font-bold text-black">Original Offer</div>
+              <div></div>
+              <div className="text-xs font-bold text-black">Counter Offer</div>
+            </div>
             <div className="space-y-6 py-4">{renderStepContent()}</div>
 
             <div className="flex justify-between border-t pt-4">
@@ -622,7 +662,7 @@ const CounterOfferModal = ({
                 )}
                 {currentStep < totalSteps ? (
                   <Button onClick={() => setCurrentStep((prev) => prev + 1)}>
-                    Looks Good
+                    Next
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 ) : (
