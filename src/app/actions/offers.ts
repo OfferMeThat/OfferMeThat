@@ -836,3 +836,35 @@ export async function hasTestOffers(): Promise<boolean> {
 
   return (count || 0) > 0
 }
+
+export async function getOfferWithQuestions(
+  offerId: string,
+): Promise<{
+  offer: OfferWithListing | null
+  questions: any[] | null
+  error?: string
+}> {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { offer: null, questions: null, error: "User not authenticated" }
+  }
+
+  const offer = await getOfferById(offerId)
+  if (!offer || !offer.formId) {
+    return { offer: null, questions: null, error: "Offer or form not found" }
+  }
+
+  const { getFormQuestions } = await import("./offerForm")
+  try {
+    const questions = await getFormQuestions(offer.formId)
+    return { offer, questions }
+  } catch (error: any) {
+    return {
+      offer,
+      questions: null,
+      error: error.message || "Failed to fetch questions",
+    }
+  }
+}
