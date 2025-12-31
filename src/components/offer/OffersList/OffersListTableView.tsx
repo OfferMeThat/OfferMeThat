@@ -5,6 +5,8 @@ import { OfferWithListing } from "@/types/offer"
 import { Check, Clock, Ellipsis } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
+import CounterOfferModal from "../CounterOfferModal"
 import { Badge } from "../../ui/badge"
 import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
@@ -31,6 +33,9 @@ const OffersListTableView = ({
   onToggleAll: (checked: boolean) => void
 }) => {
   const router = useRouter()
+  const [counterOfferModalOpen, setCounterOfferModalOpen] = useState(false)
+  const [selectedOfferForCounter, setSelectedOfferForCounter] =
+    useState<OfferWithListing | null>(null)
 
   const allSelected =
     offers &&
@@ -198,6 +203,16 @@ const OffersListTableView = ({
                             View Offer
                           </Button>
                         </Link>
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start gap-2 p-2"
+                          onClick={() => {
+                            setSelectedOfferForCounter(offer)
+                            setCounterOfferModalOpen(true)
+                          }}
+                        >
+                          Make a Counter Offer
+                        </Button>
                       </div>
                     </PopoverContent>
                   </Popover>
@@ -207,6 +222,14 @@ const OffersListTableView = ({
           })}
         </TableBody>
       </Table>
+      <CounterOfferModal
+        isOpen={counterOfferModalOpen}
+        onClose={() => {
+          setCounterOfferModalOpen(false)
+          setSelectedOfferForCounter(null)
+        }}
+        offer={selectedOfferForCounter}
+      />
     </div>
   )
 }
