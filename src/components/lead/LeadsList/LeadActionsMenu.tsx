@@ -1,6 +1,6 @@
 "use client"
 
-import { Ellipsis } from "lucide-react"
+import { Ellipsis, Eye, Link2, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -112,6 +112,7 @@ const LeadActionsMenu = ({
                 variant="ghost"
                 className="w-full justify-start gap-2 p-2"
               >
+                <Eye size={16} />
                 View Lead
               </Button>
             </Link>
@@ -120,6 +121,7 @@ const LeadActionsMenu = ({
               className="w-full justify-start gap-2 p-2"
               onClick={handleAssignClick}
             >
+              <Link2 size={16} />
               Assign to Listing
             </Button>
             <Button
@@ -127,6 +129,7 @@ const LeadActionsMenu = ({
               className="w-full justify-start gap-2 p-2 text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={handleDeleteClick}
             >
+              <Trash2 size={16} />
               Delete
             </Button>
           </div>
@@ -196,4 +199,3 @@ const LeadActionsMenu = ({
 }
 
 export default LeadActionsMenu
-
