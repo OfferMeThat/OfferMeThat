@@ -13,30 +13,7 @@ import {
   getPurchaserNamesFromData,
   getSubmitterRoleFromData,
 } from "./parseOfferDataForReports"
-
-/**
- * Formats a date string to a human-readable format
- */
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-/**
- * Formats a number as currency
- */
-const formatCurrency = (amount: number, currency: string = "USD"): string => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
+import { escapeCsvField, formatCurrency, formatDate } from "./reportUtils"
 
 /**
  * Formats buyer type enum to readable string
@@ -144,26 +121,6 @@ const getListingAddress = (offer: OfferWithListing): string => {
  */
 const getPurchaserNames = (offer: OfferWithListing): string => {
   return getPurchaserNamesFromData(offer.purchaserData)
-}
-
-/**
- * Escapes CSV field values to handle commas, quotes, and newlines
- */
-const escapeCsvField = (value: string | number | undefined): string => {
-  if (value === undefined || value === null) return ""
-
-  const stringValue = String(value)
-
-  // If the value contains comma, quote, or newline, wrap in quotes and escape existing quotes
-  if (
-    stringValue.includes(",") ||
-    stringValue.includes('"') ||
-    stringValue.includes("\n")
-  ) {
-    return `"${stringValue.replace(/"/g, '""')}"`
-  }
-
-  return stringValue
 }
 
 /**

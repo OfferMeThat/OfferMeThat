@@ -101,7 +101,6 @@ export type OfferReportGenerationProps = {
 // Lead Report Types
 export type LeadReportFieldKey =
   | "received"
-  | "listingAddress"
   | "submitterName"
   | "submitterEmail"
   | "submitterPhone"
@@ -110,10 +109,6 @@ export type LeadReportFieldKey =
   | "financeInterest"
   | "followAllListings"
   | "opinionOfSalePrice"
-  | "buyerAgentName"
-  | "buyerAgentEmail"
-  | "buyerAgentCompany"
-  | "agentCompany"
   | "messageToAgent"
   | "customQuestions"
 
@@ -124,7 +119,6 @@ export type LeadReportField = {
 
 export const LEAD_REPORT_FIELDS: LeadReportField[] = [
   { key: "received", label: "Received" },
-  { key: "listingAddress", label: "Listing" },
   { key: "submitterName", label: "Submitter Name" },
   { key: "submitterEmail", label: "Submitter Email" },
   { key: "submitterPhone", label: "Submitter Phone" },
@@ -133,10 +127,6 @@ export const LEAD_REPORT_FIELDS: LeadReportField[] = [
   { key: "financeInterest", label: "Finance Interest" },
   { key: "followAllListings", label: "Follow All Listings" },
   { key: "opinionOfSalePrice", label: "Opinion of Sale Price" },
-  { key: "buyerAgentName", label: "Buyer Agent Name" },
-  { key: "buyerAgentEmail", label: "Buyer Agent Email" },
-  { key: "buyerAgentCompany", label: "Buyer Agent Company" },
-  { key: "agentCompany", label: "Agent Company" },
   { key: "messageToAgent", label: "Message to Agent" },
   { key: "customQuestions", label: "Custom Questions" },
 ]

@@ -15,49 +15,15 @@ import {
   getSubmitterRoleFromData,
 } from "./parseOfferDataForReports"
 
+import { formatCurrency, formatDateLong, formatDateTime } from "./reportUtils"
+
 // Teal color: #14b8a6 (tailwind teal-500)
 const TEAL_COLOR = [20, 184, 166]
 const BLACK_COLOR = [0, 0, 0]
 const WHITE_COLOR = [255, 255, 255]
 const GRAY_COLOR = [107, 114, 128]
 
-/**
- * Formats a date string to a human-readable format
- */
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-/**
- * Formats a date with time
- */
-const formatDateTime = (dateString: string): string => {
-  const date = new Date(dateString)
-  const dateStr = formatDate(dateString)
-  const timeStr = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  })
-  return `${dateStr} at ${timeStr}`
-}
-
-/**
- * Formats a number as currency
- */
-const formatCurrency = (amount: number, currency: string = "USD"): string => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
+const formatDate = formatDateLong
 
 /**
  * Formats buyer type enum to readable string

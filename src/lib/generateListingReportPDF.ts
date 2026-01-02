@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf"
 import { LISTING_STATUSES } from "@/constants/listings"
 import { ListingWithOfferCounts } from "@/types/listing"
 import { ReportFieldKey } from "@/types/reportTypes"
+import { formatDateLong } from "./reportUtils"
 
 // Teal color: #14b8a6 (tailwind teal-500)
 const TEAL_COLOR = [20, 184, 166]
@@ -9,17 +10,7 @@ const BLACK_COLOR = [0, 0, 0]
 const WHITE_COLOR = [255, 255, 255]
 const GRAY_COLOR = [107, 114, 128]
 
-/**
- * Formats a date string to a human-readable format
- */
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  })
-}
+const formatDate = formatDateLong
 
 /**
  * Gets field value for a listing
