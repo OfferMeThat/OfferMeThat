@@ -30,15 +30,15 @@ const formatDate = formatDateLong
  */
 const formatBuyerType = (buyerType: string | null | undefined): string => {
   if (!buyerType) return "N/A"
-  
+
   const trimmed = buyerType.trim()
-  
+
   // Normalize: convert camelCase to snake_case for lookup
   const normalized = trimmed
     .replace(/([A-Z])/g, "_$1")
     .toLowerCase()
     .replace(/^_/, "")
-  
+
   const buyerTypeLabels: Record<string, string> = {
     buyer: "Buyer",
     agent: "Agent",
@@ -48,14 +48,12 @@ const formatBuyerType = (buyerType: string | null | undefined): string => {
     buyers_agent: "Buyer's Agent",
     buyer_represented: "Represented Buyer",
   }
-  // Try normalized first, then original trimmed
   if (buyerTypeLabels[normalized]) {
     return buyerTypeLabels[normalized]
   }
   if (buyerTypeLabels[trimmed]) {
     return buyerTypeLabels[trimmed]
   }
-  // Fallback: convert snake_case to Title Case
   return normalized
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -131,7 +129,6 @@ const getFieldValue = (
     case "paymentWay":
       return formatPaymentWay(offer.paymentWay)
     case "conditional":
-      // Check if offer has special conditions or subject to loan approval
       const specialConditions = getAllSpecialConditionsInfo(
         offer.specialConditions,
       )
@@ -223,7 +220,6 @@ const drawField = (
   const availableWidth = Math.max(10, maxWidth - labelWidth - 2 - cardPadding)
   const maxValueX = x + maxWidth - cardPadding
 
-  // Draw label
   doc.setTextColor(GRAY_COLOR[0], GRAY_COLOR[1], GRAY_COLOR[2])
   doc.setFont("helvetica", "normal")
   doc.setFontSize(8)
@@ -231,7 +227,6 @@ const drawField = (
   const labelLines = doc.splitTextToSize(labelText, maxLabelWidth)
   doc.text(labelLines[0], x, y)
 
-  // Draw value (bold) with text wrapping
   doc.setTextColor(BLACK_COLOR[0], BLACK_COLOR[1], BLACK_COLOR[2])
   doc.setFont("helvetica", "bold")
 
@@ -282,16 +277,13 @@ const drawOfferCard = (
   const contentStartY = y + headerHeight
   const columnGap = 5
 
-  // Draw card border
   doc.setDrawColor(GRAY_COLOR[0], GRAY_COLOR[1], GRAY_COLOR[2])
   doc.setLineWidth(0.5)
   doc.rect(x, y, width, height)
 
-  // Draw teal header
   doc.setFillColor(TEAL_COLOR[0], TEAL_COLOR[1], TEAL_COLOR[2])
   doc.rect(x, y, width, headerHeight, "F")
 
-  // Draw listing address in header
   doc.setTextColor(WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2])
   doc.setFontSize(14)
   doc.setFont("helvetica", "bold")
@@ -300,7 +292,6 @@ const drawOfferCard = (
   const addressLines = doc.splitTextToSize(listingAddress, maxAddressWidth)
   doc.text(addressLines[0], x + cardPadding, y + headerHeight / 2 + 3)
 
-  // Draw content background (white)
   doc.setFillColor(WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2])
   doc.rect(x, contentStartY, width, height - headerHeight, "F")
 
@@ -317,7 +308,6 @@ const drawOfferCard = (
     const rightX = x + leftWidth + columnGap + cardPadding
     const cardBottom = y + height - cardPadding
 
-    // Draw divider line
     doc.setDrawColor(GRAY_COLOR[0], GRAY_COLOR[1], GRAY_COLOR[2])
     doc.setLineWidth(0.3)
     doc.line(
@@ -327,13 +317,11 @@ const drawOfferCard = (
       y + height,
     )
 
-    // Left column: "Offer Information" heading
     doc.setTextColor(BLACK_COLOR[0], BLACK_COLOR[1], BLACK_COLOR[2])
     doc.setFontSize(10)
     doc.setFont("helvetica", "bold")
     doc.text("Offer Information", leftX, contentStartY + 8)
 
-    // Left column: regular fields (excluding customQuestions and listingAddress)
     doc.setFont("helvetica", "normal")
     doc.setFontSize(8)
     let leftY = contentStartY + 15
@@ -359,13 +347,11 @@ const drawOfferCard = (
       )
     }
 
-    // Right column: "Custom Questions" heading
     doc.setTextColor(BLACK_COLOR[0], BLACK_COLOR[1], BLACK_COLOR[2])
     doc.setFontSize(10)
     doc.setFont("helvetica", "bold")
     doc.text("Custom Questions", rightX, contentStartY + 8)
 
-    // Right column: custom questions formatted individually
     doc.setFont("helvetica", "normal")
     doc.setFontSize(8)
     let rightY = contentStartY + 15
@@ -384,7 +370,6 @@ const drawOfferCard = (
       )
     }
   } else {
-    // Single-column layout (original behavior)
     doc.setTextColor(BLACK_COLOR[0], BLACK_COLOR[1], BLACK_COLOR[2])
     doc.setFontSize(10)
     doc.setFont("helvetica", "bold")
@@ -441,9 +426,6 @@ export const generateOfferReportPDF = (
   const contentWidth = pageWidth - 2 * margin
   const contentStartY = 20
 
-  // Calculate card dimensions
-  // If there are many fields, use full page per offer (1 card per page)
-  // Otherwise, use multiple cards per page
   const hasManyFields = selectedFields.length > 15
 
   let cardHeight: number
@@ -452,20 +434,16 @@ export const generateOfferReportPDF = (
   const cardSpacing = 5
 
   if (hasManyFields) {
-    // Full page per offer - use almost entire page height
     cardHeight = pageHeight - contentStartY - margin - 10
     cardsPerRow = 1
     cardWidth = contentWidth
   } else {
-    // Adjust card height based on number of fields
     const baseCardHeight = 70
     const heightPerField = 5
     const estimatedCardHeight =
       baseCardHeight + selectedFields.length * heightPerField
-    // Cap at reasonable maximum but allow more space
     cardHeight = Math.min(estimatedCardHeight, 150)
 
-    // Use fewer cards per row if there are many fields
     cardsPerRow = selectedFields.length > 10 ? 2 : 3
     cardWidth = (contentWidth - (cardsPerRow - 1) * cardSpacing) / cardsPerRow
   }
@@ -474,13 +452,11 @@ export const generateOfferReportPDF = (
   let currentRow = 0
   let cardsInCurrentRow = 0
 
-  // Generate header text (listing address removed since it's shown in each card header)
   let headerText = "Offer Report"
   if (userName) {
     headerText += ` - ${userName}`
   }
 
-  // Draw header banner
   doc.setFillColor(TEAL_COLOR[0], TEAL_COLOR[1], TEAL_COLOR[2])
   doc.rect(0, 0, pageWidth, 15, "F")
   doc.setTextColor(WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2])
@@ -488,15 +464,12 @@ export const generateOfferReportPDF = (
   doc.setFont("helvetica", "bold")
   doc.text(headerText, margin, 10)
 
-  // Draw offer cards
   for (let i = 0; i < offers.length; i++) {
     const offer = offers[i]
     const offerNumber = i + 1
 
-    // Check if we need a new page
     if (currentY + cardHeight > pageHeight - margin) {
       doc.addPage()
-      // Redraw header on new page
       doc.setFillColor(TEAL_COLOR[0], TEAL_COLOR[1], TEAL_COLOR[2])
       doc.rect(0, 0, pageWidth, 15, "F")
       doc.setTextColor(WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2])
@@ -508,11 +481,9 @@ export const generateOfferReportPDF = (
       cardsInCurrentRow = 0
     }
 
-    // Calculate card position
     const cardX = margin + cardsInCurrentRow * (cardWidth + cardSpacing)
     const cardY = currentY
 
-    // Draw the card
     drawOfferCard(
       doc,
       offer,
@@ -524,7 +495,6 @@ export const generateOfferReportPDF = (
       selectedFields,
     )
 
-    // Move to next position
     cardsInCurrentRow++
     if (cardsInCurrentRow >= cardsPerRow) {
       cardsInCurrentRow = 0
@@ -533,7 +503,6 @@ export const generateOfferReportPDF = (
     }
   }
 
-  // Save the PDF
   const today = new Date()
   const dateString = today.toISOString().split("T")[0]
   const filename = `offers-report-${dateString}.pdf`

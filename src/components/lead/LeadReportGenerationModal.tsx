@@ -50,7 +50,7 @@ const LeadReportGenerationModal = ({
 }: LeadReportGenerationModalProps) => {
   const [selectedFields, setSelectedFields] = useState<Set<LeadReportFieldKey>>(
     new Set(LEAD_REPORT_FIELDS.map((f) => f.key)),
-  ) // All fields selected by default
+  )
   const [userName, setUserName] = useState<string | undefined>(undefined)
   const [isLoadingUser, setIsLoadingUser] = useState(false)
 
@@ -74,7 +74,6 @@ const LeadReportGenerationModal = ({
     }
   }
 
-  // Fetch user name when modal opens
   useEffect(() => {
     if (open) {
       const fetchUserName = async () => {
@@ -116,7 +115,6 @@ const LeadReportGenerationModal = ({
     onOpenChange(false)
   }
 
-  // Format date for preview
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString)
     return date.toLocaleDateString("en-US", {
@@ -126,7 +124,6 @@ const LeadReportGenerationModal = ({
     })
   }
 
-  // Get preview data (first 5 leads)
   const previewLeads = leads.slice(0, 5)
 
   const allSelected = selectedFields.size === LEAD_REPORT_FIELDS.length
@@ -262,7 +259,6 @@ const LeadReportGenerationModal = ({
                               )
                               break
                             case "customQuestions":
-                              // Skip customQuestions in preview
                               cellContent = ""
                               break
                             default:

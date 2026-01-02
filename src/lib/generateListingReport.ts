@@ -14,7 +14,6 @@ export const generateListingReport = (
     return ""
   }
 
-  // Create header row
   const headers = selectedFields.map((fieldKey) => {
     const fieldLabels: Record<ReportFieldKey, string> = {
       address: "Address",
@@ -28,7 +27,6 @@ export const generateListingReport = (
     return fieldLabels[fieldKey]
   })
 
-  // Create data rows
   const rows = listings.map((listing) => {
     return selectedFields.map((fieldKey) => {
       switch (fieldKey) {
@@ -45,7 +43,6 @@ export const generateListingReport = (
         case "totalOffers":
           return escapeCsvField(listing.totalOffers)
         case "numberOfLeads":
-          // Currently hardcoded to 1 in the table view
           return escapeCsvField(1)
         default:
           return ""
@@ -53,7 +50,6 @@ export const generateListingReport = (
     })
   })
 
-  // Combine headers and rows
   const csvContent = [headers, ...rows].map((row) => row.join(",")).join("\n")
 
   return csvContent

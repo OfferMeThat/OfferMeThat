@@ -399,11 +399,9 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                         buyers_agent: "Buyer's Agent",
                         buyer_represented: "Represented Buyer",
                       }
-                      // If exact match found, return it
                       if (buyerTypeLabels[offer.buyerType]) {
                         return buyerTypeLabels[offer.buyerType]
                       }
-                      // Fallback: convert snake_case to Title Case
                       return offer.buyerType
                         .split("_")
                         .map(

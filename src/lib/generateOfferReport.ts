@@ -28,11 +28,9 @@ const formatBuyerType = (buyerType: string): string => {
     buyers_agent: "Buyer's Agent",
     buyer_represented: "Represented Buyer",
   }
-  // If exact match found, return it
   if (buyerTypeLabels[buyerType]) {
     return buyerTypeLabels[buyerType]
   }
-  // Fallback: convert snake_case to Title Case
   return buyerType
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -61,7 +59,6 @@ const formatYesNo = (value: boolean): string => {
  * Determines if offer is conditional based on special conditions or subject to loan approval
  */
 const isConditional = (offer: OfferWithListing): boolean => {
-  // Check if offer has special conditions
   const specialConditions = getAllSpecialConditionsInfo(offer.specialConditions)
   if (
     specialConditions &&
@@ -71,7 +68,6 @@ const isConditional = (offer: OfferWithListing): boolean => {
     return true
   }
 
-  // Check if offer is subject to loan approval
   const subjectToLoan = getAllSubjectToLoanInfo(offer.subjectToLoanApproval)
   if (
     subjectToLoan &&
@@ -81,7 +77,6 @@ const isConditional = (offer: OfferWithListing): boolean => {
     return true
   }
 
-  // Fallback to direct conditional field
   return offer.conditional === true
 }
 
@@ -134,18 +129,14 @@ export const generateOfferReport = (
     return ""
   }
 
-  // Convert selectedFields array to Set for O(1) lookup
   const selectedFieldsSet = new Set(selectedFields)
 
-  // Filter and order fields based on OFFER_REPORT_FIELDS order
   const orderedFields = OFFER_REPORT_FIELDS.filter((field) =>
     selectedFieldsSet.has(field.key),
   )
 
-  // Create header row
   const headers = orderedFields.map((field) => field.label)
 
-  // Create data rows
   const rows = offers.map((offer) => {
     return orderedFields.map((field) => {
       const fieldKey = field.key
@@ -215,7 +206,6 @@ export const generateOfferReport = (
     })
   })
 
-  // Combine headers and rows
   const csvContent = [headers, ...rows].map((row) => row.join(",")).join("\n")
 
   return csvContent
