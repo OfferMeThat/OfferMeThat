@@ -1,6 +1,6 @@
 "use client"
 
-import { OFFER_STATUSES } from "@/constants/offers"
+import { OFFER_STATUS_OPTIONS } from "@/constants/offers"
 import { OfferStatus } from "@/types/offer"
 import { Ellipsis, Eye, Link2, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
@@ -123,13 +123,6 @@ const OfferActionsMenu = ({
       setIsUpdating(false)
     }
   }
-
-  const statusOptions = Object.entries(OFFER_STATUSES)
-    .filter(([value]) => value !== "unassigned")
-    .map(([value, label]) => ({
-      value: value as OfferStatus,
-      label,
-    }))
 
   return (
     <>
@@ -266,7 +259,7 @@ const OfferActionsMenu = ({
                 <SelectValue placeholder="Select a status..." />
               </SelectTrigger>
               <SelectContent>
-                {statusOptions.map((option) => (
+                {OFFER_STATUS_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

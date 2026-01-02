@@ -1,7 +1,7 @@
 "use client"
 
 import { deleteListings, updateListingsStatus } from "@/app/actions/listings"
-import { LISTING_STATUSES } from "@/constants/listings"
+import { LISTING_STATUS_OPTIONS } from "@/constants/listings"
 import { ListingStatus, ListingWithOfferCounts } from "@/types/listing"
 import { LayoutGrid, TableOfContents } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -161,13 +161,6 @@ const ListingsList = ({
     setReportModalOpen(true)
   }
 
-  const statusOptions = Object.entries(LISTING_STATUSES)
-    .filter(([value]) => value !== "unassigned")
-    .map(([value, label]) => ({
-      value,
-      label,
-    }))
-
   // Get selected listings data for report generation
   const selectedListingsData =
     listings?.filter((listing) => selectedListings.has(listing.id)) || []
@@ -218,7 +211,7 @@ const ListingsList = ({
         onStatusChange={handleStatusChange}
         onGenerateReport={handleGenerateReport}
         onClearSelection={() => setSelectedListings(new Set())}
-        statusOptions={statusOptions}
+        statusOptions={LISTING_STATUS_OPTIONS}
         statusLabel="Listing Status"
         itemType="listings"
         showMessageButton={false}

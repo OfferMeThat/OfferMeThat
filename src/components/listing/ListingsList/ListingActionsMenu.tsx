@@ -1,6 +1,6 @@
 "use client"
 
-import { LISTING_STATUSES } from "@/constants/listings"
+import { LISTING_STATUS_OPTIONS } from "@/constants/listings"
 import { ListingStatus } from "@/types/listing"
 import { Ellipsis, Eye, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
@@ -44,7 +44,8 @@ const ListingActionsMenu = ({
 }: ListingActionsMenuProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
-  const [selectedStatus, setSelectedStatus] = useState<ListingStatus>(currentStatus)
+  const [selectedStatus, setSelectedStatus] =
+    useState<ListingStatus>(currentStatus)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
 
@@ -84,13 +85,6 @@ const ListingActionsMenu = ({
       setIsUpdating(false)
     }
   }
-
-  const statusOptions = Object.entries(LISTING_STATUSES)
-    .filter(([value]) => value !== "unassigned")
-    .map(([value, label]) => ({
-      value: value as ListingStatus,
-      label,
-    }))
 
   return (
     <>
@@ -144,8 +138,8 @@ const ListingActionsMenu = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete listing?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this listing? This action cannot be
-              undone.
+              Are you sure you want to delete this listing? This action cannot
+              be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -172,13 +166,15 @@ const ListingActionsMenu = ({
           <div className="py-4">
             <Select
               value={selectedStatus}
-              onValueChange={(value) => setSelectedStatus(value as ListingStatus)}
+              onValueChange={(value) =>
+                setSelectedStatus(value as ListingStatus)
+              }
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a status..." />
               </SelectTrigger>
               <SelectContent>
-                {statusOptions.map((option) => (
+                {LISTING_STATUS_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -202,4 +198,3 @@ const ListingActionsMenu = ({
 }
 
 export default ListingActionsMenu
-

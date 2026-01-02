@@ -15,6 +15,13 @@ export const OFFER_STATUSES: Record<OfferStatus, string> = {
   unassigned: "Unassigned",
 }
 
+export const OFFER_STATUS_OPTIONS = Object.entries(OFFER_STATUSES)
+  .filter(([value]) => value !== "unassigned")
+  .map(([value, label]) => ({
+    value: value as OfferStatus,
+    label,
+  }))
+
 export const OFFER_TO_BADGE_MAP: Record<
   OfferStatus,
   VariantProps<typeof badgeVariants>["variant"]

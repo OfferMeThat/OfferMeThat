@@ -5,7 +5,7 @@ import {
   deleteOffers,
   updateOffersStatus,
 } from "@/app/actions/offers"
-import { OFFER_STATUSES } from "@/constants/offers"
+import { OFFER_STATUS_OPTIONS } from "@/constants/offers"
 import { OfferStatus, OfferWithListing } from "@/types/offer"
 import { LayoutGrid, TableOfContents } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -229,13 +229,6 @@ const OffersList = ({
     }
   }
 
-  const statusOptions = Object.entries(OFFER_STATUSES)
-    .filter(([value]) => value !== "unassigned")
-    .map(([value, label]) => ({
-      value,
-      label,
-    }))
-
   // Get selected offers data for report generation
   const selectedOffersData =
     offers?.filter((offer) => selectedOffers.has(offer.id)) || []
@@ -297,7 +290,7 @@ const OffersList = ({
         onSendMessage={handleSendMessage}
         onGenerateReport={handleGenerateReport}
         onClearSelection={() => setSelectedOffers(new Set())}
-        statusOptions={statusOptions}
+        statusOptions={OFFER_STATUS_OPTIONS}
         statusLabel="Offer Status"
         itemType="offers"
         showMessageButton={true}
