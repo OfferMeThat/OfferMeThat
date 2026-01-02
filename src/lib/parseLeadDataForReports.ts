@@ -116,25 +116,8 @@ export function getAllMessageToAgentInfo(messageToAgent: any): string {
 }
 
 function isUrl(val: any): boolean {
-  if (!messageToAgent) return "N/A"
-
-  let message = getMessageToAgentFromData(messageToAgent)
-  const attachments = getMessageAttachmentUrls(messageToAgent)
-
-  if (message === "N/A" && attachments === "N/A") {
-    return "N/A"
-  }
-
-  // Clip message to 200 characters if longer
-  if (message !== "N/A" && message.length > 200) {
-    message = message.substring(0, 200) + "..."
-  }
-
-  const parts: string[] = []
-  if (message !== "N/A") parts.push(message)
-  if (attachments === "Yes") parts.push("Attachments: Yes")
-
-  return parts.length > 0 ? parts.join(" | ") : "N/A"
+  if (typeof val !== "string") return false
+  return val.startsWith("http://") || val.startsWith("https://")
 }
 
 function countAttachments(val: any): number {
