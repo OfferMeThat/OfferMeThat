@@ -1,9 +1,10 @@
 "use client"
 
-import { Ellipsis, Eye, Link2, Trash2 } from "lucide-react"
+import { LISTING_STATUS_OPTIONS } from "@/constants/listings"
+import { ListingStatus } from "@/types/listing"
+import { Ellipsis, Eye, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { useCallback, useMemo, useState } from "react"
-import { toast } from "sonner"
+import { useCallback, useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,33 +25,29 @@ import {
   SelectValue,
 } from "../../ui/select"
 
-type LeadActionsMenuProps = {
-  leadId: string
-  onDelete: (leadId: string) => Promise<void>
-  onAssignToListing: (leadId: string, listingId: string) => Promise<void>
-  listings: Array<{ id: string; address: string; isTest?: boolean | null }>
+type ListingActionsMenuProps = {
+  listingId: string
+  currentStatus: ListingStatus
+  onDelete: (listingId: string) => Promise<void>
+  onUpdateStatus: (listingId: string, status: ListingStatus) => Promise<void>
   buttonClassName?: string
   iconSize?: number
 }
 
-const LeadActionsMenu = ({
-  leadId,
+const ListingActionsMenu = ({
+  listingId,
+  currentStatus,
   onDelete,
-  onAssignToListing,
-  listings,
+  onUpdateStatus,
   buttonClassName,
   iconSize = 16,
-}: LeadActionsMenuProps) => {
+}: ListingActionsMenuProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
-  const [selectedListingId, setSelectedListingId] = useState<string>("")
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+  const [selectedStatus, setSelectedStatus] =
+    useState<ListingStatus>(currentStatus)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [isAssigning, setIsAssigning] = useState(false)
-
-  const realListings = useMemo(
-    () => listings.filter((listing) => listing.isTest !== true),
-    [listings],
-  )
+  const [isUpdating, setIsUpdating] = useState(false)
 
   const handleDeleteClick = useCallback(() => {
     setDeleteDialogOpen(true)
@@ -59,38 +56,35 @@ const LeadActionsMenu = ({
   const handleDeleteConfirm = useCallback(async () => {
     setIsDeleting(true)
     try {
-      await onDelete(leadId)
+      await onDelete(listingId)
       setDeleteDialogOpen(false)
     } catch (error) {
-      console.error("Error deleting lead:", error)
+      console.error("Error deleting listing:", error)
     } finally {
       setIsDeleting(false)
     }
-  }, [leadId, onDelete])
+  }, [listingId, onDelete])
 
-  const handleAssignClick = useCallback(() => {
-    if (realListings.length === 0) {
-      toast.error(
-        "You have no listings to assign to. Please create a listing first.",
-      )
+  const handleStatusClick = useCallback(() => {
+    setSelectedStatus(currentStatus)
+    setStatusDialogOpen(true)
+  }, [currentStatus])
+
+  const handleStatusConfirm = useCallback(async () => {
+    if (selectedStatus === currentStatus) {
+      setStatusDialogOpen(false)
       return
     }
-    setAssignDialogOpen(true)
-  }, [realListings])
-
-  const handleAssignConfirm = useCallback(async () => {
-    if (!selectedListingId) return
-    setIsAssigning(true)
+    setIsUpdating(true)
     try {
-      await onAssignToListing(leadId, selectedListingId)
-      setAssignDialogOpen(false)
-      setSelectedListingId("")
+      await onUpdateStatus(listingId, selectedStatus)
+      setStatusDialogOpen(false)
     } catch (error) {
-      console.error("Error assigning lead:", error)
+      console.error("Error updating listing status:", error)
     } finally {
-      setIsAssigning(false)
+      setIsUpdating(false)
     }
-  }, [selectedListingId, onAssignToListing, leadId])
+  }, [selectedStatus, currentStatus, listingId, onUpdateStatus])
 
   return (
     <>
@@ -110,22 +104,22 @@ const LeadActionsMenu = ({
           collisionPadding={64}
         >
           <div className="flex flex-col gap-1">
-            <Link href={`/lead/${leadId}`}>
+            <Link href={`/listing/${listingId}`}>
               <Button
                 variant="ghost"
                 className="w-full justify-start gap-2 p-2"
               >
                 <Eye size={16} />
-                View Lead
+                View Listing
               </Button>
             </Link>
             <Button
               variant="ghost"
               className="w-full justify-start gap-2 p-2"
-              onClick={handleAssignClick}
+              onClick={handleStatusClick}
             >
-              <Link2 size={16} />
-              Assign to Listing
+              <Pencil size={16} />
+              Update Listing Status
             </Button>
             <Button
               variant="ghost"
@@ -142,10 +136,10 @@ const LeadActionsMenu = ({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete lead?</AlertDialogTitle>
+            <AlertDialogTitle>Delete listing?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this lead? This action cannot be
-              undone.
+              Are you sure you want to delete this listing? This action cannot
+              be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -161,38 +155,40 @@ const LeadActionsMenu = ({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+      <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Assign to Listing</AlertDialogTitle>
+            <AlertDialogTitle>Update Listing Status</AlertDialogTitle>
             <AlertDialogDescription>
-              Select a listing to assign this lead to.
+              Select a new status for this listing.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
             <Select
-              value={selectedListingId}
-              onValueChange={setSelectedListingId}
+              value={selectedStatus}
+              onValueChange={(value) =>
+                setSelectedStatus(value as ListingStatus)
+              }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a listing..." />
+                <SelectValue placeholder="Select a status..." />
               </SelectTrigger>
               <SelectContent>
-                {realListings.map((listing) => (
-                  <SelectItem key={listing.id} value={listing.id}>
-                    {listing.address}
+                {LISTING_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isAssigning}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isUpdating}>Cancel</AlertDialogCancel>
             <Button
-              onClick={handleAssignConfirm}
-              disabled={isAssigning || !selectedListingId}
+              onClick={handleStatusConfirm}
+              disabled={isUpdating || selectedStatus === currentStatus}
             >
-              {isAssigning ? "Assigning..." : "Assign"}
+              {isUpdating ? "Updating..." : "Update"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -201,4 +197,4 @@ const LeadActionsMenu = ({
   )
 }
 
-export default LeadActionsMenu
+export default ListingActionsMenu

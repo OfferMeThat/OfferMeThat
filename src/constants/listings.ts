@@ -9,6 +9,14 @@ export const LISTING_STATUSES: Record<ListingStatus, string> = {
   withdrawn: "Withdrawn",
   unassigned: "Unassigned",
 }
+
+export const LISTING_STATUS_OPTIONS = Object.entries(LISTING_STATUSES)
+  .filter(([value]) => value !== "unassigned")
+  .map(([value, label]) => ({
+    value: value as ListingStatus,
+    label,
+  }))
+
 export const LISTING_TO_BADGE_MAP: Record<
   ListingStatus,
   VariantProps<typeof badgeVariants>["variant"]

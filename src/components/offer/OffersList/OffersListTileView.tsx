@@ -1,24 +1,33 @@
 "use client"
 
 import { OFFER_STATUSES, OFFER_TO_BADGE_MAP } from "@/constants/offers"
-import { OfferWithListing } from "@/types/offer"
-import { Check, Clock, Ellipsis } from "lucide-react"
+import { OfferStatus, OfferWithListing } from "@/types/offer"
+import { Check, Clock } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Badge } from "../../ui/badge"
-import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
 import { EmptyState } from "../../ui/empty-state"
-import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
+import OfferActionsMenu from "./OfferActionsMenu"
 
 const OffersListTileView = ({
   offers,
   selectedOffers,
   onToggleOffer,
+  onDelete,
+  onUpdateStatus,
+  onAssignToListing,
+  listings,
+  showAssignToListing,
 }: {
   offers: Array<OfferWithListing> | null
   selectedOffers: Set<string>
   onToggleOffer: (offerId: string) => void
+  onDelete: (offerId: string) => Promise<void>
+  onUpdateStatus?: (offerId: string, status: OfferStatus) => Promise<void>
+  onAssignToListing?: (offerId: string, listingId: string) => Promise<void>
+  listings: Array<{ id: string; address: string; isTest?: boolean | null }>
+  showAssignToListing?: boolean
 }) => {
   const router = useRouter()
 
@@ -158,29 +167,15 @@ const OffersListTileView = ({
               <span className="text-xs text-gray-600">
                 Received: {formattedDate}
               </span>
-              <Popover>
-                <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Ellipsis size={16} />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="max-w-60 p-2"
-                  side="bottom"
-                  collisionPadding={64}
-                >
-                  <div className="flex flex-col gap-1">
-                    <Link href={`/offer/${offer.id}`}>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start gap-2 p-2"
-                      >
-                        View Offer
-                      </Button>
-                    </Link>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <OfferActionsMenu
+                offerId={offer.id}
+                currentStatus={offer.status}
+                onDelete={onDelete}
+                onUpdateStatus={onUpdateStatus}
+                onAssignToListing={onAssignToListing}
+                listings={listings}
+                showAssignToListing={showAssignToListing}
+              />
             </div>
           </div>
         )
