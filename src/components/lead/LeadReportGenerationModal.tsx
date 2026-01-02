@@ -18,20 +18,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { generateLeadReportPDF } from "@/lib/generateLeadReportPDF"
 import {
   formatAreYouInterested,
   formatFinanceInterest,
   formatFollowAllListings,
   formatSubmitterRole,
 } from "@/lib/formatLeadData"
+import { generateLeadReportPDF } from "@/lib/generateLeadReportPDF"
 import {
   getAllMessageToAgentInfo,
-  getCustomQuestionsFromLead,
-  getListingAddress,
+  getOpinionOfSalePrice,
   getSubmitterName,
 } from "@/lib/parseLeadDataForReports"
-import { formatCustomQuestions } from "@/lib/parseLeadDataForReports"
 import { createClient } from "@/lib/supabase/client"
 import { LeadWithListing } from "@/types/lead"
 import { LEAD_REPORT_FIELDS, LeadReportFieldKey } from "@/types/reportTypes"
@@ -50,9 +48,9 @@ const LeadReportGenerationModal = ({
   onOpenChange,
   leads,
 }: LeadReportGenerationModalProps) => {
-  const [selectedFields, setSelectedFields] = useState<
-    Set<LeadReportFieldKey>
-  >(new Set(LEAD_REPORT_FIELDS.map((f) => f.key))) // All fields selected by default
+  const [selectedFields, setSelectedFields] = useState<Set<LeadReportFieldKey>>(
+    new Set(LEAD_REPORT_FIELDS.map((f) => f.key)),
+  )
   const [userName, setUserName] = useState<string | undefined>(undefined)
   const [isLoadingUser, setIsLoadingUser] = useState(false)
 
@@ -76,7 +74,6 @@ const LeadReportGenerationModal = ({
     }
   }
 
-  // Fetch user name when modal opens
   useEffect(() => {
     if (open) {
       const fetchUserName = async () => {
@@ -118,7 +115,6 @@ const LeadReportGenerationModal = ({
     onOpenChange(false)
   }
 
-  // Format date for preview
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString)
     return date.toLocaleDateString("en-US", {
@@ -128,7 +124,6 @@ const LeadReportGenerationModal = ({
     })
   }
 
-  // Get preview data (first 5 leads)
   const previewLeads = leads.slice(0, 5)
 
   const allSelected = selectedFields.size === LEAD_REPORT_FIELDS.length
@@ -224,9 +219,6 @@ const LeadReportGenerationModal = ({
                             case "received":
                               cellContent = formatDate(lead.createdAt)
                               break
-                            case "listingAddress":
-                              cellContent = getListingAddress(lead)
-                              break
                             case "submitterName":
                               cellContent = getSubmitterName(lead)
                               break
@@ -237,7 +229,9 @@ const LeadReportGenerationModal = ({
                               cellContent = lead.submitterPhone || "N/A"
                               break
                             case "submitterRole":
-                              cellContent = formatSubmitterRole(lead.submitterRole)
+                              cellContent = formatSubmitterRole(
+                                lead.submitterRole,
+                              )
                               break
                             case "areYouInterested":
                               cellContent = formatAreYouInterested(
@@ -255,41 +249,9 @@ const LeadReportGenerationModal = ({
                               )
                               break
                             case "opinionOfSalePrice":
-                              if (!lead.opinionOfSalePrice) {
-                                cellContent = "N/A"
-                              } else {
-                                try {
-                                  const parsed = JSON.parse(lead.opinionOfSalePrice)
-                                  if (typeof parsed === "object" && parsed !== null && "amount" in parsed) {
-                                    const amount = parsed.amount
-                                    const currency = parsed.currency || "USD"
-                                    if (amount === "" || amount === null || amount === undefined) {
-                                      cellContent = "N/A"
-                                    } else {
-                                      const formattedAmount = typeof amount === "number" 
-                                        ? amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                        : String(amount)
-                                      cellContent = `${currency} ${formattedAmount}`
-                                    }
-                                  } else {
-                                    cellContent = lead.opinionOfSalePrice
-                                  }
-                                } catch {
-                                  cellContent = lead.opinionOfSalePrice
-                                }
-                              }
-                              break
-                            case "buyerAgentName":
-                              cellContent = lead.buyerAgentName || "N/A"
-                              break
-                            case "buyerAgentEmail":
-                              cellContent = lead.buyerAgentEmail || "N/A"
-                              break
-                            case "buyerAgentCompany":
-                              cellContent = lead.buyerAgentCompany || "N/A"
-                              break
-                            case "agentCompany":
-                              cellContent = lead.agentCompany || "N/A"
+                              cellContent = getOpinionOfSalePrice(
+                                lead.opinionOfSalePrice,
+                              )
                               break
                             case "messageToAgent":
                               cellContent = getAllMessageToAgentInfo(
@@ -297,7 +259,6 @@ const LeadReportGenerationModal = ({
                               )
                               break
                             case "customQuestions":
-                              // Skip customQuestions in preview
                               cellContent = ""
                               break
                             default:
@@ -334,4 +295,3 @@ const LeadReportGenerationModal = ({
 }
 
 export default LeadReportGenerationModal
-

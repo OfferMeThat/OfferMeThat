@@ -21,15 +21,13 @@ import {
 import { OFFER_STATUSES } from "@/constants/offers"
 import { generateOfferReportPDF } from "@/lib/generateOfferReportPDF"
 import {
-  formatCustomQuestions,
   getAllDepositInfo,
   getAllMessageToAgentInfo,
   getAllSettlementInfo,
   getAllSpecialConditionsInfo,
   getAllSubjectToLoanInfo,
-  getCustomQuestionsFromOffer,
-  getPurchaserNamesFromData,
   getPurchaseAgreementUrls,
+  getPurchaserNamesFromData,
   getSubmitterRoleFromData,
 } from "@/lib/parseOfferDataForReports"
 import { createClient } from "@/lib/supabase/client"
@@ -76,7 +74,6 @@ const OfferReportGenerationModal = ({
     }
   }
 
-  // Fetch user name when modal opens
   useEffect(() => {
     if (open) {
       const fetchUserName = async () => {
@@ -112,7 +109,6 @@ const OfferReportGenerationModal = ({
       return
     }
 
-    // Get listing address if all offers are for the same listing
     let listingAddress: string | undefined = undefined
     if (offers.length > 0) {
       const firstListingAddress =
@@ -139,7 +135,6 @@ const OfferReportGenerationModal = ({
     onOpenChange(false)
   }
 
-  // Format date for preview
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString)
     return date.toLocaleDateString("en-US", {
@@ -149,7 +144,6 @@ const OfferReportGenerationModal = ({
     })
   }
 
-  // Format currency for preview
   const formatCurrency = (amount: number, currency: string = "USD"): string => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -159,14 +153,12 @@ const OfferReportGenerationModal = ({
     }).format(amount)
   }
 
-  // Get submitter name
   const getSubmitterName = (offer: OfferWithListing): string => {
     const firstName = offer.submitterFirstName || ""
     const lastName = offer.submitterLastName || ""
     return `${firstName} ${lastName}`.trim() || "N/A"
   }
 
-  // Get listing address
   const getListingAddress = (offer: OfferWithListing): string => {
     if (offer.customListingAddress) {
       return offer.customListingAddress
@@ -174,17 +166,25 @@ const OfferReportGenerationModal = ({
     return offer.listing?.address || "N/A"
   }
 
-  // Format buyer type
   const formatBuyerType = (buyerType: string): string => {
     const buyerTypeLabels: Record<string, string> = {
       buyer: "Buyer",
       agent: "Agent",
       affiliate: "Affiliate",
+      buyer_with_agent: "Buyer with Agent",
+      buyer_self: "Unrepresented Buyer",
+      buyers_agent: "Buyer's Agent",
+      buyer_represented: "Represented Buyer",
     }
-    return buyerTypeLabels[buyerType] || buyerType
+    if (buyerTypeLabels[buyerType]) {
+      return buyerTypeLabels[buyerType]
+    }
+    return buyerType
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ")
   }
 
-  // Format payment way
   const formatPaymentWay = (paymentWay: string): string => {
     const paymentWayLabels: Record<string, string> = {
       cash: "Cash",
@@ -193,12 +193,10 @@ const OfferReportGenerationModal = ({
     return paymentWayLabels[paymentWay] || paymentWay
   }
 
-  // Format boolean to Yes/No
   const formatYesNo = (value: boolean): string => {
     return value ? "Yes" : "No"
   }
 
-  // Format expiry
   const formatExpiry = (offer: OfferWithListing): string => {
     if (!offer.expires) {
       return "N/A"
@@ -208,12 +206,10 @@ const OfferReportGenerationModal = ({
     return timeStr ? `${dateStr} ${timeStr}` : dateStr
   }
 
-  // Get purchaser names
   const getPurchaserNames = (offer: OfferWithListing): string => {
     return getPurchaserNamesFromData(offer.purchaserData)
   }
 
-  // Get preview data (first 5 offers)
   const previewOffers = offers.slice(0, 5)
 
   const allSelected = selectedFields.size === OFFER_REPORT_FIELDS.length
@@ -283,8 +279,10 @@ const OfferReportGenerationModal = ({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {OFFER_REPORT_FIELDS.filter((field) =>
-                        selectedFields.has(field.key) && field.key !== "customQuestions",
+                      {OFFER_REPORT_FIELDS.filter(
+                        (field) =>
+                          selectedFields.has(field.key) &&
+                          field.key !== "customQuestions",
                       ).map((field) => (
                         <TableHead key={field.key} className="font-medium">
                           {field.label}
@@ -295,8 +293,10 @@ const OfferReportGenerationModal = ({
                   <TableBody>
                     {previewOffers.map((offer) => (
                       <TableRow key={offer.id}>
-                        {OFFER_REPORT_FIELDS.filter((field) =>
-                          selectedFields.has(field.key) && field.key !== "customQuestions",
+                        {OFFER_REPORT_FIELDS.filter(
+                          (field) =>
+                            selectedFields.has(field.key) &&
+                            field.key !== "customQuestions",
                         ).map((field) => {
                           const fieldKey = field.key
                           let cellContent: React.ReactNode = ""
@@ -346,14 +346,20 @@ const OfferReportGenerationModal = ({
                               cellContent = formatPaymentWay(offer.paymentWay)
                               break
                             case "conditional":
-                              // Check if offer has special conditions or subject to loan approval
-                              const specialConditionsInfo = getAllSpecialConditionsInfo(offer.specialConditions)
-                              const subjectToLoanInfo = getAllSubjectToLoanInfo(offer.subjectToLoanApproval)
+                              const specialConditionsInfo =
+                                getAllSpecialConditionsInfo(
+                                  offer.specialConditions,
+                                )
+                              const subjectToLoanInfo = getAllSubjectToLoanInfo(
+                                offer.subjectToLoanApproval,
+                              )
                               const isConditional =
                                 (specialConditionsInfo &&
                                   specialConditionsInfo !== "N/A" &&
                                   specialConditionsInfo !== "No") ||
-                                (subjectToLoanInfo && subjectToLoanInfo !== "N/A" && subjectToLoanInfo.startsWith("Yes")) ||
+                                (subjectToLoanInfo &&
+                                  subjectToLoanInfo !== "N/A" &&
+                                  subjectToLoanInfo.startsWith("Yes")) ||
                                 offer.conditional === true
                               cellContent = formatYesNo(isConditional)
                               break
@@ -375,22 +381,32 @@ const OfferReportGenerationModal = ({
                               cellContent = getPurchaserNames(offer)
                               break
                             case "deposit":
-                              cellContent = getAllDepositInfo(offer.depositData, offer)
+                              cellContent = getAllDepositInfo(
+                                offer.depositData,
+                                offer,
+                              )
                               break
                             case "settlementDate":
-                              cellContent = getAllSettlementInfo(offer.settlementDateData)
+                              cellContent = getAllSettlementInfo(
+                                offer.settlementDateData,
+                              )
                               break
                             case "subjectToLoan":
-                              cellContent = getAllSubjectToLoanInfo(offer.subjectToLoanApproval)
+                              cellContent = getAllSubjectToLoanInfo(
+                                offer.subjectToLoanApproval,
+                              )
                               break
                             case "specialConditions":
-                              cellContent = getAllSpecialConditionsInfo(offer.specialConditions)
+                              cellContent = getAllSpecialConditionsInfo(
+                                offer.specialConditions,
+                              )
                               break
                             case "messageToAgent":
-                              cellContent = getAllMessageToAgentInfo(offer.messageToAgent)
+                              cellContent = getAllMessageToAgentInfo(
+                                offer.messageToAgent,
+                              )
                               break
                             case "customQuestions":
-                              // Skip customQuestions in preview
                               cellContent = ""
                               break
                           }

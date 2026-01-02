@@ -518,12 +518,36 @@ export function getSubmitterRoleFromData(offer: any): string {
           entry.questionType === "submitterRole"
         ) {
           const role = entry.value
+          if (!role) return "N/A"
+          
+          // Normalize: convert camelCase to snake_case for lookup
+          const normalized = String(role)
+            .trim()
+            .replace(/([A-Z])/g, "_$1")
+            .toLowerCase()
+            .replace(/^_/, "")
+          
           const roleLabels: Record<string, string> = {
             buyer_self: "Unrepresented Buyer",
+            buyer_with_agent: "Buyer with Agent",
+            buyers_agent: "Buyer's Agent",
             buyer_represented: "Represented Buyer",
             agent: "Agent",
           }
-          return roleLabels[role] || role || "N/A"
+          
+          // Try normalized first, then original
+          if (roleLabels[normalized]) {
+            return roleLabels[normalized]
+          }
+          if (roleLabels[role]) {
+            return roleLabels[role]
+          }
+          
+          // Fallback: convert snake_case to Title Case
+          return normalized
+            .split("_")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(" ")
         }
       }
     }
@@ -649,6 +673,25 @@ export function getCustomQuestionsFromOffer(
 ): Array<{ questionText: string; answer: string }> {
   const customQuestions: Array<{ questionText: string; answer: string }> = []
 
+  // Helper function to check if a value is a URL
+  const isUrl = (val: any): boolean => {
+    if (typeof val !== "string") return false
+    return val.startsWith("http://") || val.startsWith("https://")
+  }
+
+  // Helper function to count attachments in a value
+  const countAttachments = (val: any): number => {
+    if (Array.isArray(val)) {
+      return val.filter((item) => isUrl(item)).length
+    } else if (typeof val === "string" && isUrl(val)) {
+      return 1
+    } else if (typeof val === "object" && val !== null) {
+      const values = Object.values(val)
+      return values.filter((item) => isUrl(item)).length
+    }
+    return 0
+  }
+
   // First check customQuestionsData
   if (offer.customQuestionsData) {
     const customData = parseJsonField(offer.customQuestionsData)
@@ -666,8 +709,29 @@ export function getCustomQuestionsFromOffer(
 
           let answer = "N/A"
           if (value !== undefined && value !== null) {
-            if (answerType === "file_upload") {
-              answer = typeof value === "string" ? "File uploaded" : "N/A"
+            // Handle arrays - check if they contain URLs (attachments)
+            if (Array.isArray(value)) {
+              const attachmentCount = countAttachments(value)
+              if (attachmentCount > 0) {
+                answer = `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+              } else {
+                // Not attachments, format as comma-separated text
+                answer = value
+                  .map((item) => {
+                    if (typeof item === "object" && item !== null) {
+                      return JSON.stringify(item)
+                    }
+                    return String(item)
+                  })
+                  .join(", ")
+              }
+            } else if (answerType === "file_upload") {
+              const attachmentCount = countAttachments(value)
+              if (attachmentCount > 0) {
+                answer = `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+              } else {
+                answer = typeof value === "string" ? "File uploaded" : "N/A"
+              }
             } else if (answerType === "number_amount") {
               // Check if it's a phone number object (has number and countryCode)
               if (
@@ -734,8 +798,23 @@ export function getCustomQuestionsFromOffer(
                 answer = String(value)
               }
             } else {
-              // For other types, handle objects properly
-              if (typeof value === "object" && value !== null) {
+              // For other types, handle arrays and objects properly
+              if (Array.isArray(value)) {
+                const attachmentCount = countAttachments(value)
+                if (attachmentCount > 0) {
+                  answer = `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+                } else {
+                  // Not attachments, format as comma-separated text
+                  answer = value
+                    .map((item) => {
+                      if (typeof item === "object" && item !== null) {
+                        return JSON.stringify(item)
+                      }
+                      return String(item)
+                    })
+                    .join(", ")
+                }
+              } else if (typeof value === "object" && value !== null) {
                 // If it's an object, try to extract meaningful values
                 if (value.amount !== undefined) {
                   const currency = value.currency || "USD"
@@ -753,16 +832,23 @@ export function getCustomQuestionsFromOffer(
                   } else {
                     answer = String(value.amount)
                   }
-                } else if (
-                  value.number !== undefined &&
-                  value.countryCode !== undefined
-                ) {
-                  answer = `${value.countryCode}${value.number}`
                 } else {
-                  answer = JSON.stringify(value)
+                  // Check for attachments (URLs in object)
+                  const attachmentCount = countAttachments(value)
+                  if (attachmentCount > 0) {
+                    answer = `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+                  } else {
+                    answer = JSON.stringify(value)
+                  }
                 }
               } else {
-                answer = String(value)
+                // Check if it's a single URL string
+                const attachmentCount = countAttachments(value)
+                if (attachmentCount > 0) {
+                  answer = `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+                } else {
+                  answer = String(value)
+                }
               }
             }
           }
@@ -795,14 +881,34 @@ export function getCustomQuestionsFromOffer(
             const value = entry.value
 
             if (value !== undefined && value !== null) {
-              if (typeof value === "string" && value.startsWith("http")) {
-                answer = "File uploaded"
+              // Handle arrays - check if they contain URLs (attachments)
+              if (Array.isArray(value)) {
+                const attachmentCount = countAttachments(value)
+                if (attachmentCount > 0) {
+                  answer = `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+                } else {
+                  // Not attachments, format as comma-separated text
+                  answer = value
+                    .map((item) => {
+                      if (typeof item === "object" && item !== null) {
+                        return JSON.stringify(item)
+                      }
+                      return String(item)
+                    })
+                    .join(", ")
+                }
+              } else if (typeof value === "string" && isUrl(value)) {
+                answer = "1 Attachment"
               } else if (typeof value === "object") {
-                // Check for phone number format first
-                if (
+                // Check for attachments first (URLs in object)
+                const attachmentCount = countAttachments(value)
+                if (attachmentCount > 0) {
+                  answer = `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+                } else if (
                   value.number !== undefined &&
                   value.countryCode !== undefined
                 ) {
+                  // Check for phone number format
                   answer = `${value.countryCode}${value.number}`
                 } else if (value.amount !== undefined) {
                   const currency = value.currency || "USD"
@@ -821,16 +927,22 @@ export function getCustomQuestionsFromOffer(
                     answer = String(value.amount)
                   }
                 } else {
-                  // For other objects, try to find a meaningful string representation
-                  const keys = Object.keys(value)
-                  if (keys.length === 0) {
-                    answer = "N/A"
-                  } else if (keys.length === 1) {
-                    // Single key-value pair, show the value
-                    answer = String(value[keys[0]])
+                  // Check for attachments first (URLs in object)
+                  const attachmentCount = countAttachments(value)
+                  if (attachmentCount > 0) {
+                    answer = `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
                   } else {
-                    // Multiple keys, show as JSON
-                    answer = JSON.stringify(value)
+                    // For other objects, try to find a meaningful string representation
+                    const keys = Object.keys(value)
+                    if (keys.length === 0) {
+                      answer = "N/A"
+                    } else if (keys.length === 1) {
+                      // Single key-value pair, show the value
+                      answer = String(value[keys[0]])
+                    } else {
+                      // Multiple keys, show as JSON
+                      answer = JSON.stringify(value)
+                    }
                   }
                 }
               } else {

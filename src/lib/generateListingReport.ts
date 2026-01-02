@@ -1,38 +1,7 @@
 import { LISTING_STATUSES } from "@/constants/listings"
 import { ListingWithOfferCounts } from "@/types/listing"
 import { ReportFieldKey } from "@/types/reportTypes"
-
-/**
- * Formats a date string to a human-readable format
- */
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-/**
- * Escapes CSV field values to handle commas, quotes, and newlines
- */
-const escapeCsvField = (value: string | number | undefined): string => {
-  if (value === undefined || value === null) return ""
-
-  const stringValue = String(value)
-
-  // If the value contains comma, quote, or newline, wrap in quotes and escape existing quotes
-  if (
-    stringValue.includes(",") ||
-    stringValue.includes('"') ||
-    stringValue.includes("\n")
-  ) {
-    return `"${stringValue.replace(/"/g, '""')}"`
-  }
-
-  return stringValue
-}
+import { escapeCsvField, formatDate } from "./reportUtils"
 
 /**
  * Generates CSV content from selected listings and fields
@@ -45,7 +14,6 @@ export const generateListingReport = (
     return ""
   }
 
-  // Create header row
   const headers = selectedFields.map((fieldKey) => {
     const fieldLabels: Record<ReportFieldKey, string> = {
       address: "Address",
@@ -59,7 +27,6 @@ export const generateListingReport = (
     return fieldLabels[fieldKey]
   })
 
-  // Create data rows
   const rows = listings.map((listing) => {
     return selectedFields.map((fieldKey) => {
       switch (fieldKey) {
@@ -76,7 +43,6 @@ export const generateListingReport = (
         case "totalOffers":
           return escapeCsvField(listing.totalOffers)
         case "numberOfLeads":
-          // Currently hardcoded to 1 in the table view
           return escapeCsvField(1)
         default:
           return ""
@@ -84,7 +50,6 @@ export const generateListingReport = (
     })
   })
 
-  // Combine headers and rows
   const csvContent = [headers, ...rows].map((row) => row.join(",")).join("\n")
 
   return csvContent

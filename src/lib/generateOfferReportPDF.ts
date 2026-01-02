@@ -15,60 +15,49 @@ import {
   getSubmitterRoleFromData,
 } from "./parseOfferDataForReports"
 
+import { formatCurrency, formatDateLong, formatDateTime } from "./reportUtils"
+
 // Teal color: #14b8a6 (tailwind teal-500)
 const TEAL_COLOR = [20, 184, 166]
 const BLACK_COLOR = [0, 0, 0]
 const WHITE_COLOR = [255, 255, 255]
 const GRAY_COLOR = [107, 114, 128]
 
-/**
- * Formats a date string to a human-readable format
- */
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-/**
- * Formats a date with time
- */
-const formatDateTime = (dateString: string): string => {
-  const date = new Date(dateString)
-  const dateStr = formatDate(dateString)
-  const timeStr = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  })
-  return `${dateStr} at ${timeStr}`
-}
-
-/**
- * Formats a number as currency
- */
-const formatCurrency = (amount: number, currency: string = "USD"): string => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
+const formatDate = formatDateLong
 
 /**
  * Formats buyer type enum to readable string
  */
-const formatBuyerType = (buyerType: string): string => {
+const formatBuyerType = (buyerType: string | null | undefined): string => {
+  if (!buyerType) return "N/A"
+
+  const trimmed = buyerType.trim()
+
+  // Normalize: convert camelCase to snake_case for lookup
+  const normalized = trimmed
+    .replace(/([A-Z])/g, "_$1")
+    .toLowerCase()
+    .replace(/^_/, "")
+
   const buyerTypeLabels: Record<string, string> = {
     buyer: "Buyer",
     agent: "Agent",
     affiliate: "Affiliate",
+    buyer_with_agent: "Buyer with Agent",
+    buyer_self: "Unrepresented Buyer",
+    buyers_agent: "Buyer's Agent",
+    buyer_represented: "Represented Buyer",
   }
-  return buyerTypeLabels[buyerType] || buyerType
+  if (buyerTypeLabels[normalized]) {
+    return buyerTypeLabels[normalized]
+  }
+  if (buyerTypeLabels[trimmed]) {
+    return buyerTypeLabels[trimmed]
+  }
+  return normalized
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ")
 }
 
 /**
@@ -140,7 +129,6 @@ const getFieldValue = (
     case "paymentWay":
       return formatPaymentWay(offer.paymentWay)
     case "conditional":
-      // Check if offer has special conditions or subject to loan approval
       const specialConditions = getAllSpecialConditionsInfo(
         offer.specialConditions,
       )
@@ -214,6 +202,64 @@ const getFieldLabel = (fieldKey: OfferReportFieldKey): string => {
 }
 
 /**
+ * Helper function to draw a field (label + value) at a given position
+ */
+const drawField = (
+  doc: jsPDF,
+  x: number,
+  y: number,
+  maxWidth: number,
+  label: string,
+  value: string,
+  cardBottom: number,
+): number => {
+  const cardPadding = 8
+  const labelText = `${label}:`
+  const labelWidth = doc.getTextWidth(labelText)
+  const valueStartX = x + labelWidth + 2
+  const availableWidth = Math.max(10, maxWidth - labelWidth - 2 - cardPadding)
+  const maxValueX = x + maxWidth - cardPadding
+
+  doc.setTextColor(GRAY_COLOR[0], GRAY_COLOR[1], GRAY_COLOR[2])
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  const maxLabelWidth = maxWidth - cardPadding
+  const labelLines = doc.splitTextToSize(labelText, maxLabelWidth)
+  doc.text(labelLines[0], x, y)
+
+  doc.setTextColor(BLACK_COLOR[0], BLACK_COLOR[1], BLACK_COLOR[2])
+  doc.setFont("helvetica", "bold")
+
+  const lines = doc.splitTextToSize(value, availableWidth)
+  let lineY = y
+  for (let i = 0; i < lines.length; i++) {
+    if (lineY + 6 > cardBottom) {
+      break
+    }
+    const textWidth = doc.getTextWidth(lines[i])
+    if (valueStartX + textWidth > maxValueX) {
+      const fittingLines = doc.splitTextToSize(lines[i], availableWidth)
+      if (fittingLines.length > 0) {
+        doc.text(fittingLines[0], valueStartX, lineY)
+        if (fittingLines.length > 1 && lineY + 5 <= cardBottom) {
+          lineY += 5
+          doc.text(fittingLines[1], valueStartX, lineY)
+        }
+      }
+      break
+    } else {
+      doc.text(lines[i], valueStartX, lineY)
+    }
+    if (i < lines.length - 1) {
+      lineY += 5
+    }
+  }
+
+  doc.setFont("helvetica", "normal")
+  return lineY + 5.5
+}
+
+/**
  * Draws a card for an offer
  */
 const drawOfferCard = (
@@ -229,107 +275,129 @@ const drawOfferCard = (
   const cardPadding = 8
   const headerHeight = 20
   const contentStartY = y + headerHeight
-  const contentAreaHeight = height - headerHeight
+  const columnGap = 5
 
-  // Draw card border (will be redrawn at the end to ensure it's on top)
   doc.setDrawColor(GRAY_COLOR[0], GRAY_COLOR[1], GRAY_COLOR[2])
   doc.setLineWidth(0.5)
   doc.rect(x, y, width, height)
 
-  // Draw teal header
   doc.setFillColor(TEAL_COLOR[0], TEAL_COLOR[1], TEAL_COLOR[2])
   doc.rect(x, y, width, headerHeight, "F")
 
-  // Draw offer number in header
   doc.setTextColor(WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2])
   doc.setFontSize(14)
   doc.setFont("helvetica", "bold")
-  doc.text(`Offer ${offerNumber}`, x + cardPadding, y + headerHeight / 2 + 3)
+  const listingAddress = getListingAddress(offer)
+  const maxAddressWidth = width - 2 * cardPadding
+  const addressLines = doc.splitTextToSize(listingAddress, maxAddressWidth)
+  doc.text(addressLines[0], x + cardPadding, y + headerHeight / 2 + 3)
 
-  // Draw content background (white)
   doc.setFillColor(WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2])
   doc.rect(x, contentStartY, width, height - headerHeight, "F")
 
-  // Draw "Offer Information" heading
-  doc.setTextColor(BLACK_COLOR[0], BLACK_COLOR[1], BLACK_COLOR[2])
-  doc.setFontSize(10)
-  doc.setFont("helvetica", "bold")
-  doc.text("Offer Information", x + cardPadding, contentStartY + 8)
+  // Check if we should use two-column layout (3+ custom questions)
+  const customQuestions = getCustomQuestionsFromOffer(offer)
+  const hasCustomQuestions = selectedFields.includes("customQuestions")
+  const useTwoColumns = hasCustomQuestions && customQuestions.length >= 3
 
-  // Draw fields - show ALL selected fields
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(8)
-  let currentY = contentStartY + 15
+  if (useTwoColumns) {
+    // Two-column layout
+    const leftWidth = (width - columnGap) / 2
+    const rightWidth = (width - columnGap) / 2
+    const leftX = x + cardPadding
+    const rightX = x + leftWidth + columnGap + cardPadding
+    const cardBottom = y + height - cardPadding
 
-  // Show all selected fields - iterate through ALL of them
-  for (const fieldKey of selectedFields) {
-    // Check if we're going to overflow the card before drawing
-    if (currentY + 8 > y + height - cardPadding) {
-      break // Stop drawing if we're out of space
-    }
-
-    const label = getFieldLabel(fieldKey)
-    const value = getFieldValue(offer, fieldKey)
-
-    // Handle text wrapping for long values
-    const labelText = `${label}:`
-    const labelWidth = doc.getTextWidth(labelText)
-    const valueStartX = x + cardPadding + labelWidth + 2
-    // Ensure we don't exceed card width - subtract padding from both sides
-    // Leave at least 2mm margin on the right
-    const availableWidth = Math.max(
-      10,
-      width - (valueStartX - x) - cardPadding - 2,
+    doc.setDrawColor(GRAY_COLOR[0], GRAY_COLOR[1], GRAY_COLOR[2])
+    doc.setLineWidth(0.3)
+    doc.line(
+      x + leftWidth + columnGap / 2,
+      contentStartY,
+      x + leftWidth + columnGap / 2,
+      y + height,
     )
-    // Ensure value doesn't start outside the card
-    const maxValueX = x + width - cardPadding - 2
 
-    // Draw label - ensure it doesn't overflow
-    doc.setTextColor(GRAY_COLOR[0], GRAY_COLOR[1], GRAY_COLOR[2])
-    const maxLabelWidth = width - 2 * cardPadding
-    const labelLines = doc.splitTextToSize(labelText, maxLabelWidth)
-    doc.text(labelLines[0], x + cardPadding, currentY)
-
-    // Draw value (bold) with text wrapping
     doc.setTextColor(BLACK_COLOR[0], BLACK_COLOR[1], BLACK_COLOR[2])
+    doc.setFontSize(10)
     doc.setFont("helvetica", "bold")
-
-    // Split long text into multiple lines if needed
-    const lines = doc.splitTextToSize(value, availableWidth)
-    let lineY = currentY
-    for (let i = 0; i < lines.length; i++) {
-      // Check bounds before drawing each line - ensure we stay within card
-      if (lineY + 6 > y + height - cardPadding) {
-        break // Stop if we're going to overflow vertically
-      }
-      // Ensure text doesn't exceed card boundaries horizontally
-      const textWidth = doc.getTextWidth(lines[i])
-      if (valueStartX + textWidth > maxValueX) {
-        // If text is too wide, use splitTextToSize to ensure it fits
-        const fittingLines = doc.splitTextToSize(lines[i], availableWidth)
-        if (fittingLines.length > 0) {
-          doc.text(fittingLines[0], valueStartX, lineY)
-          // If there are more lines and we have space, continue
-          if (
-            fittingLines.length > 1 &&
-            lineY + 5 <= y + height - cardPadding
-          ) {
-            lineY += 5
-            doc.text(fittingLines[1], valueStartX, lineY)
-          }
-        }
-        break
-      } else {
-        doc.text(lines[i], valueStartX, lineY)
-      }
-      if (i < lines.length - 1) {
-        lineY += 5
-      }
-    }
+    doc.text("Offer Information", leftX, contentStartY + 8)
 
     doc.setFont("helvetica", "normal")
-    // Move to next field position (use the last line position)
-    currentY = lineY + 5.5
+    doc.setFontSize(8)
+    let leftY = contentStartY + 15
+
+    const regularFields = selectedFields.filter(
+      (fieldKey) =>
+        fieldKey !== "listingAddress" && fieldKey !== "customQuestions",
+    )
+
+    for (const fieldKey of regularFields) {
+      if (leftY + 8 > cardBottom) break
+
+      const label = getFieldLabel(fieldKey)
+      const value = getFieldValue(offer, fieldKey)
+      leftY = drawField(
+        doc,
+        leftX,
+        leftY,
+        leftWidth - cardPadding,
+        label,
+        value,
+        cardBottom,
+      )
+    }
+
+    doc.setTextColor(BLACK_COLOR[0], BLACK_COLOR[1], BLACK_COLOR[2])
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "bold")
+    doc.text("Custom Questions", rightX, contentStartY + 8)
+
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(8)
+    let rightY = contentStartY + 15
+
+    for (const question of customQuestions) {
+      if (rightY + 8 > cardBottom) break
+
+      rightY = drawField(
+        doc,
+        rightX,
+        rightY,
+        rightWidth - cardPadding,
+        question.questionText,
+        question.answer,
+        cardBottom,
+      )
+    }
+  } else {
+    doc.setTextColor(BLACK_COLOR[0], BLACK_COLOR[1], BLACK_COLOR[2])
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "bold")
+    doc.text("Offer Information", x + cardPadding, contentStartY + 8)
+
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(8)
+    let currentY = contentStartY + 15
+
+    const fieldsToDisplay = selectedFields.filter(
+      (fieldKey) => fieldKey !== "listingAddress",
+    )
+
+    for (const fieldKey of fieldsToDisplay) {
+      if (currentY + 8 > y + height - cardPadding) break
+
+      const label = getFieldLabel(fieldKey)
+      const value = getFieldValue(offer, fieldKey)
+      currentY = drawField(
+        doc,
+        x + cardPadding,
+        currentY,
+        width - 2 * cardPadding,
+        label,
+        value,
+        y + height - cardPadding,
+      )
+    }
   }
 }
 
@@ -358,9 +426,6 @@ export const generateOfferReportPDF = (
   const contentWidth = pageWidth - 2 * margin
   const contentStartY = 20
 
-  // Calculate card dimensions
-  // If there are many fields, use full page per offer (1 card per page)
-  // Otherwise, use multiple cards per page
   const hasManyFields = selectedFields.length > 15
 
   let cardHeight: number
@@ -369,20 +434,16 @@ export const generateOfferReportPDF = (
   const cardSpacing = 5
 
   if (hasManyFields) {
-    // Full page per offer - use almost entire page height
     cardHeight = pageHeight - contentStartY - margin - 10
     cardsPerRow = 1
     cardWidth = contentWidth
   } else {
-    // Adjust card height based on number of fields
     const baseCardHeight = 70
     const heightPerField = 5
     const estimatedCardHeight =
       baseCardHeight + selectedFields.length * heightPerField
-    // Cap at reasonable maximum but allow more space
     cardHeight = Math.min(estimatedCardHeight, 150)
 
-    // Use fewer cards per row if there are many fields
     cardsPerRow = selectedFields.length > 10 ? 2 : 3
     cardWidth = (contentWidth - (cardsPerRow - 1) * cardSpacing) / cardsPerRow
   }
@@ -391,16 +452,11 @@ export const generateOfferReportPDF = (
   let currentRow = 0
   let cardsInCurrentRow = 0
 
-  // Generate header text
   let headerText = "Offer Report"
   if (userName) {
     headerText += ` - ${userName}`
   }
-  if (listingAddress) {
-    headerText += ` - ${listingAddress}`
-  }
 
-  // Draw header banner
   doc.setFillColor(TEAL_COLOR[0], TEAL_COLOR[1], TEAL_COLOR[2])
   doc.rect(0, 0, pageWidth, 15, "F")
   doc.setTextColor(WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2])
@@ -408,15 +464,12 @@ export const generateOfferReportPDF = (
   doc.setFont("helvetica", "bold")
   doc.text(headerText, margin, 10)
 
-  // Draw offer cards
   for (let i = 0; i < offers.length; i++) {
     const offer = offers[i]
     const offerNumber = i + 1
 
-    // Check if we need a new page
     if (currentY + cardHeight > pageHeight - margin) {
       doc.addPage()
-      // Redraw header on new page
       doc.setFillColor(TEAL_COLOR[0], TEAL_COLOR[1], TEAL_COLOR[2])
       doc.rect(0, 0, pageWidth, 15, "F")
       doc.setTextColor(WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2])
@@ -428,11 +481,9 @@ export const generateOfferReportPDF = (
       cardsInCurrentRow = 0
     }
 
-    // Calculate card position
     const cardX = margin + cardsInCurrentRow * (cardWidth + cardSpacing)
     const cardY = currentY
 
-    // Draw the card
     drawOfferCard(
       doc,
       offer,
@@ -444,7 +495,6 @@ export const generateOfferReportPDF = (
       selectedFields,
     )
 
-    // Move to next position
     cardsInCurrentRow++
     if (cardsInCurrentRow >= cardsPerRow) {
       cardsInCurrentRow = 0
@@ -453,7 +503,6 @@ export const generateOfferReportPDF = (
     }
   }
 
-  // Save the PDF
   const today = new Date()
   const dateString = today.toISOString().split("T")[0]
   const filename = `offers-report-${dateString}.pdf`

@@ -13,30 +13,7 @@ import {
   getPurchaserNamesFromData,
   getSubmitterRoleFromData,
 } from "./parseOfferDataForReports"
-
-/**
- * Formats a date string to a human-readable format
- */
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-/**
- * Formats a number as currency
- */
-const formatCurrency = (amount: number, currency: string = "USD"): string => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
+import { escapeCsvField, formatCurrency, formatDate } from "./reportUtils"
 
 /**
  * Formats buyer type enum to readable string
@@ -46,8 +23,18 @@ const formatBuyerType = (buyerType: string): string => {
     buyer: "Buyer",
     agent: "Agent",
     affiliate: "Affiliate",
+    buyer_with_agent: "Buyer with Agent",
+    buyer_self: "Unrepresented Buyer",
+    buyers_agent: "Buyer's Agent",
+    buyer_represented: "Represented Buyer",
   }
-  return buyerTypeLabels[buyerType] || buyerType
+  if (buyerTypeLabels[buyerType]) {
+    return buyerTypeLabels[buyerType]
+  }
+  return buyerType
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ")
 }
 
 /**
@@ -72,7 +59,6 @@ const formatYesNo = (value: boolean): string => {
  * Determines if offer is conditional based on special conditions or subject to loan approval
  */
 const isConditional = (offer: OfferWithListing): boolean => {
-  // Check if offer has special conditions
   const specialConditions = getAllSpecialConditionsInfo(offer.specialConditions)
   if (
     specialConditions &&
@@ -82,7 +68,6 @@ const isConditional = (offer: OfferWithListing): boolean => {
     return true
   }
 
-  // Check if offer is subject to loan approval
   const subjectToLoan = getAllSubjectToLoanInfo(offer.subjectToLoanApproval)
   if (
     subjectToLoan &&
@@ -92,7 +77,6 @@ const isConditional = (offer: OfferWithListing): boolean => {
     return true
   }
 
-  // Fallback to direct conditional field
   return offer.conditional === true
 }
 
@@ -135,26 +119,6 @@ const getPurchaserNames = (offer: OfferWithListing): string => {
 }
 
 /**
- * Escapes CSV field values to handle commas, quotes, and newlines
- */
-const escapeCsvField = (value: string | number | undefined): string => {
-  if (value === undefined || value === null) return ""
-
-  const stringValue = String(value)
-
-  // If the value contains comma, quote, or newline, wrap in quotes and escape existing quotes
-  if (
-    stringValue.includes(",") ||
-    stringValue.includes('"') ||
-    stringValue.includes("\n")
-  ) {
-    return `"${stringValue.replace(/"/g, '""')}"`
-  }
-
-  return stringValue
-}
-
-/**
  * Generates CSV content from selected offers and fields
  */
 export const generateOfferReport = (
@@ -165,18 +129,14 @@ export const generateOfferReport = (
     return ""
   }
 
-  // Convert selectedFields array to Set for O(1) lookup
   const selectedFieldsSet = new Set(selectedFields)
 
-  // Filter and order fields based on OFFER_REPORT_FIELDS order
   const orderedFields = OFFER_REPORT_FIELDS.filter((field) =>
     selectedFieldsSet.has(field.key),
   )
 
-  // Create header row
   const headers = orderedFields.map((field) => field.label)
 
-  // Create data rows
   const rows = offers.map((offer) => {
     return orderedFields.map((field) => {
       const fieldKey = field.key
@@ -246,7 +206,6 @@ export const generateOfferReport = (
     })
   })
 
-  // Combine headers and rows
   const csvContent = [headers, ...rows].map((row) => row.join(",")).join("\n")
 
   return csvContent

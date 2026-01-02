@@ -4,7 +4,7 @@ import { assignLeadsToListing, deleteLeads } from "@/app/actions/leadForm"
 import { LeadWithListing } from "@/types/lead"
 import { LayoutGrid, TableOfContents } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import SelectionActionBar from "../../shared/SelectionActionBar"
 import { Button } from "../../ui/button"
@@ -27,6 +27,11 @@ const LeadsList = ({
   const [viewStyle, setViewStyle] = useState<"table" | "tile">("table")
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set())
   const [reportModalOpen, setReportModalOpen] = useState(false)
+
+  const selectedLeadsData = useMemo(
+    () => leads?.filter((lead) => selectedLeads.has(lead.id)) || [],
+    [leads, selectedLeads],
+  )
 
   const handleViewChange = (mode: "table" | "tile") => {
     setViewStyle(mode)
@@ -192,7 +197,7 @@ const LeadsList = ({
       <LeadReportGenerationModal
         open={reportModalOpen}
         onOpenChange={setReportModalOpen}
-        leads={leads || []}
+        leads={selectedLeadsData}
       />
     </>
   )
