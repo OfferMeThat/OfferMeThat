@@ -2,7 +2,7 @@
 
 import { Ellipsis, Eye, Link2, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -47,13 +47,16 @@ const LeadActionsMenu = ({
   const [isDeleting, setIsDeleting] = useState(false)
   const [isAssigning, setIsAssigning] = useState(false)
 
-  const realListings = listings.filter((listing) => listing.isTest !== true)
+  const realListings = useMemo(
+    () => listings.filter((listing) => listing.isTest !== true),
+    [listings],
+  )
 
-  const handleDeleteClick = () => {
+  const handleDeleteClick = useCallback(() => {
     setDeleteDialogOpen(true)
-  }
+  }, [])
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     setIsDeleting(true)
     try {
       await onDelete(leadId)
@@ -63,9 +66,9 @@ const LeadActionsMenu = ({
     } finally {
       setIsDeleting(false)
     }
-  }
+  }, [leadId, onDelete])
 
-  const handleAssignClick = () => {
+  const handleAssignClick = useCallback(() => {
     if (realListings.length === 0) {
       toast.error(
         "You have no listings to assign to. Please create a listing first.",
@@ -73,9 +76,9 @@ const LeadActionsMenu = ({
       return
     }
     setAssignDialogOpen(true)
-  }
+  }, [realListings])
 
-  const handleAssignConfirm = async () => {
+  const handleAssignConfirm = useCallback(async () => {
     if (!selectedListingId) return
     setIsAssigning(true)
     try {
@@ -87,7 +90,7 @@ const LeadActionsMenu = ({
     } finally {
       setIsAssigning(false)
     }
-  }
+  }, [selectedListingId, onAssignToListing, leadId])
 
   return (
     <>
