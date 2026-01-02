@@ -933,8 +933,22 @@ export const movePageBreak = async (
     )
   }
 
-  // Validation: ensure we don't go beyond the last question
-  if (newBreakIndex >= allQuestions.length) {
+  // Validation: ensure we don't go beyond the last regular question (exclude submit button)
+  // breakIndex represents the question ORDER value after which the break occurs
+  // We need to compare against the maximum ORDER value, not the count of questions
+  const regularQuestions = allQuestions.filter(
+    (q) => q.type !== "submitButton",
+  )
+  
+  if (regularQuestions.length === 0) {
+    throw new Error("No regular questions found")
+  }
+  
+  // Find the maximum order value among regular questions
+  const maxRegularOrder = Math.max(...regularQuestions.map((q) => q.order))
+  
+  // Ensure there's at least one question after the break
+  if (newBreakIndex >= maxRegularOrder) {
     throw new Error(
       "Cannot move break: must have at least 1 question at the bottom",
     )
@@ -1026,6 +1040,59 @@ export const movePageBreak = async (
 
 type Question = Database["public"]["Tables"]["leadFormQuestions"]["Row"]
 
+export const getFormOwnerListings = async (
+  formIdOrOwnerId: string,
+  isTestMode: boolean = false,
+  isOwnerId: boolean = false,
+) => {
+  const supabase = await createClient()
+
+  let ownerId: string
+
+  if (isOwnerId) {
+    // Direct owner ID provided
+    ownerId = formIdOrOwnerId
+  } else {
+    // Get the form to find the owner
+    const { data: form, error: formError } = await supabase
+      .from("leadForms")
+      .select("ownerId")
+      .eq("id", formIdOrOwnerId)
+      .single()
+
+    if (formError || !form) {
+      throw new Error("Failed to fetch form")
+    }
+
+    ownerId = form.ownerId
+  }
+
+  // Build query to get listings for the owner, filtering by isTest status
+  let query = supabase
+    .from("listings")
+    .select("id, address, status, isTest")
+    .eq("createdBy", ownerId)
+    .order("createdAt", { ascending: false })
+
+  // Filter by isTest based on mode
+  if (isTestMode) {
+    // Test mode: show only test listings
+    query = query.eq("isTest", true)
+  } else {
+    // Real mode: show only non-test listings (null or false)
+    query = query.or("isTest.is.null,isTest.eq.false")
+  }
+
+  const { data: listings, error: listingsError } = await query
+
+  if (listingsError) {
+    console.error("Failed to fetch listings:", listingsError)
+    throw new Error("Failed to fetch listings")
+  }
+
+  return listings || []
+}
+
 interface SaveLeadParams {
   formData: Record<string, any>
   questions: Question[]
@@ -1109,11 +1176,12 @@ export async function getAllListingsForLeads(): Promise<Listing[] | null> {
     return null
   }
 
-  // Only fetch listings created by the current user
+  // Only fetch listings created by the current user, excluding test listings
   const { data: listings, error } = await supabase
     .from("listings")
     .select("*")
     .eq("createdBy", user.id)
+    .or("isTest.is.null,isTest.eq.false") // Excludes test listings
     .order("address", { ascending: true })
 
   if (!listings || error) {
