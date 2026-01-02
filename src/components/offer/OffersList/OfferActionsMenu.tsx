@@ -4,7 +4,7 @@ import { OFFER_STATUS_OPTIONS } from "@/constants/offers"
 import { OfferStatus } from "@/types/offer"
 import { Ellipsis, Eye, Link2, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -59,13 +59,16 @@ const OfferActionsMenu = ({
   const [isAssigning, setIsAssigning] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
 
-  const realListings = listings.filter((listing) => listing.isTest !== true)
+  const realListings = useMemo(
+    () => listings.filter((listing) => listing.isTest !== true),
+    [listings],
+  )
 
-  const handleDeleteClick = () => {
+  const handleDeleteClick = useCallback(() => {
     setDeleteDialogOpen(true)
-  }
+  }, [])
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     setIsDeleting(true)
     try {
       await onDelete(offerId)
@@ -75,9 +78,9 @@ const OfferActionsMenu = ({
     } finally {
       setIsDeleting(false)
     }
-  }
+  }, [offerId, onDelete])
 
-  const handleAssignClick = () => {
+  const handleAssignClick = useCallback(() => {
     if (!onAssignToListing) return
 
     if (realListings.length === 0) {
@@ -87,9 +90,9 @@ const OfferActionsMenu = ({
       return
     }
     setAssignDialogOpen(true)
-  }
+  }, [onAssignToListing, realListings])
 
-  const handleAssignConfirm = async () => {
+  const handleAssignConfirm = useCallback(async () => {
     if (!selectedListingId || !onAssignToListing) return
     setIsAssigning(true)
     try {
@@ -101,14 +104,14 @@ const OfferActionsMenu = ({
     } finally {
       setIsAssigning(false)
     }
-  }
+  }, [selectedListingId, onAssignToListing, offerId])
 
-  const handleStatusClick = () => {
+  const handleStatusClick = useCallback(() => {
     setSelectedStatus(currentStatus)
     setStatusDialogOpen(true)
-  }
+  }, [currentStatus])
 
-  const handleStatusConfirm = async () => {
+  const handleStatusConfirm = useCallback(async () => {
     if (!onUpdateStatus || selectedStatus === currentStatus) {
       setStatusDialogOpen(false)
       return
@@ -122,7 +125,7 @@ const OfferActionsMenu = ({
     } finally {
       setIsUpdating(false)
     }
-  }
+  }, [selectedStatus, currentStatus, onUpdateStatus, offerId])
 
   return (
     <>

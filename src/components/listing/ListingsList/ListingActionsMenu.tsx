@@ -4,7 +4,7 @@ import { LISTING_STATUS_OPTIONS } from "@/constants/listings"
 import { ListingStatus } from "@/types/listing"
 import { Ellipsis, Eye, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,11 +49,11 @@ const ListingActionsMenu = ({
   const [isDeleting, setIsDeleting] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
 
-  const handleDeleteClick = () => {
+  const handleDeleteClick = useCallback(() => {
     setDeleteDialogOpen(true)
-  }
+  }, [])
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     setIsDeleting(true)
     try {
       await onDelete(listingId)
@@ -63,14 +63,14 @@ const ListingActionsMenu = ({
     } finally {
       setIsDeleting(false)
     }
-  }
+  }, [listingId, onDelete])
 
-  const handleStatusClick = () => {
+  const handleStatusClick = useCallback(() => {
     setSelectedStatus(currentStatus)
     setStatusDialogOpen(true)
-  }
+  }, [currentStatus])
 
-  const handleStatusConfirm = async () => {
+  const handleStatusConfirm = useCallback(async () => {
     if (selectedStatus === currentStatus) {
       setStatusDialogOpen(false)
       return
@@ -84,7 +84,7 @@ const ListingActionsMenu = ({
     } finally {
       setIsUpdating(false)
     }
-  }
+  }, [selectedStatus, currentStatus, listingId, onUpdateStatus])
 
   return (
     <>

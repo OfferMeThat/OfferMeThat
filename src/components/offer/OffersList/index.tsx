@@ -9,7 +9,7 @@ import { OFFER_STATUS_OPTIONS } from "@/constants/offers"
 import { OfferStatus, OfferWithListing } from "@/types/offer"
 import { LayoutGrid, TableOfContents } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 import SelectionActionBar from "../../shared/SelectionActionBar"
 import { Button } from "../../ui/button"
@@ -163,75 +163,79 @@ const OffersList = ({
     }
   }
 
-  const handleIndividualDelete = async (offerId: string) => {
-    if (offers && onOffersUpdate) {
-      const updatedOffers = offers.filter((offer) => offer.id !== offerId)
-      onOffersUpdate(updatedOffers.length > 0 ? updatedOffers : null)
-    }
-
-    const result = await deleteOffers([offerId])
-
-    if (result.success) {
-      toast.success("Successfully deleted offer")
-      router.refresh()
-    } else {
-      if (onOffersUpdate) {
-        onOffersUpdate(offers)
+  const handleIndividualDelete = useCallback(
+    async (offerId: string) => {
+      if (offers && onOffersUpdate) {
+        const updatedOffers = offers.filter((offer) => offer.id !== offerId)
+        onOffersUpdate(updatedOffers.length > 0 ? updatedOffers : null)
       }
-      toast.error(result.error || "Failed to delete offer")
-    }
-  }
 
-  const handleIndividualAssignToListing = async (
-    offerId: string,
-    listingId: string,
-  ) => {
-    if (offers && onOffersUpdate && isUnassigned) {
-      const updatedOffers = offers.filter((offer) => offer.id !== offerId)
-      onOffersUpdate(updatedOffers.length > 0 ? updatedOffers : null)
-    }
+      const result = await deleteOffers([offerId])
 
-    const result = await assignOffersToListing([offerId], listingId)
-
-    if (result.success) {
-      toast.success("Successfully assigned offer to listing")
-      router.refresh()
-      onAssignSuccess?.()
-    } else {
-      if (onOffersUpdate && isUnassigned) {
-        onOffersUpdate(offers)
+      if (result.success) {
+        toast.success("Successfully deleted offer")
+        router.refresh()
+      } else {
+        if (onOffersUpdate) {
+          onOffersUpdate(offers)
+        }
+        toast.error(result.error || "Failed to delete offer")
       }
-      toast.error(result.error || "Failed to assign offer to listing")
-    }
-  }
+    },
+    [offers, onOffersUpdate, router],
+  )
 
-  const handleIndividualStatusUpdate = async (
-    offerId: string,
-    status: OfferStatus,
-  ) => {
-    if (offers && onOffersUpdate) {
-      const updatedOffers = offers.map((offer) =>
-        offer.id === offerId ? { ...offer, status } : offer,
-      )
-      onOffersUpdate(updatedOffers)
-    }
-
-    const result = await updateOffersStatus([offerId], status)
-
-    if (result.success) {
-      toast.success("Successfully updated offer status")
-      router.refresh()
-    } else {
-      if (onOffersUpdate) {
-        onOffersUpdate(offers)
+  const handleIndividualAssignToListing = useCallback(
+    async (offerId: string, listingId: string) => {
+      if (offers && onOffersUpdate && isUnassigned) {
+        const updatedOffers = offers.filter((offer) => offer.id !== offerId)
+        onOffersUpdate(updatedOffers.length > 0 ? updatedOffers : null)
       }
-      toast.error(result.error || "Failed to update offer status")
-    }
-  }
 
-  // Get selected offers data for report generation
-  const selectedOffersData =
-    offers?.filter((offer) => selectedOffers.has(offer.id)) || []
+      const result = await assignOffersToListing([offerId], listingId)
+
+      if (result.success) {
+        toast.success("Successfully assigned offer to listing")
+        router.refresh()
+        onAssignSuccess?.()
+      } else {
+        if (onOffersUpdate && isUnassigned) {
+          onOffersUpdate(offers)
+        }
+        toast.error(result.error || "Failed to assign offer to listing")
+      }
+    },
+    [offers, onOffersUpdate, isUnassigned, router, onAssignSuccess],
+  )
+
+  const handleIndividualStatusUpdate = useCallback(
+    async (offerId: string, status: OfferStatus) => {
+      if (offers && onOffersUpdate) {
+        const updatedOffers = offers.map((offer) =>
+          offer.id === offerId ? { ...offer, status } : offer,
+        )
+        onOffersUpdate(updatedOffers)
+      }
+
+      const result = await updateOffersStatus([offerId], status)
+
+      if (result.success) {
+        toast.success("Successfully updated offer status")
+        router.refresh()
+      } else {
+        if (onOffersUpdate) {
+          onOffersUpdate(offers)
+        }
+        toast.error(result.error || "Failed to update offer status")
+      }
+    },
+    [offers, onOffersUpdate, router],
+  )
+
+  const selectedOffersData = useMemo(
+    () => offers?.filter((offer) => selectedOffers.has(offer.id)) || [],
+    [offers, selectedOffers],
+  )
 
   return (
     <>
