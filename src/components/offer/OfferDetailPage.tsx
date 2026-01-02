@@ -29,7 +29,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import React from "react"
+import React, { useMemo } from "react"
 import Heading from "../shared/typography/Heading"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
@@ -88,7 +88,6 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
     )
   }
 
-  // Render formatted section with title
   const renderFormattedSection = (
     title: string,
     formatted: React.ReactNode,
@@ -149,7 +148,27 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
     }).format(amount)
   }
 
-  // Show listing link if listing exists and offer is not "unassigned" (has a listingId and listing exists)
+  const formatBuyerType = useMemo(() => {
+    const buyerTypeLabels: Record<string, string> = {
+      buyer: "Buyer",
+      agent: "Agent",
+      affiliate: "Affiliate",
+      buyer_with_agent: "Buyer with Agent",
+      buyer_self: "Unrepresented Buyer",
+      buyers_agent: "Buyer's Agent",
+      buyer_represented: "Represented Buyer",
+    }
+
+    if (!offer.buyerType) return "N/A"
+    if (buyerTypeLabels[offer.buyerType]) {
+      return buyerTypeLabels[offer.buyerType]
+    }
+    return offer.buyerType
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ")
+  }, [offer.buyerType])
+
   const hasListing =
     offer.listing !== null &&
     offer.listingId &&
@@ -157,7 +176,6 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
   const statusBadgeVariant = OFFER_TO_BADGE_MAP[offer.status]
   const statusLabel = OFFER_STATUSES[offer.status]
 
-  // Helper to parse JSON strings if needed
   const parseJsonField = (field: any): any => {
     if (!field) return null
     if (typeof field === "string") {
@@ -170,7 +188,6 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
     return field
   }
 
-  // Parse and normalize data fields (handle JSON strings)
   const purchaserData = parseJsonField(offer.purchaserData)
   const depositData = parseJsonField(offer.depositData)
   const settlementDateData = parseJsonField(offer.settlementDateData)
@@ -179,7 +196,6 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
   const specialConditions = parseJsonField(offer.specialConditions)
   const customQuestionsData = parseJsonField(offer.customQuestionsData)
 
-  // Parse custom questions data
   const parsedCustomQuestions = parseAllCustomQuestions(customQuestionsData)
 
   return (
@@ -217,7 +233,6 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Offer Information */}
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-md">
           <Heading as="h2" size="medium" weight="bold" className="mb-4">
             Offer Information
@@ -335,7 +350,6 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
           </div>
         </div>
 
-        {/* Submitter Information */}
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-md">
           <Heading as="h2" size="medium" weight="bold" className="mb-4">
             Submitter Information
@@ -389,28 +403,7 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                     Buyer Type
                   </p>
                   <p className="text-base font-semibold text-gray-900">
-                    {(() => {
-                      const buyerTypeLabels: Record<string, string> = {
-                        buyer: "Buyer",
-                        agent: "Agent",
-                        affiliate: "Affiliate",
-                        buyer_with_agent: "Buyer with Agent",
-                        buyer_self: "Unrepresented Buyer",
-                        buyers_agent: "Buyer's Agent",
-                        buyer_represented: "Represented Buyer",
-                      }
-                      if (buyerTypeLabels[offer.buyerType]) {
-                        return buyerTypeLabels[offer.buyerType]
-                      }
-                      return offer.buyerType
-                        .split("_")
-                        .map(
-                          (word) =>
-                            word.charAt(0).toUpperCase() +
-                            word.slice(1).toLowerCase(),
-                        )
-                        .join(" ")
-                    })()}
+                    {formatBuyerType}
                   </p>
                 </div>
               </div>
@@ -418,7 +411,6 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
           </div>
         </div>
 
-        {/* Additional Information */}
         {(() => {
           const hasSpecialConditions = !!specialConditions
           const parsePurchaseAgreementUrls = (
@@ -552,7 +544,6 @@ const OfferDetailPage = ({ offer }: { offer: OfferWithListing | null }) => {
                           </p>
                           <div className="text-base text-gray-900">
                             {typeof question.formattedValue === "string" ? (
-                              // Check if it contains markdown-style links
                               question.formattedValue.includes("[") &&
                               question.formattedValue.includes("](") ? (
                                 question.answerType === "file_upload" ||
