@@ -1,10 +1,10 @@
-import { parseCustomQuestion } from "./parseCustomQuestionsData"
+import { Database } from "@/types/supabase"
 import {
   formatAreYouInterested,
   formatFollowAllListings,
   formatSubmitterRole,
 } from "./formatLeadData"
-import { Database } from "@/types/supabase"
+import { parseCustomQuestion } from "./parseCustomQuestionsData"
 
 type Question = Database["public"]["Tables"]["leadFormQuestions"]["Row"]
 
@@ -51,13 +51,33 @@ export function formatFormDataField(
       return String(value)
 
     case "tel":
-      if (typeof value === "object" && value !== null && "countryCode" in value) {
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "countryCode" in value
+      ) {
         const phoneObj = value as { countryCode: string; number: string }
         return (phoneObj.countryCode || "") + (phoneObj.number || "")
       }
       return String(value)
 
     case "opinionOfSalePrice":
+      if (typeof value === "object" && value !== null && "amount" in value) {
+        const amount = value.amount
+        const currency = value.currency || "USD"
+        if (amount === "" || amount === null || amount === undefined) {
+          return ""
+        }
+
+        const formattedAmount =
+          typeof amount === "number"
+            ? amount.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            : String(amount)
+        return `${currency} ${formattedAmount}`
+      }
       return String(value)
 
     case "captureFinanceLeads":
@@ -75,7 +95,8 @@ export function formatFormDataField(
       const setupConfig = (question.setupConfig as Record<string, any>) || {}
       const answerType = setupConfig.answer_type
       const uiConfig = (question.uiConfig as Record<string, any>) || {}
-      const questionText = uiConfig.questionText || uiConfig.label || "Custom Question"
+      const questionText =
+        uiConfig.questionText || uiConfig.label || "Custom Question"
 
       const parsed = parseCustomQuestion(question.id, {
         questionText,
@@ -96,4 +117,3 @@ export function formatFormDataField(
       return String(value)
   }
 }
-

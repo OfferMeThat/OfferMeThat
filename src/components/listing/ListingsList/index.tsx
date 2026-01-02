@@ -1,11 +1,11 @@
 "use client"
 
 import { deleteListings, updateListingsStatus } from "@/app/actions/listings"
-import { LISTING_STATUSES } from "@/constants/listings"
+import { LISTING_STATUS_OPTIONS } from "@/constants/listings"
 import { ListingStatus, ListingWithOfferCounts } from "@/types/listing"
 import { LayoutGrid, TableOfContents } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 import SelectionActionBar from "../../shared/SelectionActionBar"
 import { Button } from "../../ui/button"
@@ -112,20 +112,62 @@ const ListingsList = ({
     }
   }
 
-  const handleGenerateReport = () => {
-    setReportModalOpen(true)
-  }
+  const handleIndividualDelete = useCallback(
+    async (listingId: string) => {
+      if (listings && onListingsUpdate) {
+        const updatedListings = listings.filter(
+          (listing) => listing.id !== listingId,
+        )
+        onListingsUpdate(updatedListings.length > 0 ? updatedListings : null)
+      }
 
-  const statusOptions = Object.entries(LISTING_STATUSES).map(
-    ([value, label]) => ({
-      value,
-      label,
-    }),
+      const result = await deleteListings([listingId])
+
+      if (result.success) {
+        toast.success("Successfully deleted listing")
+        router.refresh()
+      } else {
+        if (onListingsUpdate) {
+          onListingsUpdate(listings)
+        }
+        toast.error(result.error || "Failed to delete listing")
+      }
+    },
+    [listings, onListingsUpdate, router],
   )
 
-  // Get selected listings data for report generation
-  const selectedListingsData =
-    listings?.filter((listing) => selectedListings.has(listing.id)) || []
+  const handleIndividualStatusUpdate = useCallback(
+    async (listingId: string, status: ListingStatus) => {
+      if (listings && onListingsUpdate) {
+        const updatedListings = listings.map((listing) =>
+          listing.id === listingId ? { ...listing, status } : listing,
+        )
+        onListingsUpdate(updatedListings)
+      }
+
+      const result = await updateListingsStatus([listingId], status)
+
+      if (result.success) {
+        toast.success("Successfully updated listing status")
+        router.refresh()
+      } else {
+        if (onListingsUpdate) {
+          onListingsUpdate(listings)
+        }
+        toast.error(result.error || "Failed to update listing status")
+      }
+    },
+    [listings, onListingsUpdate, router],
+  )
+
+  const handleGenerateReport = useCallback(() => {
+    setReportModalOpen(true)
+  }, [])
+
+  const selectedListingsData = useMemo(
+    () => listings?.filter((listing) => selectedListings.has(listing.id)) || [],
+    [listings, selectedListings],
+  )
 
   return (
     <>
@@ -154,9 +196,17 @@ const ListingsList = ({
           selectedListings={selectedListings}
           onToggleListing={handleToggleListing}
           onToggleAll={handleToggleAll}
+          onDelete={handleIndividualDelete}
+          onUpdateStatus={handleIndividualStatusUpdate}
         />
       ) : (
-        <ListingListTileView listings={listings} />
+        <ListingListTileView
+          listings={listings}
+          selectedListings={selectedListings}
+          onToggleListing={handleToggleListing}
+          onDelete={handleIndividualDelete}
+          onUpdateStatus={handleIndividualStatusUpdate}
+        />
       )}
 
       <SelectionActionBar
@@ -165,7 +215,7 @@ const ListingsList = ({
         onStatusChange={handleStatusChange}
         onGenerateReport={handleGenerateReport}
         onClearSelection={() => setSelectedListings(new Set())}
-        statusOptions={statusOptions}
+        statusOptions={LISTING_STATUS_OPTIONS}
         statusLabel="Listing Status"
         itemType="listings"
         showMessageButton={false}

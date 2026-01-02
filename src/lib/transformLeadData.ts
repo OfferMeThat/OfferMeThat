@@ -23,11 +23,17 @@ export function transformFormDataToLead(
   // Process each question's data
   questions.forEach((question) => {
     const value = formData[question.id]
+    // Skip empty values, but allow false for boolean fields (like submitButton/termsAccepted)
     if (value === null || value === undefined || value === "") {
       return // Skip empty values
     }
 
     switch (question.type) {
+      case "submitButton":
+        // Store termsAccepted boolean value (always true due to validation, but handle explicitly)
+        lead.termsAccepted = value as boolean
+        return // Early return since submitButton doesn't need further processing
+
       case "listingInterest":
         // Can be listing ID (UUID) or custom address (string)
         if (typeof value === "string") {
@@ -57,10 +63,15 @@ export function transformFormDataToLead(
 
       case "tel":
         // Handle both object format (new) and string format (legacy)
-        if (typeof value === "object" && value !== null && "countryCode" in value) {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "countryCode" in value
+        ) {
           // Combine country code and number for database storage
           const phoneObj = value as { countryCode: string; number: string }
-          lead.submitterPhone = (phoneObj.countryCode || "") + (phoneObj.number || "")
+          lead.submitterPhone =
+            (phoneObj.countryCode || "") + (phoneObj.number || "")
         } else {
           // Legacy string format
           lead.submitterPhone = value as string
@@ -68,15 +79,21 @@ export function transformFormDataToLead(
         break
 
       case "areYouInterested":
-        lead.areYouInterested = value as Database["public"]["Enums"]["areYouInterested"]
+        lead.areYouInterested =
+          value as Database["public"]["Enums"]["areYouInterested"]
         break
 
       case "followAllListings":
-        lead.followAllListings = value as Database["public"]["Enums"]["followAllListings"]
+        lead.followAllListings =
+          value as Database["public"]["Enums"]["followAllListings"]
         break
 
       case "opinionOfSalePrice":
-        lead.opinionOfSalePrice = value as string
+        if (typeof value === "object" && value !== null && "amount" in value) {
+          lead.opinionOfSalePrice = JSON.stringify(value)
+        } else {
+          lead.opinionOfSalePrice = value as string
+        }
         break
 
       case "submitterRole":
@@ -89,11 +106,13 @@ export function transformFormDataToLead(
         } else if (roleValue === "buyers_agent") {
           roleValue = "buyersAgent"
         }
-        lead.submitterRole = roleValue as Database["public"]["Enums"]["submitterRole"]
+        lead.submitterRole =
+          roleValue as Database["public"]["Enums"]["submitterRole"]
         break
 
       case "captureFinanceLeads":
-        lead.financeInterest = value as Database["public"]["Enums"]["financeInterest"]
+        lead.financeInterest =
+          value as Database["public"]["Enums"]["financeInterest"]
         break
 
       case "messageToAgent":
@@ -106,19 +125,39 @@ export function transformFormDataToLead(
         break
 
       case "custom":
-        // Store custom question data
-        const setupConfig = (question.setupConfig as Record<string, any>) || {}
-        const answerType = setupConfig.answer_type
-
         if (!lead.customQuestionsData) {
           lead.customQuestionsData = {}
         }
+        const setupConfig = (question.setupConfig as Record<string, any>) || {}
+        const uiConfig = (question.uiConfig as Record<string, any>) || {}
+        const questionText =
+          setupConfig.question_text || uiConfig.label || "Custom Question"
+        const answerType = setupConfig.answer_type
 
-        // Transform value based on answer type
         let transformedValue = value
         if (answerType === "number" || answerType === "number_amount") {
-          if (typeof value === "string") {
-            // Convert string to number
+          const numberType = setupConfig.number_type
+          if (
+            numberType === "money" &&
+            typeof value === "object" &&
+            value !== null
+          ) {
+            const amountValue = (value as any).amount
+            if (typeof amountValue === "string") {
+              const parsed = parseFloat(amountValue.trim())
+              transformedValue = {
+                ...value,
+                amount: isNaN(parsed) ? 0 : parsed,
+                currency: (value as any).currency || "USD",
+              }
+            } else if (typeof amountValue === "number") {
+              transformedValue = {
+                ...value,
+                amount: amountValue,
+                currency: (value as any).currency || "USD",
+              }
+            }
+          } else if (typeof value === "string") {
             const parsed = parseFloat(value.trim())
             transformedValue = isNaN(parsed) ? null : parsed
           } else if (typeof value === "number") {
@@ -128,6 +167,7 @@ export function transformFormDataToLead(
 
         const customData = lead.customQuestionsData as Record<string, any>
         customData[question.id] = {
+          questionText,
           answerType,
           value: transformedValue,
         }
@@ -148,4 +188,3 @@ export function transformFormDataToLead(
   // Return the lead with all required fields
   return lead as Database["public"]["Tables"]["leads"]["Insert"]
 }
-

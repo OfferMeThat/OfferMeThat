@@ -1,4 +1,5 @@
-import { getFormOwnerListings } from "@/app/actions/offerForm"
+import { getFormOwnerListings as getLeadFormOwnerListings } from "@/app/actions/leadForm"
+import { getFormOwnerListings as getOfferFormOwnerListings } from "@/app/actions/offerForm"
 import DepositPreview from "@/components/offerForm/DepositPreview"
 import { CurrencySelect } from "@/components/shared/CurrencySelect"
 import { FileUploadInput } from "@/components/shared/FileUploadInput"
@@ -725,14 +726,19 @@ export const QuestionRenderer = ({
   onSubmit,
 }: QuestionRendererProps) => {
   // State for interactive fields (used for complex fields like dates, times, etc.)
-  // Initialize from value prop if available
   const [formValues, setFormValues] = useState<Record<string, any>>(() => {
     if (value && typeof value === "object" && !Array.isArray(value)) {
       return value as Record<string, any>
     }
-    // For offerAmount questions, initialize with USD as default currency
     if (question.type === "offerAmount") {
       return { currency: "USD" }
+    }
+    if (question.type === "opinionOfSalePrice") {
+      const setupConfig = (question.setupConfig as Record<string, any>) || {}
+      const answerType = setupConfig.answerType || "text"
+      if (answerType === "number") {
+        return { currency: "USD" }
+      }
     }
     // For custom questions with money amount type, initialize with USD as default currency
     if (
@@ -807,17 +813,28 @@ export const QuestionRenderer = ({
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [selectedListingId, setSelectedListingId] = useState<string>("")
   const [customAddress, setCustomAddress] = useState<string>("")
+  const [selectedListingAddress, setSelectedListingAddress] =
+    useState<string>("")
 
-  // Fetch listings for specifyListing question (even in editing mode for form builder)
+  // Fetch listings for specifyListing and listingInterest questions (even in editing mode for form builder)
   useEffect(() => {
-    if (question.type === "specifyListing") {
+    if (
+      question.type === "specifyListing" ||
+      question.type === "listingInterest"
+    ) {
       if (listings === null) {
         // Use ownerId if available (for public forms), otherwise use formId
         const idToUse = ownerId || formId
         const useOwnerId = !!ownerId
 
         if (idToUse) {
-          getFormOwnerListings(idToUse, isTestMode, useOwnerId)
+          // Use the appropriate function based on question type
+          const getListings =
+            question.type === "listingInterest"
+              ? getLeadFormOwnerListings
+              : getOfferFormOwnerListings
+
+          getListings(idToUse, isTestMode, useOwnerId)
             .then((ownerListings) => {
               setListings(ownerListings)
             })
@@ -883,23 +900,32 @@ export const QuestionRenderer = ({
       : "",
   )
 
-  // Sync specifyListing state with value prop
+  // Sync specifyListing and listingInterest state with value prop
   useEffect(() => {
     if (
-      question.type === "specifyListing" &&
+      (question.type === "specifyListing" ||
+        question.type === "listingInterest") &&
       value &&
       typeof value === "string"
     ) {
       // Check if it's a listing ID or custom address
-      const isListingId = listings?.some((l) => l.id === value)
-      if (isListingId) {
+      const matchingListing = listings?.find((l) => l.id === value)
+      if (matchingListing) {
+        setSelectedListingId(value)
+        setSelectedListingAddress(matchingListing.address)
+        setShowCustomInput(false)
+        setCustomAddress("")
+      } else if (listings !== null) {
+        // Listings are loaded but value doesn't match - it's a custom address
+        setShowCustomInput(true)
+        setSelectedListingId("")
+        setSelectedListingAddress("")
+        setCustomAddress(value)
+      } else {
+        // Listings haven't loaded yet - set ID and keep existing address if we have one
         setSelectedListingId(value)
         setShowCustomInput(false)
         setCustomAddress("")
-      } else {
-        setShowCustomInput(true)
-        setSelectedListingId("")
-        setCustomAddress(value)
       }
     }
   }, [question.type, value, listings])
@@ -1281,9 +1307,21 @@ export const QuestionRenderer = ({
     ]
 
     // Determine which listings to use
-    const displayListings = useExampleListings
-      ? exampleListings
-      : listings || []
+    let displayListings = useExampleListings ? exampleListings : listings || []
+
+    if (
+      selectedListingId &&
+      selectedListingAddress &&
+      !displayListings.some((l) => l.id === selectedListingId)
+    ) {
+      displayListings = [
+        ...displayListings,
+        {
+          id: selectedListingId,
+          address: selectedListingAddress,
+        },
+      ]
+    }
 
     // If not in editing mode and no listings, show simple text input
     if (!editingMode && !hasRealListings) {
@@ -1325,9 +1363,16 @@ export const QuestionRenderer = ({
               if (selectValue === "custom") {
                 setShowCustomInput(true)
                 setSelectedListingId("")
+                setSelectedListingAddress("")
                 onChange?.("")
               } else {
+                const selectedListing = displayListings.find(
+                  (l) => l.id === selectValue,
+                )
                 setSelectedListingId(selectValue)
+                if (selectedListing) {
+                  setSelectedListingAddress(selectedListing.address)
+                }
                 setShowCustomInput(false)
                 setCustomAddress("")
                 // In editing mode with example listings, don't call onChange
@@ -5071,28 +5116,150 @@ export const QuestionRenderer = ({
 
   // Listing Interest
   if (question.type === "listingInterest") {
-    return (
-      <div>
-        <div className="relative max-w-md">
-          <Input
-            type="text"
-            placeholder={uiConfig.placeholder || "Specify the listing here..."}
-            disabled={disabled}
-            className="w-full"
-            style={getInputStyle()}
-            value={(value as string) || ""}
-            onChange={(e) => {
-              onChange?.(e.target.value)
-            }}
-            onBlur={onBlur}
-            data-field-id={question.id}
-          />
-          {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Specify the listing here...",
-          )}
+    // In editing mode (form builder/customization), always show dropdown with example listings if no real listings
+    // In actual form, show text input if no listings, dropdown if listings exist
+    const hasRealListings = listings && listings.length > 0
+    const useExampleListings = editingMode && !hasRealListings
+
+    // Example listings for preview/customization
+    const exampleListings = [
+      { id: "example-1", address: "Example Listing 1" },
+      { id: "example-2", address: "Example Listing 2" },
+    ]
+
+    // Determine which listings to use
+    let displayListings = useExampleListings ? exampleListings : listings || []
+
+    if (
+      selectedListingId &&
+      selectedListingAddress &&
+      !displayListings.some((l) => l.id === selectedListingId)
+    ) {
+      displayListings = [
+        ...displayListings,
+        {
+          id: selectedListingId,
+          address: selectedListingAddress,
+        },
+      ]
+    }
+
+    // If not in editing mode and no listings, show simple text input
+    if (!editingMode && !hasRealListings) {
+      return (
+        <div>
+          <div className="relative max-w-md">
+            <Input
+              type="text"
+              placeholder={
+                uiConfig.placeholder || "Enter listing address or ID..."
+              }
+              disabled={disabled}
+              className="w-full"
+              style={getInputStyle()}
+              value={(value as string) || customAddress}
+              onChange={(e) => {
+                const newValue = e.target.value
+                setCustomAddress(newValue)
+                onChange?.(newValue)
+              }}
+              onBlur={onBlur}
+              data-field-id={question.id}
+            />
+          </div>
+          {renderError(error)}
         </div>
-        {renderError(error)}
+      )
+    }
+
+    // Show dropdown with listings (real or example) and "not here" option
+    // Input appears below when "custom" is selected
+    return (
+      <div className="space-y-3">
+        <div>
+          <Select
+            value={selectedListingId || (showCustomInput ? "custom" : "")}
+            onValueChange={(selectValue) => {
+              if (selectValue === "custom") {
+                setShowCustomInput(true)
+                setSelectedListingId("")
+                setSelectedListingAddress("")
+                onChange?.("")
+              } else {
+                const selectedListing = displayListings.find(
+                  (l) => l.id === selectValue,
+                )
+                setSelectedListingId(selectValue)
+                if (selectedListing) {
+                  setSelectedListingAddress(selectedListing.address)
+                }
+                setShowCustomInput(false)
+                setCustomAddress("")
+                // In editing mode with example listings, don't call onChange
+                // In actual form or with real listings, call onChange with the listing ID
+                if (!useExampleListings) {
+                  onChange?.(selectValue)
+                }
+              }
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger
+              className={cn("w-full max-w-md")}
+              style={getSelectStyle()}
+              data-field-id={question.id}
+            >
+              <SelectValue placeholder="Select a listing..." />
+            </SelectTrigger>
+            <SelectContent>
+              {displayListings.map((listing) => (
+                <SelectItem key={listing.id} value={listing.id}>
+                  {listing.address}
+                </SelectItem>
+              ))}
+              <SelectItem value="custom">
+                The Listing I want isn&apos;t here
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          {/* Show error for Select dropdown when not in custom input mode */}
+          {!showCustomInput && renderError(error)}
+        </div>
+        {showCustomInput && (
+          <div>
+            <div className="relative max-w-md">
+              <Input
+                type="text"
+                placeholder={uiConfig.placeholder || "Enter listing address..."}
+                disabled={disabled}
+                className={cn(editingMode && "cursor-not-allowed", "w-full")}
+                style={getInputStyle()}
+                value={customAddress}
+                onChange={(e) => {
+                  const newValue = e.target.value
+                  setCustomAddress(newValue)
+                  if (!editingMode) {
+                    onChange?.(newValue)
+                  }
+                }}
+                onBlur={onBlur}
+                data-field-id={question.id}
+              />
+              {renderEditOverlay(
+                "placeholder",
+                uiConfig.placeholder || "Enter listing address...",
+              )}
+            </div>
+            {renderError(error)}
+          </div>
+        )}
+        {/* Show explanatory text when using example listings in editing mode */}
+        {useExampleListings && (
+          <p className="text-sm text-gray-500">
+            If you have not added any active Listings, Buyers will specify a
+            Listing using text.
+          </p>
+        )}
       </div>
     )
   }
@@ -5128,7 +5295,11 @@ export const QuestionRenderer = ({
           <div className="relative flex-1">
             <Input
               type="text"
-              placeholder="Enter your last name"
+              placeholder={getSubQuestionPlaceholder(
+                uiConfig,
+                "lastNamePlaceholder",
+                "Enter your last name",
+              )}
               disabled={disabled}
               className="w-full"
               style={getInputStyle()}
@@ -5142,6 +5313,14 @@ export const QuestionRenderer = ({
               onBlur={onBlur}
               data-field-id={`${question.id}_lastName`}
             />
+            {renderEditOverlay(
+              "lastNamePlaceholder",
+              getSubQuestionPlaceholder(
+                uiConfig,
+                "lastNamePlaceholder",
+                "Enter your last name",
+              ),
+            )}
           </div>
         </div>
         {renderError(error)}
@@ -5343,43 +5522,140 @@ export const QuestionRenderer = ({
     const answerType = setupConfig.answerType || "text"
 
     if (answerType === "number") {
+      let currentAmount: string | number = ""
+      let currentCurrency = "USD"
+
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        currentAmount = value.amount !== undefined ? value.amount : ""
+        currentCurrency = value.currency || "USD"
+      } else if (typeof value === "string") {
+        try {
+          const parsed = JSON.parse(value)
+          if (
+            typeof parsed === "object" &&
+            parsed !== null &&
+            "amount" in parsed
+          ) {
+            currentAmount = parsed.amount !== undefined ? parsed.amount : ""
+            currentCurrency = parsed.currency || "USD"
+          } else {
+            currentAmount = value
+            currentCurrency = "USD"
+          }
+        } catch {
+          currentAmount = value
+          currentCurrency = "USD"
+        }
+      } else if (value !== undefined && value !== null && value !== "") {
+        currentAmount = value
+        currentCurrency = "USD"
+      }
+
+      const handleAmountChange = (val: string) => {
+        const num = val === "" ? "" : Number(val)
+        const newValue = { amount: num, currency: currentCurrency }
+        onChange?.(newValue)
+      }
+
+      const handleCurrencyChange = (val: string) => {
+        const amountValue =
+          currentAmount === "" || currentAmount === undefined
+            ? ""
+            : Number(currentAmount)
+        const newValue = { amount: amountValue, currency: val }
+        onChange?.(newValue)
+      }
+
       return (
-        <div>
-          <div className="relative max-w-md">
-            <Input
-              type="number"
-              placeholder={uiConfig.placeholder || "Enter a number"}
-              disabled={disabled}
-              className="w-full"
-              style={getInputStyle()}
-              value={(value as string) || ""}
-              onChange={(e) => {
-                onChange?.(e.target.value)
-              }}
-              onBlur={onBlur}
-              data-field-id={question.id}
-            />
-            {renderEditOverlay(
-              "placeholder",
-              uiConfig.placeholder || "Enter a number",
-            )}
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <div className="relative w-1/2">
+              <Input
+                type="number"
+                placeholder={
+                  uiConfig.numberPlaceholder ||
+                  uiConfig.placeholder ||
+                  "Enter a number"
+                }
+                disabled={disabled}
+                className="w-full"
+                style={getInputStyle()}
+                value={currentAmount}
+                onChange={(e) => {
+                  handleAmountChange(e.target.value)
+                }}
+                onBlur={onBlur}
+                data-field-id={question.id}
+              />
+              {renderEditOverlay(
+                "numberPlaceholder",
+                uiConfig.numberPlaceholder ||
+                  uiConfig.placeholder ||
+                  "Enter a number",
+              )}
+            </div>
+            <div className="relative w-1/2">
+              <CurrencySelect
+                value={currentCurrency}
+                onValueChange={handleCurrencyChange}
+                disabled={disabled}
+                placeholder="Currency"
+                className="w-full"
+                style={getSelectStyle()}
+              />
+            </div>
           </div>
           {renderError(error)}
         </div>
       )
     }
 
-    // Default to text
+    let textValue = ""
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      if ("amount" in value) {
+        textValue =
+          value.amount !== undefined && value.amount !== null
+            ? String(value.amount)
+            : ""
+      } else {
+        textValue = ""
+      }
+    } else if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value)
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "amount" in parsed
+        ) {
+          textValue =
+            parsed.amount !== undefined && parsed.amount !== null
+              ? String(parsed.amount)
+              : ""
+        } else {
+          textValue = value
+        }
+      } catch {
+        textValue = value
+      }
+    } else if (value !== undefined && value !== null) {
+      textValue = String(value)
+    }
+
     return (
       <div>
-        <div className="relative max-w-md">
+        <div className="relative">
           <Input
             type="text"
-            placeholder={uiConfig.placeholder || "Enter your opinion"}
+            placeholder={
+              uiConfig.textPlaceholder ||
+              uiConfig.placeholder ||
+              "Enter your opinion"
+            }
             disabled={disabled}
             className="w-full"
             style={getInputStyle()}
-            value={(value as string) || ""}
+            value={textValue}
             onChange={(e) => {
               onChange?.(e.target.value)
             }}
@@ -5387,8 +5663,10 @@ export const QuestionRenderer = ({
             data-field-id={question.id}
           />
           {renderEditOverlay(
-            "placeholder",
-            uiConfig.placeholder || "Enter your opinion",
+            "textPlaceholder",
+            uiConfig.textPlaceholder ||
+              uiConfig.placeholder ||
+              "Enter your opinion",
           )}
         </div>
         {renderError(error)}

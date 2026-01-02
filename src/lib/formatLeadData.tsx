@@ -1,4 +1,5 @@
 import { FileText } from "lucide-react"
+import { extractFileName, truncateFileName } from "./fileHelpers"
 
 /**
  * Utilities for formatting lead data for display
@@ -7,16 +8,18 @@ import { FileText } from "lucide-react"
 // ==================== Helper Functions ====================
 
 function renderFileLink(url: string, label?: string): React.JSX.Element {
-  const fileName = label || url.split("/").pop() || "File"
+  const fileName = label || extractFileName(url) || "File"
+  const displayName = truncateFileName(fileName)
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline"
+      title={fileName}
     >
       <FileText size={14} />
-      {fileName}
+      {displayName}
     </a>
   )
 }
@@ -145,12 +148,23 @@ export function formatMessageToAgent(data: any): React.JSX.Element | null {
       {attachments.length > 0 && (
         <div>
           <div className="mb-2 font-medium text-gray-700">Attachments:</div>
-          <div className="space-y-1">
-            {attachments.map((url, index) => (
-              <div key={index}>
-                {renderFileLink(url, `Attachment ${index + 1}`)}
-              </div>
-            ))}
+          <div className="flex flex-col gap-1">
+            {attachments.map((url, index) => {
+              const fileName = extractFileName(url)
+              return (
+                <a
+                  key={index}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 hover:underline"
+                  title={fileName}
+                >
+                  <FileText size={14} />
+                  {truncateFileName(fileName)}
+                </a>
+              )
+            })}
           </div>
         </div>
       )}

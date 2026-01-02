@@ -202,7 +202,7 @@ const LeadFormPageContent = () => {
               </p>
             </div>
 
-            <div className="space-y-3">
+            {/* <div className="space-y-3">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-sm text-gray-700">
                   Want to see it in action?
@@ -214,7 +214,7 @@ const LeadFormPageContent = () => {
                   </Button>
                 </Link>
               </div>
-            </div>
+            </div> */}
           </div>
 
           <div className="mx-auto flex flex-col items-center justify-center space-y-4">
