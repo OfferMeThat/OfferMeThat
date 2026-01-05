@@ -208,6 +208,7 @@ const CounterOfferModal = ({
       handleCopyValue,
       handleRemoveValue,
       handleValueChange,
+      questions,
     }
 
     if (currentStep === 1) {
