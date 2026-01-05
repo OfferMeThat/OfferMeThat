@@ -6,7 +6,6 @@ import { Check, Clock, Ellipsis } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import CounterOfferModal from "../CounterOfferModal"
 import { Badge } from "../../ui/badge"
 import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
@@ -20,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table"
+import CounterOfferModal from "../counterOffer/CounterOfferModal"
 
 const OffersListTableView = ({
   offers,

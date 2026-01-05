@@ -6,12 +6,12 @@ import { Check, Clock, Ellipsis } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import CounterOfferModal from "../CounterOfferModal"
 import { Badge } from "../../ui/badge"
 import { Button } from "../../ui/button"
 import { Checkbox } from "../../ui/checkbox"
 import { EmptyState } from "../../ui/empty-state"
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
+import CounterOfferModal from "../counterOffer/CounterOfferModal"
 
 const OffersListTileView = ({
   offers,
