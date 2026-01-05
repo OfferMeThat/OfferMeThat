@@ -856,13 +856,17 @@ export async function getOfferWithQuestions(
     return { offer: null, questions: null, error: "Offer or form not found" }
   }
 
+  // Process file URLs to signed URLs
+  const { processOfferFileUrls } = await import("@/lib/processOfferFileUrls")
+  const processedOffer = await processOfferFileUrls(offer)
+
   const { getFormQuestions } = await import("./offerForm")
   try {
     const questions = await getFormQuestions(offer.formId)
-    return { offer, questions }
+    return { offer: processedOffer, questions }
   } catch (error: any) {
     return {
-      offer,
+      offer: processedOffer,
       questions: null,
       error: error.message || "Failed to fetch questions",
     }
