@@ -157,13 +157,11 @@ const CounterOfferModal = ({
     const displayValue = renderDisplay(originalValue)
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-1.5 pb-6 md:space-y-2">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr]">
           <Label className="text-sm font-medium text-gray-700">{label}</Label>
-          <div></div>
-          <div></div>
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center md:gap-4">
           <Input
             value={displayValue}
             disabled
@@ -174,7 +172,7 @@ const CounterOfferModal = ({
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 w-8 p-0"
+              className="h-8 w-8 rotate-90 p-0 md:rotate-0"
               onClick={() => handleCopyValue(fieldKey)}
             >
               <ArrowRight className="h-4 w-4" />
@@ -284,19 +282,17 @@ const CounterOfferModal = ({
             counterFormValues.submitterRole,
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-1.5 pb-6 md:space-y-2">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr]">
               <Label className="text-sm font-medium text-gray-700">
                 Your Name
               </Label>
-              <div></div>
-              <div></div>
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr] md:items-start">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_1fr] md:items-start md:gap-4">
               <Input
                 value={
                   originalFormValues.submitterName
-                    ? `${originalFormValues.submitterName.firstName || ""} ${originalFormValues.submitterName.lastName || ""}`.trim() ||
+                    ? `${originalFormValues.submitterName.firstName.trim() || ""} ${originalFormValues.submitterName.lastName.trim() || ""}` ||
                       "N/A"
                     : "N/A"
                 }
@@ -308,7 +304,7 @@ const CounterOfferModal = ({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 rotate-90 p-0 md:rotate-0"
                   onClick={() => handleCopyValue("submitterName")}
                 >
                   <ArrowRight className="h-4 w-4" />
@@ -622,9 +618,9 @@ const CounterOfferModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] max-w-5xl! overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-h-[90vh] max-w-[90vw]! overflow-y-auto lg:max-w-5xl!">
+        <DialogHeader className="text-left">
+          <DialogTitle className="text-left">
             Counter Offer (Step {currentStep} of {totalSteps})
           </DialogTitle>
           <p className="text-sm text-gray-600">
@@ -639,12 +635,14 @@ const CounterOfferModal = ({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 border-b pb-3 md:grid-cols-[1fr_auto_1fr]">
+            <div className="hidden grid-cols-1 gap-4 border-b pb-3 md:grid md:grid-cols-[1fr_auto_1fr]">
               <div className="text-xs font-bold text-black">Original Offer</div>
               <div></div>
               <div className="text-xs font-bold text-black">Counter Offer</div>
             </div>
-            <div className="space-y-6 py-4">{renderStepContent()}</div>
+            <div className="space-y-4 py-4 md:space-y-6">
+              {renderStepContent()}
+            </div>
 
             <div className="flex justify-between border-t pt-4">
               <Button variant="outline" onClick={onClose}>
