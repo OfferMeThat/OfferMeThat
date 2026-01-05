@@ -159,13 +159,13 @@ const CounterOfferModal = ({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr]">
           <Label className="text-sm font-medium text-gray-700">{label}</Label>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center md:gap-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_1fr] md:items-start md:gap-4">
           <Input
             value={displayValue}
             disabled
             className="w-full bg-gray-50 text-gray-700"
           />
-          <div className="flex justify-center">
+          <div className="flex justify-center pt-0.5">
             <Button
               type="button"
               variant="outline"
@@ -176,7 +176,7 @@ const CounterOfferModal = ({
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
               {renderInput(
                 counterValue ?? (fieldKey === "submitterName" ? {} : ""),

@@ -1,3 +1,4 @@
+import { CURRENCY_OPTIONS } from "@/constants/offerFormQuestions"
 import { validateMultipleFiles } from "@/lib/offerFormValidation"
 import { ArrowRight, ExternalLink, Trash2 } from "lucide-react"
 import { useState } from "react"
@@ -5,6 +6,13 @@ import { FileUploadInput } from "../../../shared/FileUploadInput"
 import { Button } from "../../../ui/button"
 import { Input } from "../../../ui/input"
 import { Label } from "../../../ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../ui/select"
 
 type FormValues = Record<string, any>
 
@@ -250,17 +258,26 @@ export const Step2 = ({
               placeholder="0.00"
               className="w-full"
             />
-            <Input
+            <Select
               value={value?.currency || "USD"}
-              onChange={(e) =>
+              onValueChange={(currency) =>
                 onChange({
                   ...value,
-                  currency: e.target.value,
+                  currency: currency,
                 })
               }
-              placeholder="USD"
-              className="w-full"
-            />
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select currency" />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         ),
         (value) => {
