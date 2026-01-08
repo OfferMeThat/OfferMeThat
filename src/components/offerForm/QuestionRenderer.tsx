@@ -3992,7 +3992,7 @@ export const QuestionRenderer = ({
 
         {/* Evidence of Funds - shown when "No" is selected and evidence_of_funds is configured */}
         {/* Show if evidence_of_funds is configured (optional or required) AND subjectToLoan is "no" */}
-        {!isSubjectToLoan &&
+        {loanValue.subjectToLoan === "no" &&
           setupConfig.evidence_of_funds &&
           setupConfig.evidence_of_funds !== "not_required" && (
             <div>
