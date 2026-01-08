@@ -5070,119 +5070,147 @@ export const QuestionRenderer = ({
           {renderError(error)}
         </div>
         {allowAttachments && (
-          <FileUploadInput
-            id={`${question.id}_message_attachments`}
-            label="Message to Listing Agent"
-            required={false}
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-            multiple
-            disabled={disabled}
-            value={attachmentData.files}
-            fileNames={attachmentData.fileNames}
-            error={attachmentData.error}
-            maxFiles={5}
-            maxSize={10 * 1024 * 1024}
-            onChange={(files) => {
-              const newFiles = Array.isArray(files)
-                ? files
-                : files
-                  ? [files]
-                  : []
+          <div>
+            <div className="relative mb-2 inline-block">
+              <Label
+                className={cn(
+                  "block text-sm font-medium",
+                  editingMode &&
+                    "cursor-pointer transition-colors hover:text-blue-600",
+                )}
+              >
+                {getSubQuestionLabel(
+                  uiConfig,
+                  "attachmentsLabel",
+                  "Attachments",
+                )}
+              </Label>
+              {renderLabelOverlay(
+                "attachmentsLabel",
+                getSubQuestionLabel(
+                  uiConfig,
+                  "attachmentsLabel",
+                  "Attachments",
+                ),
+              )}
+            </div>
+            <FileUploadInput
+              id={`${question.id}_message_attachments`}
+              label=""
+              required={false}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              multiple
+              disabled={disabled}
+              value={attachmentData.files}
+              fileNames={attachmentData.fileNames}
+              error={attachmentData.error}
+              maxFiles={5}
+              maxSize={10 * 1024 * 1024}
+              onChange={(files) => {
+                const newFiles = Array.isArray(files)
+                  ? files
+                  : files
+                    ? [files]
+                    : []
 
-              // Get existing files
-              const existingFiles = attachmentData.files || []
+                // Get existing files
+                const existingFiles = attachmentData.files || []
 
-              // Merge new files with existing files
-              const mergedFiles = [...existingFiles, ...newFiles]
+                // Merge new files with existing files
+                const mergedFiles = [...existingFiles, ...newFiles]
 
-              // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
-              const maxFiles = 5
-              const finalFiles =
-                mergedFiles.length > maxFiles
-                  ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
-                  : mergedFiles
+                // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+                const maxFiles = 5
+                const finalFiles =
+                  mergedFiles.length > maxFiles
+                    ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                    : mergedFiles
 
-              const fileError = validateMultipleFiles(
-                finalFiles,
-                maxFiles,
-                10 * 1024 * 1024,
-              )
-              setFileUploads((prev) => ({
-                ...prev,
-                [`${question.id}_message_attachments`]: {
-                  files: finalFiles,
-                  fileNames: finalFiles.map((f) => f.name),
-                  error: fileError || undefined,
-                },
-              }))
-              if (!fileError && finalFiles.length > 0) {
-                // Store files separately from message text
-                const currentMessage =
-                  typeof value === "string" ? value : value?.message || ""
-                onChange?.({ message: currentMessage, attachments: finalFiles })
-              } else if (finalFiles.length === 0) {
-                const currentMessage =
-                  typeof value === "string" ? value : value?.message || ""
-                onChange?.(
-                  currentMessage
-                    ? currentMessage
-                    : { message: "", attachments: [] },
+                const fileError = validateMultipleFiles(
+                  finalFiles,
+                  maxFiles,
+                  10 * 1024 * 1024,
                 )
-              }
-            }}
-            onRemove={(index) => {
-              const newFiles = [...attachmentData.files]
-              const newFileNames = [...attachmentData.fileNames]
-              if (index !== undefined) {
-                newFiles.splice(index, 1)
-                newFileNames.splice(index, 1)
-              } else {
-                newFiles.length = 0
-                newFileNames.length = 0
-              }
-              setFileUploads((prev) => ({
-                ...prev,
-                [`${question.id}_message_attachments`]:
-                  newFiles.length > 0
-                    ? {
-                        files: newFiles,
-                        fileNames: newFileNames,
-                        error: undefined,
-                      }
-                    : {
-                        files: [],
-                        fileNames: [],
-                        error: undefined,
-                      },
-              }))
-              // Update attachments in value
-              const currentMessage =
-                typeof value === "string" ? value : value?.message || ""
-              if (newFiles.length > 0) {
-                onChange?.({
-                  message: currentMessage,
-                  attachments: newFiles,
-                })
-              } else {
-                onChange?.(
-                  currentMessage
-                    ? currentMessage
-                    : { message: "", attachments: [] },
-                )
-                const fileInput = document.getElementById(
-                  `${question.id}_message_attachments`,
-                ) as HTMLInputElement
-                if (fileInput) {
-                  fileInput.value = ""
+                setFileUploads((prev) => ({
+                  ...prev,
+                  [`${question.id}_message_attachments`]: {
+                    files: finalFiles,
+                    fileNames: finalFiles.map((f) => f.name),
+                    error: fileError || undefined,
+                  },
+                }))
+                if (!fileError && finalFiles.length > 0) {
+                  // Store files separately from message text
+                  const currentMessage =
+                    typeof value === "string" ? value : value?.message || ""
+                  onChange?.({
+                    message: currentMessage,
+                    attachments: finalFiles,
+                  })
+                } else if (finalFiles.length === 0) {
+                  const currentMessage =
+                    typeof value === "string" ? value : value?.message || ""
+                  onChange?.(
+                    currentMessage
+                      ? currentMessage
+                      : { message: "", attachments: [] },
+                  )
                 }
-              }
-            }}
-          >
-            <span className="text-xs text-gray-500">
-              Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5 files,
-              10MB total)
-            </span>
-          </FileUploadInput>
+              }}
+              onRemove={(index) => {
+                const newFiles = [...attachmentData.files]
+                const newFileNames = [...attachmentData.fileNames]
+                if (index !== undefined) {
+                  newFiles.splice(index, 1)
+                  newFileNames.splice(index, 1)
+                } else {
+                  newFiles.length = 0
+                  newFileNames.length = 0
+                }
+                setFileUploads((prev) => ({
+                  ...prev,
+                  [`${question.id}_message_attachments`]:
+                    newFiles.length > 0
+                      ? {
+                          files: newFiles,
+                          fileNames: newFileNames,
+                          error: undefined,
+                        }
+                      : {
+                          files: [],
+                          fileNames: [],
+                          error: undefined,
+                        },
+                }))
+                // Update attachments in value
+                const currentMessage =
+                  typeof value === "string" ? value : value?.message || ""
+                if (newFiles.length > 0) {
+                  onChange?.({
+                    message: currentMessage,
+                    attachments: newFiles,
+                  })
+                } else {
+                  onChange?.(
+                    currentMessage
+                      ? currentMessage
+                      : { message: "", attachments: [] },
+                  )
+                  const fileInput = document.getElementById(
+                    `${question.id}_message_attachments`,
+                  ) as HTMLInputElement
+                  if (fileInput) {
+                    fileInput.value = ""
+                  }
+                }
+              }}
+            >
+              <span className="text-xs text-gray-500">
+                Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5 files,
+                10MB total)
+              </span>
+            </FileUploadInput>
+          </div>
         )}
       </div>
     )
