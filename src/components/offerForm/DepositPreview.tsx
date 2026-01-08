@@ -837,41 +837,13 @@ const DepositForm = ({
                                   "Enter percentage",
                                 )}
                               </div>
-                              {/* "of purchase price" text on the same line */}
-                              <span className="w-1/2 text-sm whitespace-nowrap text-gray-600">
+
+                              <span className="text-sm whitespace-nowrap text-gray-600">
                                 {depositQuestion.conditional_suffix
                                   .replace("%", "")
                                   .trim()}
                               </span>
                             </div>
-                            {/* Second row: currency selector underneath */}
-                            {depositQuestion.conditional_currency && (
-                              <div className="w-full">
-                                <CurrencySelect
-                                  value={
-                                    localFormData[
-                                      `${percentageFieldName}_currency`
-                                    ] || ""
-                                  }
-                                  onValueChange={(value) =>
-                                    handleFieldChange(
-                                      `${percentageFieldName}_currency`,
-                                      value,
-                                    )
-                                  }
-                                  disabled={false}
-                                  placeholder={
-                                    depositQuestion.conditional_currency
-                                      ?.placeholder || "Select currency"
-                                  }
-                                  className="w-full"
-                                  style={getSelectStyle()}
-                                  allowedCurrencies={depositQuestion.conditional_currency?.options?.map(
-                                    (opt: { value: string }) => opt.value,
-                                  )}
-                                />
-                              </div>
-                            )}
                           </div>
                         )
                       }
