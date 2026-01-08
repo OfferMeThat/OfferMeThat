@@ -6807,28 +6807,36 @@ export const QuestionRenderer = ({
       const tickboxMode = setupConfig.add_tickbox || "no"
       const showTickbox =
         tickboxMode === "required" || tickboxMode === "optional"
-      // Only disable checkbox in editing mode, not in form preview/user-facing form
-      const tickboxDisabled = editingMode || !showTickbox
-      // Determine if checkbox is required based on tickbox mode and question required status
-      // If question is not required, make tickbox optional even if it was set to required
+      const tickboxDisabled = !showTickbox
       const isRequired =
         tickboxMode === "required" && question.required !== false
       const isOptional = tickboxMode === "optional" || !question.required
 
+      const [localChecked, setLocalChecked] = useState<boolean>(
+        () => (value as boolean) || false,
+      )
+
+      useEffect(() => {
+        if (!editingMode) {
+          setLocalChecked((value as boolean) || false)
+        }
+      }, [value, editingMode])
+
+      const displayChecked = editingMode
+        ? localChecked
+        : (value as boolean) || false
+
       return (
         <div className="space-y-2">
-          {/* Statement text is shown as the main label in QuestionCard when no tickbox */}
-          {/* Only show tickbox here */}
           {showTickbox && (
             <div className="flex items-center gap-2">
               <Checkbox
                 id={`${question.id}_statement_checkbox`}
                 disabled={tickboxDisabled}
-                checked={editingMode ? false : (value as boolean) || false}
+                checked={displayChecked}
                 onCheckedChange={(checked) => {
-                  if (!editingMode) {
-                    onChange?.(checked)
-                  }
+                  setLocalChecked(checked as boolean)
+                  onChange?.(checked)
                 }}
                 onBlur={onBlur}
               />
@@ -6836,21 +6844,10 @@ export const QuestionRenderer = ({
                 <Label
                   htmlFor={`${question.id}_statement_checkbox`}
                   className={cn(
-                    "cursor-pointer text-sm",
+                    "text-sm",
                     !showTickbox ? "text-gray-400" : "text-gray-700",
-                    editingMode && "cursor-not-allowed",
+                    editingMode ? "cursor-default" : "cursor-pointer",
                   )}
-                  onClick={(e) => {
-                    // Prevent default label behavior (toggling checkbox) in editing mode
-                    if (editingMode) {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      onEditLabel?.(
-                        "tickboxText",
-                        setupConfig.tickbox_text || "I agree",
-                      )
-                    }
-                  }}
                 >
                   {setupConfig.tickbox_text || "I agree"}
                   {isRequired && <span className="text-red-500"> *</span>}
@@ -6858,10 +6855,6 @@ export const QuestionRenderer = ({
                     <span className="text-gray-500"> (Optional)</span>
                   )}
                 </Label>
-                {renderLabelOverlay(
-                  "tickboxText",
-                  setupConfig.tickbox_text || "I agree",
-                )}
               </div>
             </div>
           )}

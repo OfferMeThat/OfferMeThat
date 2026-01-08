@@ -9,6 +9,7 @@ import {
   QUESTION_TYPE_TO_LABEL as OFFER_QUESTION_TYPE_TO_LABEL,
   REQUIRED_QUESTION_TYPES as OFFER_REQUIRED_QUESTION_TYPES,
 } from "@/constants/offerFormQuestions"
+import { cn } from "@/lib/utils"
 import {
   parseUIConfig,
   updateSubQuestionLabel,
@@ -27,7 +28,7 @@ type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 interface QuestionCardProps {
   questionsAmount: number
   question: Question
-  questionNumber: number 
+  questionNumber: number
   isFirst: boolean
   isLast: boolean
   onMoveUp: () => void
@@ -130,10 +131,14 @@ const QuestionCard = ({
 
     if (editingField.type === "label") {
       if (editingField.id === "label") {
-        if (
-          isStatementQuestion ||
-          (isCustomQuestion && setupConfig.question_text)
-        ) {
+        if (isStatementQuestion) {
+          onUpdateQuestion(question.id, {
+            setupConfig: {
+              ...setupConfig,
+              question_text: newText,
+            },
+          })
+        } else if (isCustomQuestion && setupConfig.question_text) {
           onUpdateQuestion(question.id, {
             setupConfig: {
               ...setupConfig,
@@ -458,9 +463,19 @@ const QuestionCard = ({
             <div className="flex flex-1 flex-col gap-2">
               {!isSubmitButton && (
                 <p
-                  className="cursor-pointer text-base font-medium text-gray-900 transition-colors hover:text-cyan-600"
-                  onClick={() => handleLabelEdit()}
-                  title="Click to edit question text"
+                  className={cn(
+                    "text-base font-medium text-gray-900",
+                    !isStatementQuestion &&
+                      "cursor-pointer transition-colors hover:text-cyan-600",
+                  )}
+                  onClick={
+                    !isStatementQuestion ? () => handleLabelEdit() : undefined
+                  }
+                  title={
+                    !isStatementQuestion
+                      ? "Click to edit question text"
+                      : undefined
+                  }
                 >
                   {labelText}
                   {question.required && (
