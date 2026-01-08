@@ -1064,32 +1064,32 @@ export const OfferFormInteractiveView = ({
 
           // Get label with proper fallback order:
           // 1. For statement questions, always use setupConfig.question_text
-          // 2. User-customized label from uiConfig
-          // 3. For custom questions, check setupConfig.question_text
+          // 2. For custom questions, check setupConfig.question_text first, then uiConfig.label
+          // 3. For standard questions, use uiConfig.label
           // 4. Default label from QUESTION_TYPE_TO_LABEL
           // 5. Fallback to "Question"
           const isStatementQuestion =
             question.type === "custom" &&
             setupConfig.answer_type === "statement"
+          const isCustomQuestion = question.type === "custom"
 
           let label: string
           if (isStatementQuestion) {
             // For statement questions, use the question text from setupConfig
             label = setupConfig.question_text || "Question"
+          } else if (isCustomQuestion) {
+            // For custom questions, check setupConfig.question_text first (matches QuestionCard logic)
+            label =
+              setupConfig.question_text ||
+              uiConfig.label ||
+              QUESTION_TYPE_TO_LABEL[question.type] ||
+              "Question"
           } else {
-            label = uiConfig.label
-            if (!label) {
-              if (question.type === "custom") {
-                // For other custom questions, use the question text from setupConfig
-                label =
-                  setupConfig.question_text ||
-                  QUESTION_TYPE_TO_LABEL[question.type] ||
-                  "Question"
-              } else {
-                // For standard questions, use the default label from constants
-                label = QUESTION_TYPE_TO_LABEL[question.type] || "Question"
-              }
-            }
+            // For standard questions, use uiConfig.label first, then default
+            label =
+              uiConfig.label ||
+              QUESTION_TYPE_TO_LABEL[question.type] ||
+              "Question"
           }
 
           const displayLabel = label
