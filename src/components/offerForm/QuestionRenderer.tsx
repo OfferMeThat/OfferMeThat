@@ -3125,10 +3125,28 @@ export const QuestionRenderer = ({
                 {loanAmountType === "amount_or_percentage" && (
                   <div>
                     <div className="relative inline-block">
-                      <Label className="mb-2 block text-sm font-medium">
-                        How would you like to specify your loan amount?{" "}
+                      <Label
+                        className={cn(
+                          "mb-2 block text-sm font-medium",
+                          editingMode &&
+                            "cursor-pointer transition-colors hover:text-blue-600",
+                        )}
+                      >
+                        {getSubQuestionLabel(
+                          uiConfig,
+                          "loanAmountTypeLabel",
+                          "How would you like to specify your loan amount?",
+                        )}{" "}
                         <span className="font-bold text-red-500">*</span>
                       </Label>
+                      {renderLabelOverlay(
+                        "loanAmountTypeLabel",
+                        getSubQuestionLabel(
+                          uiConfig,
+                          "loanAmountTypeLabel",
+                          "How would you like to specify your loan amount?",
+                        ),
+                      )}
                     </div>
                     <div className="w-1/2">
                       <Select
@@ -3148,7 +3166,7 @@ export const QuestionRenderer = ({
                                 : undefined,
                           })
                         }}
-                        disabled={disabled}
+                        disabled={editingMode}
                       >
                         <SelectTrigger
                           className="w-full"
