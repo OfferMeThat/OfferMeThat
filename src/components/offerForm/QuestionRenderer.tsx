@@ -2281,7 +2281,11 @@ export const QuestionRenderer = ({
       <div className="space-y-4">
         {/* Main scenario selector */}
         <div>
-          <Select value={scenario} onValueChange={handleScenarioChange}>
+          <Select
+            value={scenario}
+            onValueChange={handleScenarioChange}
+            disabled={disabled}
+          >
             <SelectTrigger className="w-full max-w-md" style={getSelectStyle()}>
               <SelectValue placeholder="Select option" />
             </SelectTrigger>
@@ -2334,6 +2338,7 @@ export const QuestionRenderer = ({
                 onValueChange={(val) =>
                   handleNumPurchasersChange(parseInt(val))
                 }
+                disabled={disabled}
               >
                 <SelectTrigger
                   className="w-full max-w-md"
@@ -2520,6 +2525,7 @@ export const QuestionRenderer = ({
                           [num]: val,
                         })
                       }
+                      disabled={disabled}
                     >
                       <SelectTrigger
                         className="w-full max-w-md"
@@ -3166,7 +3172,7 @@ export const QuestionRenderer = ({
                                 : undefined,
                           })
                         }}
-                        disabled={editingMode}
+                        disabled={disabled}
                       >
                         <SelectTrigger
                           className="w-full"
@@ -3267,7 +3273,7 @@ export const QuestionRenderer = ({
                               })
                             }
                           }}
-                          disabled={disabled || editingMode}
+                          disabled={disabled}
                           placeholder="Select currency"
                           className="w-full"
                           style={getSelectStyle()}
@@ -3376,7 +3382,7 @@ export const QuestionRenderer = ({
                             })
                           }
                         }}
-                        disabled={disabled || editingMode}
+                        disabled={disabled}
                         placeholder="Select currency"
                         className="w-full"
                         style={getSelectStyle()}
@@ -3985,7 +3991,7 @@ export const QuestionRenderer = ({
                   </div>
                   <div className="w-1/2">
                     <Select
-                      disabled={disabled || editingMode}
+                      disabled={disabled}
                       value={loanValue.financeSpecialist || ""}
                       onValueChange={(val) => {
                         onChange?.({ ...loanValue, financeSpecialist: val })
@@ -4656,7 +4662,7 @@ export const QuestionRenderer = ({
                   onChange?.(newValues)
                 }
               }}
-              disabled={disabled || editingMode}
+              disabled={disabled}
             >
               <SelectTrigger
                 className="w-full max-w-xs"
@@ -4782,7 +4788,7 @@ export const QuestionRenderer = ({
                       onChange?.(newValues)
                     }
                   }}
-                  disabled={disabled || editingMode}
+                  disabled={disabled}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select" />
@@ -6028,7 +6034,7 @@ export const QuestionRenderer = ({
                         handleCurrencyChange(val, index)
                       }
                     }}
-                    disabled={disabled || editingMode}
+                    disabled={disabled}
                     placeholder="Select currency"
                     className="max-w-xs"
                     style={getSelectStyle()}
