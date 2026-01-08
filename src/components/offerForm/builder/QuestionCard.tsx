@@ -27,7 +27,7 @@ type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 interface QuestionCardProps {
   questionsAmount: number
   question: Question
-  questionNumber: number // Pass the calculated question number based on position
+  questionNumber: number 
   isFirst: boolean
   isLast: boolean
   onMoveUp: () => void
@@ -64,31 +64,24 @@ const QuestionCard = ({
     text: string
     type: "label" | "placeholder"
   } | null>(null)
-  // Local state to track form field values for interactive preview
   const [formValues, setFormValues] = useState<Record<string, any>>({})
   const [listings, setListings] = useState<Array<{
     id: string
     address: string
   }> | null>(null)
-  // Get UI configuration from uiConfig JSONB field - use standardized type
   const uiConfig = parseUIConfig(question.uiConfig)
 
-  // Get question definition for description
   const questionDefinition = questionDefinitions[question.type]
 
-  // Use the passed question number (based on position) instead of question.order
   const questionNumber = propQuestionNumber
   const totalQuestions = questionsAmount
 
-  // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
 
-  // For custom questions, especially statement questions, use setupConfig.question_text as the label
   const isCustomQuestion = question.type === "custom"
   const isStatementQuestion =
     isCustomQuestion && setupConfig.answer_type === "statement"
 
-  // For offer expiry, show "Does your Offer have an Expiry?" when optional
   let labelText = isStatementQuestion
     ? setupConfig.question_text || "Question"
     : isCustomQuestion
@@ -98,9 +91,7 @@ const QuestionCard = ({
         "Question"
       : uiConfig.label || questionDefinition?.label || "Question"
 
-  // Override label for offer expiry based on required status
   if (question.type === "offerExpiry") {
-    // If required, use "Offer Expiry", if optional use "Does your Offer have an Expiry?"
     if (!question.required) {
       labelText = "Does your Offer have an Expiry?"
     } else {
@@ -109,17 +100,13 @@ const QuestionCard = ({
   }
 
   const handleLabelEdit = (fieldKey?: string, currentText?: string) => {
-    // If called without parameters, it's the main label
     if (fieldKey === undefined) {
-      // Allow editing labels even for essential questions
-      // Only "Edit Question" button and required checkbox are blocked
       setEditingField({
         id: "label",
         text: labelText,
         type: "label",
       })
     } else {
-      // Called with parameters for sub-question labels
       setEditingField({
         id: fieldKey,
         text: currentText || "",
@@ -142,16 +129,11 @@ const QuestionCard = ({
     if (!editingField) return
 
     if (editingField.type === "label") {
-      // Check if it's the main label or a sub-question label
       if (editingField.id === "label") {
-        // For Statement questions, save to setupConfig.question_text
-        // For other custom questions, also save to setupConfig.question_text
-        // For standard questions, save to uiConfig.label
         if (
           isStatementQuestion ||
           (isCustomQuestion && setupConfig.question_text)
         ) {
-          // Update setupConfig.question_text for custom/statement questions
           onUpdateQuestion(question.id, {
             setupConfig: {
               ...setupConfig,
@@ -159,7 +141,6 @@ const QuestionCard = ({
             },
           })
         } else {
-          // Update main label (stored in uiConfig.label) for standard questions
           onUpdateQuestion(question.id, {
             uiConfig: {
               ...uiConfig,
@@ -168,27 +149,19 @@ const QuestionCard = ({
           })
         }
       } else {
-        // Sub-question label - check if it's a sub-question ID (format: "deposit_amount", "deposit_due", etc.)
-        // or a legacy format ("sub_question_text_deposit_amount")
         let subQuestionId = editingField.id
 
-        // Handle legacy format: "sub_question_text_deposit_amount" -> "deposit_amount"
         if (subQuestionId.startsWith("sub_question_text_")) {
           subQuestionId = subQuestionId.replace("sub_question_text_", "")
         } else if (subQuestionId.startsWith("sub_question_placeholder_")) {
           subQuestionId = subQuestionId.replace("sub_question_placeholder_", "")
         }
 
-        // Check if this is a sub-question for complex question types
-        // Complex questions have sub-questions: deposit, subjectToLoanApproval, settlementDate
         const isComplexQuestion =
           question.type === "deposit" ||
           question.type === "subjectToLoanApproval" ||
           question.type === "settlementDate"
 
-        // Known sub-question ID patterns for complex questions and other question types
-        // These are fields that should be saved to subQuestions, not direct uiConfig
-        // Also handle prefixed IDs for repeated fields (e.g., "rep-1_firstNameLabel", "rep-2_firstNameLabel")
         const isPrefixedRepeatedField =
           /^(rep-\d+|other-person-\d+|other-corporation-\d+)_(firstName|middleName|lastName)(Label|Placeholder)$/.test(
             subQuestionId,
@@ -228,14 +201,11 @@ const QuestionCard = ({
           subQuestionId === "corporationNamePlaceholder" ||
           isPrefixedRepeatedField ||
           (isComplexQuestion && subQuestionId.includes("_")) ||
-          // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
           (question.type === "custom" &&
             (subQuestionId.endsWith("Label") ||
               subQuestionId.endsWith("Placeholder")))
 
-        // Save to subQuestions if it's a known sub-question ID, regardless of question type
         if (isSubQuestionId) {
-          // Save to uiConfig.subQuestions using standardized structure
           const updatedUIConfig = updateSubQuestionLabel(
             uiConfig,
             subQuestionId,
@@ -245,7 +215,6 @@ const QuestionCard = ({
             uiConfig: updatedUIConfig,
           })
         } else {
-          // Regular sub-field label (e.g., firstNameLabel, lastNameLabel) - save directly to uiConfig
           onUpdateQuestion(question.id, {
             uiConfig: {
               ...uiConfig,
@@ -255,23 +224,17 @@ const QuestionCard = ({
         }
       }
     } else {
-      // Update placeholder
       let subQuestionId = editingField.id
 
-      // Handle legacy format
       if (subQuestionId.startsWith("sub_question_placeholder_")) {
         subQuestionId = subQuestionId.replace("sub_question_placeholder_", "")
       }
 
-      // Check if this is a sub-question for complex question types
       const isComplexQuestion =
         question.type === "deposit" ||
         question.type === "subjectToLoanApproval" ||
         question.type === "settlementDate"
 
-      // Known sub-question ID patterns for complex questions and other question types
-      // These are fields that should be saved to subQuestions, not direct uiConfig
-      // Also handle prefixed IDs for repeated fields (e.g., "rep-1_firstNameLabel", "rep-2_firstNameLabel")
       const isPrefixedRepeatedField =
         /^(rep-\d+|other-person-\d+|other-corporation-\d+)_(firstName|middleName|lastName)(Label|Placeholder)$/.test(
           subQuestionId,
@@ -307,14 +270,11 @@ const QuestionCard = ({
         subQuestionId === "corporationNamePlaceholder" ||
         isPrefixedRepeatedField ||
         (isComplexQuestion && subQuestionId.includes("_")) ||
-        // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
         (question.type === "custom" &&
           (subQuestionId.endsWith("Label") ||
             subQuestionId.endsWith("Placeholder")))
 
-      // Save to subQuestions if it's a known sub-question ID, regardless of question type
       if (isSubQuestionId) {
-        // Save to uiConfig.subQuestions using standardized structure
         const updatedUIConfig = updateSubQuestionPlaceholder(
           uiConfig,
           subQuestionId,
@@ -586,7 +546,6 @@ const QuestionCard = ({
         )}
       </div>
 
-      {/* Edit Text Modal */}
       {editingField && (
         <EditTextModal
           isOpen={editModalOpen}
@@ -605,7 +564,6 @@ const QuestionCard = ({
         />
       )}
 
-      {/* Edit Question Setup Modal */}
       <EditQuestionModal
         open={editQuestionModalOpen}
         onOpenChange={setEditQuestionModalOpen}
@@ -614,7 +572,6 @@ const QuestionCard = ({
         questionDefinitions={questionDefinitions}
       />
 
-      {/* Essential Question Modal */}
       <EssentialQuestionModal
         isOpen={essentialQuestionModal.isOpen}
         onClose={() =>
