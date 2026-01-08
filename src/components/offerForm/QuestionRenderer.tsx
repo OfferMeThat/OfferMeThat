@@ -2324,6 +2324,9 @@ export const QuestionRenderer = ({
             {Array.from({ length: numPurchasers }, (_, i) => i + 1).map(
               (num) => (
                 <div key={num} className="space-y-3 border-t pt-4">
+                  <h3 className="text-sm font-medium text-gray-900">
+                    Purchaser {num}:
+                  </h3>
                   <PersonNameFields
                     prefix={`purchaser-${num}`}
                     questionId={question.id}
