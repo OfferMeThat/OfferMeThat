@@ -316,9 +316,8 @@ const PersonNameFields = ({
   // Check if this preference is stored in nameFields (for each person)
   const skipMiddleName = nameFields[prefix]?.skipMiddleName || false
 
-  // Create prefixed field IDs for repeated fields (e.g., representatives)
-  // Use prefix only if it's not a single field (prefixes like "rep-1", "rep-2", etc.)
   const isRepeatedField = prefix && prefix.startsWith("rep-")
+  const isPurchaserField = prefix && prefix.startsWith("purchaser-")
   const firstNameLabelId = isRepeatedField
     ? `${prefix}_firstNameLabel`
     : "firstNameLabel"
@@ -328,6 +327,9 @@ const PersonNameFields = ({
   const lastNameLabelId = isRepeatedField
     ? `${prefix}_lastNameLabel`
     : "lastNameLabel"
+  const idUploadLabelId = isPurchaserField
+    ? `${prefix}_idUploadLabel`
+    : "idUploadLabel"
   const firstNamePlaceholderId = isRepeatedField
     ? `${prefix}_firstNamePlaceholder`
     : "firstNamePlaceholder"
@@ -586,18 +588,23 @@ const PersonNameFields = ({
       {collectId && collectId !== "no" && (
         <div>
           <div className="relative inline-block">
+            <Label className="mb-1 block text-sm">
+              {getLabel(idUploadLabelId, "idUploadLabel", "ID Upload:")}
+              {isIdMandatory && (
+                <span className="font-bold text-red-500"> *</span>
+              )}
+            </Label>
             {renderLabelOverlay(
-              "idUploadLabel",
-              getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload"),
+              idUploadLabelId,
+              getLabel(idUploadLabelId, "idUploadLabel", "ID Upload:"),
             )}
           </div>
           <FileUploadInput
             id={`${questionId}_${prefix}_id_file`}
-            label={getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload")}
+            label=""
             required={
-              // Check field-level required from uiConfig first
+              getSubQuestionRequired(uiConfig, idUploadLabelId) ??
               getSubQuestionRequired(uiConfig, "idUploadLabel") ??
-              // Fall back to setup config
               (collectId === "mandatory" && questionRequired)
             }
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
@@ -2018,134 +2025,157 @@ export const QuestionRenderer = ({
                 }
 
                 return (
-                  <FileUploadInput
-                    id={`${question.id}_single_id_upload`}
-                    label="ID Upload"
-                    required={
-                      // Check field-level required from uiConfig first
-                      getSubQuestionRequired(uiConfig, "idUploadLabel") ??
-                      // Fall back to setup config
-                      (collectId === "mandatory" && question.required)
-                    }
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    multiple
-                    disabled={disabled}
-                    value={fileData.files}
-                    fileNames={fileData.fileNames}
-                    error={idFileError}
-                    maxFiles={5}
-                    maxSize={10 * 1024 * 1024}
-                    onChange={(files) => {
-                      const newFiles = Array.isArray(files)
-                        ? files
-                        : files
-                          ? [files]
-                          : []
+                  <div>
+                    <div className="relative inline-block">
+                      <Label className="mb-1 block text-sm">
+                        {getSubQuestionLabel(
+                          uiConfig,
+                          "idUploadLabel",
+                          "ID Upload:",
+                        )}
+                        {(getSubQuestionRequired(uiConfig, "idUploadLabel") ??
+                          (collectId === "mandatory" && question.required)) && (
+                          <span className="font-bold text-red-500"> *</span>
+                        )}
+                      </Label>
+                      {renderLabelOverlay(
+                        "idUploadLabel",
+                        getSubQuestionLabel(
+                          uiConfig,
+                          "idUploadLabel",
+                          "ID Upload:",
+                        ),
+                      )}
+                    </div>
+                    <FileUploadInput
+                      id={`${question.id}_single_id_upload`}
+                      label=""
+                      required={
+                        getSubQuestionRequired(uiConfig, "idUploadLabel") ??
+                        (collectId === "mandatory" && question.required)
+                      }
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      multiple
+                      disabled={disabled}
+                      value={fileData.files}
+                      fileNames={fileData.fileNames}
+                      error={idFileError}
+                      maxFiles={5}
+                      maxSize={10 * 1024 * 1024}
+                      onChange={(files) => {
+                        const newFiles = Array.isArray(files)
+                          ? files
+                          : files
+                            ? [files]
+                            : []
 
-                      // Get existing files
-                      const existingFiles = fileData.files
+                        // Get existing files
+                        const existingFiles = fileData.files
 
-                      // Merge new files with existing files
-                      const mergedFiles = [...existingFiles, ...newFiles]
+                        // Merge new files with existing files
+                        const mergedFiles = [...existingFiles, ...newFiles]
 
-                      // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
-                      const maxFiles = 5
-                      const finalFiles =
-                        mergedFiles.length > maxFiles
-                          ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
-                          : mergedFiles
+                        // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+                        const maxFiles = 5
+                        const finalFiles =
+                          mergedFiles.length > maxFiles
+                            ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                            : mergedFiles
 
-                      const fileKey = `${question.id}_single_id_upload`
-                      const fileError = validateMultipleFiles(
-                        finalFiles,
-                        maxFiles,
-                        10 * 1024 * 1024,
-                      )
-                      setFileUploads((prev) => ({
-                        ...prev,
-                        [fileKey]: {
-                          files: finalFiles,
-                          fileNames: finalFiles.map((f) => f.name),
-                          error: fileError || undefined,
-                        },
-                      }))
-                      if (!fileError && finalFiles.length > 0) {
-                        // Store files with name
+                        const fileKey = `${question.id}_single_id_upload`
+                        const fileError = validateMultipleFiles(
+                          finalFiles,
+                          maxFiles,
+                          10 * 1024 * 1024,
+                        )
+                        setFileUploads((prev) => ({
+                          ...prev,
+                          [fileKey]: {
+                            files: finalFiles,
+                            fileNames: finalFiles.map((f) => f.name),
+                            error: fileError || undefined,
+                          },
+                        }))
+                        if (!fileError && finalFiles.length > 0) {
+                          // Store files with name
+                          const currentName =
+                            typeof value === "string"
+                              ? value
+                              : value?.name || ""
+                          onChange?.(
+                            currentName
+                              ? { name: currentName, idFiles: finalFiles }
+                              : finalFiles.length === 1
+                                ? finalFiles[0]
+                                : finalFiles,
+                          )
+                        }
+                      }}
+                      onRemove={(index) => {
+                        const fileKey = `${question.id}_single_id_upload`
+                        const existingFileData = fileUploads[fileKey]
+                        const existingFiles =
+                          existingFileData && "files" in existingFileData
+                            ? existingFileData.files
+                            : existingFileData &&
+                                "file" in existingFileData &&
+                                existingFileData.file
+                              ? [existingFileData.file]
+                              : []
+
+                        const newFiles = [...existingFiles]
+                        const newFileNames =
+                          existingFileData && "fileNames" in existingFileData
+                            ? [...existingFileData.fileNames]
+                            : existingFileData &&
+                                "fileName" in existingFileData &&
+                                existingFileData.fileName
+                              ? [existingFileData.fileName]
+                              : []
+
+                        if (index !== undefined) {
+                          newFiles.splice(index, 1)
+                          newFileNames.splice(index, 1)
+                        } else {
+                          newFiles.length = 0
+                          newFileNames.length = 0
+                        }
+
+                        setFileUploads((prev) => ({
+                          ...prev,
+                          [fileKey]:
+                            newFiles.length > 0
+                              ? {
+                                  files: newFiles,
+                                  fileNames: newFileNames,
+                                  error: undefined,
+                                }
+                              : {
+                                  files: [],
+                                  fileNames: [],
+                                  error: undefined,
+                                },
+                        }))
+
+                        // Clear files but keep name
                         const currentName =
                           typeof value === "string" ? value : value?.name || ""
-                        onChange?.(
-                          currentName
-                            ? { name: currentName, idFiles: finalFiles }
-                            : finalFiles.length === 1
-                              ? finalFiles[0]
-                              : finalFiles,
-                        )
-                      }
-                    }}
-                    onRemove={(index) => {
-                      const fileKey = `${question.id}_single_id_upload`
-                      const existingFileData = fileUploads[fileKey]
-                      const existingFiles =
-                        existingFileData && "files" in existingFileData
-                          ? existingFileData.files
-                          : existingFileData &&
-                              "file" in existingFileData &&
-                              existingFileData.file
-                            ? [existingFileData.file]
-                            : []
+                        onChange?.(currentName || null)
 
-                      const newFiles = [...existingFiles]
-                      const newFileNames =
-                        existingFileData && "fileNames" in existingFileData
-                          ? [...existingFileData.fileNames]
-                          : existingFileData &&
-                              "fileName" in existingFileData &&
-                              existingFileData.fileName
-                            ? [existingFileData.fileName]
-                            : []
-
-                      if (index !== undefined) {
-                        newFiles.splice(index, 1)
-                        newFileNames.splice(index, 1)
-                      } else {
-                        newFiles.length = 0
-                        newFileNames.length = 0
-                      }
-
-                      setFileUploads((prev) => ({
-                        ...prev,
-                        [fileKey]:
-                          newFiles.length > 0
-                            ? {
-                                files: newFiles,
-                                fileNames: newFileNames,
-                                error: undefined,
-                              }
-                            : {
-                                files: [],
-                                fileNames: [],
-                                error: undefined,
-                              },
-                      }))
-
-                      // Clear files but keep name
-                      const currentName =
-                        typeof value === "string" ? value : value?.name || ""
-                      onChange?.(currentName || null)
-
-                      const fileInput = document.getElementById(
-                        `${question.id}_single_id_upload`,
-                      ) as HTMLInputElement
-                      if (fileInput) {
-                        fileInput.value = ""
-                      }
-                    }}
-                  >
-                    <span className="text-xs text-gray-500">
-                      Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5
-                      files, 10MB total)
-                    </span>
-                  </FileUploadInput>
+                        const fileInput = document.getElementById(
+                          `${question.id}_single_id_upload`,
+                        ) as HTMLInputElement
+                        if (fileInput) {
+                          fileInput.value = ""
+                        }
+                      }}
+                    >
+                      <span className="text-xs text-gray-500">
+                        Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5
+                        files, 10MB total)
+                      </span>
+                    </FileUploadInput>
+                  </div>
                 )
               })()}
             </div>
