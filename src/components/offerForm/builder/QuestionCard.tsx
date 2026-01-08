@@ -1,5 +1,6 @@
 "use client"
 
+import { getFormOwnerListings } from "@/app/actions/offerForm"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -15,7 +16,7 @@ import {
 } from "@/types/questionUIConfig"
 import { Database } from "@/types/supabase"
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { QuestionRenderer } from "../QuestionRenderer"
 import EditQuestionModal from "./EditQuestionModal"
 import EditTextModal from "./EditTextModal"
@@ -65,6 +66,10 @@ const QuestionCard = ({
   } | null>(null)
   // Local state to track form field values for interactive preview
   const [formValues, setFormValues] = useState<Record<string, any>>({})
+  const [listings, setListings] = useState<Array<{
+    id: string
+    address: string
+  }> | null>(null)
   // Get UI configuration from uiConfig JSONB field - use standardized type
   const uiConfig = parseUIConfig(question.uiConfig)
 
@@ -319,7 +324,6 @@ const QuestionCard = ({
           uiConfig: updatedUIConfig,
         })
       } else {
-        // Regular placeholder - save directly to uiConfig
         onUpdateQuestion(question.id, {
           uiConfig: {
             ...uiConfig,
@@ -332,16 +336,11 @@ const QuestionCard = ({
     setEditingField(null)
   }
 
-  // Determine if this is an essential question (cannot be modified)
   const isEssential = requiredQuestionTypes.includes(question.type)
 
-  // Determine if this question is locked in position
   const isLockedInPosition =
     (question.type === "specifyListing" && question.order === 1) ||
     (question.type === "submitterRole" && question.order === 2)
-
-  // Buttons are no longer disabled - they will show a modal if the action is restricted
-  // The parent component handles showing the restriction modal
 
   const handleRequiredToggle = () => {
     if (isEssential) {
@@ -349,16 +348,12 @@ const QuestionCard = ({
       return
     }
 
-    // For statement questions, sync required status with tickbox mode
     if (isStatementQuestion) {
       const newRequired = !question.required
       const currentTickboxMode = setupConfig.add_tickbox || "no"
 
-      // If making required, set tickbox to "required"
-      // If making not required, set tickbox to "optional" (if it was "required")
       let newTickboxMode = currentTickboxMode
       if (newRequired && currentTickboxMode !== "required") {
-        // Only change to required if tickbox is enabled
         if (currentTickboxMode === "optional") {
           newTickboxMode = "required"
         }
@@ -381,7 +376,6 @@ const QuestionCard = ({
   }
 
   const handleDelete = () => {
-    // Allow submitterRole to be deleted even though it's essential
     if (isEssential && question.type !== "submitterRole") {
       setEssentialQuestionModal({ isOpen: true, action: "delete" })
       return
@@ -390,7 +384,6 @@ const QuestionCard = ({
   }
 
   const handleEditQuestion = () => {
-    // Allow editing for offerAmount even if it's essential
     if (isEssential && question.type !== "offerAmount") {
       setEssentialQuestionModal({ isOpen: true, action: "edit" })
       return
@@ -398,15 +391,33 @@ const QuestionCard = ({
     setEditQuestionModalOpen(true)
   }
 
-  // Check if this is a submit button
   const isSubmitButton = question.type === "submitButton"
+
+  useEffect(() => {
+    if (
+      question.type === "specifyListing" &&
+      question.formId &&
+      listings === null
+    ) {
+      getFormOwnerListings(question.formId, false, false)
+        .then((ownerListings) => {
+          setListings(ownerListings)
+        })
+        .catch((error) => {
+          console.error("Error fetching listings:", error)
+          setListings([])
+        })
+    }
+  }, [question.type, question.formId])
+
+  const hasRealListings = listings && listings.length > 0
+  const showExplanatoryText =
+    question.type === "specifyListing" && !hasRealListings && listings !== null
 
   return (
     <>
       <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
-        {/* Mobile: Top row with question number and actions */}
         <div className="flex items-center justify-between gap-4 md:hidden">
-          {/* Question Number (Mobile) */}
           <div className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 bg-white px-4 py-2">
             {isSubmitButton ? (
               <>
@@ -420,7 +431,6 @@ const QuestionCard = ({
             )}
           </div>
 
-          {/* Actions (Mobile) - Disabled for submit button */}
           {!isSubmitButton && (
             <div className="flex items-center gap-1">
               <Button size="icon" variant="ghost" onClick={onMoveUp}>
@@ -440,7 +450,6 @@ const QuestionCard = ({
           )}
         </div>
 
-        {/* Desktop: Left - Question Info */}
         <div className="hidden w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4 md:flex">
           {isSubmitButton ? (
             <>
@@ -472,7 +481,6 @@ const QuestionCard = ({
           )}
         </div>
 
-        {/* Middle: Question Preview (Both Mobile and Desktop) */}
         <div className="flex flex-1 flex-col gap-3">
           {!isSubmitButton && (
             <div className="flex items-center gap-2">
@@ -500,7 +508,6 @@ const QuestionCard = ({
                   )}
                 </p>
               )}
-              {/* Render appropriate input based on question type and setup */}
               <QuestionRenderer
                 question={question}
                 disabled={false}
@@ -519,7 +526,6 @@ const QuestionCard = ({
               />
             </div>
 
-            {/* Mobile: Required field checkbox and Edit button - Hidden for submit button */}
             {!isSubmitButton && (
               <div className="flex items-center justify-between gap-4 md:hidden">
                 <div className="flex items-center gap-2">
@@ -539,9 +545,14 @@ const QuestionCard = ({
               </div>
             )}
           </div>
+          {showExplanatoryText && (
+            <p className="text-sm text-gray-500">
+              If you have not added any active Listings, Buyers will specify a
+              Listing using text.
+            </p>
+          )}
         </div>
 
-        {/* Desktop: Right - Actions - Hidden for submit button */}
         {!isSubmitButton && (
           <div className="hidden w-auto flex-col justify-center gap-1 md:flex">
             <Button

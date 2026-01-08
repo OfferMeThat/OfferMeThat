@@ -1433,13 +1433,6 @@ export const QuestionRenderer = ({
             {renderError(error)}
           </div>
         )}
-        {/* Show explanatory text when using example listings in editing mode */}
-        {useExampleListings && (
-          <p className="text-sm text-gray-500">
-            If you have not added any active Listings, Buyers will specify a
-            Listing using text.
-          </p>
-        )}
       </div>
     )
   }
