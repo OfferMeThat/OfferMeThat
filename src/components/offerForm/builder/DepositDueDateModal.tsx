@@ -55,28 +55,6 @@ const DepositDueDateModal = ({
   initialConfig = {},
   title = "Deposit Due Date",
 }: DepositDueDateModalProps) => {
-  const [config, setConfig] = useState<DepositConfig>(() => ({
-    timeConstraint: initialConfig.timeConstraint || [],
-    number: initialConfig.number || [],
-    timeUnit: initialConfig.timeUnit || [],
-    action: initialConfig.action || [],
-    trigger: initialConfig.trigger || [],
-  }))
-
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [addModalField, setAddModalField] = useState<keyof DepositConfig | "">(
-    "",
-  )
-  const [newOptionText, setNewOptionText] = useState("")
-
-  const [customOptions, setCustomOptions] = useState<CustomOptions>({
-    timeConstraint: [] as Option[],
-    number: [] as Option[],
-    timeUnit: [] as Option[],
-    action: [] as Option[],
-    trigger: [] as Option[],
-  })
-
   const timeConstraintOptions: Option[] = [
     { value: "within", label: "Within" },
     { value: "on", label: "On" },
@@ -111,6 +89,74 @@ const DepositDueDateModal = ({
     { value: "loan_approval", label: "Loan Approval" },
     { value: "closing_date", label: "Closing Date" },
   ]
+
+  const getDefaultOptions = (field: keyof DepositConfig): Option[] => {
+    switch (field) {
+      case "timeConstraint":
+        return timeConstraintOptions
+      case "number":
+        return numberOptions
+      case "timeUnit":
+        return timeUnitOptions
+      case "action":
+        return actionOptions
+      case "trigger":
+        return triggerOptions
+      default:
+        return []
+    }
+  }
+
+  const extractCustomOptions = (): CustomOptions => {
+    const custom: CustomOptions = {
+      timeConstraint: [],
+      number: [],
+      timeUnit: [],
+      action: [],
+      trigger: [],
+    }
+
+    const fields: (keyof DepositConfig)[] = [
+      "timeConstraint",
+      "number",
+      "timeUnit",
+      "action",
+      "trigger",
+    ]
+
+    fields.forEach((field) => {
+      const savedValues = initialConfig[field] || []
+      const defaultOpts = getDefaultOptions(field)
+      const defaultValues = defaultOpts.map((opt) => opt.value)
+
+      savedValues.forEach((value) => {
+        if (!defaultValues.includes(value)) {
+          custom[field].push({ value, label: value })
+        }
+      })
+    })
+
+    return custom
+  }
+
+  const [config, setConfig] = useState<DepositConfig>(() => ({
+    timeConstraint: initialConfig.timeConstraint || [],
+    number: initialConfig.number || [],
+    timeUnit: initialConfig.timeUnit || [],
+    action: initialConfig.action || [],
+    trigger: initialConfig.trigger || [],
+  }))
+
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addModalField, setAddModalField] = useState<keyof DepositConfig | "">(
+    "",
+  )
+  const [newOptionText, setNewOptionText] = useState("")
+
+  const [customOptions, setCustomOptions] =
+    useState<CustomOptions>(extractCustomOptions)
+
+  const [openStates, setOpenStates] = useState<Record<string, boolean>>({})
 
   const handleSelectionChange = (
     field: keyof DepositConfig,
@@ -203,6 +249,7 @@ const DepositDueDateModal = ({
   ) => {
     const selectedValues = config[field]
     const selectedCount = selectedValues.length
+    const isOpen = openStates[field] || false
 
     // Combine original options with custom options
     const allOptions = [...options, ...customOptions[field]]
@@ -231,15 +278,11 @@ const DepositDueDateModal = ({
         <label className="text-sm font-medium text-gray-700">{label}</label>
         <Select
           value={selectedCount > 0 ? selectedValues[0] : undefined}
-          onValueChange={(value) => {
-            // Toggle selection: if already selected, remove it; otherwise add it
-            // Ensure no duplicates by filtering first
-            const currentValues = Array.from(new Set(selectedValues))
-            const newValue = currentValues.includes(value)
-              ? currentValues.filter((v) => v !== value)
-              : [...currentValues, value]
-            handleSelectionChange(field, newValue)
+          open={isOpen}
+          onOpenChange={(open) => {
+            setOpenStates((prev) => ({ ...prev, [field]: open }))
           }}
+          onValueChange={() => {}}
         >
           <SelectTrigger className="w-full">
             {displayText ? (
@@ -252,7 +295,22 @@ const DepositDueDateModal = ({
             {allOptions.map((option) => {
               const isSelected = selectedValues.includes(option.value)
               return (
-                <SelectItem key={option.value} value={option.value}>
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  onPointerDown={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const currentValues = Array.from(new Set(selectedValues))
+                    const newValues = currentValues.includes(option.value)
+                      ? currentValues.filter((v) => v !== option.value)
+                      : [...currentValues, option.value]
+                    handleSelectionChange(field, newValues)
+                    if (newValues.length === 0) {
+                      setOpenStates((prev) => ({ ...prev, [field]: false }))
+                    }
+                  }}
+                >
                   <div className="flex w-full items-center justify-between">
                     <span>{option.label}</span>
                     {isSelected && (
@@ -416,10 +474,7 @@ const DepositDueDateModal = ({
               >
                 Cancel
               </Button>
-              <Button
-                type="button"
-                onClick={handleApplyNewOption}
-              >
+              <Button type="button" onClick={handleApplyNewOption}>
                 Apply
               </Button>
             </div>
