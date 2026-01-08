@@ -2957,7 +2957,15 @@ export const QuestionRenderer = ({
       setupConfig.finance_communications ||
       setupConfig.finance_specialist_communication
 
-    const loanValue = (value as Record<string, any>) || {}
+    const [localLoanValue, setLocalLoanValue] = useState<Record<string, any>>(
+      () => (value as Record<string, any>) || {},
+    )
+
+    useEffect(() => {
+      setLocalLoanValue((value as Record<string, any>) || {})
+    }, [value])
+
+    const loanValue = localLoanValue
     const isSubjectToLoan = loanValue.subjectToLoan === "yes"
     const knowsLenderDetails = !loanValue.unknownLender
 
@@ -2984,10 +2992,12 @@ export const QuestionRenderer = ({
         !loanValue.loanAmountType &&
         isSubjectToLoan
       ) {
-        onChange?.({
+        const newValue = {
           ...loanValue,
           loanAmountType: "amount",
-        })
+        }
+        setLocalLoanValue(newValue)
+        onChange?.(newValue)
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loanAmountType, isSubjectToLoan])
@@ -3114,7 +3124,9 @@ export const QuestionRenderer = ({
           <Select
             value={loanValue.subjectToLoan || ""}
             onValueChange={(val) => {
-              onChange?.({ ...loanValue, subjectToLoan: val })
+              const newValue = { ...loanValue, subjectToLoan: val }
+              setLocalLoanValue(newValue)
+              onChange?.(newValue)
             }}
             disabled={disabled}
           >
@@ -3170,7 +3182,7 @@ export const QuestionRenderer = ({
                       <Select
                         value={loanValue.loanAmountType || "amount"}
                         onValueChange={(val) => {
-                          onChange?.({
+                          const newValue = {
                             ...loanValue,
                             loanAmountType: val,
                             // Clear the other field when switching
@@ -3182,7 +3194,9 @@ export const QuestionRenderer = ({
                               val === "percentage"
                                 ? loanValue.loanPercentage
                                 : undefined,
-                          })
+                          }
+                          setLocalLoanValue(newValue)
+                          onChange?.(newValue)
                         }}
                         disabled={disabled}
                       >
@@ -3255,10 +3269,12 @@ export const QuestionRenderer = ({
                               const sanitized = sanitizeNumberInput(
                                 e.target.value,
                               )
-                              onChange?.({
+                              const newValue = {
                                 ...loanValue,
                                 loanAmount: sanitized,
-                              })
+                              }
+                              setLocalLoanValue(newValue)
+                              onChange?.(newValue)
                             }
                           }}
                           onKeyDown={handleNumberInputKeyDown}
@@ -3278,11 +3294,13 @@ export const QuestionRenderer = ({
                         <CurrencySelect
                           value={loanValue.loanAmountCurrency || ""}
                           onValueChange={(val) => {
+                            const newValue = {
+                              ...loanValue,
+                              loanAmountCurrency: val,
+                            }
+                            setLocalLoanValue(newValue)
                             if (!editingMode) {
-                              onChange?.({
-                                ...loanValue,
-                                loanAmountCurrency: val,
-                              })
+                              onChange?.(newValue)
                             }
                           }}
                           disabled={disabled}
@@ -3355,10 +3373,12 @@ export const QuestionRenderer = ({
                               const sanitized = sanitizeNumberInput(
                                 e.target.value,
                               )
-                              onChange?.({
+                              const newValue = {
                                 ...loanValue,
                                 loanPercentage: sanitized,
-                              })
+                              }
+                              setLocalLoanValue(newValue)
+                              onChange?.(newValue)
                             }
                           }}
                           onKeyDown={handleNumberInputKeyDown}
@@ -3387,11 +3407,13 @@ export const QuestionRenderer = ({
                       <CurrencySelect
                         value={loanValue.loanPercentageCurrency || ""}
                         onValueChange={(val) => {
+                          const newValue = {
+                            ...loanValue,
+                            loanPercentageCurrency: val,
+                          }
+                          setLocalLoanValue(newValue)
                           if (!editingMode) {
-                            onChange?.({
-                              ...loanValue,
-                              loanPercentageCurrency: val,
-                            })
+                            onChange?.(newValue)
                           }
                         }}
                         disabled={disabled}
@@ -3470,10 +3492,12 @@ export const QuestionRenderer = ({
                       value={loanValue.companyName || ""}
                       onChange={(e) => {
                         if (!editingMode) {
-                          onChange?.({
+                          const newValue = {
                             ...loanValue,
                             companyName: e.target.value,
-                          })
+                          }
+                          setLocalLoanValue(newValue)
+                          onChange?.(newValue)
                         }
                       }}
                       data-field-id={`${question.id}_companyName`}
@@ -3503,7 +3527,12 @@ export const QuestionRenderer = ({
                       checked={loanValue.unknownLender || false}
                       onCheckedChange={(checked) => {
                         if (!editingMode) {
-                          onChange?.({ ...loanValue, unknownLender: checked })
+                          const newValue = {
+                            ...loanValue,
+                            unknownLender: checked,
+                          }
+                          setLocalLoanValue(newValue)
+                          onChange?.(newValue)
                         }
                       }}
                     />
@@ -3565,10 +3594,12 @@ export const QuestionRenderer = ({
                         value={loanValue.contactName || ""}
                         onChange={(e) => {
                           if (!editingMode) {
-                            onChange?.({
+                            const newValue = {
                               ...loanValue,
                               contactName: e.target.value,
-                            })
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                           }
                         }}
                         data-field-id={`${question.id}_contactName`}
@@ -3631,10 +3662,12 @@ export const QuestionRenderer = ({
                         value={loanValue.contactPhone || ""}
                         onChange={(e) => {
                           if (!editingMode) {
-                            onChange?.({
+                            const newValue = {
                               ...loanValue,
                               contactPhone: e.target.value,
-                            })
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                           }
                         }}
                         data-field-id={`${question.id}_contactPhone`}
@@ -3697,10 +3730,12 @@ export const QuestionRenderer = ({
                         value={loanValue.contactEmail || ""}
                         onChange={(e) => {
                           if (!editingMode) {
-                            onChange?.({
+                            const newValue = {
                               ...loanValue,
                               contactEmail: e.target.value,
-                            })
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                           }
                         }}
                         data-field-id={`${question.id}_contactEmail`}
@@ -3867,12 +3902,19 @@ export const QuestionRenderer = ({
                           }))
                           if (!fileError && finalFiles.length > 0) {
                             // Store files in the loanValue object for validation
-                            onChange?.({
+                            const newValue = {
                               ...loanValue,
                               supportingDocs: finalFiles,
-                            })
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                           } else if (finalFiles.length === 0) {
-                            onChange?.({ ...loanValue, supportingDocs: null })
+                            const newValue = {
+                              ...loanValue,
+                              supportingDocs: null,
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                           }
                         }}
                         onRemove={(index) => {
@@ -3902,15 +3944,19 @@ export const QuestionRenderer = ({
                                   },
                           }))
                           if (newFiles.length > 0) {
-                            onChange?.({
+                            const newValue = {
                               ...loanValue,
                               supportingDocs: newFiles,
-                            })
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                           } else {
-                            onChange?.({
+                            const newValue = {
                               ...loanValue,
                               supportingDocs: null,
-                            })
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                             const fileInput = document.getElementById(
                               `${question.id}_supporting_docs`,
                             ) as HTMLInputElement
@@ -3972,10 +4018,12 @@ export const QuestionRenderer = ({
                     value={loanValue.loanDueDate || ""}
                     onChange={(e) => {
                       if (!editingMode) {
-                        onChange?.({
+                        const newValue = {
                           ...loanValue,
                           loanDueDate: e.target.value,
-                        })
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       }
                     }}
                     data-field-id={`${question.id}_loanDueDate`}
@@ -4033,7 +4081,12 @@ export const QuestionRenderer = ({
                       disabled={disabled}
                       value={loanValue.financeSpecialist || ""}
                       onValueChange={(val) => {
-                        onChange?.({ ...loanValue, financeSpecialist: val })
+                        const newValue = {
+                          ...loanValue,
+                          financeSpecialist: val,
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       }}
                     >
                       <SelectTrigger
@@ -4183,15 +4236,19 @@ export const QuestionRenderer = ({
                         },
                       }))
                       if (finalFiles.length > 0) {
-                        onChange?.({
+                        const newValue = {
                           ...loanValue,
                           evidenceOfFunds: finalFiles,
-                        })
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       } else {
-                        onChange?.({
+                        const newValue = {
                           ...loanValue,
                           evidenceOfFunds: null,
-                        })
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       }
                     }}
                     onRemove={(index) => {
@@ -4221,15 +4278,19 @@ export const QuestionRenderer = ({
                               },
                       }))
                       if (newFiles.length > 0) {
-                        onChange?.({
+                        const newValue = {
                           ...loanValue,
                           evidenceOfFunds: newFiles,
-                        })
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       } else {
-                        onChange?.({
+                        const newValue = {
                           ...loanValue,
                           evidenceOfFunds: null,
-                        })
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       }
                     }}
                   >
