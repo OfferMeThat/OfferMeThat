@@ -1,5 +1,6 @@
 "use client"
 
+import { getFormOwnerListings } from "@/app/actions/offerForm"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -8,6 +9,7 @@ import {
   QUESTION_TYPE_TO_LABEL as OFFER_QUESTION_TYPE_TO_LABEL,
   REQUIRED_QUESTION_TYPES as OFFER_REQUIRED_QUESTION_TYPES,
 } from "@/constants/offerFormQuestions"
+import { cn } from "@/lib/utils"
 import {
   parseUIConfig,
   updateSubQuestionLabel,
@@ -15,7 +17,7 @@ import {
 } from "@/types/questionUIConfig"
 import { Database } from "@/types/supabase"
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { QuestionRenderer } from "../QuestionRenderer"
 import EditQuestionModal from "./EditQuestionModal"
 import EditTextModal from "./EditTextModal"
@@ -26,7 +28,7 @@ type Question = Database["public"]["Tables"]["offerFormQuestions"]["Row"]
 interface QuestionCardProps {
   questionsAmount: number
   question: Question
-  questionNumber: number // Pass the calculated question number based on position
+  questionNumber: number
   isFirst: boolean
   isLast: boolean
   onMoveUp: () => void
@@ -63,27 +65,24 @@ const QuestionCard = ({
     text: string
     type: "label" | "placeholder"
   } | null>(null)
-  // Local state to track form field values for interactive preview
   const [formValues, setFormValues] = useState<Record<string, any>>({})
-  // Get UI configuration from uiConfig JSONB field - use standardized type
+  const [listings, setListings] = useState<Array<{
+    id: string
+    address: string
+  }> | null>(null)
   const uiConfig = parseUIConfig(question.uiConfig)
 
-  // Get question definition for description
   const questionDefinition = questionDefinitions[question.type]
 
-  // Use the passed question number (based on position) instead of question.order
   const questionNumber = propQuestionNumber
   const totalQuestions = questionsAmount
 
-  // Get setup configuration
   const setupConfig = (question.setupConfig as Record<string, any>) || {}
 
-  // For custom questions, especially statement questions, use setupConfig.question_text as the label
   const isCustomQuestion = question.type === "custom"
   const isStatementQuestion =
     isCustomQuestion && setupConfig.answer_type === "statement"
 
-  // For offer expiry, show "Does your Offer have an Expiry?" when optional
   let labelText = isStatementQuestion
     ? setupConfig.question_text || "Question"
     : isCustomQuestion
@@ -93,9 +92,7 @@ const QuestionCard = ({
         "Question"
       : uiConfig.label || questionDefinition?.label || "Question"
 
-  // Override label for offer expiry based on required status
   if (question.type === "offerExpiry") {
-    // If required, use "Offer Expiry", if optional use "Does your Offer have an Expiry?"
     if (!question.required) {
       labelText = "Does your Offer have an Expiry?"
     } else {
@@ -104,17 +101,13 @@ const QuestionCard = ({
   }
 
   const handleLabelEdit = (fieldKey?: string, currentText?: string) => {
-    // If called without parameters, it's the main label
     if (fieldKey === undefined) {
-      // Allow editing labels even for essential questions
-      // Only "Edit Question" button and required checkbox are blocked
       setEditingField({
         id: "label",
         text: labelText,
         type: "label",
       })
     } else {
-      // Called with parameters for sub-question labels
       setEditingField({
         id: fieldKey,
         text: currentText || "",
@@ -137,16 +130,15 @@ const QuestionCard = ({
     if (!editingField) return
 
     if (editingField.type === "label") {
-      // Check if it's the main label or a sub-question label
       if (editingField.id === "label") {
-        // For Statement questions, save to setupConfig.question_text
-        // For other custom questions, also save to setupConfig.question_text
-        // For standard questions, save to uiConfig.label
-        if (
-          isStatementQuestion ||
-          (isCustomQuestion && setupConfig.question_text)
-        ) {
-          // Update setupConfig.question_text for custom/statement questions
+        if (isStatementQuestion) {
+          onUpdateQuestion(question.id, {
+            setupConfig: {
+              ...setupConfig,
+              question_text: newText,
+            },
+          })
+        } else if (isCustomQuestion && setupConfig.question_text) {
           onUpdateQuestion(question.id, {
             setupConfig: {
               ...setupConfig,
@@ -154,7 +146,6 @@ const QuestionCard = ({
             },
           })
         } else {
-          // Update main label (stored in uiConfig.label) for standard questions
           onUpdateQuestion(question.id, {
             uiConfig: {
               ...uiConfig,
@@ -163,27 +154,19 @@ const QuestionCard = ({
           })
         }
       } else {
-        // Sub-question label - check if it's a sub-question ID (format: "deposit_amount", "deposit_due", etc.)
-        // or a legacy format ("sub_question_text_deposit_amount")
         let subQuestionId = editingField.id
 
-        // Handle legacy format: "sub_question_text_deposit_amount" -> "deposit_amount"
         if (subQuestionId.startsWith("sub_question_text_")) {
           subQuestionId = subQuestionId.replace("sub_question_text_", "")
         } else if (subQuestionId.startsWith("sub_question_placeholder_")) {
           subQuestionId = subQuestionId.replace("sub_question_placeholder_", "")
         }
 
-        // Check if this is a sub-question for complex question types
-        // Complex questions have sub-questions: deposit, subjectToLoanApproval, settlementDate
         const isComplexQuestion =
           question.type === "deposit" ||
           question.type === "subjectToLoanApproval" ||
           question.type === "settlementDate"
 
-        // Known sub-question ID patterns for complex questions and other question types
-        // These are fields that should be saved to subQuestions, not direct uiConfig
-        // Also handle prefixed IDs for repeated fields (e.g., "rep-1_firstNameLabel", "rep-2_firstNameLabel")
         const isPrefixedRepeatedField =
           /^(rep-\d+|other-person-\d+|other-corporation-\d+)_(firstName|middleName|lastName)(Label|Placeholder)$/.test(
             subQuestionId,
@@ -223,14 +206,11 @@ const QuestionCard = ({
           subQuestionId === "corporationNamePlaceholder" ||
           isPrefixedRepeatedField ||
           (isComplexQuestion && subQuestionId.includes("_")) ||
-          // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
           (question.type === "custom" &&
             (subQuestionId.endsWith("Label") ||
               subQuestionId.endsWith("Placeholder")))
 
-        // Save to subQuestions if it's a known sub-question ID, regardless of question type
         if (isSubQuestionId) {
-          // Save to uiConfig.subQuestions using standardized structure
           const updatedUIConfig = updateSubQuestionLabel(
             uiConfig,
             subQuestionId,
@@ -240,7 +220,6 @@ const QuestionCard = ({
             uiConfig: updatedUIConfig,
           })
         } else {
-          // Regular sub-field label (e.g., firstNameLabel, lastNameLabel) - save directly to uiConfig
           onUpdateQuestion(question.id, {
             uiConfig: {
               ...uiConfig,
@@ -250,23 +229,17 @@ const QuestionCard = ({
         }
       }
     } else {
-      // Update placeholder
       let subQuestionId = editingField.id
 
-      // Handle legacy format
       if (subQuestionId.startsWith("sub_question_placeholder_")) {
         subQuestionId = subQuestionId.replace("sub_question_placeholder_", "")
       }
 
-      // Check if this is a sub-question for complex question types
       const isComplexQuestion =
         question.type === "deposit" ||
         question.type === "subjectToLoanApproval" ||
         question.type === "settlementDate"
 
-      // Known sub-question ID patterns for complex questions and other question types
-      // These are fields that should be saved to subQuestions, not direct uiConfig
-      // Also handle prefixed IDs for repeated fields (e.g., "rep-1_firstNameLabel", "rep-2_firstNameLabel")
       const isPrefixedRepeatedField =
         /^(rep-\d+|other-person-\d+|other-corporation-\d+)_(firstName|middleName|lastName)(Label|Placeholder)$/.test(
           subQuestionId,
@@ -302,14 +275,11 @@ const QuestionCard = ({
         subQuestionId === "corporationNamePlaceholder" ||
         isPrefixedRepeatedField ||
         (isComplexQuestion && subQuestionId.includes("_")) ||
-        // For custom questions, check if it's a sub-field (ends with Label or Placeholder)
         (question.type === "custom" &&
           (subQuestionId.endsWith("Label") ||
             subQuestionId.endsWith("Placeholder")))
 
-      // Save to subQuestions if it's a known sub-question ID, regardless of question type
       if (isSubQuestionId) {
-        // Save to uiConfig.subQuestions using standardized structure
         const updatedUIConfig = updateSubQuestionPlaceholder(
           uiConfig,
           subQuestionId,
@@ -319,7 +289,6 @@ const QuestionCard = ({
           uiConfig: updatedUIConfig,
         })
       } else {
-        // Regular placeholder - save directly to uiConfig
         onUpdateQuestion(question.id, {
           uiConfig: {
             ...uiConfig,
@@ -332,16 +301,11 @@ const QuestionCard = ({
     setEditingField(null)
   }
 
-  // Determine if this is an essential question (cannot be modified)
   const isEssential = requiredQuestionTypes.includes(question.type)
 
-  // Determine if this question is locked in position
   const isLockedInPosition =
     (question.type === "specifyListing" && question.order === 1) ||
     (question.type === "submitterRole" && question.order === 2)
-
-  // Buttons are no longer disabled - they will show a modal if the action is restricted
-  // The parent component handles showing the restriction modal
 
   const handleRequiredToggle = () => {
     if (isEssential) {
@@ -349,16 +313,12 @@ const QuestionCard = ({
       return
     }
 
-    // For statement questions, sync required status with tickbox mode
     if (isStatementQuestion) {
       const newRequired = !question.required
       const currentTickboxMode = setupConfig.add_tickbox || "no"
 
-      // If making required, set tickbox to "required"
-      // If making not required, set tickbox to "optional" (if it was "required")
       let newTickboxMode = currentTickboxMode
       if (newRequired && currentTickboxMode !== "required") {
-        // Only change to required if tickbox is enabled
         if (currentTickboxMode === "optional") {
           newTickboxMode = "required"
         }
@@ -381,7 +341,6 @@ const QuestionCard = ({
   }
 
   const handleDelete = () => {
-    // Allow submitterRole to be deleted even though it's essential
     if (isEssential && question.type !== "submitterRole") {
       setEssentialQuestionModal({ isOpen: true, action: "delete" })
       return
@@ -390,7 +349,6 @@ const QuestionCard = ({
   }
 
   const handleEditQuestion = () => {
-    // Allow editing for offerAmount even if it's essential
     if (isEssential && question.type !== "offerAmount") {
       setEssentialQuestionModal({ isOpen: true, action: "edit" })
       return
@@ -398,15 +356,33 @@ const QuestionCard = ({
     setEditQuestionModalOpen(true)
   }
 
-  // Check if this is a submit button
   const isSubmitButton = question.type === "submitButton"
+
+  useEffect(() => {
+    if (
+      question.type === "specifyListing" &&
+      question.formId &&
+      listings === null
+    ) {
+      getFormOwnerListings(question.formId, false, false)
+        .then((ownerListings) => {
+          setListings(ownerListings)
+        })
+        .catch((error) => {
+          console.error("Error fetching listings:", error)
+          setListings([])
+        })
+    }
+  }, [question.type, question.formId])
+
+  const hasRealListings = listings && listings.length > 0
+  const showExplanatoryText =
+    question.type === "specifyListing" && !hasRealListings && listings !== null
 
   return (
     <>
       <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
-        {/* Mobile: Top row with question number and actions */}
         <div className="flex items-center justify-between gap-4 md:hidden">
-          {/* Question Number (Mobile) */}
           <div className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 bg-white px-4 py-2">
             {isSubmitButton ? (
               <>
@@ -420,7 +396,6 @@ const QuestionCard = ({
             )}
           </div>
 
-          {/* Actions (Mobile) - Disabled for submit button */}
           {!isSubmitButton && (
             <div className="flex items-center gap-1">
               <Button size="icon" variant="ghost" onClick={onMoveUp}>
@@ -440,7 +415,6 @@ const QuestionCard = ({
           )}
         </div>
 
-        {/* Desktop: Left - Question Info */}
         <div className="hidden w-auto flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-4 md:flex">
           {isSubmitButton ? (
             <>
@@ -472,7 +446,6 @@ const QuestionCard = ({
           )}
         </div>
 
-        {/* Middle: Question Preview (Both Mobile and Desktop) */}
         <div className="flex flex-1 flex-col gap-3">
           {!isSubmitButton && (
             <div className="flex items-center gap-2">
@@ -490,9 +463,19 @@ const QuestionCard = ({
             <div className="flex flex-1 flex-col gap-2">
               {!isSubmitButton && (
                 <p
-                  className="cursor-pointer text-base font-medium text-gray-900 transition-colors hover:text-cyan-600"
-                  onClick={() => handleLabelEdit()}
-                  title="Click to edit question text"
+                  className={cn(
+                    "text-base font-medium text-gray-900",
+                    !isStatementQuestion &&
+                      "cursor-pointer transition-colors hover:text-cyan-600",
+                  )}
+                  onClick={
+                    !isStatementQuestion ? () => handleLabelEdit() : undefined
+                  }
+                  title={
+                    !isStatementQuestion
+                      ? "Click to edit question text"
+                      : undefined
+                  }
                 >
                   {labelText}
                   {question.required && (
@@ -500,7 +483,6 @@ const QuestionCard = ({
                   )}
                 </p>
               )}
-              {/* Render appropriate input based on question type and setup */}
               <QuestionRenderer
                 question={question}
                 disabled={false}
@@ -519,7 +501,6 @@ const QuestionCard = ({
               />
             </div>
 
-            {/* Mobile: Required field checkbox and Edit button - Hidden for submit button */}
             {!isSubmitButton && (
               <div className="flex items-center justify-between gap-4 md:hidden">
                 <div className="flex items-center gap-2">
@@ -539,9 +520,14 @@ const QuestionCard = ({
               </div>
             )}
           </div>
+          {showExplanatoryText && (
+            <p className="text-sm text-gray-500">
+              If you have not added any active Listings, Buyers will specify a
+              Listing using text.
+            </p>
+          )}
         </div>
 
-        {/* Desktop: Right - Actions - Hidden for submit button */}
         {!isSubmitButton && (
           <div className="hidden w-auto flex-col justify-center gap-1 md:flex">
             <Button
@@ -575,7 +561,6 @@ const QuestionCard = ({
         )}
       </div>
 
-      {/* Edit Text Modal */}
       {editingField && (
         <EditTextModal
           isOpen={editModalOpen}
@@ -594,7 +579,6 @@ const QuestionCard = ({
         />
       )}
 
-      {/* Edit Question Setup Modal */}
       <EditQuestionModal
         open={editQuestionModalOpen}
         onOpenChange={setEditQuestionModalOpen}
@@ -603,7 +587,6 @@ const QuestionCard = ({
         questionDefinitions={questionDefinitions}
       />
 
-      {/* Essential Question Modal */}
       <EssentialQuestionModal
         isOpen={essentialQuestionModal.isOpen}
         onClose={() =>

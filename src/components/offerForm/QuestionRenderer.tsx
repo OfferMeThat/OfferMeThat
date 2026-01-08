@@ -316,9 +316,8 @@ const PersonNameFields = ({
   // Check if this preference is stored in nameFields (for each person)
   const skipMiddleName = nameFields[prefix]?.skipMiddleName || false
 
-  // Create prefixed field IDs for repeated fields (e.g., representatives)
-  // Use prefix only if it's not a single field (prefixes like "rep-1", "rep-2", etc.)
   const isRepeatedField = prefix && prefix.startsWith("rep-")
+  const isPurchaserField = prefix && prefix.startsWith("purchaser-")
   const firstNameLabelId = isRepeatedField
     ? `${prefix}_firstNameLabel`
     : "firstNameLabel"
@@ -328,6 +327,9 @@ const PersonNameFields = ({
   const lastNameLabelId = isRepeatedField
     ? `${prefix}_lastNameLabel`
     : "lastNameLabel"
+  const idUploadLabelId = isPurchaserField
+    ? `${prefix}_idUploadLabel`
+    : "idUploadLabel"
   const firstNamePlaceholderId = isRepeatedField
     ? `${prefix}_firstNamePlaceholder`
     : "firstNamePlaceholder"
@@ -586,18 +588,23 @@ const PersonNameFields = ({
       {collectId && collectId !== "no" && (
         <div>
           <div className="relative inline-block">
+            <Label className="mb-1 block text-sm">
+              {getLabel(idUploadLabelId, "idUploadLabel", "ID Upload:")}
+              {isIdMandatory && (
+                <span className="font-bold text-red-500"> *</span>
+              )}
+            </Label>
             {renderLabelOverlay(
-              "idUploadLabel",
-              getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload"),
+              idUploadLabelId,
+              getLabel(idUploadLabelId, "idUploadLabel", "ID Upload:"),
             )}
           </div>
           <FileUploadInput
             id={`${questionId}_${prefix}_id_file`}
-            label={getSubQuestionLabel(uiConfig, "idUploadLabel", "ID Upload")}
+            label=""
             required={
-              // Check field-level required from uiConfig first
+              getSubQuestionRequired(uiConfig, idUploadLabelId) ??
               getSubQuestionRequired(uiConfig, "idUploadLabel") ??
-              // Fall back to setup config
               (collectId === "mandatory" && questionRequired)
             }
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
@@ -1433,13 +1440,6 @@ export const QuestionRenderer = ({
             {renderError(error)}
           </div>
         )}
-        {/* Show explanatory text when using example listings in editing mode */}
-        {useExampleListings && (
-          <p className="text-sm text-gray-500">
-            If you have not added any active Listings, Buyers will specify a
-            Listing using text.
-          </p>
-        )}
       </div>
     )
   }
@@ -1458,7 +1458,17 @@ export const QuestionRenderer = ({
       return val
     }
 
-    const selectValue = normalizeValueForSelect(value as string)
+    // Use local state for immediate UI feedback in editing mode
+    const [localValue, setLocalValue] = useState<string>(() =>
+      normalizeValueForSelect(value as string),
+    )
+
+    // Sync with value prop when it changes
+    useEffect(() => {
+      setLocalValue(normalizeValueForSelect(value as string))
+    }, [value])
+
+    const selectValue = localValue
 
     return (
       <div>
@@ -1467,6 +1477,7 @@ export const QuestionRenderer = ({
             disabled={disabled}
             value={selectValue}
             onValueChange={(val) => {
+              setLocalValue(val)
               onChange?.(val)
             }}
           >
@@ -2025,134 +2036,157 @@ export const QuestionRenderer = ({
                 }
 
                 return (
-                  <FileUploadInput
-                    id={`${question.id}_single_id_upload`}
-                    label="ID Upload"
-                    required={
-                      // Check field-level required from uiConfig first
-                      getSubQuestionRequired(uiConfig, "idUploadLabel") ??
-                      // Fall back to setup config
-                      (collectId === "mandatory" && question.required)
-                    }
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    multiple
-                    disabled={disabled}
-                    value={fileData.files}
-                    fileNames={fileData.fileNames}
-                    error={idFileError}
-                    maxFiles={5}
-                    maxSize={10 * 1024 * 1024}
-                    onChange={(files) => {
-                      const newFiles = Array.isArray(files)
-                        ? files
-                        : files
-                          ? [files]
-                          : []
+                  <div>
+                    <div className="relative inline-block">
+                      <Label className="mb-1 block text-sm">
+                        {getSubQuestionLabel(
+                          uiConfig,
+                          "idUploadLabel",
+                          "ID Upload:",
+                        )}
+                        {(getSubQuestionRequired(uiConfig, "idUploadLabel") ??
+                          (collectId === "mandatory" && question.required)) && (
+                          <span className="font-bold text-red-500"> *</span>
+                        )}
+                      </Label>
+                      {renderLabelOverlay(
+                        "idUploadLabel",
+                        getSubQuestionLabel(
+                          uiConfig,
+                          "idUploadLabel",
+                          "ID Upload:",
+                        ),
+                      )}
+                    </div>
+                    <FileUploadInput
+                      id={`${question.id}_single_id_upload`}
+                      label=""
+                      required={
+                        getSubQuestionRequired(uiConfig, "idUploadLabel") ??
+                        (collectId === "mandatory" && question.required)
+                      }
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      multiple
+                      disabled={disabled}
+                      value={fileData.files}
+                      fileNames={fileData.fileNames}
+                      error={idFileError}
+                      maxFiles={5}
+                      maxSize={10 * 1024 * 1024}
+                      onChange={(files) => {
+                        const newFiles = Array.isArray(files)
+                          ? files
+                          : files
+                            ? [files]
+                            : []
 
-                      // Get existing files
-                      const existingFiles = fileData.files
+                        // Get existing files
+                        const existingFiles = fileData.files
 
-                      // Merge new files with existing files
-                      const mergedFiles = [...existingFiles, ...newFiles]
+                        // Merge new files with existing files
+                        const mergedFiles = [...existingFiles, ...newFiles]
 
-                      // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
-                      const maxFiles = 5
-                      const finalFiles =
-                        mergedFiles.length > maxFiles
-                          ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
-                          : mergedFiles
+                        // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+                        const maxFiles = 5
+                        const finalFiles =
+                          mergedFiles.length > maxFiles
+                            ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                            : mergedFiles
 
-                      const fileKey = `${question.id}_single_id_upload`
-                      const fileError = validateMultipleFiles(
-                        finalFiles,
-                        maxFiles,
-                        10 * 1024 * 1024,
-                      )
-                      setFileUploads((prev) => ({
-                        ...prev,
-                        [fileKey]: {
-                          files: finalFiles,
-                          fileNames: finalFiles.map((f) => f.name),
-                          error: fileError || undefined,
-                        },
-                      }))
-                      if (!fileError && finalFiles.length > 0) {
-                        // Store files with name
+                        const fileKey = `${question.id}_single_id_upload`
+                        const fileError = validateMultipleFiles(
+                          finalFiles,
+                          maxFiles,
+                          10 * 1024 * 1024,
+                        )
+                        setFileUploads((prev) => ({
+                          ...prev,
+                          [fileKey]: {
+                            files: finalFiles,
+                            fileNames: finalFiles.map((f) => f.name),
+                            error: fileError || undefined,
+                          },
+                        }))
+                        if (!fileError && finalFiles.length > 0) {
+                          // Store files with name
+                          const currentName =
+                            typeof value === "string"
+                              ? value
+                              : value?.name || ""
+                          onChange?.(
+                            currentName
+                              ? { name: currentName, idFiles: finalFiles }
+                              : finalFiles.length === 1
+                                ? finalFiles[0]
+                                : finalFiles,
+                          )
+                        }
+                      }}
+                      onRemove={(index) => {
+                        const fileKey = `${question.id}_single_id_upload`
+                        const existingFileData = fileUploads[fileKey]
+                        const existingFiles =
+                          existingFileData && "files" in existingFileData
+                            ? existingFileData.files
+                            : existingFileData &&
+                                "file" in existingFileData &&
+                                existingFileData.file
+                              ? [existingFileData.file]
+                              : []
+
+                        const newFiles = [...existingFiles]
+                        const newFileNames =
+                          existingFileData && "fileNames" in existingFileData
+                            ? [...existingFileData.fileNames]
+                            : existingFileData &&
+                                "fileName" in existingFileData &&
+                                existingFileData.fileName
+                              ? [existingFileData.fileName]
+                              : []
+
+                        if (index !== undefined) {
+                          newFiles.splice(index, 1)
+                          newFileNames.splice(index, 1)
+                        } else {
+                          newFiles.length = 0
+                          newFileNames.length = 0
+                        }
+
+                        setFileUploads((prev) => ({
+                          ...prev,
+                          [fileKey]:
+                            newFiles.length > 0
+                              ? {
+                                  files: newFiles,
+                                  fileNames: newFileNames,
+                                  error: undefined,
+                                }
+                              : {
+                                  files: [],
+                                  fileNames: [],
+                                  error: undefined,
+                                },
+                        }))
+
+                        // Clear files but keep name
                         const currentName =
                           typeof value === "string" ? value : value?.name || ""
-                        onChange?.(
-                          currentName
-                            ? { name: currentName, idFiles: finalFiles }
-                            : finalFiles.length === 1
-                              ? finalFiles[0]
-                              : finalFiles,
-                        )
-                      }
-                    }}
-                    onRemove={(index) => {
-                      const fileKey = `${question.id}_single_id_upload`
-                      const existingFileData = fileUploads[fileKey]
-                      const existingFiles =
-                        existingFileData && "files" in existingFileData
-                          ? existingFileData.files
-                          : existingFileData &&
-                              "file" in existingFileData &&
-                              existingFileData.file
-                            ? [existingFileData.file]
-                            : []
+                        onChange?.(currentName || null)
 
-                      const newFiles = [...existingFiles]
-                      const newFileNames =
-                        existingFileData && "fileNames" in existingFileData
-                          ? [...existingFileData.fileNames]
-                          : existingFileData &&
-                              "fileName" in existingFileData &&
-                              existingFileData.fileName
-                            ? [existingFileData.fileName]
-                            : []
-
-                      if (index !== undefined) {
-                        newFiles.splice(index, 1)
-                        newFileNames.splice(index, 1)
-                      } else {
-                        newFiles.length = 0
-                        newFileNames.length = 0
-                      }
-
-                      setFileUploads((prev) => ({
-                        ...prev,
-                        [fileKey]:
-                          newFiles.length > 0
-                            ? {
-                                files: newFiles,
-                                fileNames: newFileNames,
-                                error: undefined,
-                              }
-                            : {
-                                files: [],
-                                fileNames: [],
-                                error: undefined,
-                              },
-                      }))
-
-                      // Clear files but keep name
-                      const currentName =
-                        typeof value === "string" ? value : value?.name || ""
-                      onChange?.(currentName || null)
-
-                      const fileInput = document.getElementById(
-                        `${question.id}_single_id_upload`,
-                      ) as HTMLInputElement
-                      if (fileInput) {
-                        fileInput.value = ""
-                      }
-                    }}
-                  >
-                    <span className="text-xs text-gray-500">
-                      Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5
-                      files, 10MB total)
-                    </span>
-                  </FileUploadInput>
+                        const fileInput = document.getElementById(
+                          `${question.id}_single_id_upload`,
+                        ) as HTMLInputElement
+                        if (fileInput) {
+                          fileInput.value = ""
+                        }
+                      }}
+                    >
+                      <span className="text-xs text-gray-500">
+                        Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5
+                        files, 10MB total)
+                      </span>
+                    </FileUploadInput>
+                  </div>
                 )
               })()}
             </div>
@@ -2326,7 +2360,11 @@ export const QuestionRenderer = ({
       <div className="space-y-4">
         {/* Main scenario selector */}
         <div>
-          <Select value={scenario} onValueChange={handleScenarioChange}>
+          <Select
+            value={scenario}
+            onValueChange={handleScenarioChange}
+            disabled={disabled}
+          >
             <SelectTrigger className="w-full max-w-md" style={getSelectStyle()}>
               <SelectValue placeholder="Select option" />
             </SelectTrigger>
@@ -2379,6 +2417,7 @@ export const QuestionRenderer = ({
                 onValueChange={(val) =>
                   handleNumPurchasersChange(parseInt(val))
                 }
+                disabled={disabled}
               >
                 <SelectTrigger
                   className="w-full max-w-md"
@@ -2399,6 +2438,9 @@ export const QuestionRenderer = ({
             {Array.from({ length: numPurchasers }, (_, i) => i + 1).map(
               (num) => (
                 <div key={num} className="space-y-3 border-t pt-4">
+                  <h3 className="text-sm font-medium text-gray-900">
+                    Purchaser {num}:
+                  </h3>
                   <PersonNameFields
                     prefix={`purchaser-${num}`}
                     questionId={question.id}
@@ -2562,6 +2604,7 @@ export const QuestionRenderer = ({
                           [num]: val,
                         })
                       }
+                      disabled={disabled}
                     >
                       <SelectTrigger
                         className="w-full max-w-md"
@@ -2954,6 +2997,7 @@ export const QuestionRenderer = ({
         key={questionKey}
         question={previewQuestion}
         setupAnswers={setupConfig}
+        value={value as Record<string, any>}
         editingMode={editingMode}
         onChange={(depositFormData) => {
           // DepositPreview calls onChange with all deposit fields
@@ -2981,7 +3025,15 @@ export const QuestionRenderer = ({
       setupConfig.finance_communications ||
       setupConfig.finance_specialist_communication
 
-    const loanValue = (value as Record<string, any>) || {}
+    const [localLoanValue, setLocalLoanValue] = useState<Record<string, any>>(
+      () => (value as Record<string, any>) || {},
+    )
+
+    useEffect(() => {
+      setLocalLoanValue((value as Record<string, any>) || {})
+    }, [value])
+
+    const loanValue = localLoanValue
     const isSubjectToLoan = loanValue.subjectToLoan === "yes"
     const knowsLenderDetails = !loanValue.unknownLender
 
@@ -3008,10 +3060,12 @@ export const QuestionRenderer = ({
         !loanValue.loanAmountType &&
         isSubjectToLoan
       ) {
-        onChange?.({
+        const newValue = {
           ...loanValue,
           loanAmountType: "amount",
-        })
+        }
+        setLocalLoanValue(newValue)
+        onChange?.(newValue)
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loanAmountType, isSubjectToLoan])
@@ -3138,7 +3192,9 @@ export const QuestionRenderer = ({
           <Select
             value={loanValue.subjectToLoan || ""}
             onValueChange={(val) => {
-              onChange?.({ ...loanValue, subjectToLoan: val })
+              const newValue = { ...loanValue, subjectToLoan: val }
+              setLocalLoanValue(newValue)
+              onChange?.(newValue)
             }}
             disabled={disabled}
           >
@@ -3167,16 +3223,34 @@ export const QuestionRenderer = ({
                 {loanAmountType === "amount_or_percentage" && (
                   <div>
                     <div className="relative inline-block">
-                      <Label className="mb-2 block text-sm font-medium">
-                        How would you like to specify your loan amount?{" "}
+                      <Label
+                        className={cn(
+                          "mb-2 block text-sm font-medium",
+                          editingMode &&
+                            "cursor-pointer transition-colors hover:text-blue-600",
+                        )}
+                      >
+                        {getSubQuestionLabel(
+                          uiConfig,
+                          "loanAmountTypeLabel",
+                          "How would you like to specify your loan amount?",
+                        )}{" "}
                         <span className="font-bold text-red-500">*</span>
                       </Label>
+                      {renderLabelOverlay(
+                        "loanAmountTypeLabel",
+                        getSubQuestionLabel(
+                          uiConfig,
+                          "loanAmountTypeLabel",
+                          "How would you like to specify your loan amount?",
+                        ),
+                      )}
                     </div>
                     <div className="w-1/2">
                       <Select
                         value={loanValue.loanAmountType || "amount"}
                         onValueChange={(val) => {
-                          onChange?.({
+                          const newValue = {
                             ...loanValue,
                             loanAmountType: val,
                             // Clear the other field when switching
@@ -3188,7 +3262,9 @@ export const QuestionRenderer = ({
                               val === "percentage"
                                 ? loanValue.loanPercentage
                                 : undefined,
-                          })
+                          }
+                          setLocalLoanValue(newValue)
+                          onChange?.(newValue)
                         }}
                         disabled={disabled}
                       >
@@ -3261,10 +3337,12 @@ export const QuestionRenderer = ({
                               const sanitized = sanitizeNumberInput(
                                 e.target.value,
                               )
-                              onChange?.({
+                              const newValue = {
                                 ...loanValue,
                                 loanAmount: sanitized,
-                              })
+                              }
+                              setLocalLoanValue(newValue)
+                              onChange?.(newValue)
                             }
                           }}
                           onKeyDown={handleNumberInputKeyDown}
@@ -3284,14 +3362,16 @@ export const QuestionRenderer = ({
                         <CurrencySelect
                           value={loanValue.loanAmountCurrency || ""}
                           onValueChange={(val) => {
+                            const newValue = {
+                              ...loanValue,
+                              loanAmountCurrency: val,
+                            }
+                            setLocalLoanValue(newValue)
                             if (!editingMode) {
-                              onChange?.({
-                                ...loanValue,
-                                loanAmountCurrency: val,
-                              })
+                              onChange?.(newValue)
                             }
                           }}
-                          disabled={disabled || editingMode}
+                          disabled={disabled}
                           placeholder="Select currency"
                           className="w-full"
                           style={getSelectStyle()}
@@ -3361,10 +3441,12 @@ export const QuestionRenderer = ({
                               const sanitized = sanitizeNumberInput(
                                 e.target.value,
                               )
-                              onChange?.({
+                              const newValue = {
                                 ...loanValue,
                                 loanPercentage: sanitized,
-                              })
+                              }
+                              setLocalLoanValue(newValue)
+                              onChange?.(newValue)
                             }
                           }}
                           onKeyDown={handleNumberInputKeyDown}
@@ -3389,18 +3471,20 @@ export const QuestionRenderer = ({
                       </span>
                     </div>
                     {/* Second row: currency selector underneath */}
-                    <div className="w-full">
+                    <div className="relative w-1/2 pr-0.5">
                       <CurrencySelect
                         value={loanValue.loanPercentageCurrency || ""}
                         onValueChange={(val) => {
+                          const newValue = {
+                            ...loanValue,
+                            loanPercentageCurrency: val,
+                          }
+                          setLocalLoanValue(newValue)
                           if (!editingMode) {
-                            onChange?.({
-                              ...loanValue,
-                              loanPercentageCurrency: val,
-                            })
+                            onChange?.(newValue)
                           }
                         }}
-                        disabled={disabled || editingMode}
+                        disabled={disabled}
                         placeholder="Select currency"
                         className="w-full"
                         style={getSelectStyle()}
@@ -3476,10 +3560,12 @@ export const QuestionRenderer = ({
                       value={loanValue.companyName || ""}
                       onChange={(e) => {
                         if (!editingMode) {
-                          onChange?.({
+                          const newValue = {
                             ...loanValue,
                             companyName: e.target.value,
-                          })
+                          }
+                          setLocalLoanValue(newValue)
+                          onChange?.(newValue)
                         }
                       }}
                       data-field-id={`${question.id}_companyName`}
@@ -3509,7 +3595,12 @@ export const QuestionRenderer = ({
                       checked={loanValue.unknownLender || false}
                       onCheckedChange={(checked) => {
                         if (!editingMode) {
-                          onChange?.({ ...loanValue, unknownLender: checked })
+                          const newValue = {
+                            ...loanValue,
+                            unknownLender: checked,
+                          }
+                          setLocalLoanValue(newValue)
+                          onChange?.(newValue)
                         }
                       }}
                     />
@@ -3571,10 +3662,12 @@ export const QuestionRenderer = ({
                         value={loanValue.contactName || ""}
                         onChange={(e) => {
                           if (!editingMode) {
-                            onChange?.({
+                            const newValue = {
                               ...loanValue,
                               contactName: e.target.value,
-                            })
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                           }
                         }}
                         data-field-id={`${question.id}_contactName`}
@@ -3637,10 +3730,12 @@ export const QuestionRenderer = ({
                         value={loanValue.contactPhone || ""}
                         onChange={(e) => {
                           if (!editingMode) {
-                            onChange?.({
+                            const newValue = {
                               ...loanValue,
                               contactPhone: e.target.value,
-                            })
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                           }
                         }}
                         data-field-id={`${question.id}_contactPhone`}
@@ -3703,10 +3798,12 @@ export const QuestionRenderer = ({
                         value={loanValue.contactEmail || ""}
                         onChange={(e) => {
                           if (!editingMode) {
-                            onChange?.({
+                            const newValue = {
                               ...loanValue,
                               contactEmail: e.target.value,
-                            })
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                           }
                         }}
                         data-field-id={`${question.id}_contactEmail`}
@@ -3785,126 +3882,164 @@ export const QuestionRenderer = ({
                             error: fileDataRaw.error,
                           }
                         : { files: [], fileNames: [], error: undefined }
-                  return (
-                    <FileUploadInput
-                      id={`${question.id}_supporting_docs`}
-                      label="Loan Approval – Pre Approval"
-                      required={
-                        // Check field-level required from uiConfig first
-                        getSubQuestionRequired(uiConfig, "loan_attachments") ??
-                        // Fall back to setup config and question required
-                        (attachments === "required" ||
-                          (question.required && isSubjectToLoan))
-                      }
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                      multiple
-                      disabled={disabled}
-                      value={fileData.files}
-                      fileNames={fileData.fileNames}
-                      error={fileData.error || error}
-                      maxFiles={5}
-                      maxSize={10 * 1024 * 1024}
-                      onChange={(files) => {
-                        const newFiles = Array.isArray(files)
-                          ? files
-                          : files
-                            ? [files]
-                            : []
 
-                        // Get existing files from state
-                        const fileKey = `${question.id}_supporting_docs`
-                        const existingFileData = fileUploads[fileKey]
-                        const existingFiles =
-                          existingFileData && "files" in existingFileData
-                            ? existingFileData.files
-                            : loanValue.supportingDocs &&
-                                Array.isArray(loanValue.supportingDocs)
-                              ? loanValue.supportingDocs
+                  const loanAttachmentsFileLabel = getSubQuestionLabel(
+                    uiConfig,
+                    "loanAttachmentsFileLabel",
+                    "Loan Approval – Pre Approval",
+                  )
+                  const isRequired =
+                    // Check field-level required from uiConfig first
+                    getSubQuestionRequired(uiConfig, "loan_attachments") ??
+                    // Fall back to setup config and question required
+                    (attachments === "required" ||
+                      (question.required && isSubjectToLoan))
+
+                  return (
+                    <div>
+                      <div className="relative mb-2 inline-block">
+                        <Label
+                          className={cn(
+                            "block text-sm font-medium",
+                            editingMode &&
+                              "cursor-pointer transition-colors hover:text-blue-600",
+                          )}
+                        >
+                          {loanAttachmentsFileLabel}
+                          {isRequired && (
+                            <span className="font-bold text-red-500"> *</span>
+                          )}
+                        </Label>
+                        {renderLabelOverlay(
+                          "loanAttachmentsFileLabel",
+                          loanAttachmentsFileLabel,
+                        )}
+                      </div>
+                      <FileUploadInput
+                        id={`${question.id}_supporting_docs`}
+                        label=""
+                        required={isRequired}
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        multiple
+                        disabled={disabled}
+                        value={fileData.files}
+                        fileNames={fileData.fileNames}
+                        error={fileData.error || error}
+                        maxFiles={5}
+                        maxSize={10 * 1024 * 1024}
+                        onChange={(files) => {
+                          const newFiles = Array.isArray(files)
+                            ? files
+                            : files
+                              ? [files]
                               : []
 
-                        // Merge new files with existing files
-                        const mergedFiles = [...existingFiles, ...newFiles]
+                          // Get existing files from state
+                          const fileKey = `${question.id}_supporting_docs`
+                          const existingFileData = fileUploads[fileKey]
+                          const existingFiles =
+                            existingFileData && "files" in existingFileData
+                              ? existingFileData.files
+                              : loanValue.supportingDocs &&
+                                  Array.isArray(loanValue.supportingDocs)
+                                ? loanValue.supportingDocs
+                                : []
 
-                        // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
-                        const maxFiles = 5
-                        const finalFiles =
-                          mergedFiles.length > maxFiles
-                            ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
-                            : mergedFiles
+                          // Merge new files with existing files
+                          const mergedFiles = [...existingFiles, ...newFiles]
 
-                        const fileError = validateMultipleFiles(
-                          finalFiles,
-                          maxFiles,
-                          10 * 1024 * 1024,
-                        )
-                        setFileUploads((prev) => ({
-                          ...prev,
-                          [fileKey]: {
-                            files: finalFiles,
-                            fileNames: finalFiles.map((f) => f.name),
-                            error: fileError || undefined,
-                          },
-                        }))
-                        if (!fileError && finalFiles.length > 0) {
-                          // Store files in the loanValue object for validation
-                          onChange?.({
-                            ...loanValue,
-                            supportingDocs: finalFiles,
-                          })
-                        } else if (finalFiles.length === 0) {
-                          onChange?.({ ...loanValue, supportingDocs: null })
-                        }
-                      }}
-                      onRemove={(index) => {
-                        const newFiles = [...fileData.files]
-                        const newFileNames = [...fileData.fileNames]
-                        if (index !== undefined) {
-                          newFiles.splice(index, 1)
-                          newFileNames.splice(index, 1)
-                        } else {
-                          newFiles.length = 0
-                          newFileNames.length = 0
-                        }
-                        const fileKey = `${question.id}_supporting_docs`
-                        setFileUploads((prev) => ({
-                          ...prev,
-                          [fileKey]:
-                            newFiles.length > 0
-                              ? {
-                                  files: newFiles,
-                                  fileNames: newFileNames,
-                                  error: undefined,
-                                }
-                              : {
-                                  files: [],
-                                  fileNames: [],
-                                  error: undefined,
-                                },
-                        }))
-                        if (newFiles.length > 0) {
-                          onChange?.({
-                            ...loanValue,
-                            supportingDocs: newFiles,
-                          })
-                        } else {
-                          onChange?.({
-                            ...loanValue,
-                            supportingDocs: null,
-                          })
-                          const fileInput = document.getElementById(
-                            `${question.id}_supporting_docs`,
-                          ) as HTMLInputElement
-                          if (fileInput) {
-                            fileInput.value = ""
+                          // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+                          const maxFiles = 5
+                          const finalFiles =
+                            mergedFiles.length > maxFiles
+                              ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                              : mergedFiles
+
+                          const fileError = validateMultipleFiles(
+                            finalFiles,
+                            maxFiles,
+                            10 * 1024 * 1024,
+                          )
+                          setFileUploads((prev) => ({
+                            ...prev,
+                            [fileKey]: {
+                              files: finalFiles,
+                              fileNames: finalFiles.map((f) => f.name),
+                              error: fileError || undefined,
+                            },
+                          }))
+                          if (!fileError && finalFiles.length > 0) {
+                            // Store files in the loanValue object for validation
+                            const newValue = {
+                              ...loanValue,
+                              supportingDocs: finalFiles,
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
+                          } else if (finalFiles.length === 0) {
+                            const newValue = {
+                              ...loanValue,
+                              supportingDocs: null,
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
                           }
-                        }
-                      }}
-                    >
-                      <span className="text-xs text-gray-500">
-                        Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5
-                        files, 10MB total)
-                      </span>
-                    </FileUploadInput>
+                        }}
+                        onRemove={(index) => {
+                          const newFiles = [...fileData.files]
+                          const newFileNames = [...fileData.fileNames]
+                          if (index !== undefined) {
+                            newFiles.splice(index, 1)
+                            newFileNames.splice(index, 1)
+                          } else {
+                            newFiles.length = 0
+                            newFileNames.length = 0
+                          }
+                          const fileKey = `${question.id}_supporting_docs`
+                          setFileUploads((prev) => ({
+                            ...prev,
+                            [fileKey]:
+                              newFiles.length > 0
+                                ? {
+                                    files: newFiles,
+                                    fileNames: newFileNames,
+                                    error: undefined,
+                                  }
+                                : {
+                                    files: [],
+                                    fileNames: [],
+                                    error: undefined,
+                                  },
+                          }))
+                          if (newFiles.length > 0) {
+                            const newValue = {
+                              ...loanValue,
+                              supportingDocs: newFiles,
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
+                          } else {
+                            const newValue = {
+                              ...loanValue,
+                              supportingDocs: null,
+                            }
+                            setLocalLoanValue(newValue)
+                            onChange?.(newValue)
+                            const fileInput = document.getElementById(
+                              `${question.id}_supporting_docs`,
+                            ) as HTMLInputElement
+                            if (fileInput) {
+                              fileInput.value = ""
+                            }
+                          }
+                        }}
+                      >
+                        <span className="text-xs text-gray-500">
+                          Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max
+                          5 files, 10MB total)
+                        </span>
+                      </FileUploadInput>
+                    </div>
                   )
                 })()}
               </div>
@@ -3951,10 +4086,12 @@ export const QuestionRenderer = ({
                     value={loanValue.loanDueDate || ""}
                     onChange={(e) => {
                       if (!editingMode) {
-                        onChange?.({
+                        const newValue = {
                           ...loanValue,
                           loanDueDate: e.target.value,
-                        })
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       }
                     }}
                     data-field-id={`${question.id}_loanDueDate`}
@@ -4009,10 +4146,15 @@ export const QuestionRenderer = ({
                   </div>
                   <div className="w-1/2">
                     <Select
-                      disabled={disabled || editingMode}
+                      disabled={disabled}
                       value={loanValue.financeSpecialist || ""}
                       onValueChange={(val) => {
-                        onChange?.({ ...loanValue, financeSpecialist: val })
+                        const newValue = {
+                          ...loanValue,
+                          financeSpecialist: val,
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       }}
                     >
                       <SelectTrigger
@@ -4034,7 +4176,7 @@ export const QuestionRenderer = ({
 
         {/* Evidence of Funds - shown when "No" is selected and evidence_of_funds is configured */}
         {/* Show if evidence_of_funds is configured (optional or required) AND subjectToLoan is "no" */}
-        {!isSubjectToLoan &&
+        {loanValue.subjectToLoan === "no" &&
           setupConfig.evidence_of_funds &&
           setupConfig.evidence_of_funds !== "not_required" && (
             <div>
@@ -4162,15 +4304,19 @@ export const QuestionRenderer = ({
                         },
                       }))
                       if (finalFiles.length > 0) {
-                        onChange?.({
+                        const newValue = {
                           ...loanValue,
                           evidenceOfFunds: finalFiles,
-                        })
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       } else {
-                        onChange?.({
+                        const newValue = {
                           ...loanValue,
                           evidenceOfFunds: null,
-                        })
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       }
                     }}
                     onRemove={(index) => {
@@ -4200,15 +4346,19 @@ export const QuestionRenderer = ({
                               },
                       }))
                       if (newFiles.length > 0) {
-                        onChange?.({
+                        const newValue = {
                           ...loanValue,
                           evidenceOfFunds: newFiles,
-                        })
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       } else {
-                        onChange?.({
+                        const newValue = {
                           ...loanValue,
                           evidenceOfFunds: null,
-                        })
+                        }
+                        setLocalLoanValue(newValue)
+                        onChange?.(newValue)
                       }
                     }}
                   >
@@ -4658,29 +4808,27 @@ export const QuestionRenderer = ({
             <Select
               value={sectionValue}
               onValueChange={(value) => {
-                if (!editingMode) {
-                  const fieldName =
-                    sectionData === timeConstraint
-                      ? "timeConstraint"
-                      : sectionData === number
-                        ? "number"
-                        : sectionData === timeUnit
-                          ? "timeUnit"
-                          : sectionData === action
-                            ? "action"
-                            : "trigger"
-                  const newValues = {
-                    ...formValues,
-                    settlementDateCYO: {
-                      ...((formValues.settlementDateCYO as any) || {}),
-                      [fieldName]: value,
-                    },
-                  }
-                  setFormValues(newValues)
-                  onChange?.(newValues)
+                const fieldName =
+                  sectionData === timeConstraint
+                    ? "timeConstraint"
+                    : sectionData === number
+                      ? "number"
+                      : sectionData === timeUnit
+                        ? "timeUnit"
+                        : sectionData === action
+                          ? "action"
+                          : "trigger"
+                const newValues = {
+                  ...formValues,
+                  settlementDateCYO: {
+                    ...((formValues.settlementDateCYO as any) || {}),
+                    [fieldName]: value,
+                  },
                 }
+                setFormValues(newValues)
+                onChange?.(newValues)
               }}
-              disabled={disabled || editingMode}
+              disabled={disabled}
             >
               <SelectTrigger
                 className="w-full max-w-xs"
@@ -4790,23 +4938,19 @@ export const QuestionRenderer = ({
               <div className="relative w-24">
                 <Select
                   value={
-                    editingMode
-                      ? ""
-                      : formValues.settlementDays
-                        ? String(formValues.settlementDays)
-                        : ""
+                    formValues.settlementDays
+                      ? String(formValues.settlementDays)
+                      : ""
                   }
                   onValueChange={(value) => {
-                    if (!editingMode) {
-                      const newValues = {
-                        ...formValues,
-                        settlementDays: value ? Number(value) : "",
-                      }
-                      setFormValues(newValues)
-                      onChange?.(newValues)
+                    const newValues = {
+                      ...formValues,
+                      settlementDays: value ? Number(value) : "",
                     }
+                    setFormValues(newValues)
+                    onChange?.(newValues)
                   }}
-                  disabled={disabled || editingMode}
+                  disabled={disabled}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select" />
@@ -4994,119 +5138,147 @@ export const QuestionRenderer = ({
           {renderError(error)}
         </div>
         {allowAttachments && (
-          <FileUploadInput
-            id={`${question.id}_message_attachments`}
-            label="Message to Listing Agent"
-            required={false}
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-            multiple
-            disabled={disabled}
-            value={attachmentData.files}
-            fileNames={attachmentData.fileNames}
-            error={attachmentData.error}
-            maxFiles={5}
-            maxSize={10 * 1024 * 1024}
-            onChange={(files) => {
-              const newFiles = Array.isArray(files)
-                ? files
-                : files
-                  ? [files]
-                  : []
+          <div>
+            <div className="relative mb-2 inline-block">
+              <Label
+                className={cn(
+                  "block text-sm font-medium",
+                  editingMode &&
+                    "cursor-pointer transition-colors hover:text-blue-600",
+                )}
+              >
+                {getSubQuestionLabel(
+                  uiConfig,
+                  "attachmentsLabel",
+                  "Attachments",
+                )}
+              </Label>
+              {renderLabelOverlay(
+                "attachmentsLabel",
+                getSubQuestionLabel(
+                  uiConfig,
+                  "attachmentsLabel",
+                  "Attachments",
+                ),
+              )}
+            </div>
+            <FileUploadInput
+              id={`${question.id}_message_attachments`}
+              label=""
+              required={false}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              multiple
+              disabled={disabled}
+              value={attachmentData.files}
+              fileNames={attachmentData.fileNames}
+              error={attachmentData.error}
+              maxFiles={5}
+              maxSize={10 * 1024 * 1024}
+              onChange={(files) => {
+                const newFiles = Array.isArray(files)
+                  ? files
+                  : files
+                    ? [files]
+                    : []
 
-              // Get existing files
-              const existingFiles = attachmentData.files || []
+                // Get existing files
+                const existingFiles = attachmentData.files || []
 
-              // Merge new files with existing files
-              const mergedFiles = [...existingFiles, ...newFiles]
+                // Merge new files with existing files
+                const mergedFiles = [...existingFiles, ...newFiles]
 
-              // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
-              const maxFiles = 5
-              const finalFiles =
-                mergedFiles.length > maxFiles
-                  ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
-                  : mergedFiles
+                // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+                const maxFiles = 5
+                const finalFiles =
+                  mergedFiles.length > maxFiles
+                    ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                    : mergedFiles
 
-              const fileError = validateMultipleFiles(
-                finalFiles,
-                maxFiles,
-                10 * 1024 * 1024,
-              )
-              setFileUploads((prev) => ({
-                ...prev,
-                [`${question.id}_message_attachments`]: {
-                  files: finalFiles,
-                  fileNames: finalFiles.map((f) => f.name),
-                  error: fileError || undefined,
-                },
-              }))
-              if (!fileError && finalFiles.length > 0) {
-                // Store files separately from message text
-                const currentMessage =
-                  typeof value === "string" ? value : value?.message || ""
-                onChange?.({ message: currentMessage, attachments: finalFiles })
-              } else if (finalFiles.length === 0) {
-                const currentMessage =
-                  typeof value === "string" ? value : value?.message || ""
-                onChange?.(
-                  currentMessage
-                    ? currentMessage
-                    : { message: "", attachments: [] },
+                const fileError = validateMultipleFiles(
+                  finalFiles,
+                  maxFiles,
+                  10 * 1024 * 1024,
                 )
-              }
-            }}
-            onRemove={(index) => {
-              const newFiles = [...attachmentData.files]
-              const newFileNames = [...attachmentData.fileNames]
-              if (index !== undefined) {
-                newFiles.splice(index, 1)
-                newFileNames.splice(index, 1)
-              } else {
-                newFiles.length = 0
-                newFileNames.length = 0
-              }
-              setFileUploads((prev) => ({
-                ...prev,
-                [`${question.id}_message_attachments`]:
-                  newFiles.length > 0
-                    ? {
-                        files: newFiles,
-                        fileNames: newFileNames,
-                        error: undefined,
-                      }
-                    : {
-                        files: [],
-                        fileNames: [],
-                        error: undefined,
-                      },
-              }))
-              // Update attachments in value
-              const currentMessage =
-                typeof value === "string" ? value : value?.message || ""
-              if (newFiles.length > 0) {
-                onChange?.({
-                  message: currentMessage,
-                  attachments: newFiles,
-                })
-              } else {
-                onChange?.(
-                  currentMessage
-                    ? currentMessage
-                    : { message: "", attachments: [] },
-                )
-                const fileInput = document.getElementById(
-                  `${question.id}_message_attachments`,
-                ) as HTMLInputElement
-                if (fileInput) {
-                  fileInput.value = ""
+                setFileUploads((prev) => ({
+                  ...prev,
+                  [`${question.id}_message_attachments`]: {
+                    files: finalFiles,
+                    fileNames: finalFiles.map((f) => f.name),
+                    error: fileError || undefined,
+                  },
+                }))
+                if (!fileError && finalFiles.length > 0) {
+                  // Store files separately from message text
+                  const currentMessage =
+                    typeof value === "string" ? value : value?.message || ""
+                  onChange?.({
+                    message: currentMessage,
+                    attachments: finalFiles,
+                  })
+                } else if (finalFiles.length === 0) {
+                  const currentMessage =
+                    typeof value === "string" ? value : value?.message || ""
+                  onChange?.(
+                    currentMessage
+                      ? currentMessage
+                      : { message: "", attachments: [] },
+                  )
                 }
-              }
-            }}
-          >
-            <span className="text-xs text-gray-500">
-              Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5 files,
-              10MB total)
-            </span>
-          </FileUploadInput>
+              }}
+              onRemove={(index) => {
+                const newFiles = [...attachmentData.files]
+                const newFileNames = [...attachmentData.fileNames]
+                if (index !== undefined) {
+                  newFiles.splice(index, 1)
+                  newFileNames.splice(index, 1)
+                } else {
+                  newFiles.length = 0
+                  newFileNames.length = 0
+                }
+                setFileUploads((prev) => ({
+                  ...prev,
+                  [`${question.id}_message_attachments`]:
+                    newFiles.length > 0
+                      ? {
+                          files: newFiles,
+                          fileNames: newFileNames,
+                          error: undefined,
+                        }
+                      : {
+                          files: [],
+                          fileNames: [],
+                          error: undefined,
+                        },
+                }))
+                // Update attachments in value
+                const currentMessage =
+                  typeof value === "string" ? value : value?.message || ""
+                if (newFiles.length > 0) {
+                  onChange?.({
+                    message: currentMessage,
+                    attachments: newFiles,
+                  })
+                } else {
+                  onChange?.(
+                    currentMessage
+                      ? currentMessage
+                      : { message: "", attachments: [] },
+                  )
+                  const fileInput = document.getElementById(
+                    `${question.id}_message_attachments`,
+                  ) as HTMLInputElement
+                  if (fileInput) {
+                    fileInput.value = ""
+                  }
+                }
+              }}
+            >
+              <span className="text-xs text-gray-500">
+                Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5 files,
+                10MB total)
+              </span>
+            </FileUploadInput>
+          </div>
         )}
       </div>
     )
@@ -5423,6 +5595,16 @@ export const QuestionRenderer = ({
       }))
       .filter((opt) => opt.label)
 
+    // Use local state for immediate UI feedback in editing mode
+    const [localValue, setLocalValue] = useState<string>(
+      (value as string) || "",
+    )
+
+    // Sync with value prop when it changes
+    useEffect(() => {
+      setLocalValue((value as string) || "")
+    }, [value])
+
     if (availableOptions.length === 0) {
       // Fallback if no options configured
       return (
@@ -5430,8 +5612,11 @@ export const QuestionRenderer = ({
           <div className="relative max-w-md">
             <Select
               disabled={disabled}
-              value={(value as string) || ""}
-              onValueChange={(val) => onChange?.(val)}
+              value={localValue}
+              onValueChange={(val) => {
+                setLocalValue(val)
+                onChange?.(val)
+              }}
             >
               <SelectTrigger className="w-full" style={getSelectStyle()}>
                 <SelectValue placeholder="Select an option..." />
@@ -5452,8 +5637,9 @@ export const QuestionRenderer = ({
         <div className="relative max-w-md">
           <Select
             disabled={disabled}
-            value={(value as string) || ""}
+            value={localValue}
             onValueChange={(val) => {
+              setLocalValue(val)
               onChange?.(val)
             }}
           >
@@ -5482,13 +5668,24 @@ export const QuestionRenderer = ({
 
   // Follow All Listings?
   if (question.type === "followAllListings") {
+    // Use local state for immediate UI feedback in editing mode
+    const [localValue, setLocalValue] = useState<string>(
+      (value as string) || "",
+    )
+
+    // Sync with value prop when it changes
+    useEffect(() => {
+      setLocalValue((value as string) || "")
+    }, [value])
+
     return (
       <div>
         <div className="relative max-w-md">
           <Select
             disabled={disabled}
-            value={(value as string) || ""}
+            value={localValue}
             onValueChange={(val) => {
+              setLocalValue(val)
               onChange?.(val)
             }}
           >
@@ -5676,13 +5873,24 @@ export const QuestionRenderer = ({
 
   // Capture Finance Leads
   if (question.type === "captureFinanceLeads") {
+    // Use local state for immediate UI feedback in editing mode
+    const [localValue, setLocalValue] = useState<string>(
+      (value as string) || "",
+    )
+
+    // Sync with value prop when it changes
+    useEffect(() => {
+      setLocalValue((value as string) || "")
+    }, [value])
+
     return (
       <div>
         <div className="relative max-w-md">
           <Select
             disabled={disabled}
-            value={(value as string) || ""}
+            value={localValue}
             onValueChange={(val) => {
+              setLocalValue(val)
               onChange?.(val)
             }}
           >
@@ -5954,24 +6162,20 @@ export const QuestionRenderer = ({
               amount: num,
             }
 
-            if (editingMode && !onChange) {
-              setFormValues(newAmounts)
-            } else {
-              onChange?.(newAmounts)
-            }
+            // Always update local state immediately for instant UI feedback
+            setFormValues(newAmounts)
+            // Also call onChange to notify parent
+            onChange?.(newAmounts)
           } else {
             const num = val === "" ? "" : Number(val)
             // Ensure currency is always set (use currentCurrency or default to USD)
             const currency = currentCurrency || "USD"
             const newValue = { amount: num, currency: currency }
 
-            if (editingMode && !onChange) {
-              // In builder preview, update local state
-              setFormValues(newValue)
-            } else {
-              // In actual form, call onChange
-              onChange?.(newValue)
-            }
+            // Always update local state immediately for instant UI feedback
+            setFormValues(newValue)
+            // Also call onChange to notify parent
+            onChange?.(newValue)
           }
         }
 
@@ -5983,18 +6187,15 @@ export const QuestionRenderer = ({
               currency: val,
             }
 
-            if (editingMode && !onChange) {
-              setFormValues(newAmounts)
-            } else {
-              onChange?.(newAmounts)
-            }
+            // Always update local state immediately for instant UI feedback
+            setFormValues(newAmounts)
+            // Also call onChange to notify parent
+            onChange?.(newAmounts)
           } else {
             // Get the current amount from formData or formValues
             const currentAmountValue =
-              editingMode && !onChange
-                ? formValues.amount !== undefined
-                  ? formValues.amount
-                  : currentAmount
+              formValues.amount !== undefined
+                ? formValues.amount
                 : typeof value === "object" && value !== null
                   ? (value as any).amount
                   : currentAmount
@@ -6004,13 +6205,10 @@ export const QuestionRenderer = ({
                 : Number(currentAmountValue)
             const newValue = { amount: num, currency: val }
 
-            if (editingMode && !onChange) {
-              // In builder preview, update local state
-              setFormValues(newValue)
-            } else {
-              // In actual form, call onChange
-              onChange?.(newValue)
-            }
+            // Always update local state immediately for instant UI feedback
+            setFormValues(newValue)
+            // Also call onChange to notify parent
+            onChange?.(newValue)
           }
         }
 
@@ -6048,11 +6246,9 @@ export const QuestionRenderer = ({
                   <CurrencySelect
                     value={pair.currency}
                     onValueChange={(val) => {
-                      if (!editingMode) {
-                        handleCurrencyChange(val, index)
-                      }
+                      handleCurrencyChange(val, index)
                     }}
-                    disabled={disabled || editingMode}
+                    disabled={disabled}
                     placeholder="Select currency"
                     className="max-w-xs"
                     style={getSelectStyle()}
@@ -6679,28 +6875,36 @@ export const QuestionRenderer = ({
       const tickboxMode = setupConfig.add_tickbox || "no"
       const showTickbox =
         tickboxMode === "required" || tickboxMode === "optional"
-      // Only disable checkbox in editing mode, not in form preview/user-facing form
-      const tickboxDisabled = editingMode || !showTickbox
-      // Determine if checkbox is required based on tickbox mode and question required status
-      // If question is not required, make tickbox optional even if it was set to required
+      const tickboxDisabled = !showTickbox
       const isRequired =
         tickboxMode === "required" && question.required !== false
       const isOptional = tickboxMode === "optional" || !question.required
 
+      const [localChecked, setLocalChecked] = useState<boolean>(
+        () => (value as boolean) || false,
+      )
+
+      useEffect(() => {
+        if (!editingMode) {
+          setLocalChecked((value as boolean) || false)
+        }
+      }, [value, editingMode])
+
+      const displayChecked = editingMode
+        ? localChecked
+        : (value as boolean) || false
+
       return (
         <div className="space-y-2">
-          {/* Statement text is shown as the main label in QuestionCard when no tickbox */}
-          {/* Only show tickbox here */}
           {showTickbox && (
             <div className="flex items-center gap-2">
               <Checkbox
                 id={`${question.id}_statement_checkbox`}
                 disabled={tickboxDisabled}
-                checked={editingMode ? false : (value as boolean) || false}
+                checked={displayChecked}
                 onCheckedChange={(checked) => {
-                  if (!editingMode) {
-                    onChange?.(checked)
-                  }
+                  setLocalChecked(checked as boolean)
+                  onChange?.(checked)
                 }}
                 onBlur={onBlur}
               />
@@ -6708,21 +6912,10 @@ export const QuestionRenderer = ({
                 <Label
                   htmlFor={`${question.id}_statement_checkbox`}
                   className={cn(
-                    "cursor-pointer text-sm",
+                    "text-sm",
                     !showTickbox ? "text-gray-400" : "text-gray-700",
-                    editingMode && "cursor-not-allowed",
+                    editingMode ? "cursor-default" : "cursor-pointer",
                   )}
-                  onClick={(e) => {
-                    // Prevent default label behavior (toggling checkbox) in editing mode
-                    if (editingMode) {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      onEditLabel?.(
-                        "tickboxText",
-                        setupConfig.tickbox_text || "I agree",
-                      )
-                    }
-                  }}
                 >
                   {setupConfig.tickbox_text || "I agree"}
                   {isRequired && <span className="text-red-500"> *</span>}
@@ -6730,10 +6923,6 @@ export const QuestionRenderer = ({
                     <span className="text-gray-500"> (Optional)</span>
                   )}
                 </Label>
-                {renderLabelOverlay(
-                  "tickboxText",
-                  setupConfig.tickbox_text || "I agree",
-                )}
               </div>
             </div>
           )}

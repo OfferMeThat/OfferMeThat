@@ -418,7 +418,7 @@ const DepositForm = ({
   }
 
   // Render custom due date section for "Create Your Own" functionality
-  const renderCustomDueDate = (config: any) => {
+  const renderCustomDueDate = (config: any, questionId: string) => {
     if (!config) return null
 
     const { timeConstraint, number, timeUnit, action, trigger } = config
@@ -437,7 +437,7 @@ const DepositForm = ({
     }
 
     // Helper function to render a section (static text or dropdown)
-    const renderSection = (sectionData: string[]) => {
+    const renderSection = (sectionData: string[], fieldName: string) => {
       if (!sectionData || !Array.isArray(sectionData)) return null
 
       if (sectionData.length === 1) {
@@ -445,8 +445,17 @@ const DepositForm = ({
         return <span className="font-medium">{formatText(sectionData[0])}</span>
       } else if (sectionData.length > 1) {
         // Multiple selections - show as dropdown
+        const fieldKey = `${questionId}_dueDateCYO_${fieldName}`
+        const currentValue = localFormData[fieldKey] || ""
+
         return (
-          <Select>
+          <Select
+            value={currentValue}
+            onValueChange={(value) => {
+              handleFieldChange(fieldKey, value)
+            }}
+            disabled={false}
+          >
             <SelectTrigger className="w-full max-w-xs" style={getSelectStyle()}>
               <SelectValue placeholder="Select" />
             </SelectTrigger>
@@ -466,11 +475,11 @@ const DepositForm = ({
     return (
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-1 text-sm text-gray-600">
-          {renderSection(timeConstraint)}
-          {renderSection(number)}
-          {renderSection(timeUnit)}
-          {renderSection(action)}
-          {renderSection(trigger)}
+          {renderSection(timeConstraint, "timeConstraint")}
+          {renderSection(number, "number")}
+          {renderSection(timeUnit, "timeUnit")}
+          {renderSection(action, "action")}
+          {renderSection(trigger, "trigger")}
         </div>
       </div>
     )
@@ -837,41 +846,13 @@ const DepositForm = ({
                                   "Enter percentage",
                                 )}
                               </div>
-                              {/* "of purchase price" text on the same line */}
-                              <span className="w-1/2 text-sm whitespace-nowrap text-gray-600">
+
+                              <span className="text-sm whitespace-nowrap text-gray-600">
                                 {depositQuestion.conditional_suffix
                                   .replace("%", "")
                                   .trim()}
                               </span>
                             </div>
-                            {/* Second row: currency selector underneath */}
-                            {depositQuestion.conditional_currency && (
-                              <div className="w-full">
-                                <CurrencySelect
-                                  value={
-                                    localFormData[
-                                      `${percentageFieldName}_currency`
-                                    ] || ""
-                                  }
-                                  onValueChange={(value) =>
-                                    handleFieldChange(
-                                      `${percentageFieldName}_currency`,
-                                      value,
-                                    )
-                                  }
-                                  disabled={false}
-                                  placeholder={
-                                    depositQuestion.conditional_currency
-                                      ?.placeholder || "Select currency"
-                                  }
-                                  className="w-full"
-                                  style={getSelectStyle()}
-                                  allowedCurrencies={depositQuestion.conditional_currency?.options?.map(
-                                    (opt: { value: string }) => opt.value,
-                                  )}
-                                />
-                              </div>
-                            )}
                           </div>
                         )
                       }
@@ -1312,6 +1293,7 @@ const DepositForm = ({
                 {(depositQuestion.custom_config || depositQuestion.config) &&
                   renderCustomDueDate(
                     depositQuestion.custom_config || depositQuestion.config,
+                    depositQuestion.id || "",
                   )}
               </div>
             )}
