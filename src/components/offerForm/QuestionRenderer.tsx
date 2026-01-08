@@ -3371,7 +3371,7 @@ export const QuestionRenderer = ({
                       </span>
                     </div>
                     {/* Second row: currency selector underneath */}
-                    <div className="w-full">
+                    <div className="relative w-1/2 pr-0.5">
                       <CurrencySelect
                         value={loanValue.loanPercentageCurrency || ""}
                         onValueChange={(val) => {
@@ -3767,126 +3767,153 @@ export const QuestionRenderer = ({
                             error: fileDataRaw.error,
                           }
                         : { files: [], fileNames: [], error: undefined }
-                  return (
-                    <FileUploadInput
-                      id={`${question.id}_supporting_docs`}
-                      label="Loan Approval – Pre Approval"
-                      required={
-                        // Check field-level required from uiConfig first
-                        getSubQuestionRequired(uiConfig, "loan_attachments") ??
-                        // Fall back to setup config and question required
-                        (attachments === "required" ||
-                          (question.required && isSubjectToLoan))
-                      }
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                      multiple
-                      disabled={disabled}
-                      value={fileData.files}
-                      fileNames={fileData.fileNames}
-                      error={fileData.error || error}
-                      maxFiles={5}
-                      maxSize={10 * 1024 * 1024}
-                      onChange={(files) => {
-                        const newFiles = Array.isArray(files)
-                          ? files
-                          : files
-                            ? [files]
-                            : []
 
-                        // Get existing files from state
-                        const fileKey = `${question.id}_supporting_docs`
-                        const existingFileData = fileUploads[fileKey]
-                        const existingFiles =
-                          existingFileData && "files" in existingFileData
-                            ? existingFileData.files
-                            : loanValue.supportingDocs &&
-                                Array.isArray(loanValue.supportingDocs)
-                              ? loanValue.supportingDocs
+                  const loanAttachmentsFileLabel = getSubQuestionLabel(
+                    uiConfig,
+                    "loanAttachmentsFileLabel",
+                    "Loan Approval – Pre Approval",
+                  )
+                  const isRequired =
+                    // Check field-level required from uiConfig first
+                    getSubQuestionRequired(uiConfig, "loan_attachments") ??
+                    // Fall back to setup config and question required
+                    (attachments === "required" ||
+                      (question.required && isSubjectToLoan))
+
+                  return (
+                    <div>
+                      <div className="relative mb-2 inline-block">
+                        <Label
+                          className={cn(
+                            "block text-sm font-medium",
+                            editingMode &&
+                              "cursor-pointer transition-colors hover:text-blue-600",
+                          )}
+                        >
+                          {loanAttachmentsFileLabel}
+                          {isRequired && (
+                            <span className="font-bold text-red-500"> *</span>
+                          )}
+                        </Label>
+                        {renderLabelOverlay(
+                          "loanAttachmentsFileLabel",
+                          loanAttachmentsFileLabel,
+                        )}
+                      </div>
+                      <FileUploadInput
+                        id={`${question.id}_supporting_docs`}
+                        label=""
+                        required={isRequired}
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        multiple
+                        disabled={disabled}
+                        value={fileData.files}
+                        fileNames={fileData.fileNames}
+                        error={fileData.error || error}
+                        maxFiles={5}
+                        maxSize={10 * 1024 * 1024}
+                        onChange={(files) => {
+                          const newFiles = Array.isArray(files)
+                            ? files
+                            : files
+                              ? [files]
                               : []
 
-                        // Merge new files with existing files
-                        const mergedFiles = [...existingFiles, ...newFiles]
+                          // Get existing files from state
+                          const fileKey = `${question.id}_supporting_docs`
+                          const existingFileData = fileUploads[fileKey]
+                          const existingFiles =
+                            existingFileData && "files" in existingFileData
+                              ? existingFileData.files
+                              : loanValue.supportingDocs &&
+                                  Array.isArray(loanValue.supportingDocs)
+                                ? loanValue.supportingDocs
+                                : []
 
-                        // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
-                        const maxFiles = 5
-                        const finalFiles =
-                          mergedFiles.length > maxFiles
-                            ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
-                            : mergedFiles
+                          // Merge new files with existing files
+                          const mergedFiles = [...existingFiles, ...newFiles]
 
-                        const fileError = validateMultipleFiles(
-                          finalFiles,
-                          maxFiles,
-                          10 * 1024 * 1024,
-                        )
-                        setFileUploads((prev) => ({
-                          ...prev,
-                          [fileKey]: {
-                            files: finalFiles,
-                            fileNames: finalFiles.map((f) => f.name),
-                            error: fileError || undefined,
-                          },
-                        }))
-                        if (!fileError && finalFiles.length > 0) {
-                          // Store files in the loanValue object for validation
-                          onChange?.({
-                            ...loanValue,
-                            supportingDocs: finalFiles,
-                          })
-                        } else if (finalFiles.length === 0) {
-                          onChange?.({ ...loanValue, supportingDocs: null })
-                        }
-                      }}
-                      onRemove={(index) => {
-                        const newFiles = [...fileData.files]
-                        const newFileNames = [...fileData.fileNames]
-                        if (index !== undefined) {
-                          newFiles.splice(index, 1)
-                          newFileNames.splice(index, 1)
-                        } else {
-                          newFiles.length = 0
-                          newFileNames.length = 0
-                        }
-                        const fileKey = `${question.id}_supporting_docs`
-                        setFileUploads((prev) => ({
-                          ...prev,
-                          [fileKey]:
-                            newFiles.length > 0
-                              ? {
-                                  files: newFiles,
-                                  fileNames: newFileNames,
-                                  error: undefined,
-                                }
-                              : {
-                                  files: [],
-                                  fileNames: [],
-                                  error: undefined,
-                                },
-                        }))
-                        if (newFiles.length > 0) {
-                          onChange?.({
-                            ...loanValue,
-                            supportingDocs: newFiles,
-                          })
-                        } else {
-                          onChange?.({
-                            ...loanValue,
-                            supportingDocs: null,
-                          })
-                          const fileInput = document.getElementById(
-                            `${question.id}_supporting_docs`,
-                          ) as HTMLInputElement
-                          if (fileInput) {
-                            fileInput.value = ""
+                          // If total exceeds maxFiles (5), remove oldest files (first ones) to keep total at maxFiles
+                          const maxFiles = 5
+                          const finalFiles =
+                            mergedFiles.length > maxFiles
+                              ? mergedFiles.slice(-maxFiles) // Keep last maxFiles files (newest)
+                              : mergedFiles
+
+                          const fileError = validateMultipleFiles(
+                            finalFiles,
+                            maxFiles,
+                            10 * 1024 * 1024,
+                          )
+                          setFileUploads((prev) => ({
+                            ...prev,
+                            [fileKey]: {
+                              files: finalFiles,
+                              fileNames: finalFiles.map((f) => f.name),
+                              error: fileError || undefined,
+                            },
+                          }))
+                          if (!fileError && finalFiles.length > 0) {
+                            // Store files in the loanValue object for validation
+                            onChange?.({
+                              ...loanValue,
+                              supportingDocs: finalFiles,
+                            })
+                          } else if (finalFiles.length === 0) {
+                            onChange?.({ ...loanValue, supportingDocs: null })
                           }
-                        }
-                      }}
-                    >
-                      <span className="text-xs text-gray-500">
-                        Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 5
-                        files, 10MB total)
-                      </span>
-                    </FileUploadInput>
+                        }}
+                        onRemove={(index) => {
+                          const newFiles = [...fileData.files]
+                          const newFileNames = [...fileData.fileNames]
+                          if (index !== undefined) {
+                            newFiles.splice(index, 1)
+                            newFileNames.splice(index, 1)
+                          } else {
+                            newFiles.length = 0
+                            newFileNames.length = 0
+                          }
+                          const fileKey = `${question.id}_supporting_docs`
+                          setFileUploads((prev) => ({
+                            ...prev,
+                            [fileKey]:
+                              newFiles.length > 0
+                                ? {
+                                    files: newFiles,
+                                    fileNames: newFileNames,
+                                    error: undefined,
+                                  }
+                                : {
+                                    files: [],
+                                    fileNames: [],
+                                    error: undefined,
+                                  },
+                          }))
+                          if (newFiles.length > 0) {
+                            onChange?.({
+                              ...loanValue,
+                              supportingDocs: newFiles,
+                            })
+                          } else {
+                            onChange?.({
+                              ...loanValue,
+                              supportingDocs: null,
+                            })
+                            const fileInput = document.getElementById(
+                              `${question.id}_supporting_docs`,
+                            ) as HTMLInputElement
+                            if (fileInput) {
+                              fileInput.value = ""
+                            }
+                          }
+                        }}
+                      >
+                        <span className="text-xs text-gray-500">
+                          Accepted formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max
+                          5 files, 10MB total)
+                        </span>
+                      </FileUploadInput>
+                    </div>
                   )
                 })()}
               </div>
