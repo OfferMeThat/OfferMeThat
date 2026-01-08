@@ -340,12 +340,48 @@ export const buildQuestionValidation = (
 
               // If ID is mandatory, validate that each person with a name has firstName and lastName
               if (idRequired) {
+                const scenario = obj.scenario
+                const numPurchasers = obj.numPurchasers || 0
+                const numRepresentatives = obj.numRepresentatives || 0
+                const purchaserTypes = obj.purchaserTypes || {}
+
+                // Helper function to get valid prefixes for the current scenario
+                const getValidPrefixesForScenario = (): string[] => {
+                  if (scenario === "single") {
+                    return ["single"]
+                  } else if (scenario === "multiple") {
+                    return Array.from({ length: numPurchasers }, (_, i) => `purchaser-${i + 1}`)
+                  } else if (scenario === "corporation") {
+                    return Array.from({ length: numRepresentatives }, (_, i) => `rep-${i + 1}`)
+                  } else if (scenario === "other") {
+                    // For "other" scenario, valid prefixes depend on purchaserTypes
+                    const validPrefixes: string[] = []
+                    for (let i = 1; i <= numPurchasers; i++) {
+                      const purchaserType = purchaserTypes[i] || "person"
+                      if (purchaserType === "person") {
+                        validPrefixes.push(`other-person-${i}`)
+                      } else if (purchaserType === "corporation") {
+                        // For corporations, each has one representative
+                        validPrefixes.push(`other-corp-${i}-rep`)
+                      }
+                    }
+                    return validPrefixes
+                  }
+                  return []
+                }
+
+                const validPrefixes = getValidPrefixesForScenario()
                 const missingNames: Array<{
                   prefix: string
                   missing: string[]
                 }> = []
                 Object.entries(nameFields).forEach(
                   ([prefix, nameData]: [string, any]) => {
+                    // Skip prefixes that are not valid for the current scenario
+                    if (!validPrefixes.includes(prefix)) {
+                      return
+                    }
+
                     if (nameData && typeof nameData === "object") {
                       const firstName = nameData.firstName
                       const lastName = nameData.lastName
@@ -382,11 +418,50 @@ export const buildQuestionValidation = (
             if (idRequired) {
               const idFiles = obj.idFiles || {}
               const nameFields = obj.nameFields || {}
+              const scenario = obj.scenario
+              const numPurchasers = obj.numPurchasers || 0
+              const numRepresentatives = obj.numRepresentatives || 0
+              const purchaserTypes = obj.purchaserTypes || {}
+
+              // Helper function to get valid prefixes for the current scenario
+              const getValidPrefixesForScenario = (): string[] => {
+                if (scenario === "single") {
+                  return ["single"]
+                } else if (scenario === "multiple") {
+                  return Array.from({ length: numPurchasers }, (_, i) => `purchaser-${i + 1}`)
+                } else if (scenario === "corporation") {
+                  return Array.from({ length: numRepresentatives }, (_, i) => `rep-${i + 1}`)
+                } else if (scenario === "other") {
+                  // For "other" scenario, valid prefixes depend on purchaserTypes
+                  const validPrefixes: string[] = []
+                  for (let i = 1; i <= numPurchasers; i++) {
+                    const purchaserType = purchaserTypes[i] || "person"
+                    if (purchaserType === "person") {
+                      validPrefixes.push(`other-person-${i}`)
+                    } else if (purchaserType === "corporation") {
+                      // For corporations, we need representative prefixes
+                      for (let j = 1; j <= numRepresentatives; j++) {
+                        validPrefixes.push(`other-corp-${i}-rep`)
+                      }
+                    }
+                  }
+                  return validPrefixes
+                }
+                return []
+              }
+
+              // Only check nameFields that are valid for the current scenario
+              const validPrefixes = getValidPrefixesForScenario()
 
               // Check that each person with a name has ID files
               // idFiles[prefix] is an array of Files (File[]) in the new format
               const missingIds: string[] = []
               Object.keys(nameFields).forEach((prefix) => {
+                // Skip prefixes that are not valid for the current scenario
+                if (!validPrefixes.includes(prefix)) {
+                  return
+                }
+
                 const nameData = nameFields[prefix]
                 if (
                   nameData &&

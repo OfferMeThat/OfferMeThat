@@ -2218,10 +2218,78 @@ export const QuestionRenderer = ({
       onChange?.(newData)
     }
 
+    // Helper function to get valid prefixes for a scenario
+    const getValidPrefixesForScenario = (scenarioVal: string): string[] => {
+      if (scenarioVal === "single") {
+        return ["single"]
+      } else if (scenarioVal === "multiple") {
+        return Array.from({ length: numPurchasers }, (_, i) => `purchaser-${i + 1}`)
+      } else if (scenarioVal === "corporation") {
+        return Array.from({ length: numRepresentatives }, (_, i) => `rep-${i + 1}`)
+      } else if (scenarioVal === "other") {
+        // For "other" scenario, valid prefixes depend on purchaserTypes
+        const validPrefixes: string[] = []
+        for (let i = 1; i <= numPurchasers; i++) {
+          const purchaserType = purchaserTypes[i] || "person"
+          if (purchaserType === "person") {
+            validPrefixes.push(`other-person-${i}`)
+          } else if (purchaserType === "corporation") {
+            // For corporations, each has one representative
+            validPrefixes.push(`other-corp-${i}-rep`)
+          }
+        }
+        return validPrefixes
+      }
+      return []
+    }
+
     // Wrapper functions that update state and sync with parent
     const handleScenarioChange = (val: string) => {
       setScenario(val)
-      updateNameOfPurchaserData({ scenario: val })
+      
+      // Clean up nameFields and idFiles to only keep valid prefixes for the new scenario
+      const validPrefixes = getValidPrefixesForScenario(val)
+      const cleanedNameFields: typeof nameFields = {}
+      const cleanedIdFiles: Record<string, File[]> = {}
+      
+      // Keep only valid prefixes
+      validPrefixes.forEach((prefix) => {
+        if (nameFields[prefix]) {
+          cleanedNameFields[prefix] = nameFields[prefix]
+        }
+        // Also clean up idFiles from fileUploads
+        const fileKey = `${question.id}_${prefix}_id`
+        const fileData = fileUploads[fileKey]
+        if (fileData) {
+          if ("files" in fileData && fileData.files.length > 0) {
+            cleanedIdFiles[prefix] = fileData.files
+          } else if ("file" in fileData && fileData.file) {
+            cleanedIdFiles[prefix] = [fileData.file]
+          }
+        }
+      })
+      
+      // Update state with cleaned data
+      setNameFields(cleanedNameFields)
+      
+      // Clean up fileUploads for invalid prefixes
+      const newFileUploads = { ...fileUploads }
+      Object.keys(newFileUploads).forEach((key) => {
+        if (key.startsWith(`${question.id}_`) && key.endsWith("_id")) {
+          const prefix = key.replace(`${question.id}_`, "").replace("_id", "")
+          if (!validPrefixes.includes(prefix)) {
+            delete newFileUploads[key]
+          }
+        }
+      })
+      setFileUploads(newFileUploads)
+      
+      // Update parent with cleaned data
+      updateNameOfPurchaserData({ 
+        scenario: val,
+        nameFields: cleanedNameFields,
+        ...(Object.keys(cleanedIdFiles).length > 0 ? { idFiles: cleanedIdFiles } : {})
+      })
     }
     const handleNumPurchasersChange = (val: number) => {
       setNumPurchasers(val)

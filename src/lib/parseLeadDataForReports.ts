@@ -1,27 +1,47 @@
-/**
- * Helper functions to parse lead data for reports
- * Handles JSON string parsing and field access
- */
-
-/**
- * Parses a JSON string or returns the value as-is
- */
 export function parseJsonField<T = any>(field: any): T | null {
   if (!field) return null
   if (typeof field === "string") {
     try {
       return JSON.parse(field) as T
     } catch {
-      // If parsing fails, return the string as-is
       return field as T
     }
   }
   return field as T
 }
 
-/**
- * Gets submitter name from lead
- */
+export function getOpinionOfSalePrice(opinionOfSalePrice: string | null): string {
+  if (!opinionOfSalePrice) return "N/A"
+
+  try {
+    const parsed = parseJsonField(opinionOfSalePrice)
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "amount" in parsed
+    ) {
+      const amount = parsed.amount
+      const currency = parsed.currency || "USD"
+      
+      if (amount === "" || amount === null || amount === undefined) {
+        return "N/A"
+      }
+      
+      const formattedAmount =
+        typeof amount === "number"
+          ? amount.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          : String(amount)
+      
+      return `${currency} ${formattedAmount}`
+    }
+  } catch {}
+
+  return opinionOfSalePrice.trim() || "N/A"
+}
+
 export function getSubmitterName(lead: any): string {
   const firstName = lead.submitterFirstName || ""
   const lastName = lead.submitterLastName || ""
@@ -29,9 +49,6 @@ export function getSubmitterName(lead: any): string {
   return name || "N/A"
 }
 
-/**
- * Gets listing address from lead
- */
 export function getListingAddress(lead: any): string {
   if (lead.customListingAddress) {
     return lead.customListingAddress
@@ -39,9 +56,6 @@ export function getListingAddress(lead: any): string {
   return lead.listing?.address || "N/A"
 }
 
-/**
- * Gets message to agent from lead
- */
 export function getMessageToAgentFromData(messageToAgent: any): string {
   if (!messageToAgent) return "N/A"
 
@@ -52,16 +66,18 @@ export function getMessageToAgentFromData(messageToAgent: any): string {
     return data.trim() || "N/A"
   }
 
-  if (typeof data === "object" && data.message) {
-    return String(data.message).trim() || "N/A"
+  if (typeof data === "object" && data !== null) {
+    if (data.message && typeof data.message === "string") {
+      return data.message.trim() || "N/A"
+    }
+    if (data.text && typeof data.text === "string") {
+      return data.text.trim() || "N/A"
+    }
   }
 
   return "N/A"
 }
 
-/**
- * Gets message to agent attachment URLs - returns "Yes" if exists, "N/A" otherwise
- */
 export function getMessageAttachmentUrls(messageToAgent: any): string {
   if (!messageToAgent) return "N/A"
 
@@ -78,17 +94,18 @@ export function getMessageAttachmentUrls(messageToAgent: any): string {
   return "N/A"
 }
 
-/**
- * Gets all message to agent information consolidated
- */
 export function getAllMessageToAgentInfo(messageToAgent: any): string {
   if (!messageToAgent) return "N/A"
 
-  const message = getMessageToAgentFromData(messageToAgent)
+  let message = getMessageToAgentFromData(messageToAgent)
   const attachments = getMessageAttachmentUrls(messageToAgent)
 
   if (message === "N/A" && attachments === "N/A") {
     return "N/A"
+  }
+
+  if (message !== "N/A" && message.length > 200) {
+    message = message.substring(0, 200) + "..."
   }
 
   const parts: string[] = []
@@ -98,20 +115,241 @@ export function getAllMessageToAgentInfo(messageToAgent: any): string {
   return parts.length > 0 ? parts.join(" | ") : "N/A"
 }
 
-/**
- * Gets custom questions from lead
- */
+function isUrl(val: any): boolean {
+  if (typeof val !== "string") return false
+  return val.startsWith("http://") || val.startsWith("https://")
+}
+
+function countAttachments(val: any): number {
+  if (Array.isArray(val)) {
+    return val.filter((item) => isUrl(item)).length
+  } else if (typeof val === "string" && isUrl(val)) {
+    return 1
+  } else if (typeof val === "object" && val !== null) {
+    const values = Object.values(val)
+    return values.filter((item) => isUrl(item)).length
+  }
+  return 0
+}
+
+function formatCustomQuestionValue(value: any, answerType: string): string {
+  if (value === undefined || value === null) return "N/A"
+
+  if (answerType === "file_upload") {
+    const attachmentCount = countAttachments(value)
+    if (attachmentCount > 0) {
+      return `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+    }
+    return typeof value === "string" ? "File uploaded" : "N/A"
+  }
+
+  if (Array.isArray(value)) {
+    const attachmentCount = countAttachments(value)
+    if (attachmentCount > 0) {
+      return `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+    }
+    return value
+      .map((item) => {
+        if (typeof item === "object" && item !== null) {
+          return JSON.stringify(item)
+        }
+        return String(item)
+      })
+      .join(", ")
+  }
+
+  if (answerType === "number_amount") {
+    if (
+      typeof value === "object" &&
+      value.number !== undefined &&
+      value.countryCode !== undefined
+    ) {
+      return `${value.countryCode}${value.number}`
+    }
+    if (typeof value === "object" && value.amount !== undefined) {
+      const currency = value.currency || "USD"
+      const amount =
+        typeof value.amount === "number"
+          ? value.amount
+          : parseFloat(String(value.amount))
+      if (!isNaN(amount)) {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: currency,
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(amount)
+      }
+      return String(value.amount)
+    }
+    if (typeof value === "object" && value.percentage !== undefined) {
+      const percentage =
+        typeof value.percentage === "number"
+          ? value.percentage
+          : parseFloat(String(value.percentage))
+      if (!isNaN(percentage)) {
+        return `${percentage}%`
+      }
+      return String(value.percentage)
+    }
+    // Plain number
+    if (typeof value === "number") {
+      return String(value)
+    }
+    // String number
+    if (typeof value === "string") {
+      const parsed = parseFloat(value)
+      return !isNaN(parsed) ? String(parsed) : value
+    }
+    return String(value)
+  }
+
+  if (answerType === "number") {
+    if (typeof value === "object" && value !== null) {
+      if (value.number !== undefined && value.countryCode !== undefined) {
+        return `${value.countryCode}${value.number}`
+      }
+      return JSON.stringify(value)
+    }
+    return String(value)
+  }
+
+  if (answerType === "phone") {
+    if (
+      typeof value === "object" &&
+      value.number &&
+      value.countryCode
+    ) {
+      return `${value.countryCode}${value.number}`
+    }
+    return String(value)
+  }
+
+  if (answerType === "time_date") {
+    if (typeof value === "string") {
+      try {
+        const date = new Date(value)
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        }
+      } catch {}
+    }
+    if (typeof value === "object" && value !== null) {
+      const parts: string[] = []
+      if (value.date) {
+        try {
+          const date = new Date(value.date)
+          if (!isNaN(date.getTime())) {
+            parts.push(
+              date.toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            )
+          } else {
+            parts.push(String(value.date))
+          }
+        } catch {
+          parts.push(String(value.date))
+        }
+      }
+      if (value.time) {
+        parts.push(String(value.time))
+      }
+      return parts.length > 0 ? parts.join(" at ") : JSON.stringify(value)
+    }
+    return String(value)
+  }
+
+  if (answerType === "yes_no") {
+    if (typeof value === "boolean") {
+      return value ? "Yes" : "No"
+    }
+    if (typeof value === "string") {
+      const lower = value.toLowerCase()
+      if (lower === "yes" || lower === "true") return "Yes"
+      if (lower === "no" || lower === "false") return "No"
+      if (lower === "unsure") return "Unsure"
+      return value
+    }
+    return String(value)
+  }
+
+  if (answerType === "single_select") {
+    return String(value)
+  }
+
+  if (answerType === "multi_select") {
+    if (Array.isArray(value)) {
+      return value.map(String).join(", ")
+    }
+    return String(value)
+  }
+
+  if (answerType === "statement") {
+    if (typeof value === "object" && value !== null) {
+      if (value.agreed !== undefined) {
+        return value.agreed ? "Agreed" : "Not Agreed"
+      }
+      if (value.text) {
+        return String(value.text)
+      }
+    }
+    return String(value)
+  }
+
+  if (answerType === "short_text" || answerType === "long_text") {
+    return String(value)
+  }
+
+  if (typeof value === "object" && value !== null) {
+    if (value.amount !== undefined) {
+      const currency = value.currency || "USD"
+      const amount =
+        typeof value.amount === "number"
+          ? value.amount
+          : parseFloat(String(value.amount))
+      if (!isNaN(amount)) {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: currency,
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(amount)
+      }
+      return String(value.amount)
+    }
+    const attachmentCount = countAttachments(value)
+    if (attachmentCount > 0) {
+      return `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+    }
+    return JSON.stringify(value)
+  }
+
+  const attachmentCount = countAttachments(value)
+  if (attachmentCount > 0) {
+    return `${attachmentCount} Attachment${attachmentCount !== 1 ? "s" : ""}`
+  }
+
+  return String(value)
+}
+
 export function getCustomQuestionsFromLead(
   lead: any,
 ): Array<{ questionText: string; answer: string }> {
   const customQuestions: Array<{ questionText: string; answer: string }> = []
 
-  // First check customQuestionsData
   if (lead.customQuestionsData) {
     const customData = parseJsonField(lead.customQuestionsData)
     if (customData && typeof customData === "object") {
       for (const key in customData) {
-        // Skip the currency field
         if (key === "currency") continue
 
         const questionData = customData[key]
@@ -121,103 +359,13 @@ export function getCustomQuestionsFromLead(
           const answerType = questionData.answerType
           const value = questionData.value
 
-          let answer = "N/A"
-          if (value !== undefined && value !== null) {
-            if (answerType === "file_upload") {
-              answer = typeof value === "string" ? "File uploaded" : "N/A"
-            } else if (answerType === "number_amount") {
-              // Check if it's a phone number object (has number and countryCode)
-              if (
-                typeof value === "object" &&
-                value.number !== undefined &&
-                value.countryCode !== undefined
-              ) {
-                answer = `${value.countryCode}${value.number}`
-              } else if (typeof value === "object" && value.amount !== undefined) {
-                const currency = value.currency || "USD"
-                const amount =
-                  typeof value.amount === "number"
-                    ? value.amount
-                    : parseFloat(String(value.amount))
-                if (!isNaN(amount)) {
-                  answer = new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: currency,
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  }).format(amount)
-                } else {
-                  answer = String(value.amount)
-                }
-              } else if (typeof value === "number") {
-                answer = String(value)
-              } else if (typeof value === "string") {
-                const parsed = parseFloat(value)
-                if (!isNaN(parsed)) {
-                  answer = String(parsed)
-                } else {
-                  answer = value
-                }
-              } else {
-                answer = String(value)
-              }
-            } else if (answerType === "number") {
-              if (typeof value === "object" && value !== null) {
-                if (value.number !== undefined && value.countryCode !== undefined) {
-                  answer = `${value.countryCode}${value.number}`
-                } else {
-                  answer = JSON.stringify(value)
-                }
-              } else {
-                answer = String(value)
-              }
-            } else if (answerType === "phone") {
-              if (
-                typeof value === "object" &&
-                value.number &&
-                value.countryCode
-              ) {
-                answer = `${value.countryCode}${value.number}`
-              } else {
-                answer = String(value)
-              }
-            } else {
-              // For other types, handle objects properly
-              if (typeof value === "object" && value !== null) {
-                if (value.amount !== undefined) {
-                  const currency = value.currency || "USD"
-                  const amount =
-                    typeof value.amount === "number"
-                      ? value.amount
-                      : parseFloat(String(value.amount))
-                  if (!isNaN(amount)) {
-                    answer = new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: currency,
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    }).format(amount)
-                  } else {
-                    answer = String(value.amount)
-                  }
-                } else if (value.number !== undefined && value.countryCode !== undefined) {
-                  answer = `${value.countryCode}${value.number}`
-                } else {
-                  answer = JSON.stringify(value)
-                }
-              } else {
-                answer = String(value)
-              }
-            }
-          }
-
+          const answer = formatCustomQuestionValue(value, answerType)
           customQuestions.push({ questionText, answer })
         }
       }
     }
   }
 
-  // Also check formData for custom questions
   if (lead.formData) {
     const formData = parseJsonField(lead.formData)
     if (formData && typeof formData === "object") {
@@ -228,54 +376,14 @@ export function getCustomQuestionsFromLead(
           typeof entry === "object" &&
           entry.questionType === "custom"
         ) {
-          // Check if we already have this question from customQuestionsData
           const existingIndex = customQuestions.findIndex(
             (q) => q.questionText.includes(key) || entry.questionId === key,
           )
 
           if (existingIndex === -1) {
-            // Format the answer based on the value type
-            let answer = "N/A"
             const value = entry.value
-
-            if (value !== undefined && value !== null) {
-              if (typeof value === "string" && value.startsWith("http")) {
-                answer = "File uploaded"
-              } else if (typeof value === "object") {
-                // Check for phone number format first
-                if (value.number !== undefined && value.countryCode !== undefined) {
-                  answer = `${value.countryCode}${value.number}`
-                } else if (value.amount !== undefined) {
-                  const currency = value.currency || "USD"
-                  const amount =
-                    typeof value.amount === "number"
-                      ? value.amount
-                      : parseFloat(String(value.amount))
-                  if (!isNaN(amount)) {
-                    answer = new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: currency,
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    }).format(amount)
-                  } else {
-                    answer = String(value.amount)
-                  }
-                } else {
-                  // For other objects, try to find a meaningful string representation
-                  const keys = Object.keys(value)
-                  if (keys.length === 0) {
-                    answer = "N/A"
-                  } else if (keys.length === 1) {
-                    answer = String(value[keys[0]])
-                  } else {
-                    answer = JSON.stringify(value)
-                  }
-                }
-              } else {
-                answer = String(value)
-              }
-            }
+            const answerType = entry.answerType || "short_text"
+            const answer = formatCustomQuestionValue(value, answerType)
 
             customQuestions.push({
               questionText: `Custom Question ${key}`,
@@ -290,9 +398,6 @@ export function getCustomQuestionsFromLead(
   return customQuestions
 }
 
-/**
- * Formats custom questions as a single string for display
- */
 export function formatCustomQuestions(
   customQuestions: Array<{ questionText: string; answer: string }>,
 ): string {
