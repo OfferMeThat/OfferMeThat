@@ -1458,7 +1458,17 @@ export const QuestionRenderer = ({
       return val
     }
 
-    const selectValue = normalizeValueForSelect(value as string)
+    // Use local state for immediate UI feedback in editing mode
+    const [localValue, setLocalValue] = useState<string>(() =>
+      normalizeValueForSelect(value as string),
+    )
+
+    // Sync with value prop when it changes
+    useEffect(() => {
+      setLocalValue(normalizeValueForSelect(value as string))
+    }, [value])
+
+    const selectValue = localValue
 
     return (
       <div>
@@ -1467,6 +1477,7 @@ export const QuestionRenderer = ({
             disabled={disabled}
             value={selectValue}
             onValueChange={(val) => {
+              setLocalValue(val)
               onChange?.(val)
             }}
           >
@@ -2918,6 +2929,7 @@ export const QuestionRenderer = ({
         key={questionKey}
         question={previewQuestion}
         setupAnswers={setupConfig}
+        value={value as Record<string, any>}
         editingMode={editingMode}
         onChange={(depositFormData) => {
           // DepositPreview calls onChange with all deposit fields
@@ -4667,27 +4679,25 @@ export const QuestionRenderer = ({
             <Select
               value={sectionValue}
               onValueChange={(value) => {
-                if (!editingMode) {
-                  const fieldName =
-                    sectionData === timeConstraint
-                      ? "timeConstraint"
-                      : sectionData === number
-                        ? "number"
-                        : sectionData === timeUnit
-                          ? "timeUnit"
-                          : sectionData === action
-                            ? "action"
-                            : "trigger"
-                  const newValues = {
-                    ...formValues,
-                    settlementDateCYO: {
-                      ...((formValues.settlementDateCYO as any) || {}),
-                      [fieldName]: value,
-                    },
-                  }
-                  setFormValues(newValues)
-                  onChange?.(newValues)
+                const fieldName =
+                  sectionData === timeConstraint
+                    ? "timeConstraint"
+                    : sectionData === number
+                      ? "number"
+                      : sectionData === timeUnit
+                        ? "timeUnit"
+                        : sectionData === action
+                          ? "action"
+                          : "trigger"
+                const newValues = {
+                  ...formValues,
+                  settlementDateCYO: {
+                    ...((formValues.settlementDateCYO as any) || {}),
+                    [fieldName]: value,
+                  },
                 }
+                setFormValues(newValues)
+                onChange?.(newValues)
               }}
               disabled={disabled}
             >
@@ -4799,21 +4809,17 @@ export const QuestionRenderer = ({
               <div className="relative w-24">
                 <Select
                   value={
-                    editingMode
-                      ? ""
-                      : formValues.settlementDays
-                        ? String(formValues.settlementDays)
-                        : ""
+                    formValues.settlementDays
+                      ? String(formValues.settlementDays)
+                      : ""
                   }
                   onValueChange={(value) => {
-                    if (!editingMode) {
-                      const newValues = {
-                        ...formValues,
-                        settlementDays: value ? Number(value) : "",
-                      }
-                      setFormValues(newValues)
-                      onChange?.(newValues)
+                    const newValues = {
+                      ...formValues,
+                      settlementDays: value ? Number(value) : "",
                     }
+                    setFormValues(newValues)
+                    onChange?.(newValues)
                   }}
                   disabled={disabled}
                 >
@@ -5432,6 +5438,16 @@ export const QuestionRenderer = ({
       }))
       .filter((opt) => opt.label)
 
+    // Use local state for immediate UI feedback in editing mode
+    const [localValue, setLocalValue] = useState<string>(
+      (value as string) || "",
+    )
+
+    // Sync with value prop when it changes
+    useEffect(() => {
+      setLocalValue((value as string) || "")
+    }, [value])
+
     if (availableOptions.length === 0) {
       // Fallback if no options configured
       return (
@@ -5439,8 +5455,11 @@ export const QuestionRenderer = ({
           <div className="relative max-w-md">
             <Select
               disabled={disabled}
-              value={(value as string) || ""}
-              onValueChange={(val) => onChange?.(val)}
+              value={localValue}
+              onValueChange={(val) => {
+                setLocalValue(val)
+                onChange?.(val)
+              }}
             >
               <SelectTrigger className="w-full" style={getSelectStyle()}>
                 <SelectValue placeholder="Select an option..." />
@@ -5461,8 +5480,9 @@ export const QuestionRenderer = ({
         <div className="relative max-w-md">
           <Select
             disabled={disabled}
-            value={(value as string) || ""}
+            value={localValue}
             onValueChange={(val) => {
+              setLocalValue(val)
               onChange?.(val)
             }}
           >
@@ -5491,13 +5511,24 @@ export const QuestionRenderer = ({
 
   // Follow All Listings?
   if (question.type === "followAllListings") {
+    // Use local state for immediate UI feedback in editing mode
+    const [localValue, setLocalValue] = useState<string>(
+      (value as string) || "",
+    )
+
+    // Sync with value prop when it changes
+    useEffect(() => {
+      setLocalValue((value as string) || "")
+    }, [value])
+
     return (
       <div>
         <div className="relative max-w-md">
           <Select
             disabled={disabled}
-            value={(value as string) || ""}
+            value={localValue}
             onValueChange={(val) => {
+              setLocalValue(val)
               onChange?.(val)
             }}
           >
@@ -5685,13 +5716,24 @@ export const QuestionRenderer = ({
 
   // Capture Finance Leads
   if (question.type === "captureFinanceLeads") {
+    // Use local state for immediate UI feedback in editing mode
+    const [localValue, setLocalValue] = useState<string>(
+      (value as string) || "",
+    )
+
+    // Sync with value prop when it changes
+    useEffect(() => {
+      setLocalValue((value as string) || "")
+    }, [value])
+
     return (
       <div>
         <div className="relative max-w-md">
           <Select
             disabled={disabled}
-            value={(value as string) || ""}
+            value={localValue}
             onValueChange={(val) => {
+              setLocalValue(val)
               onChange?.(val)
             }}
           >
@@ -5963,24 +6005,20 @@ export const QuestionRenderer = ({
               amount: num,
             }
 
-            if (editingMode && !onChange) {
-              setFormValues(newAmounts)
-            } else {
-              onChange?.(newAmounts)
-            }
+            // Always update local state immediately for instant UI feedback
+            setFormValues(newAmounts)
+            // Also call onChange to notify parent
+            onChange?.(newAmounts)
           } else {
             const num = val === "" ? "" : Number(val)
             // Ensure currency is always set (use currentCurrency or default to USD)
             const currency = currentCurrency || "USD"
             const newValue = { amount: num, currency: currency }
 
-            if (editingMode && !onChange) {
-              // In builder preview, update local state
-              setFormValues(newValue)
-            } else {
-              // In actual form, call onChange
-              onChange?.(newValue)
-            }
+            // Always update local state immediately for instant UI feedback
+            setFormValues(newValue)
+            // Also call onChange to notify parent
+            onChange?.(newValue)
           }
         }
 
@@ -5992,18 +6030,15 @@ export const QuestionRenderer = ({
               currency: val,
             }
 
-            if (editingMode && !onChange) {
-              setFormValues(newAmounts)
-            } else {
-              onChange?.(newAmounts)
-            }
+            // Always update local state immediately for instant UI feedback
+            setFormValues(newAmounts)
+            // Also call onChange to notify parent
+            onChange?.(newAmounts)
           } else {
             // Get the current amount from formData or formValues
             const currentAmountValue =
-              editingMode && !onChange
-                ? formValues.amount !== undefined
-                  ? formValues.amount
-                  : currentAmount
+              formValues.amount !== undefined
+                ? formValues.amount
                 : typeof value === "object" && value !== null
                   ? (value as any).amount
                   : currentAmount
@@ -6013,13 +6048,10 @@ export const QuestionRenderer = ({
                 : Number(currentAmountValue)
             const newValue = { amount: num, currency: val }
 
-            if (editingMode && !onChange) {
-              // In builder preview, update local state
-              setFormValues(newValue)
-            } else {
-              // In actual form, call onChange
-              onChange?.(newValue)
-            }
+            // Always update local state immediately for instant UI feedback
+            setFormValues(newValue)
+            // Also call onChange to notify parent
+            onChange?.(newValue)
           }
         }
 
@@ -6057,9 +6089,7 @@ export const QuestionRenderer = ({
                   <CurrencySelect
                     value={pair.currency}
                     onValueChange={(val) => {
-                      if (!editingMode) {
-                        handleCurrencyChange(val, index)
-                      }
+                      handleCurrencyChange(val, index)
                     }}
                     disabled={disabled}
                     placeholder="Select currency"
