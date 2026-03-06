@@ -120,7 +120,7 @@ const LoginForm = () => {
           <Input
             id="login-password"
             type={showPassword ? "text" : "password"}
-            placeholder="Enter your password"
+            placeholder="Enter password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={`pr-10 ${errors.password ? "border-red-500" : ""}`}
